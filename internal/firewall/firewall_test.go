@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/gateway"
-	"github.com/JohnnyVBut/cascade/internal/ipset"
-	aliasespkg "github.com/JohnnyVBut/cascade/internal/aliases"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/gateway"
+	"github.com/alexnikon/cascade/internal/ipset"
+	aliasespkg "github.com/alexnikon/cascade/internal/aliases"
 )
 
 func initTestDB(t *testing.T) (*Manager, *aliasespkg.Manager) {

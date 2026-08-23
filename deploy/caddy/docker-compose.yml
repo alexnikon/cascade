@@ -1,16 +1,14 @@
 services:
   caddy:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${CADDY_IMAGE:-caddy:alpine}
     container_name: cascade-caddy
     # Must match Cascade network mode so Caddy can reach 127.0.0.1:8888.
     # With --network host, Caddy binds ports 80 and 443 directly on the host.
     network_mode: host
     restart: unless-stopped
 
-    # ADMIN_PATH and other secrets — copy .env.example → .env and fill in
-    env_file: .env
+    # ADMIN_PATH and CASCADE_PORT are shared with Cascade in the root .env file.
+    env_file: ../../.env
 
     volumes:
       # Caddy config (read-only)

@@ -2,6 +2,8 @@ name: Build and Push Docker Image
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -26,19 +28,24 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test ./internal/... -count=1 -timeout 120s
+        run: bash scripts/ci-test.sh
+
+      - name: Check repository autonomy
+        run: bash scripts/check-autonomy.sh
 
   build-and-push:
     name: Build and push image
     needs: test
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -55,13 +62,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: latest=false
           tags: |
-            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=sha,format=long
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Resolve application version
+        id: version
+        run: echo "value=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -73,5 +86,33 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VERSION=${{ steps.meta.outputs.version }}
+            VERSION=${{ steps.version.outputs.value }}
             GIT_COMMIT=${{ github.sha }}
+
+      - name: Build deployment bundle
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          bash scripts/build-deploy-bundle.sh \
+            "$GITHUB_REF_NAME" \
+            dist
+
+      - name: Publish deployment bundle
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            test "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" = true || {
+              echo "Release $GITHUB_REF_NAME is already published and cannot be replaced." >&2
+              exit 1
+            }
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --generate-notes
+          fi
+          gh release upload "$GITHUB_REF_NAME" --clobber \
+            "dist/cascade-deploy-${GITHUB_REF_NAME}.tar.gz" \
+            "dist/cascade-deploy-${GITHUB_REF_NAME}.tar.gz.sha256" \
+            dist/install.sh.sha256 \
+            dist/SHA256SUMS \
+            dist/install.sh
+          gh release edit "$GITHUB_REF_NAME" --draft=false

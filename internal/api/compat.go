@@ -1,7 +1,7 @@
 // Package api — compatibility shims for legacy Node.js-era endpoints.
 //
 // The embedded frontend (internal/frontend/www) still calls several endpoints
-// that existed in the original Node.js/h3 server but have no direct equivalent
+// that existed in the legacy Node.js/h3 server but have no direct equivalent
 // in the Go/Fiber API.  Rather than patching the frontend JS, we serve minimal
 // stub responses so the UI starts cleanly without error toasts.
 //
@@ -13,8 +13,8 @@ package api
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/nat"
-	"github.com/JohnnyVBut/cascade/internal/settings"
+	"github.com/alexnikon/cascade/internal/nat"
+	"github.com/alexnikon/cascade/internal/settings"
 )
 
 // RegisterCompat wires the legacy shim routes onto the given router group.
@@ -33,9 +33,8 @@ func RegisterCompat(r fiber.Router) {
 		return c.JSON(s.Lang)
 	})
 
-	// GET /api/release — current release version integer.
-	// Return a large sentinel so currentRelease >= latestRelease.version is
-	// always true and the "new release available" banner never appears.
+	// GET /api/release — retained for older API clients. The current frontend
+	// uses the platform-neutral /api/version endpoint instead.
 	r.Get("/release", func(c *fiber.Ctx) error {
 		return c.JSON(999999)
 	})

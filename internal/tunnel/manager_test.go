@@ -3,11 +3,46 @@ package tunnel
 import (
 	"fmt"
 	"net"
+	"os"
 	"testing"
+	"time"
 
-	"github.com/JohnnyVBut/cascade/internal/awgparams"
-	"github.com/JohnnyVBut/cascade/internal/settings"
+	"github.com/alexnikon/cascade/internal/awgparams"
+	"github.com/alexnikon/cascade/internal/settings"
 )
+
+func TestStatusPollIntervalFromEnv(t *testing.T) {
+	original, hadOriginal := os.LookupEnv("STATUS_POLL_INTERVAL")
+	t.Cleanup(func() {
+		if hadOriginal {
+			_ = os.Setenv("STATUS_POLL_INTERVAL", original)
+		} else {
+			_ = os.Unsetenv("STATUS_POLL_INTERVAL")
+		}
+	})
+
+	for _, test := range []struct {
+		name  string
+		value string
+		want  time.Duration
+	}{
+		{name: "default", value: "", want: defaultStatusPollInterval},
+		{name: "configured", value: "5s", want: 5 * time.Second},
+		{name: "too fast", value: "500ms", want: defaultStatusPollInterval},
+		{name: "invalid", value: "later", want: defaultStatusPollInterval},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if test.value == "" {
+				_ = os.Unsetenv("STATUS_POLL_INTERVAL")
+			} else {
+				_ = os.Setenv("STATUS_POLL_INTERVAL", test.value)
+			}
+			if got := statusPollIntervalFromEnv(); got != test.want {
+				t.Fatalf("statusPollIntervalFromEnv() = %s, want %s", got, test.want)
+			}
+		})
+	}
+}
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

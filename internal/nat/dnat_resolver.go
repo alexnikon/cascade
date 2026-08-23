@@ -16,7 +16,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/db"
 )
 
 const dnatResolveInterval = 5 * time.Minute

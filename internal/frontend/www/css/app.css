@@ -1665,6 +1665,7 @@ video {
 .dark\:bg-green-900\/30:where(.dark, .dark *) { background-color: rgb(20 83 45/0.3); }
 .dark\:bg-purple-900:where(.dark, .dark *) { background-color: #581c87; }
 .dark\:bg-yellow-900:where(.dark, .dark *) { background-color: #713f12; }
+.dark .bg-green-600 { background-color: #15803d; }
 
 /* ── Text colors ─────────────────────────────────────────────────────────── */
 .text-blue-300   { color: #93c5fd; }
@@ -1688,11 +1689,20 @@ video {
 .text-yellow-800 { color: #854d0e; }
 
 /* ── Dark-mode text colors ───────────────────────────────────────────────── */
+.dark\:text-amber-200:where(.dark, .dark *)  { color: #fde68a; }
 .dark\:text-blue-300:where(.dark, .dark *)   { color: #93c5fd; }
+.dark\:text-blue-400:where(.dark, .dark *)   { color: #60a5fa; }
 .dark\:text-green-200:where(.dark, .dark *)  { color: #bbf7d0; }
 .dark\:text-green-300:where(.dark, .dark *)  { color: #86efac; }
+.dark\:text-green-400:where(.dark, .dark *)  { color: #4ade80; }
+.dark\:text-indigo-400:where(.dark, .dark *) { color: #818cf8; }
+.dark\:text-neutral-100:where(.dark, .dark *) { color: #f5f5f5; }
+.dark\:text-orange-400:where(.dark, .dark *) { color: #fb923c; }
 .dark\:text-purple-300:where(.dark, .dark *) { color: #d8b4fe; }
+.dark\:text-purple-400:where(.dark, .dark *) { color: #c084fc; }
+.dark\:text-red-400:where(.dark, .dark *)    { color: #f87171; }
 .dark\:text-yellow-200:where(.dark, .dark *) { color: #fef08a; }
+.dark\:text-yellow-400:where(.dark, .dark *) { color: #facc15; }
 
 /* ── Border colors ───────────────────────────────────────────────────────── */
 .border-green-200  { border-color: #bbf7d0; }
@@ -1965,7 +1975,7 @@ video {
 
 .dark\:text-neutral-400:where(.dark, .dark *) {
   --tw-text-opacity: 1;
-  color: rgb(163 163 163 / var(--tw-text-opacity));
+  color: rgb(212 212 212 / var(--tw-text-opacity));
 }
 
 .dark\:text-neutral-50:where(.dark, .dark *) {
@@ -1975,12 +1985,12 @@ video {
 
 .dark\:text-neutral-500:where(.dark, .dark *) {
   --tw-text-opacity: 1;
-  color: rgb(115 115 115 / var(--tw-text-opacity));
+  color: rgb(184 184 184 / var(--tw-text-opacity));
 }
 
 .dark\:text-neutral-600:where(.dark, .dark *) {
   --tw-text-opacity: 1;
-  color: rgb(82 82 82 / var(--tw-text-opacity));
+  color: rgb(163 163 163 / var(--tw-text-opacity));
 }
 
 .dark\:text-red-300:where(.dark, .dark *) {
@@ -2093,4 +2103,291 @@ video {
 
 .peer:checked ~ .peer-checked\:dark\:fill-neutral-400:where(.dark, .dark *) {
   fill: #a3a3a3;
+}
+
+/* Keep actions consistent while allowing inline dashboard sizing to win. */
+button,
+.btn {
+  border-radius: 0.5rem !important;
+}
+
+button.rounded-full,
+.btn.rounded-full {
+  border-radius: 9999px !important;
+}
+
+button[style*="border-radius:4px"],
+button[style*="border-radius: 4px"] {
+  border-radius: 4px !important;
+}
+
+button[style*="border-radius:5px"],
+button[style*="border-radius: 5px"] {
+  border-radius: 5px !important;
+}
+
+button[style*="border-radius:7px"],
+button[style*="border-radius: 7px"] {
+  border-radius: 7px !important;
+}
+
+button.ui-tab-button {
+  border-radius: 0 !important;
+}
+
+button.interface-filter-button {
+  border-radius: 0.5rem !important;
+}
+
+.user-identity {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.user-identity-name {
+  line-height: 1.5rem;
+}
+
+.user-badge {
+  align-items: center;
+  border-radius: 9999px;
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 500;
+  justify-content: center;
+  line-height: 1.25rem;
+  min-height: 24px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.user-badge-admin {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.peer-online-indicator {
+  background: #22c55e;
+  border-radius: 9999px;
+  display: inline-block;
+  height: 8px;
+  margin-right: 6px;
+  vertical-align: middle;
+  width: 8px;
+}
+
+.restore-interface-map-row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(100px, auto) auto minmax(0, 1fr);
+  margin-bottom: 10px;
+}
+
+.restore-interface-map-row select {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  min-width: 0;
+  padding: 6px 10px;
+  width: 100%;
+}
+
+.restore-ready-box,
+.restore-warning-box {
+  padding: 10px 14px;
+}
+
+.restore-ready-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.restore-warning-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.dark .restore-ready-box {
+  background: #14532d;
+  border-color: #15803d;
+  color: #bbf7d0;
+}
+
+.dark .restore-warning-box {
+  background: #7f1d1d;
+  border-color: #b91c1c;
+  color: #fecaca;
+}
+
+@media (max-width: 479px) {
+  .restore-interface-map-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .restore-interface-map-row > span:nth-child(2) {
+    display: none;
+  }
+}
+
+/* Keep one-time API credentials contained within their modal at every width. */
+.api-token-created-modal {
+  overflow: hidden;
+}
+
+/* Backdrop-filter creates composited sibling layers that can paint over a
+   nested fixed overlay in Chromium. Disable it while the backup modal is open. */
+.settings-backup-modal-open > .shadow-md {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.settings-backup-modal {
+  isolation: isolate;
+  z-index: 1000;
+}
+
+.api-token-warning {
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+.api-token-copy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.api-token-value {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.api-token-copy-button {
+  min-width: 72px;
+}
+
+.api-token-usage {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.api-token-usage > span {
+  font-weight: 600;
+}
+
+.api-token-usage code {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 10px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 479px) {
+  .api-token-copy-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .api-token-copy-button {
+    min-height: 44px;
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .interface-peer-actions {
+    border: 2px solid #f3f4f6;
+    border-radius: 10px;
+    flex: 0 0 auto;
+    overflow: hidden;
+  }
+
+  .dark .interface-peer-actions {
+    border-color: #525252;
+  }
+
+  .interface-peer-action {
+    align-items: center;
+    border: 0 !important;
+    border-radius: 0 !important;
+    display: inline-flex;
+    flex: 1 1 44px;
+    height: 44px;
+    justify-content: center;
+    min-width: 44px;
+    padding: 0 12px;
+  }
+
+  .interface-peer-action + .interface-peer-action {
+    border-left: 1px solid #e5e7eb !important;
+  }
+
+  .dark .interface-peer-action + .interface-peer-action {
+    border-left-color: #525252 !important;
+  }
+
+  .interface-peer-action:focus-visible {
+    box-shadow: inset 0 0 0 2px #2563eb;
+    outline: none;
+  }
+}
+
+.diag-utility-card,
+.diag-utility-card input,
+.diag-utility-card select,
+.diag-utility-terminal {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .diag-utilities-grid {
+    flex-direction: column;
+    flex-wrap: nowrap !important;
+    width: 100%;
+  }
+
+  .diag-utility-card {
+    flex: 1 1 auto !important;
+    width: 100%;
+  }
+
+  .diag-utility-fields {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .diag-utility-fields > div {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: 100%;
+  }
+
+  .diag-utility-actions {
+    flex-wrap: wrap;
+  }
+
+  .diag-utility-terminal {
+    overflow-x: auto;
+    width: 100%;
+  }
 }

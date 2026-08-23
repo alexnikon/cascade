@@ -1,229 +1,232 @@
 # Cascade — API Reference (Go Rewrite)
 
 > **Base URL:** `/api`
-> **Auth:** Все маршруты кроме session, lang, release, remember-me и UI-флагов требуют либо валидного session cookie, либо API-токена (`Authorization: Bearer ws_...`).
+> **Auth:** All routes except session, lang, release, remember-me and UI-flag stubs require either a valid session cookie **or** an API token (`Authorization: Bearer ws_...`).
 > **Content-Type:** `application/json`
 
 ---
 
-## Аутентификация
+## Authentication
 
-### Сессия (Web UI)
+### Session (Web UI)
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/session` | Текущее состояние сессии. Возвращает `{ authenticated, requiresPassword, totp_pending, username }` |
-| `POST` | `/api/session` | Логин шаг 1. Body: `{ username, password, remember? }`. Возвращает `{ authenticated: true }` или `{ totp_required: true }` |
-| `DELETE` | `/api/session` | Логаут |
-| `POST` | `/api/auth/totp/verify` | Логин шаг 2 (TOTP). Body: `{ code }`. Возвращает `{ authenticated: true }`. Требует `totp_pending` сессии. |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/session` | Current session state. Returns `{ authenticated, requiresPassword, totp_pending, username }` |
+| `POST` | `/api/session` | Login step 1. Body: `{ username, password, remember? }`. Returns `{ authenticated: true }` or `{ totp_required: true }` |
+| `DELETE` | `/api/session` | Logout |
+| `POST` | `/api/auth/totp/verify` | Login step 2 (TOTP). Body: `{ code }`. Returns `{ authenticated: true }`. Requires `totp_pending` session. |
 
-### Управление пользователями
+### Users management
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/users` | Список пользователей. Возвращает `{ users: [...] }` |
-| `POST` | `/api/users` | Создать пользователя. Body: `{ username, password }`. Возвращает `{ user }` |
-| `GET` | `/api/users/me` | Текущий пользователь |
-| `PATCH` | `/api/users/me` | Изменить свой пароль. Body: `{ password }` |
-| `PATCH` | `/api/users/:id` | Обновить username или пароль. Body: `{ username?, password? }` |
-| `DELETE` | `/api/users/:id` | Удалить пользователя (нельзя удалить последнего) |
-| `POST` | `/api/users/:id/set-admin` | Назначить/снять роль admin. Body: `{ admin: bool }`. Только для admin. Нельзя снять роль с последнего admin |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/users` | List all users. Returns `{ users: [...] }` |
+| `POST` | `/api/users` | Create user. Body: `{ username, password }`. Returns `{ user }` |
+| `GET` | `/api/users/me` | Current user info |
+| `PATCH` | `/api/users/me` | Change own password. Body: `{ password }` |
+| `PATCH` | `/api/users/:id` | Update username or password. Body: `{ username?, password? }` |
+| `DELETE` | `/api/users/:id` | Delete user (cannot delete the last user) |
+| `POST` | `/api/users/:id/set-admin` | Grant or revoke admin role. Body: `{ admin: bool }`. Admin only. Cannot revoke the last admin |
 
-### TOTP (2FA)
+### TOTP (2FA) setup
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/users/me/totp/setup` | Сгенерировать TOTP secret. Возвращает `{ secret, qr_uri, qr_png }`. Secret хранится в сессии до подтверждения. |
-| `POST` | `/api/users/me/totp/enable` | Подтвердить и активировать TOTP. Body: `{ code }` |
-| `POST` | `/api/users/me/totp/disable` | Отключить TOTP. Body: `{ code }` (текущий TOTP-код) |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/users/me/totp/setup` | Generate TOTP secret. Returns `{ secret, qr_uri, qr_png }`. Secret stored in session until confirmed. |
+| `POST` | `/api/users/me/totp/enable` | Confirm and activate TOTP. Body: `{ code }` |
+| `POST` | `/api/users/me/totp/disable` | Deactivate TOTP. Body: `{ code }` (current TOTP code required) |
 
-### API-токены (программный доступ)
+### API Tokens (programmatic access)
 
-Долгоживущие токены для скриптов и автоматизации. TOTP не требуется.
-Формат токена: `ws_` + 64 hex-символа. В БД хранится только SHA-256 хеш — raw-значение показывается единожды при создании.
+Long-lived tokens for scripts and automation. No TOTP required.
+Token format: `ws_` + 64 hex chars. Only SHA-256 hash is stored — raw value shown once at creation.
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/tokens` | Список токенов текущего пользователя. Возвращает `{ tokens: [{id, name, last_used, created_at}] }` |
-| `POST` | `/api/tokens` | Создать токен. Body: `{ name }`. Возвращает `{ token, raw_token }` — `raw_token` показывается **один раз** |
-| `DELETE` | `/api/tokens/:id` | Отозвать токен |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/tokens` | List current user's tokens. Returns `{ tokens: [{id, name, last_used, created_at}] }` |
+| `POST` | `/api/tokens` | Create token. Body: `{ name }`. Returns `{ token, raw_token }` — `raw_token` shown **once** |
+| `DELETE` | `/api/tokens/:id` | Revoke token |
 
-**Использование:**
+**Usage:**
 ```bash
-# Логин через сессию
+# Login to get session cookie
 curl -c /tmp/ws.cookie -X POST https://<IP>/<ADMIN_PATH>/api/session \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"..."}'
 
-# API-токен (без сессии, без TOTP)
-curl -H "Authorization: Bearer ws_<токен>" \
+# Use Bearer token (no session, no TOTP)
+curl -H "Authorization: Bearer ws_<token>" \
   https://<IP>/<ADMIN_PATH>/api/tunnel-interfaces
 ```
 
 ---
 
-## Версия и обновления
+## Version & Updates
 
-| Метод | Путь | Auth | Описание |
-|-------|------|------|----------|
-| `GET` | `/api/version` | ❌ публичный | Текущая версия + инфо о последнем релизе с GitHub. Ответ: `{ version, gitCommit, latestVersion, releaseURL, updateAvailable: bool, checkedAt, error? }` |
-| `POST` | `/api/version/check` | ❌ публичный | Принудительная проверка релиза на GitHub, минуя кэш 24 ч. Возвращает то же, что и `GET /api/version`. |
-| `GET` | `/api/health` | ❌ публичный | Health-check. Ответ: `{ status: "ok", version, host }` |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/version` | ❌ public | Current version and latest GitHub release status. Response: `{ version, gitCommit, latestVersion, releaseURL, changelog?, updateAvailable: bool, checkedAt, error? }` |
+| `POST` | `/api/version/check` | ❌ public | Force an immediate GitHub release check, bypassing the 24 h cache. Returns the same shape as `GET /api/version`. |
+| `GET` | `/api/health` | ❌ public | Health check. Response: `{ status: "ok", version, host }` |
 
-`version` равен `"dev"` для локальных сборок без ldflags. Инжектируется при сборке через:
+`version` is `"dev"` for local builds without ldflags. Injected at build time via:
 ```
 -ldflags "-X ...version.Version=v1.2.3 -X ...version.GitCommit=abc1234"
 ```
-Проверка обновлений поллит `https://api.github.com/repos/JohnnyVBut/cascade/releases/latest` раз в 24 ч.
-Первая проверка — через 10 с после старта. Результат кэшируется в памяти — `/api/version` всегда отвечает мгновенно.
+The first check happens 10 s after startup. Results are cached in memory, so
+`/api/version` always returns immediately. GitHub errors are reported in the existing
+`error` field without affecting Cascade startup.
 
 ---
 
-## Настройки
+## Settings
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/settings` | Глобальные настройки + runtime-информация |
-| `PUT` | `/api/settings` | Частичное обновление. Body: см. ниже |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/settings` | Global settings + runtime info |
+| `PUT` | `/api/settings` | Partial update. Body: see below |
 
-**GET /api/settings — поля ответа:**
+**GET /api/settings — response fields:**
 
-Возвращает `GlobalSettings` + runtime-only поля:
+Returns `GlobalSettings` merged with runtime-only fields:
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `dns` | string | DNS-сервер для клиентских конфигов |
-| `mtu` | int | MTU для клиентских конфигов. `0` = не задан (WireGuard выбирает автоматически). Диапазон: 576–9000 |
-| `defaultPersistentKeepalive` | int | Keepalive по умолчанию (сек) |
-| `defaultClientAllowedIPs` | string | AllowedIPs для новых клиентских пиров |
-| `gatewayWindowSeconds` | int | Скользящее окно мониторинга шлюзов (сек) |
-| `gatewayHealthyThreshold` | int | Порог healthy (% потерь пакетов) |
-| `gatewayDegradedThreshold` | int | Порог degraded (% потерь пакетов) |
-| `subnetPool` | string | CIDR-пул для авто-назначения подсетей при quick-create, напр. `"192.168.0.0/16"`. Невалидное значение → **400** |
-| `portPool` | string | Пул портов для quick-create, напр. `"51831-65535"` (диапазоны и запятые). Невалидное значение → **400** |
-| `defaultFwPolicy` | string | Дефолтная политика файрвола: `"accept"` или `"drop"`. По умолчанию `"accept"` |
-| `routerName` | string | Человекочитаемое имя роутера (отображается в сайдбаре) |
-| `publicIPMode` | string | Режим определения публичного IP: `"auto"` или `"manual"` |
-| `publicIPManual` | string | Ручной публичный IP (используется при `publicIPMode="manual"`) |
-| `chartType` | int | Тип графиков трафика: `0`=выкл, `1`=line, `2`=area, `3`=bar |
-| `hostname` | string | *(runtime)* Имя хоста контейнера |
-| `resolvedPublicIP` | string | *(runtime)* Разрешённый публичный IP для endpoint |
-| `publicIPWarning` | string | *(runtime)* Предупреждение если публичный IP недоступен |
-| `awgMode` | string | *(runtime)* `"kernel"` или `"userspace"` (amneziawg-go) |
-| `networkMode` | string | *(runtime)* `"host"`, `"bridge"` или `"none"` — Docker network mode |
+| Field | Type | Description |
+|-------|------|-------------|
+| `dns` | string | DNS server for client configs |
+| `mtu` | int | MTU for client configs. `0` = not set (WireGuard picks automatically). Range: 576–9000 |
+| `defaultPersistentKeepalive` | int | Default keepalive (seconds) |
+| `defaultClientAllowedIPs` | string | Default AllowedIPs for new client peers |
+| `gatewayWindowSeconds` | int | Gateway monitoring sliding window (seconds) |
+| `gatewayHealthyThreshold` | int | Healthy threshold (% packet loss) |
+| `gatewayDegradedThreshold` | int | Degraded threshold (% packet loss) |
+| `subnetPool` | string | CIDR pool for auto-assigning subnets on quick-create, e.g. `"192.168.0.0/16"`. Must be a network address. Invalid value → **400** |
+| `portPool` | string | Port pool for quick-create, e.g. `"51831-65535"` (ranges and comma-lists supported). Invalid value → **400** |
+| `defaultFwPolicy` | string | Default firewall policy: `"accept"` or `"drop"`. Default `"accept"` |
+| `routerName` | string | Human-readable router name (shown in sidebar) |
+| `publicIPMode` | string | Public IP resolution mode: `"auto"` or `"manual"` |
+| `publicIPManual` | string | Manual public IP (used when `publicIPMode="manual"`) |
+| `chartType` | int | Traffic chart type: `0`=off, `1`=line, `2`=area, `3`=bar |
+| `hostname` | string | *(runtime)* Container hostname |
+| `resolvedPublicIP` | string | *(runtime)* Resolved public IP for peer endpoints |
+| `publicIPWarning` | string | *(runtime)* Warning if public IP is unavailable |
+| `awgMode` | string | *(runtime)* `"kernel"` or `"userspace"` (amneziawg-go) |
+| `networkMode` | string | *(runtime)* `"host"`, `"bridge"`, or `"none"` — Docker network mode |
 
-**PUT /api/settings — принимаемые поля:**
+**PUT /api/settings — accepted fields:**
 
 `{ dns?, mtu?, defaultPersistentKeepalive?, defaultClientAllowedIPs?, gatewayWindowSeconds?, gatewayHealthyThreshold?, gatewayDegradedThreshold?, subnetPool?, portPool?, defaultFwPolicy?, routerName?, publicIPMode?, publicIPManual?, chartType?, lang? }`
 
-`lang` — язык UI: `"en"` или `"ru"`. Также отражается в `GET /api/lang`.
+`lang` — UI language: `"en"` or `"ru"`. Also reflected in `GET /api/lang`.
 
-`mtu` — глобальный MTU для клиентских конфигов. Может быть переопределён на уровне конкретного интерфейса.
+`mtu` — global MTU written into client config `[Interface]` sections. Can be overridden per-interface via `PATCH /api/tunnel-interfaces/:id` (`mtu` field).
 
----
-
-## AWG2 Шаблоны
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/templates` | Список шаблонов |
-| `POST` | `/api/templates` | Создать шаблон. Body: `{ name, jc, jmin, jmax, s1–s4, h1–h4, i1–i5 }` |
-| `GET` | `/api/templates/:id` | Получить шаблон |
-| `PUT` | `/api/templates/:id` | Обновить шаблон |
-| `DELETE` | `/api/templates/:id` | Удалить шаблон |
-| `POST` | `/api/templates/:id/set-default` | Сделать дефолтным |
-| `POST` | `/api/templates/:id/apply` | Применить — возвращает AWG2 параметры со свежими H1-H4 |
-| `POST` | `/api/templates/generate` | Сгенерировать AWG2 параметры. Body: `{ profile, intensity, host?, browser?, saveName? }`. profile: random|quic_initial|quic_0rtt|tls_client_hello|dtls|http3|sip|wireguard_noise|**dns_query**|tls_to_quic|quic_burst. browser: chrome|firefox|safari|edge|yandex_desktop|yandex_mobile (не применяется для sip и dns_query) |
+`GET /api/settings` also returns runtime-only `awgEngineVersion`, `awgToolsVersion`, `awgMaxProtocol`, `awg3Supported`, and `awg3SupportError` fields.
 
 ---
 
-## Tunnel Interfaces (Интерфейсы)
+## Versioned AmneziaWG Templates
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/tunnel-interfaces` | Список интерфейсов. Возвращает `{ interfaces: [...] }` |
-| `POST` | `/api/tunnel-interfaces` | Создать. Body: `{ name, address, listenPort, protocol, disableRoutes?, natDisabled?, settings? }` |
-| `POST` | `/api/tunnel-interfaces/quick-create` | Quick-create: создать и запустить клиентский интерфейс одной командой. Body: `{ name?: string, protocol?: string }`. Адрес и порт назначаются автоматически из SubnetPool/PortPool. AWG2 параметры — из шаблона по умолчанию или random. Ответ: `{ interface, started: bool, startError?: string }` |
-| `POST` | `/api/tunnel-interfaces/import-conf` | Импорт клиентского `.conf` файла WireGuard/AmneziaWG как аплинк-интерфейс. `DisableRoutes` всегда `true` — таблица маршрутизации не изменяется. Body: `{ name: string, conf: string }`. Ответ: `{ interface, peer, started: bool, startError?: string, conflictWarning?: string }` |
-| `POST` | `/api/tunnel-interfaces/import-backup` | Импорт бэкапа AWG-Easy. Создаёт новый интерфейс со всеми клиентами из файла. Ключи сервера и клиентов сохраняются as-is — существующие конфиги клиентов остаются валидными. Body: `{ json: string, listenPort: int }`. Ответ: `{ interface, peersCreated: int, peersFailed?: string[], started: bool, startError?: string }`. Конфликт порта или подсети → **400** |
-| `GET` | `/api/tunnel-interfaces/:id` | Получить интерфейс |
-| `PATCH` | `/api/tunnel-interfaces/:id` | Обновить (hot-reload через syncconf). Body: `{ name?, address?, listenPort?, natDisabled?, publicHost?, mtu?, settings? }`. `publicHost` переопределяет глобальный Public IP для конфигов пиров этого интерфейса (для транзит/relay). `mtu` переопределяет глобальный MTU (`0` = использовать глобальный). Изменение `natDisabled` при запущенном интерфейсе вызывает `Restart()` |
-| `DELETE` | `/api/tunnel-interfaces/:id` | Удалить интерфейс |
-| `POST` | `/api/tunnel-interfaces/:id/start` | Запустить. Возвращает `{ interface }` |
-| `POST` | `/api/tunnel-interfaces/:id/stop` | Остановить. Возвращает `{ interface }` |
-| `POST` | `/api/tunnel-interfaces/:id/restart` | Перезапустить. Возвращает `{ interface }` |
-| `GET` | `/api/tunnel-interfaces/:id/export-params` | Экспорт параметров для S2S. Возвращает `{ name, publicKey, endpoint, address, protocol, presharedKey? }` |
-| `GET` | `/api/tunnel-interfaces/:id/export-obfuscation` | Экспорт AWG2 параметров обфускации как JSON |
-| `GET` | `/api/tunnel-interfaces/:id/backup` | Скачать бэкап интерфейса + всех пиров |
-| `PUT` | `/api/tunnel-interfaces/:id/restore` | Восстановить пиров из бэкапа. Сначала удаляет существующих пиров |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/templates` | List all templates |
+| `POST` | `/api/templates` | Create template. `protocolVersion` is `2.0` or `3.1`; existing payloads without the field remain AWG 2.0. AWG 3.1 also accepts `headerProtectionKey`, six range fields, `randomTrailers`, and `disableCookies`. |
+| `GET` | `/api/templates/:id` | Get template |
+| `PUT` | `/api/templates/:id` | Update template |
+| `DELETE` | `/api/templates/:id` | Delete template |
+| `POST` | `/api/templates/:id/set-default` | Set as default |
+| `POST` | `/api/templates/:id/apply` | Return an exact copy of the versioned parameters, including the AWG 3.1 shared header key. |
+| `POST` | `/api/templates/generate` | Generate parameters. Body: `{ protocolVersion?: "2.0"|"3.1", profile, intensity, host?, browser?, saveName? }`; protocol defaults to `3.1`. |
 
 ---
 
-## Пиры (Peers)
+## Tunnel Interfaces
 
-Базовый путь: `/api/tunnel-interfaces/:id/peers`
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/peers` | Список пиров. Возвращает `{ peers: [...] }` |
-| `POST` | `/peers` | Создать пира. Body: `{ name, peerType (client/interconnect), clientAllowedIPs?, persistentKeepalive?, expiredAt? }`. Ответ содержит `totalRx`/`totalTx` (lifetime-счётчики трафика из SQLite) |
-| `POST` | `/peers/import-json` | Создать interconnect-пира из экспортированного JSON |
-| `GET` | `/peers/:peerId` | Получить пира |
-| `PATCH` | `/peers/:peerId` | Обновить поля пира. Принимает: `name?, endpoint?, allowedIPs?, clientAllowedIPs?, persistentKeepalive?, enabled?, expiredAt?, oneTimeLink?, rateDown?, rateUp?`. Поля `rateDown`/`rateUp` — ограничение скорости в **кбит/с** (0 = без ограничений), применяется через `tc HTB + police` на сервере; в UI вводится в **Мбит/с** и конвертируется автоматически |
-| `DELETE` | `/peers/:peerId` | Удалить пира |
-| `GET` | `/peers/:peerId/config` | Скачать WireGuard config файл |
-| `GET` | `/peers/:peerId/qrcode.svg` | QR-код SVG (только client-пиры) |
-| `POST` | `/peers/:peerId/enable` | Включить пира |
-| `POST` | `/peers/:peerId/disable` | Выключить пира |
-| `PUT` | `/peers/:peerId/name` | Переименовать пира. Body: `{ name }` |
-| `PUT` | `/peers/:peerId/address` | Обновить overlay-адрес. Body: `{ address }` → сохраняется как AllowedIPs |
-| `PUT` | `/peers/:peerId/expireDate` | Установить дату истечения. Body: `{ expireDate }` — RFC3339 или YYYY-MM-DD, пустое = сбросить |
-| `POST` | `/peers/:peerId/generateOneTimeLink` | Сгенерировать одноразовый токен для конфига. Ответ: `{ oneTimeLink: "https://..." }`. Токен одноразовый — сбрасывается после первого скачивания. |
-| `GET` | `/peers/:peerId/export-json` | Экспорт interconnect-пира как JSON (только interconnect) |
-
-### Скачивание конфига по одноразовой ссылке (публичный)
-
-| Метод | Путь | Auth | Описание |
-|-------|------|------|----------|
-| `GET` | `/cnf/:token` | ❌ публичный | Скачать WireGuard-конфиг по одноразовому токену (32 hex-символа). Возвращает `.conf` как `text/plain` вложение. Токен аннулируется сразу после скачивания. **404** если токен недействителен или уже использован. |
-
-> Путь `/cnf/*` проксируется Caddy **вне** admin-пути — доступен без знания скрытого URL.
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/tunnel-interfaces` | List interfaces. Returns `{ interfaces: [...] }` |
+| `POST` | `/api/tunnel-interfaces` | Create. Body: `{ name, address, listenPort, protocol, disableRoutes?, natDisabled?, settings? }` |
+| `POST` | `/api/tunnel-interfaces/quick-create` | Create and start a client interface. `protocol` accepts `wireguard-1.0`, `amneziawg-2.0`, or `amneziawg-3.1`; matching protocol defaults are isolated. Unsupported AWG 3.1 runtimes return `409`. |
+| `POST` | `/api/tunnel-interfaces/import-conf` | Import a WireGuard/AmneziaWG client `.conf` file as an uplink (client-mode) interface. `DisableRoutes` is always set to `true` — the kernel routing table is not modified. Body: `{ name: string, conf: string }`. Response: `{ interface, peer, started: bool, startError?: string, conflictWarning?: string }` |
+| `POST` | `/api/tunnel-interfaces/import-backup` | Import an AWG-Easy JSON backup. Creates a new interface with all clients from the file. Server and client keys are preserved as-is — existing client configs remain valid without reissue. Body: `{ json: string, listenPort: int }`. Response: `{ interface, peersCreated: int, peersFailed?: string[], started: bool, startError?: string }`. Port or subnet conflict → **400** |
+| `GET` | `/api/tunnel-interfaces/:id` | Get interface |
+| `PATCH` | `/api/tunnel-interfaces/:id` | Update (hot-reload via syncconf). Body: `{ name?, address?, listenPort?, natDisabled?, publicHost?, mtu?, settings? }`. `publicHost` overrides the global Public IP for this interface's peer configs (useful for transit/relay setups). `mtu` overrides the global MTU for this interface (`0` = use global). Changing `natDisabled` on a running interface triggers `Restart()` |
+| `DELETE` | `/api/tunnel-interfaces/:id` | Delete interface |
+| `POST` | `/api/tunnel-interfaces/:id/start` | Start. Returns `{ interface }` |
+| `POST` | `/api/tunnel-interfaces/:id/stop` | Stop. Returns `{ interface }` |
+| `POST` | `/api/tunnel-interfaces/:id/restart` | Restart. Returns `{ interface }` |
+| `GET` | `/api/tunnel-interfaces/:id/export-params` | S2S export. Returns `{ name, publicKey, endpoint, address, protocol, presharedKey? }` |
+| `GET` | `/api/tunnel-interfaces/:id/export-obfuscation` | Versioned AmneziaWG transport parameters as JSON |
+| `GET` | `/api/tunnel-interfaces/:id/backup` | Download interface + all peers as JSON |
+| `PUT` | `/api/tunnel-interfaces/:id/restore` | Restore peers from backup. Removes existing peers first |
 
 ---
 
-## Маршрутизация (Routing)
+## Peers
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/routing/table` | Маршруты ядра. Query: `?table=main` (по умолчанию) |
-| `GET` | `/api/routing/tables` | Таблицы маршрутизации из `ip rule show`. Возвращает `{ tables: [...] }` |
-| `GET` | `/api/routing/test` | Тест маршрута. Query: `?ip=<dst>[&src=<src>][&mark=<fwmark>]`. С `src`: SimulateTrace (PBR) → `ip route get <dst> mark <fwmark>`. Возвращает `{ result, matchedRule, steps }` |
-| `GET` | `/api/routing/routes` | Статические маршруты (из БД). Возвращает `{ routes: [...] }` |
-| `POST` | `/api/routing/routes` | Создать маршрут. Body: см. ниже |
-| `PATCH` | `/api/routing/routes/:id` | Обновить или переключить: `{ enabled: bool }` |
-| `DELETE` | `/api/routing/routes/:id` | Удалить маршрут |
+Base path: `/api/tunnel-interfaces/:id/peers`
 
-**Структура Route (POST/PATCH body):**
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/peers` | List peers. Returns `{ peers: [...] }` |
+| `POST` | `/peers` | Create peer. Body: `{ name, peerType (client/interconnect), clientAllowedIPs?, persistentKeepalive?, expiredAt? }`. Response includes `totalRx`/`totalTx` (lifetime traffic counters from SQLite, persist across restarts) and `latestHandshakeAt` (last handshake timestamp, persisted across restarts; `null` if peer never connected) |
+| `POST` | `/peers/import-json` | Create interconnect peer from exported JSON |
+| `GET` | `/peers/:peerId` | Get peer |
+| `PATCH` | `/peers/:peerId` | Update peer fields. Accepts: `name?, endpoint?, allowedIPs?, clientAllowedIPs?, persistentKeepalive?, enabled?, expiredAt?, oneTimeLink?, rateDown?, rateUp?`. Fields `rateDown`/`rateUp` — bandwidth limit in **kbps** (0 = unlimited), enforced via `tc HTB + police` on the server; the UI accepts **Mbit/s** and converts automatically |
+| `DELETE` | `/peers/:peerId` | Delete peer |
+| `GET` | `/peers/:peerId/config` | Download WireGuard config file |
+| `GET` | `/peers/:peerId/qrcode.svg` | QR code SVG (client peers only) |
+| `POST` | `/peers/:peerId/enable` | Enable peer |
+| `POST` | `/peers/:peerId/disable` | Disable peer |
+| `PUT` | `/peers/:peerId/name` | Rename peer. Body: `{ name }` |
+| `PUT` | `/peers/:peerId/address` | Update overlay address. Body: `{ address }` → stored as AllowedIPs |
+| `PUT` | `/peers/:peerId/expireDate` | Set expiry. Body: `{ expireDate }` — RFC3339 or YYYY-MM-DD, empty clears |
+| `POST` | `/peers/:peerId/generateOneTimeLink` | Generate one-time config link token. Returns `{ oneTimeLink: "https://..." }`. Token is single-use — cleared after first download. |
+| `GET` | `/peers/:peerId/export-json` | Export interconnect peer as JSON (interconnect only) |
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `destination` | string | CIDR или `"default"` (обязательно) |
-| `gateway` | string | Ручной IP шлюза (next-hop). Только для ручного режима |
-| `dev` | string | Интерфейс (опционально для ручного режима) |
-| `gatewayId` | string | ID шлюза из раздела Gateways — `via`/`dev` берутся из шлюза автоматически |
-| `gatewayGroupId` | string | ID группы шлюзов — **автоматический failover** между тирами при падении шлюза |
-| `metric` | int | Метрика маршрута (опционально) |
-| `table` | string | Таблица маршрутизации (по умолчанию `"main"`) |
-| `description` | string | Описание (опционально) |
+### One-time config download (public)
 
-> `gateway`/`dev` и `gatewayId`/`gatewayGroupId` взаимоисключающие — задайте одно из трёх.
-> `gatewayId` и `gatewayGroupId` взаимоисключающие.
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/cnf/:token` | ❌ public | Download WireGuard config by one-time token (32 hex chars). Returns the `.conf` file as `text/plain` attachment. Token is invalidated immediately after download. Returns **404** if token is invalid or already used. |
 
-**Failover с GatewayGroup:**
-Когда маршрут привязан к группе шлюзов (`gatewayGroupId`):
-- Нормальная работа: маршрут идёт через шлюз тира 1 (наивысший приоритет)
-- При падении тира 1 (статус `"down"` от GatewayMonitor): немедленное переключение на тир 2
-- При восстановлении тира 1: возврат к тиру 1 через 30 с (anti-flap)
+> The `/cnf/*` path is proxied by Caddy **outside** the admin path — accessible without knowing the hidden admin URL.
+
+---
+
+## Routing
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/routing/table` | Kernel routes. Query: `?table=main` (default) |
+| `GET` | `/api/routing/tables` | Routing tables from `ip rule show`. Returns `{ tables: [...] }` |
+| `GET` | `/api/routing/test` | Route lookup. Query: `?ip=<dst>[&src=<src>][&mark=<fwmark>]`. With `src`: SimulateTrace (PBR) → `ip route get <dst> mark <fwmark>`. Returns `{ result, matchedRule, steps }` |
+| `GET` | `/api/routing/routes` | Static routes (DB). Returns `{ routes: [...] }` |
+| `POST` | `/api/routing/routes` | Create static route. Body: see below |
+| `PATCH` | `/api/routing/routes/:id` | Update or toggle: `{ enabled: bool }` |
+| `DELETE` | `/api/routing/routes/:id` | Delete route |
+
+**Route structure (POST/PATCH body):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `destination` | string | CIDR or `"default"` (required) |
+| `gateway` | string | Manual next-hop IP. Manual mode only |
+| `dev` | string | Interface name (optional in manual mode) |
+| `gatewayId` | string | Gateway ID from Gateways section — `via`/`dev` resolved automatically |
+| `gatewayGroupId` | string | Gateway Group ID — **automatic failover** between tiers when gateway goes down |
+| `metric` | int | Route metric (optional) |
+| `table` | string | Routing table (default `"main"`) |
+| `description` | string | Description (optional) |
+
+> `gateway`/`dev` and `gatewayId`/`gatewayGroupId` are mutually exclusive — set one of the three.
+> `gatewayId` and `gatewayGroupId` are mutually exclusive.
+
+**Failover with GatewayGroup:**
+When a route is bound to a gateway group (`gatewayGroupId`):
+- Normal operation: route goes via tier 1 gateway (highest priority)
+- When tier 1 goes down (status `"down"` from GatewayMonitor): immediate switch to tier 2
+- When tier 1 recovers: switch back to tier 1 after 30 s (anti-flap)
 
 ---
 
@@ -231,79 +234,79 @@ curl -H "Authorization: Bearer ws_<токен>" \
 
 ### Outbound Source NAT
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/nat/interfaces` | Сетевые интерфейсы хоста. Возвращает `{ interfaces: [...] }` |
-| `GET` | `/api/nat/rules` | NAT-правила + авто-правила от интерфейсов. Возвращает `{ rules: [...] }`. Авто-правила имеют `"auto": true` (только чтение) |
-| `POST` | `/api/nat/rules` | Создать правило. Body: `{ name, source?, sourceAliasId?, outInterface, type (MASQUERADE/SNAT), toSource? (только SNAT), comment? }` |
-| `PATCH` | `/api/nat/rules/:id` | Обновить или переключить: `{ enabled: bool }` |
-| `DELETE` | `/api/nat/rules/:id` | Удалить правило |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/nat/interfaces` | Host network interfaces. Returns `{ interfaces: [...] }` |
+| `GET` | `/api/nat/rules` | NAT rules + auto-rules from tunnel interfaces. Returns `{ rules: [...] }`. Auto-rules have `"auto": true` (read-only) |
+| `POST` | `/api/nat/rules` | Create rule. Body: `{ name, source?, sourceAliasId?, outInterface, type (MASQUERADE/SNAT), toSource? (SNAT only), comment? }` |
+| `PATCH` | `/api/nat/rules/:id` | Update or toggle: `{ enabled: bool }` |
+| `DELETE` | `/api/nat/rules/:id` | Delete rule |
 
 ### Port Forwarding (DNAT)
 
-Перенаправление входящего трафика на другой хост через `iptables-nft PREROUTING DNAT`.
-Каждое правило создаёт до 4 iptables-команд на протокол: PREROUTING DNAT + 2× FORWARD ACCEPT + опциональный POSTROUTING MASQUERADE.
+Redirects inbound traffic to another host via `iptables-nft PREROUTING DNAT`.
+Each rule creates up to 4 iptables commands per protocol: PREROUTING DNAT + 2× FORWARD ACCEPT + optional POSTROUTING MASQUERADE.
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/nat/dnat` | Список DNAT-правил. Возвращает `{ rules: [...] }` |
-| `POST` | `/api/nat/dnat` | Создать правило. Body: см. ниже |
-| `PATCH` | `/api/nat/dnat/:id` | Обновить или переключить: `{ enabled: bool }` |
-| `DELETE` | `/api/nat/dnat/:id` | Удалить правило |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/nat/dnat` | List DNAT rules. Returns `{ rules: [...] }` |
+| `POST` | `/api/nat/dnat` | Create rule. Body: see below |
+| `PATCH` | `/api/nat/dnat/:id` | Update or toggle: `{ enabled: bool }` |
+| `DELETE` | `/api/nat/dnat/:id` | Delete rule |
 
-**Структура DnatRule:**
+**DnatRule fields:**
 
-| Поле | Тип | Обязательно | Описание |
-|------|-----|-------------|----------|
-| `name` | string | ✓ | Название правила |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | ✓ | Rule name |
 | `protocol` | string | ✓ | `"tcp"` / `"udp"` / `"both"` |
-| `inInterface` | string | | Входящий интерфейс (`"eth0"`, `"ens3"`, …). Пусто = любой |
-| `inPort` | int | ✓ | Входящий порт 1–65535 |
-| `destIP` | string | ✓ | IP назначения (целевой сервер) |
-| `destPort` | int | | Порт назначения 0–65535. `0` = совпадает с `inPort` |
-| `masquerade` | bool | | Добавить POSTROUTING MASQUERADE. **Default: `true`**. Нужен когда целевой сервер — публичный хост без маршрута обратно через этот сервер |
-| `comment` | string | | Комментарий |
-| `enabled` | bool | | Статус (при создании всегда `true`) |
+| `inInterface` | string | | Inbound interface (`"eth0"`, `"ens3"`, …). Empty = any |
+| `inPort` | int | ✓ | Inbound port 1–65535 |
+| `destIP` | string | ✓ | Destination IP (target server) |
+| `destPort` | int | | Destination port 0–65535. `0` = same as `inPort` |
+| `masquerade` | bool | | Add POSTROUTING MASQUERADE. **Default: `true`**. Required when the target is a public server with no route back through this machine |
+| `comment` | string | | Optional comment |
+| `enabled` | bool | | Status (always `true` on creation) |
 
-> **Примечание по masquerade:** отключать только если целевой хост подключён через WireGuard-туннель
-> в hub-and-spoke топологии, где он и так маршрутизирует ответы обратно через этот сервер.
-
----
-
-## Шлюзы (Gateways)
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/gateways` | Список шлюзов с live-статусом. Возвращает `{ gateways: [...] }` |
-| `POST` | `/api/gateways` | Создать шлюз. Body: `{ name, interface, gatewayIP, monitorAddress?, interval?, windowSeconds?, healthyThreshold?, degradedThreshold?, monitorHttp? }` |
-| `GET` | `/api/gateways/:id` | Получить шлюз |
-| `PATCH` | `/api/gateways/:id` | Обновить шлюз |
-| `DELETE` | `/api/gateways/:id` | Удалить шлюз |
-
-### Группы шлюзов (Gateway Groups)
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/gateway-groups` | Список групп. Возвращает `{ groups: [...] }` |
-| `POST` | `/api/gateway-groups` | Создать группу. Body: `{ name, members: [{gatewayId, tier}], trigger (packetloss/latency/packetloss_latency) }` |
-| `GET` | `/api/gateway-groups/:id` | Получить группу |
-| `PATCH` | `/api/gateway-groups/:id` | Обновить группу |
-| `DELETE` | `/api/gateway-groups/:id` | Удалить группу |
+> **Note on masquerade:** disable only when the target host is connected via a WireGuard
+> hub-and-spoke tunnel that already routes replies back through this server.
 
 ---
 
-## Файрвол (Firewall)
+## Gateways
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/firewall/interfaces` | Интерфейсы хоста для привязки правил. Возвращает `{ interfaces: [...] }` |
-| `GET` | `/api/firewall/rules` | Правила, отсортированные по `order`. Возвращает `{ rules: [...] }` |
-| `POST` | `/api/firewall/rules` | Создать правило. Body: `{ name?, interface?, protocol?, source (Endpoint), destination (Endpoint), action (accept/drop/reject), gatewayId?, gatewayGroupId?, fallbackToDefault?, comment?, enabled? }` |
-| `PATCH` | `/api/firewall/rules/:id` | Обновить или переключить: `{ enabled: bool }` |
-| `DELETE` | `/api/firewall/rules/:id` | Удалить правило |
-| `POST` | `/api/firewall/rules/:id/move` | Переместить правило. Body: `{ direction: "up"\|"down" }` |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/gateways` | List gateways with live status. Returns `{ gateways: [...] }` |
+| `POST` | `/api/gateways` | Create gateway. Body: `{ name, interface, gatewayIP, monitorAddress?, interval?, windowSeconds?, healthyThreshold?, degradedThreshold?, monitorHttp? }` |
+| `GET` | `/api/gateways/:id` | Get gateway |
+| `PATCH` | `/api/gateways/:id` | Update gateway |
+| `DELETE` | `/api/gateways/:id` | Delete gateway |
 
-### Структура Endpoint
+### Gateway Groups
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/gateway-groups` | List groups. Returns `{ groups: [...] }` |
+| `POST` | `/api/gateway-groups` | Create group. Body: `{ name, members: [{gatewayId, tier}], trigger (packetloss/latency/packetloss_latency) }` |
+| `GET` | `/api/gateway-groups/:id` | Get group |
+| `PATCH` | `/api/gateway-groups/:id` | Update group |
+| `DELETE` | `/api/gateway-groups/:id` | Delete group |
+
+---
+
+## Firewall
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/firewall/interfaces` | Host interfaces for rule binding. Returns `{ interfaces: [...] }` |
+| `GET` | `/api/firewall/rules` | Rules sorted by `order`. Returns `{ rules: [...] }` |
+| `POST` | `/api/firewall/rules` | Create rule. Body: `{ name?, interface?, protocol?, source (Endpoint), destination (Endpoint), action (accept/drop/reject), gatewayId?, gatewayGroupId?, fallbackToDefault?, comment?, enabled? }` |
+| `PATCH` | `/api/firewall/rules/:id` | Update or toggle: `{ enabled: bool }` |
+| `DELETE` | `/api/firewall/rules/:id` | Delete rule |
+| `POST` | `/api/firewall/rules/:id/move` | Reorder. Body: `{ direction: "up"\|"down" }` |
+
+### Endpoint object
 
 ```json
 {
@@ -317,36 +320,36 @@ curl -H "Authorization: Bearer ws_<токен>" \
 
 ---
 
-## Алиасы (Aliases)
+## Aliases
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/api/aliases` | Список алиасов. Возвращает `{ aliases: [...] }` |
-| `POST` | `/api/aliases` | Создать алиас. Body: `{ name, type, entries?, comment? }` |
-| `GET` | `/api/aliases/:id` | Получить алиас |
-| `PATCH` | `/api/aliases/:id` | Обновить алиас |
-| `DELETE` | `/api/aliases/:id` | Удалить алиас |
-| `POST` | `/api/aliases/:id/upload` | Загрузить список префиксов. Body: `{ content: "..." }` |
-| `POST` | `/api/aliases/:id/generate` | Сгенерировать ipset из RIPE/ipdeny. Body: `{ country?, asn?, asnList? }`. Возвращает `{ jobId }` |
-| `GET` | `/api/aliases/:id/generate/:jobId` | Статус задачи генерации. Возвращает `{ status: "running"\|"done"\|"error", entryCount?, error? }` |
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/aliases` | List aliases. Returns `{ aliases: [...] }` |
+| `POST` | `/api/aliases` | Create alias. Body: `{ name, type, entries?, comment? }` |
+| `GET` | `/api/aliases/:id` | Get alias |
+| `PATCH` | `/api/aliases/:id` | Update alias |
+| `DELETE` | `/api/aliases/:id` | Delete alias |
+| `POST` | `/api/aliases/:id/upload` | Upload prefix list. Body: `{ content: "..." }` |
+| `POST` | `/api/aliases/:id/generate` | Generate ipset from RIPE/ipdeny. Body: `{ country?, asn?, asnList? }`. Returns `{ jobId }` |
+| `GET` | `/api/aliases/:id/generate/:jobId` | Poll job status. Returns `{ status: "running"\|"done"\|"error", entryCount?, error? }` |
 
-### Типы алиасов
+### Alias types
 
-| Тип | Формат entries | Использование |
-|-----|---------------|---------------|
-| `host` | `["1.2.3.4"]` | Одиночные IP |
-| `network` | `["10.0.0.0/8"]` | CIDR-диапазоны |
-| `ipset` | генерируется | Большие наборы префиксов (kernel ipset) |
-| `client-group` | управляется автоматически | Kernel ipset с IP пиров выбранной группы. Обновляется автоматически при создании/изменении/удалении пира. Используется в firewall-правилах для управления трафиком по группам. |
-| `group` | `["<aliasId>"]` | Объединяет host/network-алиасы |
-| `port` | `["tcp:443", "udp:53", "any:80"]` | L4-порты |
-| `port-group` | `["<portAliasId>"]` | Объединяет port-алиасы |
+| Type | Entries format | Use |
+|------|---------------|-----|
+| `host` | `["1.2.3.4"]` | Single IPs |
+| `network` | `["10.0.0.0/8"]` | CIDR ranges |
+| `ipset` | generated | Large prefix sets (kernel ipset) |
+| `group` | `["<aliasId>"]` | Combines host/network aliases |
+| `client-group` | managed automatically | Kernel ipset populated with IPs of peers belonging to the group. Managed automatically on peer create/update/delete. Used in firewall rules for per-group traffic control. |
+| `port` | `["tcp:443", "udp:53", "any:80"]` | L4 ports |
+| `port-group` | `["<portAliasId>"]` | Combines port aliases |
 
 ---
 
-## Системный бэкап
+## System Backup
 
-### Создать бэкап
+### Create Backup
 
 ```
 POST /api/system/backup
@@ -356,30 +359,30 @@ Authorization: Bearer ws_...
 { "password": "optional" }
 ```
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `password` | string | Опционально. Если указан — файл шифруется AES-256-GCM. Пустая строка или отсутствие поля — без шифрования. |
+| Field | Type | Description |
+|-------|------|-------------|
+| `password` | string | Optional. If provided — file is encrypted with AES-256-GCM. Empty string or absent — no encryption. |
 
-**Ответ:** бинарный поток (файл для скачивания).
+**Response:** binary stream (file download).
 
-| Пароль | Имя файла | Content-Type |
-|--------|-----------|--------------|
-| Не указан | `cascade-backup-YYYYMMDD-HHMMSS.tar.gz` | `application/gzip` |
-| Указан | `cascade-backup-YYYYMMDD-HHMMSS.tar.gz.enc` | `application/octet-stream` |
+| Password | Filename | Content-Type |
+|----------|----------|--------------|
+| Not set | `cascade-backup-YYYYMMDD-HHMMSS.tar.gz` | `application/gzip` |
+| Set | `cascade-backup-YYYYMMDD-HHMMSS.tar.gz.enc` | `application/octet-stream` |
 
-Содержимое архива: `awg.db` + `*.save` (ipset файлы).
+Archive contents: `awg.db` + `*.save` (ipset files).
 
-**Примеры (curl):**
+**Examples (curl):**
 
 ```bash
-# Без пароля
+# Without password
 curl -X POST https://<host>/<admin_path>/api/system/backup \
   -H "Authorization: Bearer ws_..." \
   -H "Content-Type: application/json" \
   -d '{}' \
   -o cascade-backup.tar.gz
 
-# С паролем (зашифрованный)
+# With password (encrypted)
 curl -X POST https://<host>/<admin_path>/api/system/backup \
   -H "Authorization: Bearer ws_..." \
   -H "Content-Type: application/json" \
@@ -387,7 +390,7 @@ curl -X POST https://<host>/<admin_path>/api/system/backup \
   -o cascade-backup.tar.gz.enc
 ```
 
-### Восстановить из бэкапа
+### Restore from Backup
 
 ```
 POST /api/system/restore
@@ -395,35 +398,35 @@ Content-Type: multipart/form-data
 Authorization: Bearer ws_...
 ```
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `backup` | file | `.tar.gz` или `.tar.gz.enc` файл бэкапа |
-| `password` | string | Обязателен если файл зашифрован, иначе — `400` |
+| Field | Type | Description |
+|-------|------|-------------|
+| `backup` | file | `.tar.gz` or `.tar.gz.enc` backup file |
+| `password` | string | Required if file is encrypted, otherwise — `400` |
 
-**Ответ (200):** `{ "message": "Backup restored. Container is restarting…", "restored": N }`
+**Response (200):** `{ "message": "Backup restored. Container is restarting…", "restored": N }`
 
-**Ошибки:**
-- `400 "this backup is encrypted — provide the password"` — зашифрованный файл без пароля
-- `400 "wrong password or corrupted backup file"` — неверный пароль (данные не тронуты)
+**Errors:**
+- `400 "this backup is encrypted — provide the password"` — encrypted file with no password
+- `400 "wrong password or corrupted backup file"` — wrong password (data untouched)
 
-После успешного восстановления процесс завершается через 300 мс — Docker перезапускает контейнер (`restart: always`).
+After a successful restore, the process exits after 300 ms — Docker restarts the container (`restart: always`).
 
-**Примеры (curl):**
+**Examples (curl):**
 
 ```bash
-# Незашифрованный
+# Unencrypted
 curl -X POST https://<host>/<admin_path>/api/system/restore \
   -H "Authorization: Bearer ws_..." \
   -F "backup=@cascade-backup.tar.gz"
 
-# Зашифрованный
+# Encrypted
 curl -X POST https://<host>/<admin_path>/api/system/restore \
   -H "Authorization: Bearer ws_..." \
   -F "backup=@cascade-backup.tar.gz.enc" \
   -F "password=mypassword"
 ```
 
-### Автоматический бэкап (cron)
+### Automated Backup (cron)
 
 ```bash
 #!/bin/bash
@@ -438,22 +441,22 @@ curl -sf -X POST https://<host>/<admin_path>/api/system/backup \
   -d '{"password": "your-backup-password"}' \
   -o "$DEST/cascade-$DATE.tar.gz.enc"
 
-# Удалить бэкапы старше 30 дней
+# Delete backups older than 30 days
 find "$DEST" -name "*.tar.gz.enc" -mtime +30 -delete
 ```
 
 ---
 
-## Заглушки совместимости (Compat Stubs)
+## Compatibility Stubs
 
-Эндпоинты из Node.js-версии, сохранённые для совместимости с фронтендом. Только чтение, возвращают безопасные дефолты.
+Legacy endpoints retained for frontend compatibility. Read-only, return safe defaults.
 
-### Без аутентификации
+### Unauthenticated
 
-| Метод | Путь | Возвращает |
-|-------|------|-----------|
+| Method | Path | Returns |
+|--------|------|---------|
 | `GET` | `/api/lang` | `"en"` |
-| `GET` | `/api/release` | `999999` (подавляет баннер обновления) |
+| `GET` | `/api/release` | `999999` (suppresses update banner) |
 | `GET` | `/api/remember-me` | `true` |
 | `GET` | `/api/ui-traffic-stats` | `false` |
 | `GET` | `/api/ui-chart-type` | `0` |
@@ -462,21 +465,21 @@ find "$DEST" -name "*.tar.gz.enc" -mtime +30 -delete
 | `GET` | `/api/wg-enable-expire-time` | `false` |
 | `GET` | `/api/ui-avatar-settings` | `{ dicebear: null, gravatar: false }` |
 
-### С аутентификацией
+### Authenticated
 
-| Метод | Путь | Возвращает |
-|-------|------|-----------|
-| `GET` | `/api/wireguard/client` | `[]` — admin-туннель не реализован |
+| Method | Path | Returns |
+|--------|------|---------|
+| `GET` | `/api/wireguard/client` | `[]` — admin tunnel not yet implemented |
 | `ALL` | `/api/wireguard/*` | `501 Not Implemented` |
-| `GET` | `/api/system/interfaces` | `{ interfaces: [...] }` — интерфейсы хоста |
+| `GET` | `/api/system/interfaces` | `{ interfaces: [...] }` — host interfaces |
 
 ---
 
-## Соглашения по ответам
+## Response Conventions
 
-- Все list-эндпоинты возвращают **именованную обёртку**: `{ peers/interfaces/rules/routes/... : [...] }` — никогда не голый массив
-- Ошибки: `{ error: "message" }` с соответствующим HTTP статусом (400 / 401 / 404 / 500)
-- Toggle через PATCH: `{ enabled: true|false }` — остальные поля не нужны
-- Временны́е метки: RFC3339 UTC — `"2026-03-19T10:00:00Z"`
-- ID интерфейсов: строковые слаги — `"wg10"`, `"wg11"`, …
-- Все остальные ID: UUID v4
+- All list endpoints return a **named wrapper**: `{ peers/interfaces/rules/routes/... : [...] }` — never a bare array
+- Errors: `{ error: "message" }` with appropriate HTTP status (400 / 401 / 404 / 500)
+- Toggle via PATCH: `{ enabled: true|false }` — no other fields required
+- Timestamps: RFC3339 UTC — `"2026-03-19T10:00:00Z"`
+- Interface IDs: string slugs — `"wg10"`, `"wg11"`, …
+- All other IDs: UUID v4

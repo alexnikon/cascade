@@ -31,10 +31,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JohnnyVBut/cascade/internal/remoteclient"
-	"github.com/JohnnyVBut/cascade/internal/settings"
-	"github.com/JohnnyVBut/cascade/internal/util"
-	"github.com/JohnnyVBut/cascade/internal/validate"
+	"github.com/alexnikon/cascade/internal/remoteclient"
+	"github.com/alexnikon/cascade/internal/settings"
+	"github.com/alexnikon/cascade/internal/util"
+	"github.com/alexnikon/cascade/internal/validate"
 )
 
 const minProbes = 3 // minimum window probes before committing to a non-unknown status

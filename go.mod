@@ -1,4 +1,4 @@
-module github.com/JohnnyVBut/cascade
+module github.com/alexnikon/cascade
 
 go 1.23
 

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/db"
 	"github.com/google/uuid"
 )
 

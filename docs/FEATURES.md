@@ -13,10 +13,10 @@ port, and peer list.
 
 - Create / edit / delete interfaces (`wg10`, `wg11`, …)
 - Start / stop / restart via UI or API
-- Two protocols: **WireGuard 1.0** (`wg-quick`) and **AmneziaWG 2.0** (`awg-quick`)
+- Three protocols: **WireGuard 1.0**, **AmneziaWG 3.1** (new default), and **AmneziaWG 2.0**
 - Hot-reload of parameters without dropping active connections (`awg syncconf`)
 - Auto-start on container restart — all `enabled=true` interfaces come up automatically
-- Per-interface AWG2 obfuscation parameters (Jc, Jmin, Jmax, S1–S4, H1–H4, I1–I5)
+- Versioned per-interface AmneziaWG parameters, including AWG 3.1 header protection, timing ranges, trailers, and cookie control
 - Export interface parameters for S2S workflow
 - Backup / restore interface + all peers as JSON
 
@@ -42,13 +42,13 @@ Two peer types per interface:
 
 ---
 
-## AmneziaWG 2.0 Obfuscation
+## AmneziaWG 3.1 and Legacy 2.0 Obfuscation
 
 - Per-interface obfuscation parameters stored in DB
 - **7 CPS profiles** for traffic imitation: QUIC Initial, QUIC 0-RTT, TLS 1.3,
   DTLS 1.3, HTTP/3, SIP, Noise_IK
 - Intensity levels: `low`, `medium`, `high`
-- **AWG2 Templates** — save, load, share obfuscation profiles
+- **AWG3 Templates** — isolated AWG 3.1 and AWG 2.0 defaults with portable JSON profiles
 - **Generate (⚡)** — one-click parameter generation using the AmneziaWG-Architect
   algorithm, with optional save as template
 - Non-overlapping H1–H4 ranges (4 zones of uint32 space, no collision risk)
@@ -225,8 +225,8 @@ Legacy wg0 interface for traditional admin VPN clients.
 - `publicIPMode` / `publicIPManual` — control the public IP used in peer endpoint configs
 - `chartType` — traffic graph style: off / line / area / bar
 - Gateway monitoring thresholds (global defaults)
-- AWG2 Templates: CRUD + set default
-- AWG2 parameter generator (⚡): 7 CPS profiles, 3 intensity levels, optional save
+- Versioned AWG Templates: CRUD and one default per protocol version
+- AWG 3.1/2.0 parameter generator (⚡): CPS profiles, 3 intensity levels, optional save
 
 ---
 
@@ -240,7 +240,7 @@ Full REST API — every UI action is available programmatically.
 - Toggle via `PATCH { enabled: bool }` — minimal payload
 - Errors return `{ error: "message" }` with appropriate HTTP status
 
-See [API.en.md](API.en.md) for the full endpoint reference.
+See [API.md](API.md) for the full endpoint reference.
 
 ---
 

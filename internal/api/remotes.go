@@ -21,8 +21,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/remoteclient"
-	"github.com/JohnnyVBut/cascade/internal/remotes"
+	"github.com/alexnikon/cascade/internal/remoteclient"
+	"github.com/alexnikon/cascade/internal/remotes"
 )
 
 // proxyClient is a shared HTTP client for proxy requests.

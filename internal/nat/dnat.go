@@ -34,8 +34,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/util"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/util"
 )
 
 // ── Types ─────────────────────────────────────────────────────────────────────

@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JohnnyVBut/cascade/internal/util"
+	"github.com/alexnikon/cascade/internal/util"
 )
 
 const tcTimeout = 5 * time.Second

@@ -26,6 +26,12 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPENDENCY_HELPERS="$SCRIPT_DIR/../../lib/install-dependencies.sh"
+[[ -f "$DEPENDENCY_HELPERS" ]] || { echo "Missing dependency helpers: $DEPENDENCY_HELPERS" >&2; exit 1; }
+# shellcheck source=deploy/lib/install-dependencies.sh
+source "$DEPENDENCY_HELPERS"
+
 IP="${1:?Usage: $0 <PUBLIC_IP> <EMAIL>}"
 EMAIL="${2:?Usage: $0 <PUBLIC_IP> <EMAIL>}"
 
@@ -41,13 +47,9 @@ chmod 700 "$CERT_DIR"
 # Install acme.sh if not already present
 if [ ! -f "$HOME/.acme.sh/acme.sh" ]; then
     echo "==> Installing acme.sh..."
-    curl https://get.acme.sh | sh -s email="$EMAIL"
-    # shellcheck disable=SC1090
-    source "$HOME/.acme.sh/acme.sh.env"
+    cascade_install_acme_sh "$EMAIL"
 else
     echo "==> acme.sh already installed, skipping"
-    # shellcheck disable=SC1090
-    source "$HOME/.acme.sh/acme.sh.env" 2>/dev/null || true
 fi
 
 # Set RENEW_DAYS=1 globally.

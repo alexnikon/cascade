@@ -50,24 +50,6 @@
       font-weight: 600;
       flex: 1;
     }
-    #lang-toggle {
-      display: flex;
-      gap: 6px;
-    }
-    #lang-toggle button {
-      padding: 3px 10px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--fg);
-      font-size: 12px;
-      cursor: pointer;
-    }
-    #lang-toggle button.active {
-      background: #7c3aed;
-      color: #fff;
-      border-color: #7c3aed;
-    }
     #content {
       max-width: 900px;
       margin: 0 auto;
@@ -130,37 +112,12 @@
 <body>
   <div id="toolbar">
     <h1>📖 Cascade — API Guide</h1>
-    <div id="lang-toggle">
-      <button id="btn-en" onclick="setLang('en')">English</button>
-      <button id="btn-ru" onclick="setLang('ru')">Русский</button>
-    </div>
   </div>
   <div id="content"><p style="padding:2rem;color:#9ca3af;">Loading…</p></div>
 
   <script>
-    var LANG_KEY = 'cascade-api-guide-lang';
-
-    function getLang() {
-      // 1. URL param  2. localStorage  3. default en
-      var params = new URLSearchParams(window.location.search);
-      return params.get('lang') || localStorage.getItem(LANG_KEY) || 'en';
-    }
-
-    function setLang(lang) {
-      localStorage.setItem(LANG_KEY, lang);
-      // update URL without reload
-      var url = new URL(window.location.href);
-      url.searchParams.set('lang', lang);
-      window.history.replaceState({}, '', url);
-      load(lang);
-    }
-
-    function load(lang) {
-      var file = lang === 'ru' ? './API.md' : './API.en.md';
-      document.getElementById('btn-en').className = lang === 'en' ? 'active' : '';
-      document.getElementById('btn-ru').className = lang === 'ru' ? 'active' : '';
-
-      fetch(file)
+    function load() {
+      fetch('./API.md')
         .then(function(r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.text();
@@ -174,7 +131,7 @@
         });
     }
 
-    load(getLang());
+    load();
   </script>
 </body>
 </html>

@@ -30,8 +30,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/remotes"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/remotes"
 )
 
 // RegisterSpeedtest registers all /api/speedtest/* routes under the given auth-protected router.

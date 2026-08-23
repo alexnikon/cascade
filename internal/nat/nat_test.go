@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/db"
 )
 
 func initTestDB(t *testing.T) *Manager {

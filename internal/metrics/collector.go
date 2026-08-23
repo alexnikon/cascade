@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -24,7 +26,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/db"
 )
 
 const (
@@ -34,13 +36,14 @@ const (
 
 // Snapshot holds a single point-in-time reading of all metrics.
 type Snapshot struct {
-	CPU        float64            // percent 0–100
-	MemUsedPct float64            // percent 0–100
+	CPU        float64 // percent 0–100
+	MemUsedPct float64 // percent 0–100
 	MemUsedMB  int64
 	MemTotalMB int64
 	Net        map[string]NetStat // key = interface name
 	Interfaces []string           // sorted list of interface names
 	Gateways   map[string]int     // key = gateway ID, value: 3=healthy 2=degraded 1=down 0=admin_down
+	Processes  map[string]ProcessStat
 }
 
 // GatewayStatusFn is a callback that returns current gateway statuses.
@@ -48,15 +51,45 @@ type Snapshot struct {
 type GatewayStatusFn func() map[string]int
 
 var gatewayFnAtom atomic.Value // stores GatewayStatusFn
+var historyEnabled atomic.Bool
+
+func init() {
+	historyEnabled.Store(parseHistoryEnabled(os.Getenv("METRICS_HISTORY_ENABLED")))
+}
 
 // RegisterGatewaySource sets the callback used to collect gateway statuses each tick.
 // Safe to call concurrently with the collector goroutine.
 func RegisterGatewaySource(fn GatewayStatusFn) { gatewayFnAtom.Store(fn) }
 
+// HistoryEnabled reports whether periodic metrics are persisted to SQLite.
+func HistoryEnabled() bool { return historyEnabled.Load() }
+
+func parseHistoryEnabled(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return true
+	}
+}
+
 // NetStat holds instantaneous RX/TX rates for one interface.
 type NetStat struct {
 	RxMbps float64
 	TxMbps float64
+}
+
+// ProcessStat reports CPU and memory for the control and userspace data plane.
+type ProcessStat struct {
+	CPUPercent float64 `json:"cpuPercent"`
+	RSSMB      float64 `json:"rssMb"`
+	PIDs       int     `json:"pids"`
+}
+
+type processSample struct {
+	CPU  uint64
+	RSS  int64
+	PIDs int
 }
 
 // collector is the singleton that owns all mutable state.
@@ -70,6 +103,7 @@ type collector struct {
 	// previous /proc/net/dev readings for network delta
 	prevNet     map[string][2]uint64 // iface → [rxBytes, txBytes]
 	prevNetTime time.Time
+	prevProcess map[string]processSample
 
 	// last computed snapshot (served by /api/metrics)
 	last *Snapshot
@@ -87,8 +121,10 @@ var (
 // Safe to call multiple times — only the first call has effect.
 func Start(stop <-chan struct{}) {
 	once.Do(func() {
+		historyEnabled.Store(parseHistoryEnabled(os.Getenv("METRICS_HISTORY_ENABLED")))
 		instance = &collector{
-			prevNet: make(map[string][2]uint64),
+			prevNet:     make(map[string][2]uint64),
+			prevProcess: make(map[string]processSample),
 		}
 		go instance.run(stop)
 	})
@@ -220,21 +256,40 @@ func (c *collector) initReadings() {
 	net, _ := readNetDev()
 	c.prevNet = net
 	c.prevNetTime = time.Now()
+	c.prevProcess, _ = readProcessSamples()
 }
 
 func (c *collector) collect() *Snapshot {
-	snap := &Snapshot{Net: make(map[string]NetStat), Gateways: make(map[string]int)}
+	snap := &Snapshot{
+		Net: make(map[string]NetStat), Gateways: make(map[string]int),
+		Processes: make(map[string]ProcessStat),
+	}
 
 	// CPU
 	idle, total, err := readCPUStat()
+	var deltaTotal uint64
 	if err == nil {
 		deltaIdle := idle - c.prevCPUIdle
-		deltaTotal := total - c.prevCPUTotal
+		deltaTotal = total - c.prevCPUTotal
 		if deltaTotal > 0 {
 			snap.CPU = (1 - float64(deltaIdle)/float64(deltaTotal)) * 100
 		}
 		c.prevCPUIdle = idle
 		c.prevCPUTotal = total
+	}
+
+	processes, err := readProcessSamples()
+	if err == nil {
+		for name, current := range processes {
+			previous, hasPrevious := c.prevProcess[name]
+			cpuPercent := processCPUPercent(current.CPU, previous.CPU, hasPrevious, deltaTotal, runtime.NumCPU())
+			snap.Processes[name] = ProcessStat{
+				CPUPercent: cpuPercent,
+				RSSMB:      float64(current.RSS) / 1024 / 1024,
+				PIDs:       current.PIDs,
+			}
+		}
+		c.prevProcess = processes
 	}
 
 	// Memory
@@ -272,6 +327,9 @@ func (c *collector) collect() *Snapshot {
 }
 
 func (c *collector) persist(snap *Snapshot) {
+	if !HistoryEnabled() {
+		return
+	}
 	ts := time.Now().Unix()
 	database := db.MetricsDB()
 
@@ -324,6 +382,9 @@ func (c *collector) persist(snap *Snapshot) {
 }
 
 func (c *collector) maybeCleanup() {
+	if !HistoryEnabled() {
+		return
+	}
 	if time.Since(c.lastCleanup) < 24*time.Hour {
 		return
 	}
@@ -401,6 +462,77 @@ func readMemInfo() (int64, int64, float64, error) {
 	totalMB := total / 1024
 	pct := float64(used) / float64(total) * 100
 	return usedMB, totalMB, pct, nil
+}
+
+func readProcessSamples() (map[string]processSample, error) {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]processSample)
+	selfPID := os.Getpid()
+	for _, entry := range entries {
+		pid, err := strconv.Atoi(entry.Name())
+		if err != nil || !entry.IsDir() {
+			continue
+		}
+		content, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "stat"))
+		if err != nil {
+			continue
+		}
+		comm, cpu, rss, err := parseProcessStat(string(content))
+		if err != nil {
+			continue
+		}
+		name := ""
+		switch {
+		case pid == selfPID:
+			name = "cascade"
+		case comm == "amneziawg-go":
+			name = "amneziawg-go"
+		default:
+			continue
+		}
+		sample := result[name]
+		sample.CPU += cpu
+		sample.RSS += rss
+		sample.PIDs++
+		result[name] = sample
+	}
+	return result, nil
+}
+
+func processCPUPercent(current, previous uint64, hasPrevious bool, totalDelta uint64, cpuCount int) float64 {
+	if !hasPrevious || totalDelta == 0 || current < previous || cpuCount <= 0 {
+		return 0
+	}
+	return float64(current-previous) / float64(totalDelta) * float64(cpuCount) * 100
+}
+
+func parseProcessStat(content string) (string, uint64, int64, error) {
+	open := strings.IndexByte(content, '(')
+	close := strings.LastIndexByte(content, ')')
+	if open < 0 || close <= open {
+		return "", 0, 0, fmt.Errorf("invalid process stat")
+	}
+	comm := content[open+1 : close]
+	fields := strings.Fields(content[close+1:])
+	if len(fields) <= 21 {
+		return "", 0, 0, fmt.Errorf("short process stat")
+	}
+	userTicks, err := strconv.ParseUint(fields[11], 10, 64)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	systemTicks, err := strconv.ParseUint(fields[12], 10, 64)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	rssPages, err := strconv.ParseInt(fields[21], 10, 64)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	return comm, userTicks + systemTicks, rssPages * int64(os.Getpagesize()), nil
 }
 
 // readNetDev parses /proc/net/dev and returns a map of

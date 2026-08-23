@@ -12,8 +12,8 @@ package api
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/nat"
-	"github.com/JohnnyVBut/cascade/internal/tunnel"
+	"github.com/alexnikon/cascade/internal/nat"
+	"github.com/alexnikon/cascade/internal/tunnel"
 )
 
 // RegisterNat registers all /api/nat/* routes.

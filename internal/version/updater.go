@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,7 +15,6 @@ import (
 )
 
 const (
-	githubRepo    = "JohnnyVBut/cascade"
 	checkInterval = 24 * time.Hour
 	httpTimeout   = 10 * time.Second
 	// Delay first check so the container has time to come fully online.
@@ -24,15 +25,21 @@ const (
 type UpdateStatus struct {
 	LatestVersion   string    `json:"latestVersion"`
 	ReleaseURL      string    `json:"releaseURL"`
+	Changelog       string    `json:"changelog,omitempty"`
 	UpdateAvailable bool      `json:"updateAvailable"`
 	CheckedAt       time.Time `json:"checkedAt"`
 	Error           string    `json:"error,omitempty"`
 }
 
 var (
-	mu     sync.RWMutex
-	status UpdateStatus
+	mu               sync.RWMutex
+	status           UpdateStatus
+	latestReleaseURL = "https://api.github.com/repos/alexnikon/cascade/releases/latest"
+	updateHTTPClient = http.DefaultClient
+	nowUTC           = func() time.Time { return time.Now().UTC() }
 )
+
+var semanticVersion = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z.-]+)?$`)
 
 // GetStatus returns the latest cached UpdateStatus (safe for concurrent use).
 func GetStatus() UpdateStatus {
@@ -62,22 +69,21 @@ func Check() {
 	check()
 }
 
-// check fetches the latest release from GitHub and updates the cached status.
+// check fetches the latest GitHub release and updates the cached status.
 func check() {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", githubRepo)
-
 	ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, latestReleaseURL, nil)
 	if err != nil {
 		setError(fmt.Sprintf("build request: %v", err))
 		return
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	req.Header.Set("User-Agent", "cascade-update-checker/"+Version)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := updateHTTPClient.Do(req)
 	if err != nil {
 		setError(fmt.Sprintf("http: %v", err))
 		return
@@ -85,29 +91,42 @@ func check() {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		setError(fmt.Sprintf("github api returned %d", resp.StatusCode))
+		setError(fmt.Sprintf("latest release returned %d", resp.StatusCode))
 		return
 	}
 
 	var payload struct {
-		TagName string `json:"tag_name"`
-		HTMLURL string `json:"html_url"`
+		Version    string `json:"tag_name"`
+		ReleaseURL string `json:"html_url"`
+		Changelog  string `json:"body"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		setError(fmt.Sprintf("decode: %v", err))
 		return
 	}
 
-	available := compareSemver(payload.TagName, Version) > 0
+	if !semanticVersion.MatchString(payload.Version) {
+		setError("validate: latest release requires a semantic version tag")
+		return
+	}
+	if payload.ReleaseURL != "" {
+		releaseURL, err := url.Parse(payload.ReleaseURL)
+		if err != nil || releaseURL.Scheme != "https" || releaseURL.Host == "" {
+			setError("validate: releaseURL must be an absolute HTTPS URL")
+			return
+		}
+	}
+	available := compareSemver(payload.Version, Version) > 0
 	log.Printf("version: update check — current=%s latest=%s updateAvailable=%v",
-		Version, payload.TagName, available)
+		Version, payload.Version, available)
 
 	mu.Lock()
 	status = UpdateStatus{
-		LatestVersion:   payload.TagName,
-		ReleaseURL:      payload.HTMLURL,
+		LatestVersion:   payload.Version,
+		ReleaseURL:      payload.ReleaseURL,
+		Changelog:       payload.Changelog,
 		UpdateAvailable: available,
-		CheckedAt:       time.Now().UTC(),
+		CheckedAt:       nowUTC(),
 	}
 	mu.Unlock()
 }
@@ -116,7 +135,7 @@ func setError(msg string) {
 	log.Printf("version: update check failed: %s", msg)
 	mu.Lock()
 	status.Error = msg
-	status.CheckedAt = time.Now().UTC()
+	status.CheckedAt = nowUTC()
 	mu.Unlock()
 }
 

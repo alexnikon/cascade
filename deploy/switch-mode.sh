@@ -8,9 +8,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_FILE="$SCRIPT_DIR/.env"
-COMPOSE_FILE="$REPO_DIR/docker-compose.yml"
+RUNTIME_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="$RUNTIME_DIR/.env"
+COMPOSE_FILE="$RUNTIME_DIR/docker-compose.yml"
 
 G='\033[0;32m'; Y='\033[1;33m'; R='\033[0;31m'; B='\033[0;34m'; N='\033[0m'
 ok()   { echo -e "  ${G}✓${N} $*"; }
@@ -81,7 +81,7 @@ apply_kernel() {
   fi
 }
 
-# ── Update deploy/.env ────────────────────────────────────────────────────────
+# ── Update .env ───────────────────────────────────────────────────────────────
 update_env() {
   local userspace_val=""
   [[ "$MODE" == "userspace" ]] && userspace_val="amneziawg-go"
@@ -102,11 +102,11 @@ update_env() {
     # Create minimal env file
     printf "AWG_USERSPACE_IMPL=%s\nWG_QUICK_USERSPACE_IMPLEMENTATION=%s\n" "$MODE" "$userspace_val" > "$ENV_FILE"
   fi
-  ok "deploy/.env updated"
+  ok ".env updated"
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-cd "$REPO_DIR"
+cd "$RUNTIME_DIR"
 
 echo ""
 echo -e "${B}── Cascade: switching AWG mode → ${MODE}${N}"
@@ -135,9 +135,17 @@ if $COMPOSE_CMD -f "$COMPOSE_FILE" ps --quiet 2>/dev/null | grep -q .; then
 
   if [[ "$MODE" == "userspace" ]]; then
     PROC=$(docker exec cascade ps aux 2>/dev/null | grep amneziawg-go | grep -v grep || echo "")
-    [[ -n "$PROC" ]] && ok "amneziawg-go process running" || info "amneziawg-go will start when first interface is brought up"
+    if [[ -n "$PROC" ]]; then
+      ok "amneziawg-go process running"
+    else
+      info "amneziawg-go will start when first interface is brought up"
+    fi
   else
-    lsmod | grep -q amneziawg && ok "amneziawg kernel module loaded" || warn "Module not loaded — check dmesg"
+    if lsmod | grep -q amneziawg; then
+      ok "amneziawg kernel module loaded"
+    else
+      warn "Module not loaded — check dmesg"
+    fi
   fi
 else
   info "Container is not running — start with:"

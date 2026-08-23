@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -17,19 +18,19 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/filesystem"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
-	"github.com/JohnnyVBut/cascade/internal/aliases"
-	"github.com/JohnnyVBut/cascade/internal/api"
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/firewall"
-	"github.com/JohnnyVBut/cascade/internal/frontend"
-	"github.com/JohnnyVBut/cascade/internal/gateway"
-	"github.com/JohnnyVBut/cascade/internal/ipset"
-	"github.com/JohnnyVBut/cascade/internal/metrics"
-	"github.com/JohnnyVBut/cascade/internal/nat"
-	"github.com/JohnnyVBut/cascade/internal/routing"
-	"github.com/JohnnyVBut/cascade/internal/tunnel"
-	"github.com/JohnnyVBut/cascade/internal/users"
-	"github.com/JohnnyVBut/cascade/internal/version"
+	"github.com/alexnikon/cascade/internal/aliases"
+	"github.com/alexnikon/cascade/internal/api"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/firewall"
+	"github.com/alexnikon/cascade/internal/frontend"
+	"github.com/alexnikon/cascade/internal/gateway"
+	"github.com/alexnikon/cascade/internal/ipset"
+	"github.com/alexnikon/cascade/internal/metrics"
+	"github.com/alexnikon/cascade/internal/nat"
+	"github.com/alexnikon/cascade/internal/routing"
+	"github.com/alexnikon/cascade/internal/tunnel"
+	"github.com/alexnikon/cascade/internal/users"
+	"github.com/alexnikon/cascade/internal/version"
 )
 
 // Config holds all runtime configuration resolved from flags and ENV.
@@ -49,7 +50,7 @@ func main() {
 
 	log.Printf("Cascade %s (%s)", version.Version, version.GitCommit)
 
-	// Start background update checker — polls GitHub Releases API every 24 h.
+	// Start the optional platform-neutral release manifest checker every 24 h.
 	// Runs in a goroutine; first check happens after a 10 s delay so the
 	// container is fully online before making the outbound request.
 	version.Start()
@@ -96,13 +97,25 @@ func main() {
 	app.Use(recover.New())
 
 	// Request logging: log mutations (POST/PATCH/DELETE/PUT) and errors (4xx/5xx).
-	// Successful GET requests (200-399) are never logged — they occur every second
-	// from the frontend setInterval polling and would spam the container log.
+	// Successful GET requests (200-399) are not logged because periodic frontend
+	// polling would otherwise spam the container log.
 	app.Use(func(c *fiber.Ctx) error {
 		start := time.Now()
 		err := c.Next()
 		status := c.Response().StatusCode()
+		if err != nil {
+			status = fiber.StatusInternalServerError
+			var fiberErr *fiber.Error
+			if errors.As(err, &fiberErr) {
+				status = fiberErr.Code
+			}
+		}
 		method := c.Method()
+		route := "unmatched"
+		if matched := c.Route(); matched != nil && matched.Path != "" {
+			route = matched.Path
+		}
+		metrics.RecordHTTPRequest(method, route, status, time.Since(start), len(c.Response().Body()))
 		if method != "GET" || status >= 400 {
 			log.Printf("[%s] %s %s → %d (%s)",
 				time.Now().Format("15:04:05"),

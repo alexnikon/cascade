@@ -27,8 +27,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/session"
 	totpLib "github.com/pquerna/otp/totp"
 
-	"github.com/JohnnyVBut/cascade/internal/tokens"
-	"github.com/JohnnyVBut/cascade/internal/users"
+	"github.com/alexnikon/cascade/internal/tokens"
+	"github.com/alexnikon/cascade/internal/users"
 )
 
 // localKeyTokenUserID is the fiber.Ctx Locals key set when a request is

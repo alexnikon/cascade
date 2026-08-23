@@ -12,7 +12,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/db"
 )
 
 // RegisterDashboard registers /api/dashboard/* routes.

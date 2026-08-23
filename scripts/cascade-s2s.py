@@ -12,7 +12,7 @@ Usage:
 
 Optional:
   --name       "Berlin-Moscow"      Human-readable link name
-  --protocol   amneziawg-2.0        or wireguard-1.0 (default: amneziawg-2.0)
+  --protocol   amneziawg-3.1, amneziawg-2.0, or wireguard-1.0 (default: amneziawg-3.1)
   --port-a     51850                Listen port on server A (default: auto)
   --port-b     51851                Listen port on server B (default: auto)
   --no-verify-ssl                   Skip TLS verification (self-signed / IP certs)
@@ -20,7 +20,7 @@ Optional:
 What this script does:
   1. Verifies connectivity to both servers
   2. Calculates tunnel IPs from --network (.1 for A, .2 for B)
-  3. Generates matching AWG2 obfuscation params (same on both sides)
+  3. Generates matching versioned AmneziaWG parameters (same on both sides)
   4. Creates tunnel interfaces on both servers
   5. Starts both interfaces
   6. Exports params from A → imports on B  (B auto-generates PSK)
@@ -169,9 +169,12 @@ def next_free_port(api: CascadeAPI, preferred: Optional[int]) -> int:
 
 
 def awg_settings_from_params(params: Dict) -> Dict:
-    """Extract AWG2Settings-compatible dict from generate response (drop 'profile')."""
+    """Extract version-aware AWG settings from the generator response."""
     keys = ['jc', 'jmin', 'jmax', 's1', 's2', 's3', 's4',
-            'h1', 'h2', 'h3', 'h4', 'i1', 'i2', 'i3', 'i4', 'i5']
+            'h1', 'h2', 'h3', 'h4', 'i1', 'i2', 'i3', 'i4', 'i5',
+            'headerProtectionKey', 'contentPaddingAddition', 'rekeyAfterTime',
+            'rekeyTimeout', 'rejectAfterTime', 'keepaliveTimeout',
+            'maxHandshakeAttempts', 'randomTrailers', 'disableCookies']
     return {k: params[k] for k in keys if k in params}
 
 
@@ -179,8 +182,8 @@ def awg_settings_from_params(params: Dict) -> Dict:
 # API actions
 # ─────────────────────────────────────────────────────────────────────────────
 
-def generate_awg_params(api: CascadeAPI, save_name: str) -> Optional[Dict]:
-    """Generate AWG2 obfuscation params via /api/templates/generate.
+def generate_awg_params(api: CascadeAPI, save_name: str, protocol: str) -> Optional[Dict]:
+    """Generate versioned AmneziaWG params via /api/templates/generate.
 
     Params are also saved as a named template (saveName) on Server A so they
     are visible in the UI and can be reused or applied to other interfaces.
@@ -190,6 +193,7 @@ def generate_awg_params(api: CascadeAPI, save_name: str) -> Optional[Dict]:
             'profile':   'random',
             'intensity': 'medium',
             'saveName':  save_name,
+            'protocolVersion': '3.1' if protocol == 'amneziawg-3.1' else '2.0',
         })
         # Response is { "params": {...}, "profiles": [...] }
         return awg_settings_from_params(result.get('params', result))
@@ -208,7 +212,7 @@ def create_interface(api: CascadeAPI, name: str, address: str,
         'protocol':      protocol,
         'disableRoutes': True,   # S2S interconnect: no NAT masquerade
     }
-    if settings and protocol == 'amneziawg-2.0':
+    if settings and protocol.startswith('amneziawg-'):
         body['settings'] = settings
     return api.post('/tunnel-interfaces', body)
 
@@ -298,9 +302,9 @@ def main() -> None:
                         help='Interconnect subnet, e.g. 10.200.0.0/30')
     parser.add_argument('--name',    default='',    metavar='NAME',
                         help='Human-readable link name (default: s2s-<net>)')
-    parser.add_argument('--protocol', default='amneziawg-2.0',
-                        choices=['amneziawg-2.0', 'wireguard-1.0'],
-                        help='VPN protocol (default: amneziawg-2.0)')
+    parser.add_argument('--protocol', default='amneziawg-3.1',
+                        choices=['amneziawg-3.1', 'amneziawg-2.0', 'wireguard-1.0'],
+                        help='VPN protocol (default: amneziawg-3.1)')
     parser.add_argument('--port-a',  type=int, default=None,
                         help='Listen port on server A (default: auto)')
     parser.add_argument('--port-b',  type=int, default=None,
@@ -347,17 +351,17 @@ def main() -> None:
     ok(f'Server A tunnel IP : {ip_a}')
     ok(f'Server B tunnel IP : {ip_b}')
 
-    # ── Step 3: AWG2 params ──────────────────────────────────────────────────
+    # ── Step 3: AmneziaWG params ──────────────────────────────────────────────
     settings = None
-    if args.protocol == 'amneziawg-2.0':
+    if args.protocol.startswith('amneziawg-'):
         log()
-        log('Step 3: Generating AWG2 obfuscation parameters...')
-        settings = generate_awg_params(api_a, save_name=link_name)
+        log(f'Step 3: Generating {args.protocol} parameters...')
+        settings = generate_awg_params(api_a, save_name=link_name, protocol=args.protocol)
         if settings:
             ok(f'Generated and saved as template "{link_name}" on Server A')
             ok('Same params will be applied to both sides')
         else:
-            fail('AWG2 param generation failed — cannot create amneziawg-2.0 interface')
+            fail(f'AmneziaWG parameter generation failed — cannot create {args.protocol} interface')
     else:
         log()
         log('Step 3: Protocol is WireGuard 1.0 — no obfuscation params needed')

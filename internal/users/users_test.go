@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/db"
 )
 
 // initTestDB creates a fresh temp directory, calls db.Init(), and registers a

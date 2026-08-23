@@ -1,713 +1,695 @@
-# Cascade — Руководство пользователя
+# Cascade — User Manual
 
-## Содержание
+## Table of Contents
 
-1. [Первый вход и настройка](#1-первый-вход-и-настройка)
-2. [Интерфейсы WireGuard](#2-интерфейсы-wireguard)
-3. [AWG 2.0 — шаблоны обфускации](#3-awg-20--шаблоны-обфускации)
-4. [Клиентские пиры](#4-клиентские-пиры)
-5. [S2S Interconnect (туннели между серверами)](#5-s2s-interconnect-туннели-между-серверами)
-6. [Шлюзы (Gateways)](#6-шлюзы-gateways)
-7. [Маршрутизация](#7-маршрутизация)
+1. [First Login and Setup](#1-first-login-and-setup)
+2. [WireGuard Interfaces](#2-wireguard-interfaces)
+3. [AWG 2.0 — Obfuscation Templates](#3-awg-20--obfuscation-templates)
+4. [Client Peers](#4-client-peers)
+5. [S2S Interconnect (Server-to-Server Tunnels)](#5-s2s-interconnect-server-to-server-tunnels)
+6. [Gateways](#6-gateways)
+7. [Routing](#7-routing)
 8. [NAT](#8-nat)
-9. [Файрвол: алиасы](#9-файрвол-алиасы)
-10. [Файрвол: правила и PBR](#10-файрвол-правила-и-pbr)
-11. [Глобальные настройки](#11-глобальные-настройки)
-12. [Администрирование](#12-администрирование)
-13. [Полный бэкап и восстановление](#бэкап-и-восстановление)
-14. [Управление несколькими серверами 🆕](#14-управление-несколькими-серверами-)
-15. [Speed Test 🆕](#15-speed-test-)
-16. [Мониторинг и диагностика 🆕](#16-мониторинг-и-диагностика-)
-17. [Rate Limits (ограничение скорости) 🆕](#17-rate-limits-ограничение-скорости-)
-18. [Визарды 🆕](#18-визарды-)
+9. [Firewall: Aliases](#9-firewall-aliases)
+10. [Firewall: Rules and PBR](#10-firewall-rules-and-pbr)
+11. [Global Settings](#11-global-settings)
+12. [Administration](#12-administration)
+13. [Multi-Server Management 🆕](#13-multi-server-management-)
+14. [Speed Test 🆕](#14-speed-test-)
+15. [Monitoring & Diagnostics 🆕](#15-monitoring--diagnostics-)
+16. [Rate Limits 🆕](#16-rate-limits-)
+17. [Wizards 🆕](#17-wizards-)
 
-**Приложения:**
-- [Приложение А: Типичные сценарии](#приложение-типичные-сценарии)
-  - [Сценарий 1: Простой клиентский VPN](#сценарий-1-простой-клиентский-vpn)
-  - [Сценарий 2: Каскадный VPN](#сценарий-2-каскадный-vpn-трафик-через-два-сервера)
-  - [Сценарий 3: Маршрутизация по странам](#сценарий-3-маршрутизация-по-странам)
-  - [Сценарий 4: Проброс чужого WireGuard через промежуточный сервер](#сценарий-4-проброс-клиентского-wireguard-подключения-через-промежуточный-сервер)
-  - [Сценарий 5: Cascade как клиент стороннего WireGuard-сервера (аплинк + PBR)](#сценарий-5-cascade-как-клиент-стороннего-wireguard-сервера-аплинк--pbr)
-- [Приложение Б: Транзитный сервер](#приложение-б-транзитный-промежуточный-сервер)
-
----
-
-## 1. Первый вход и настройка
-
-### Первый запуск
-
-При первом старте контейнера откроется экран **Welcome to Cascade** с формой создания администратора:
-
-- **Username** — имя пользователя (по умолчанию `admin`)
-- **Password** — минимум 8 символов
-- **Confirm Password** — подтверждение пароля
-
-После создания учётной записи вы будете перенаправлены на страницу входа.
-
-### Вход
-
-Введите логин и пароль. Если для вашего аккаунта включена двухфакторная аутентификация (TOTP), после ввода пароля появится поле для 6-значного кода из приложения-аутентификатора.
-
-### Интерфейс
-
-Левая панель (sidebar) содержит разделы:
-
-| Раздел | Назначение |
-|--------|-----------|
-| **Interfaces** | Управление WireGuard/AWG интерфейсами и пирами |
-| **Gateways** | Шлюзы и мониторинг |
-| **Routing** | Таблицы маршрутизации и статические маршруты |
-| **NAT** | Правила Source NAT / MASQUERADE |
-| **Firewall → Aliases** | Именованные наборы адресов и портов |
-| **Firewall → Rules** | Правила фильтрации и Policy-Based Routing |
-| **Settings** | Глобальные настройки и AWG2 шаблоны |
-| **Administration** | Пользователи, токены, TOTP, бэкап |
+**Appendices:**
+- [Appendix A: Common Scenarios](#appendix-common-scenarios)
+  - [Scenario 1: Simple Client VPN](#scenario-1-simple-client-vpn)
+  - [Scenario 2: Cascaded VPN](#scenario-2-cascaded-vpn-traffic-through-two-servers)
+  - [Scenario 3: Country-Based Routing](#scenario-3-country-based-routing)
+  - [Scenario 4: Relay Third-Party WireGuard via DNAT](#scenario-4-relay-third-party-wireguard-via-dnat)
+  - [Scenario 5: Cascade as a WireGuard Client (Uplink + PBR)](#scenario-5-cascade-as-a-wireguard-client-uplink--pbr)
+- [Appendix B: Transit (Relay) Server](#appendix-b-transit-relay-server)
 
 ---
 
-## 2. Интерфейсы WireGuard
+## 1. First Login and Setup
 
-### Что такое интерфейс
+### First Run
 
-Каждый WireGuard-интерфейс — это отдельный VPN-туннель с собственными ключами, адресом и портом. Вы можете создать несколько интерфейсов для разных целей: один для клиентов, другой для S2S-соединения с удалённым сервером.
+On first container start you will see the **Welcome to Cascade** screen with a first-run setup form:
 
-### Создание интерфейса
+- **Username** — admin username (default: `admin`)
+- **Password** — minimum 8 characters
+- **Confirm Password**
 
-Нажмите **"+ New Interface"** на странице Interfaces.
+After creating the account you will be redirected to the login page.
 
-#### Ручной режим (Manual)
+### Login
 
-| Поле | Описание |
-|------|----------|
-| **Interface Name** | Человекочитаемое имя (опционально) |
-| **Protocol** | `WireGuard 1.0` или `AmneziaWG 2.0` |
-| **Tunnel Address** | IP-адрес интерфейса в CIDR (например, `10.100.0.1/24`) |
-| **Listen Port** | UDP-порт (выбирается автоматически из portPool, можно задать вручную) |
-| **Disable Routes** | Отключить автоматическое добавление маршрутов ядром. Включать для S2S interconnect-интерфейсов — маршрутами управляете вы сами |
-| **Disable NAT** | Не создавать автоматическое MASQUERADE-правило в PostUp. Используйте, если NAT настраивается вручную через раздел NAT |
-| **MSS Clamping** | Ограничение MSS (Maximum Segment Size) TCP-пакетов. Только для клиентских интерфейсов (Disable Routes = off). `Disabled` — выключено; `Auto (PMTU)` — автоматически по PMTU; `Manual` — задать значение вручную (например, 1280 для туннелей поверх туннелей). Применяется в обоих направлениях через iptables mangle |
+Enter your username and password. If TOTP two-factor authentication is enabled for your account, a second screen will ask for the 6-digit code from your authenticator app.
 
-При выборе **AmneziaWG 2.0** появляется секция **Obfuscation Parameters** — см. [раздел 3](#3-awg-20--шаблоны-обфускации).
+### Interface Overview
 
-### Управление интерфейсом
+The left sidebar contains the following sections:
 
-Каждый интерфейс отображается на отдельной вкладке. На карточке интерфейса доступны кнопки:
-
-- **Start / Stop** — поднять или опустить интерфейс
-- **Restart** — перезапустить без изменения конфигурации
-- **Edit** — редактировать имя, адрес, порт, протокол и AWG2-параметры
-- **Export My Params** — скачать JSON с публичным ключом и endpoint для передачи партнёру S2S
-- **Backup / Restore** — сохранить или восстановить конфигурацию интерфейса вместе со всеми пирами
-
-### Выбор протокола
-
-| | WireGuard 1.0 | AmneziaWG 2.0 |
-|--|---|---|
-| Совместимость | Любой WireGuard-клиент | Только AmneziaWG-клиент |
-| Обфускация | Нет | Да — имитация протоколов (QUIC, TLS, DNS и др.) |
-| Применение | Домашняя сеть, без цензуры | Страны с глубокой инспекцией трафика (DPI) |
+| Section | Purpose |
+|---------|---------|
+| **Interfaces** | Manage WireGuard/AWG interfaces and peers |
+| **Gateways** | Gateways and health monitoring |
+| **Routing** | Routing tables and static routes |
+| **NAT** | Source NAT / MASQUERADE rules |
+| **Firewall → Aliases** | Named sets of addresses and ports |
+| **Firewall → Rules** | Packet filtering and Policy-Based Routing |
+| **Settings** | Global settings and versioned AWG3 templates |
+| **Administration** | Users, API tokens, TOTP, backup |
 
 ---
 
-## 3. AWG 2.0 — шаблоны обфускации
+## 2. WireGuard Interfaces
 
-### Зачем нужна обфускация
+### What Is an Interface
 
-AmneziaWG изменяет характеристики первых пакетов handshake так, чтобы DPI-оборудование не могло опознать WireGuard-трафик. Каждый набор параметров называется **шаблоном** и применяется при создании интерфейса.
+Each WireGuard interface is an independent VPN tunnel with its own key pair, address, and port. You can create multiple interfaces for different purposes: one for clients, another for a site-to-site connection with a remote server.
 
-### Параметры шаблона
+### Creating an Interface
 
-| Группа | Параметры | Значение |
-|--------|-----------|----------|
-| **Jitter** | Jc, Jmin, Jmax | Количество и размер jitter-пакетов |
-| **Size** | S1, S2, S3, S4 | Размеры служебных пакетов |
-| **Headers** | H1, H2, H3, H4 | Диапазоны magic-bytes заголовков |
-| **Imitation** | I1–I5 | Шаблоны имитации протоколов |
+Click **"+ New Interface"** on the Interfaces page.
 
-### Создание шаблона вручную
+#### Manual Mode
 
-1. Перейдите в **Settings → AWG2 Templates**
-2. Нажмите **"+ New Template"**
-3. Введите значения параметров или нажмите **⚡ Generate** для автогенерации
+| Field | Description |
+|-------|-------------|
+| **Interface Name** | Human-readable name (optional) |
+| **Protocol** | `WireGuard 1.0`, `AmneziaWG 3.1` (new default), or `AmneziaWG 2.0` |
+| **Tunnel Address** | Interface IP in CIDR notation (e.g. `10.100.0.1/24`) |
+| **Listen Port** | UDP port (auto-selected from portPool, or set manually) |
+| **Disable Routes** | Disable automatic kernel route injection. Enable for S2S interconnect interfaces — you manage routes manually |
+| **Disable NAT** | Do not create an automatic MASQUERADE rule in PostUp. Use when managing NAT manually via the NAT section |
+| **MSS Clamping** | Clamp TCP MSS on this interface. Only available for client interfaces (Disable Routes = off). `Disabled` — off; `Auto (PMTU)` — clamp to path MTU automatically; `Manual` — set a fixed value (e.g. 1280 for tunnel-over-tunnel scenarios). Applied in both directions via iptables mangle |
 
-### Генератор профилей (⚡ Generate)
+When an AmneziaWG protocol is selected, a version-compatible parameter section appears. AWG 3.1 creation is disabled when the active runtime cannot confirm support.
 
-Генератор создаёт I1-параметр, имитирующий пакет реального протокола:
+### Managing an Interface
 
-| Профиль | Что имитируется |
-|---------|----------------|
-| **Random** | Случайный профиль из пула |
-| **QUIC Initial** | Пакет QUIC Initial (RFC 9000) |
-| **QUIC 0-RTT** | Повторное соединение QUIC |
+Each interface appears on its own tab. The interface card provides the following buttons:
+
+- **Start / Stop** — bring the interface up or down
+- **Restart** — restart without changing configuration
+- **Edit** — modify name, address, port, and version-compatible AmneziaWG parameters
+- **Export My Params** — download a JSON file with the public key and endpoint to share with an S2S partner
+- **Backup / Restore** — save or restore the interface configuration along with all its peers
+
+### Choosing a Protocol
+
+| | WireGuard 1.0 | AmneziaWG 3.1 | AWG 2.0 |
+|--|---|---|---|
+| Compatibility | Any WireGuard client | Current AmneziaWG clients | Older AmneziaWG clients |
+| Obfuscation | None | Header protection, padding/rekey controls, and protocol imitation | Protocol imitation |
+| Use case | Standard WireGuard | New DPI-resistant deployments | Existing interfaces without migration |
+
+---
+
+## 3. AWG 3.1 and AWG 2.0 Templates
+
+### Why Obfuscation Matters
+
+AmneziaWG modifies the characteristics of the initial handshake packets so that DPI equipment cannot identify WireGuard traffic. Each set of parameters is called a **template** and is applied when creating an interface.
+
+### Template Parameters
+
+| Group | Parameters | Purpose |
+|-------|-----------|---------|
+| **Jitter** | Jc, Jmin, Jmax | Number and size of jitter packets |
+| **Size** | S1, S2, S3, S4 | Sizes of service packets |
+| **Headers** | H1, H2, H3, H4 | Magic-bytes header ranges |
+| **Imitation** | I1–I5 | Protocol imitation templates |
+| **AWG 3.1 protection** | HeaderProtectionKey | One shared 32-byte Base64 key copied unchanged to every peer and S2S endpoint |
+| **AWG 3.1 timing** | ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts | Inclusive `min-max` ranges |
+| **AWG 3.1 switches** | RandomTrailers, DisableCookies | Additional traffic-shaping and cookie behavior |
+
+### Creating a Template Manually
+
+1. Go to **Settings → AWG3 Templates** and choose **AWG 3.1** or **AWG 2.0**
+2. Click **"+ New Template"**
+3. Enter the parameter values or click **⚡ Generate** for auto-generation
+
+### Profile Generator (⚡ Generate)
+
+The generator creates the I1 parameter, which imitates a packet from a real protocol:
+
+| Profile | What It Imitates |
+|---------|-----------------|
+| **Random** | A random non-composite profile |
+| **QUIC Initial** | QUIC Initial packet (RFC 9000) |
+| **QUIC 0-RTT** | QUIC session resumption |
 | **TLS 1.3** | TLS ClientHello |
 | **DTLS 1.2** | DTLS ClientHello (WebRTC, VoIP) |
 | **HTTP/3** | HTTP/3 over QUIC |
-| **SIP** | SIP REGISTER-запрос |
-| **Noise_IK (WireGuard)** | Имитация WireGuard Noise_IK |
-| **DNS Query (RFC 1035)** | DNS A/AAAA запрос |
-| **TLS→QUIC (composite)** | Сначала TLS, затем QUIC |
+| **SIP** | SIP REGISTER request |
+| **Noise_IK (WireGuard)** | WireGuard Noise_IK handshake |
+| **DNS Query (RFC 1035)** | DNS A/AAAA query |
+| **TLS→QUIC (composite)** | TLS ClientHello followed by QUIC Initial |
 | **QUIC Burst (composite)** | QUIC Initial + 0-RTT + HTTP/3 |
 
-Дополнительные настройки генератора:
+Additional generator options:
 
-- **Intensity**: `low` / `medium` / `high` — влияет на размеры пакетов и Jmax
-- **Host (SNI)**: домен для вставки в I1-пакет (оставьте пустым для случайного)
-- **Browser Fingerprint**: размер пакета подстраивается под конкретный браузер (недоступно для SIP и DNS Query)
+- **Intensity**: `low` / `medium` / `high` — affects packet sizes and Jmax
+- **Host (SNI)**: domain to embed in the I1 packet (leave empty for a random one from the pool)
+- **Browser Fingerprint**: tailors packet sizes to a specific browser (not available for SIP and DNS Query)
 
-### Применение шаблона
+### Applying a Template
 
-- При создании интерфейса выберите шаблон в выпадающем списке **Obfuscation Profile**
-- Или нажмите **⚡** рядом с полем для быстрой генерации без сохранения
+- When creating an interface, select a template from the **Obfuscation Profile** dropdown
+- Or click **⚡** next to the field to generate parameters on the fly without saving
 
-> **Важно:** H1-H4 диапазоны должны быть одинаковыми на обеих сторонах туннеля. При изменении шаблона на одном сервере необходимо обновить его на всех подключённых клиентах.
-
----
-
-## 4. Клиентские пиры
-
-### Создание пира
-
-На вкладке интерфейса нажмите **"+ New Peer"** (быстрое создание с именем) или **"Manual"** (полная форма).
-
-#### Поля формы создания
-
-| Поле | Описание |
-|------|----------|
-| **Name** | Имя пира (например, "Ноутбук Ивана") |
-| **Peer Type** | `Client` — обычный клиент |
-| **Key Mode** | **Generate Keys** — сервер генерирует пару ключей; **Enter Manually** — вы вводите публичный ключ клиента |
-| **Allowed IPs** | IP-адрес пира в туннеле (авто-assign /32 если пусто) |
-| **Client Allowed IPs** | Маршруты, которые получит клиент в своём конфиге. По умолчанию `0.0.0.0/0, ::/0` — весь трафик через VPN |
-| **Endpoint** | IP:port клиента (опционально, обычно не нужен для клиентов) |
-| **Persistent Keepalive** | Интервал keepalive-пакетов в секундах (25 рекомендуется для клиентов за NAT) |
-| **Group** | Client Group для пира. Группа определяет, в какой ipset-алиас попадёт IP пира — используется в правилах файрвола. По умолчанию группа `default` |
-
-### Выдача конфигурации клиенту
-
-После создания пира с **Generate Keys** доступны:
-
-- **QR-код** — отсканируйте в приложении AmneziaWG (iOS / Android)
-- **Download Config** — скачайте файл `.conf` для импорта вручную
-
-> Приватный ключ хранится на сервере и доступен только пока пир существует. После удаления пира восстановить ключ невозможно.
-
-### Редактирование пира
-
-Нажмите иконку карандаша на карточке пира. Откроется модал с полями:
-
-- **Name** — изменить имя
-- **Client Allowed IPs** — изменить маршруты для клиента
-- **Persistent Keepalive** — изменить интервал
-- **Bandwidth Limit** — ограничение скорости (см. ниже)
-
-### Ограничение скорости (Bandwidth Limit)
-
-Позволяет ограничить скорость передачи данных для каждого клиента независимо.
-
-| Поле | Описание |
-|------|----------|
-| **↓ Download** | Максимальная скорость получения данных клиентом (сервер → клиент), Мбит/с |
-| **↑ Upload** | Максимальная скорость отправки данных клиентом (клиент → сервер), Мбит/с |
-
-**Примеры значений:** `10` = 10 Мбит/с, `0.5` = 500 Кбит/с, `0` = без ограничений.
-
-Ограничение реализовано через Linux `tc` (`HTB` для исходящего трафика и `police` для входящего) и применяется мгновенно — перезапуск интерфейса не требуется. WireGuard overhead (~5%) компенсируется автоматически: если указать 10 Мбит/с, клиент получит ровно 10 Мбит/с по спидтесту.
-
-На карточке пира при установленном лимите отображаются цветные бейджи:
-- 🔴 `↓10M` — лимит загрузки
-- 🟢 `↑5M` — лимит отдачи
-
-### Включение / отключение пира
-
-Переключатель на карточке пира. Отключённый пир исключается из конфига WireGuard — трафик не проходит.
-
-### Статистика
-
-На карточке пира отображается:
-
-- **Online** — красная мигающая точка = пир передавал данные в последние ~3 минуты
-- **Last Handshake** — время последнего успешного WireGuard-хэндшейка. У только что созданного пира, который ещё не подключился, показывается **"Never"**
-- **Endpoint** — текущий IP-адрес клиента (обновляется каждую секунду)
-- **RX / TX** — трафик за сессию и суммарно за всё время
+> **Important:** H1–H4 ranges must be **identical** on both sides of the tunnel. If you change a template on one server, you must update all connected clients as well.
 
 ---
 
-## 5. S2S Interconnect (туннели между серверами)
+## 4. Client Peers
 
-### Назначение
+### Creating a Peer
 
-S2S Interconnect — соединение двух Cascade-роутеров в единую сеть. Используется для:
+On the interface tab, click **"+ New Peer"** (quick create with just a name) or **"Manual"** (full form).
 
-- Объединения офисных сетей
-- Каскадного VPN (трафик клиентов идёт через цепочку серверов)
-- Резервирования каналов
+#### Creation Form Fields
 
-### Ограничения WireGuard-маршрутизации
+| Field | Description |
+|-------|-------------|
+| **Name** | Peer name (e.g. "Ivan's Laptop") |
+| **Peer Type** | `Client` — standard VPN client |
+| **Key Mode** | **Generate Keys** — server generates the key pair; **Enter Manually** — you provide the client's public key |
+| **Allowed IPs** | Peer's tunnel IP address (auto-assigned /32 if left empty) |
+| **Client Allowed IPs** | Routes pushed to the client in its config. Default `0.0.0.0/0, ::/0` routes all traffic through the VPN |
+| **Endpoint** | Client's IP:port (optional, usually not needed for clients) |
+| **Persistent Keepalive** | Keepalive interval in seconds (25 is recommended for clients behind NAT) |
+| **Group** | Client Group for this peer. Determines which ipset alias the peer's IP is added to — used in firewall rules. Defaults to the `default` group |
 
-WireGuard использует `allowedIPs` как таблицу маршрутизации. При **нескольких** S2S-пирах на одном интерфейсе с одинаковыми prefix:
+### Distributing Configuration to Clients
 
-- `0.0.0.0/0` можно назначить только **одному** пиру — иначе WireGuard выберет произвольного
-- Рекомендуется: указывать конкретные подсети (`10.200.0.0/24`) для каждого пира
+After creating a peer with **Generate Keys**:
 
-### Пошаговая настройка S2S
+- **QR Code** — scan with the AmneziaWG app (iOS / Android)
+- **Download Config** — download the `.conf` file for manual import
 
-Пример: Сервер A ↔ Сервер B, адреса туннельных интерфейсов `10.100.0.1/30` и `10.100.0.2/30`.
+> The private key is stored on the server and is only available while the peer exists. Once a peer is deleted, the key cannot be recovered.
 
-> `/30` — стандартный выбор для point-to-point туннеля (4 адреса, 2 используемых). `/24` и шире имеет смысл только если за интерфейсом планируется целая подсеть клиентов.
+### Editing a Peer
 
-#### Шаг 1 — Сервер A: создать интерфейс
+Click the pencil icon on the peer card. A modal opens with the following fields:
+
+- **Name** — change the display name
+- **Client Allowed IPs** — change routes pushed to the client
+- **Persistent Keepalive** — change the keepalive interval
+- **Bandwidth Limit** — per-client speed limit (see below)
+
+### Bandwidth Limiting
+
+Allows you to independently limit the data transfer speed for each client.
+
+| Field | Description |
+|-------|-------------|
+| **↓ Download** | Maximum download speed for the client (server → client), Mbit/s |
+| **↑ Upload** | Maximum upload speed from the client (client → server), Mbit/s |
+
+**Example values:** `10` = 10 Mbit/s, `0.5` = 500 Kbit/s, `0` = unlimited.
+
+Limiting is implemented via Linux `tc` (`HTB` for egress and `police` for ingress) and takes effect immediately — no interface restart required. WireGuard overhead (~5%) is compensated automatically: specifying 10 Mbit/s gives the client exactly 10 Mbit/s on a speed test.
+
+When a limit is set, colored badges appear on the peer card:
+- 🔴 `↓10M` — download limit
+- 🟢 `↑5M` — upload limit
+
+### Enabling / Disabling a Peer
+
+Use the toggle on the peer card. A disabled peer is excluded from the WireGuard configuration — no traffic passes.
+
+### Statistics
+
+The peer card displays:
+
+- **Online** — blinking red dot = peer transferred data within the last ~3 minutes
+- **Last Handshake** — time of the last successful WireGuard handshake. Shows **"Never"** for newly created peers that have not yet connected
+- **Endpoint** — the client's current IP address (updated every second)
+- **RX / TX** — session traffic and total lifetime traffic
+
+---
+
+## 5. S2S Interconnect (Server-to-Server Tunnels)
+
+### Purpose
+
+S2S Interconnect connects two Cascade routers into a unified network. Use cases:
+
+- Joining office networks
+- Cascaded VPN (client traffic passes through a chain of servers)
+- Channel redundancy
+
+### WireGuard Routing Limitations
+
+WireGuard uses `allowedIPs` as its routing table. When there are **multiple** S2S peers on one interface with the same prefix:
+
+- `0.0.0.0/0` can only be assigned to **one** peer — otherwise WireGuard picks arbitrarily
+- Recommended: use specific subnets (`10.200.0.0/24`) for each peer
+
+### Step-by-Step S2S Setup
+
+Example: Server A ↔ Server B, tunnel interface addresses `10.100.0.1/30` and `10.100.0.2/30`.
+
+> `/30` is the standard choice for a point-to-point tunnel (4 addresses, 2 usable). Use `/24` or wider only if you plan to have a full client subnet behind the interface.
+
+#### Step 1 — Server A: Create an Interface
 
 1. **Interfaces → + New Interface**
-2. Protocol: выберите нужный
+2. Protocol: choose as needed
 3. Address: `10.100.0.1/30`
-4. **Disable Routes: ✓** (WireGuard не будет трогать таблицу маршрутизации)
-5. Сохранить и нажать **Start**
+4. **Disable Routes: ✓** (WireGuard will not touch the routing table)
+5. Save and click **Start**
 
-#### Шаг 2 — Сервер A: экспортировать параметры
+#### Step 2 — Server A: Export Parameters
 
-1. На карточке интерфейса нажмите **"Export My Params"**
-2. Скачается файл `wg10-params.json` с полями:
-   - `publicKey` — публичный ключ Сервера A
-   - `endpoint` — внешний IP:port Сервера A
-   - `address` — адрес интерфейса Сервера A
-   - `protocol` — протокол
+1. Click **"Export My Params"** on the interface card
+2. A file `wg10-params.json` downloads containing:
+   - `publicKey` — Server A's public key
+   - `endpoint` — Server A's external IP:port
+   - `address` — Server A's interface address
+   - `protocol` — the protocol in use
 
-Передайте этот файл администратору Сервера B.
+Share this file with Server B's administrator.
 
-#### Шаг 3 — Сервер B: создать интерфейс и импортировать
+#### Step 3 — Server B: Create an Interface and Import
 
-1. Создайте интерфейс на Сервере B (Address: `10.100.0.2/30`, Disable Routes: ✓)
-2. Нажмите **"Import JSON"** на странице пиров интерфейса
-3. Загрузите файл от Сервера A
-4. Система автоматически создаст Interconnect-пир с параметрами Сервера A
-5. PSK (Pre-Shared Key) генерируется автоматически
+1. Create an interface on Server B (Address: `10.100.0.2/30`, Disable Routes: ✓)
+2. Click **"Import JSON"** on the interface peers page
+3. Upload the file from Server A
+4. The system automatically creates an Interconnect peer with Server A's parameters
+5. A PSK (Pre-Shared Key) is generated automatically
 
-#### Шаг 4 — Сервер B: экспортировать ответные параметры
+#### Step 4 — Server B: Export Reply Parameters
 
-1. Нажмите **"Export My Params"** на интерфейсе Сервера B
-2. В JSON будет включён `presharedKey` — его уже знает только Сервер B
-3. Передайте файл администратору Сервера A
+1. Click **"Export My Params"** on Server B's interface
+2. The JSON will include a `presharedKey` — already known only to Server B
+3. Share this file with Server A's administrator
 
-#### Шаг 5 — Сервер A: импортировать параметры Сервера B
+#### Step 5 — Server A: Import Server B's Parameters
 
-1. **Import JSON** → загрузите файл от Сервера B
-2. PSK синхронизируется автоматически
-3. Туннель готов — оба сервера видят друг друга по адресам `10.100.0.1` и `10.100.0.2`
+1. **Import JSON** → upload the file from Server B
+2. The PSK is synchronized automatically
+3. The tunnel is ready — both servers can reach each other at `10.100.0.1` and `10.100.0.2`
 
-### Статические маршруты для дополнительных подсетей
+### Static Routes for Additional Subnets
 
-После поднятия туннеля каждый сервер автоматически знает connected-подсеть своего интерфейса (`10.100.0.0/30`). Дополнительные маршруты нужны только если вы хотите достучаться до **других подсетей за удалённым роутером** — например, до клиентского интерфейса.
+Once the tunnel is up, each server automatically knows the connected subnet of its own interface (`10.100.0.0/30`). Static routes are only needed when you want to reach **other subnets behind the remote router** — for example, its client interface subnet.
 
-**Пример:** На Сервере A есть клиентский интерфейс `wg11` с подсетью `10.8.0.0/24`. Чтобы Сервер B мог достучаться до клиентов Сервера A:
+**Example:** Server A has a client interface `wg11` with subnet `10.8.0.0/24`. For Server B to reach Server A's clients:
 
-- **Сервер B → Routing → Static Routes → + Add**
+- **Server B → Routing → Static Routes → + Add**
   - Destination: `10.8.0.0/24`
-  - Via: `10.100.0.1` (IP Сервера A в туннеле)
+  - Via: `10.100.0.1` (Server A's tunnel IP)
   - Dev: `wg10`
 
-Аналогично в обратную сторону — если у Сервера B тоже есть клиентский интерфейс.
+Repeat symmetrically if Server B also has a client interface.
 
-### Редактирование S2S-пира
+### Editing an S2S Peer
 
-Нажмите иконку карандаша на карточке пира. Доступны поля:
+Click the pencil icon on the peer card. Available fields:
 
-- **Endpoint** — изменить IP:port удалённого сервера (применяется без перезапуска туннеля)
-- **Allowed IPs** — изменить маршрутизируемые подсети
-- **Persistent Keepalive** — для поддержания соединения через NAT
+- **Endpoint** — change the remote server's IP:port (applied without restarting the tunnel)
+- **Allowed IPs** — change the routed subnets
+- **Persistent Keepalive** — maintain the connection through NAT
 
 ---
 
-## 6. Шлюзы (Gateways)
+## 6. Gateways
 
-### Назначение
+### Purpose
 
-Шлюзы — это исходящие маршруты (провайдеры, VPN-апстримы), за которыми ведётся мониторинг. Используются в связке с Firewall Rules для **Policy-Based Routing** — направить определённый трафик через конкретного провайдера.
+Gateways are outbound routes (ISPs, upstream VPNs) that are actively monitored. They are used together with Firewall Rules for **Policy-Based Routing** — directing specific traffic through a particular provider.
 
-### Создание шлюза
+### Creating a Gateway
 
 **Gateways → + Add Gateway**
 
-| Поле | Описание |
-|------|----------|
-| **Name** | Имя шлюза (например, "KZ провайдер") |
-| **Interface** | Сетевой интерфейс хоста (eth0, wg10 и т.д.) |
-| **Gateway IP** | IP-адрес следующего hop |
-| **Monitor Address** | Адрес для ICMP-пингов (по умолчанию = Gateway IP) |
-| **Monitor Interval** | Интервал пингов, секунды |
-| **Latency Threshold** | При превышении — статус "Degraded" |
+| Field | Description |
+|-------|-------------|
+| **Name** | Gateway name (e.g. "KZ ISP") |
+| **Interface** | Host network interface (eth0, wg10, etc.) |
+| **Gateway IP** | Next-hop IP address |
+| **Monitor Address** | Address for ICMP pings (defaults to Gateway IP) |
+| **Monitor Interval** | Ping interval in seconds |
+| **Latency Threshold** | Latency above which the gateway is "Degraded" |
 
-#### HTTP-зонд (опционально)
+#### HTTP Probe (Optional)
 
-Если ICMP заблокирован, используйте HTTP-проверку:
+Use this when ICMP is blocked:
 
-| Поле | Описание |
-|------|----------|
-| **HTTP URL** | Адрес для проверки (например, `https://ya.ru`) |
-| **Expected Status** | Ожидаемый HTTP-код (200, 204 и т.д.) |
-| **Interval** | Интервал проверок (минимум 10 секунд) |
+| Field | Description |
+|-------|-------------|
+| **HTTP URL** | URL to check (e.g. `https://example.com`) |
+| **Expected Status** | Expected HTTP status code (200, 204, etc.) |
+| **Interval** | Check interval (minimum 10 seconds) |
 
-### Статусы шлюза
+### Gateway Statuses
 
-| Статус | Значение |
-|--------|----------|
-| 🟢 **Healthy** | Потери < порога degraded |
-| 🟡 **Degraded** | Потери выше degraded, но ниже порога down |
-| 🔴 **Down** | Потери превышают порог или нет ответа |
+| Status | Meaning |
+|--------|---------|
+| 🟢 **Healthy** | Loss below degraded threshold |
+| 🟡 **Degraded** | Loss above degraded threshold but below down threshold |
+| 🔴 **Down** | Loss exceeds threshold or no response |
 
-Пороги настраиваются в **Settings → Gateway Healthy/Degraded Threshold**.
+Thresholds are configured in **Settings → Gateway Healthy/Degraded Threshold**.
 
-### Группы шлюзов (Gateway Groups)
+### Gateway Groups
 
-Позволяют объединить несколько шлюзов с автоматическим failover.
+Combine multiple gateways with automatic failover.
 
 **Gateways → + Add Group**
 
-| Поле | Описание |
-|------|----------|
-| **Name** | Имя группы |
-| **Trigger** | Критерий переключения: `packetloss` / `latency` / `packetloss_latency` |
-| **Members** | Список шлюзов с приоритетами (tier 1 = основной, tier 2 = резервный) |
+| Field | Description |
+|-------|-------------|
+| **Name** | Group name |
+| **Trigger** | Failover criterion: `packetloss` / `latency` / `packetloss_latency` |
+| **Members** | List of gateways with priority tiers (tier 1 = primary, tier 2 = backup) |
 
-При деградации шлюза tier 1 трафик автоматически переключается на tier 2.
+When a tier-1 gateway degrades, traffic is automatically switched to tier-2.
 
-### Fallback при недоступности шлюза
+### Fallback When a Gateway Is Down
 
-В правиле файрвола с привязкой к шлюзу включите **Fallback to Default**:
+In a firewall rule bound to a gateway, enable **Fallback to Default**:
 
-- При статусе "Down" трафик направляется через системный default gateway
-- Через 30 секунд после восстановления шлюза маршрутизация возвращается к нему
+- When status is "Down", traffic is routed through the system default gateway
+- 30 seconds after the gateway recovers, routing returns to it
 
 ---
 
-## 7. Маршрутизация
+## 7. Routing
 
-### Status — таблица маршрутов ядра
+### Status — Kernel Routing Table
 
-**Routing → Status** — отображает текущую таблицу маршрутов из ядра Linux (аналог `ip route show`).
+**Routing → Status** — displays the current routing table from the Linux kernel (equivalent to `ip route show`).
 
-Столбцы: протокол, назначение, через (gateway), интерфейс, метрика.
+Columns: protocol, destination, via (gateway), interface, metric.
 
-**Тест маршрута (Route Test)**:
+**Route Test:**
 
-Укажите **Dst** (IP-адрес назначения) и опционально **Src** (IP-адрес источника).
+Enter **Dst** (destination IP) and optionally **Src** (source IP).
 
-- Без Src: показывает маршрут из kernel routing table
-- С Src: запускает Policy-Based Routing trace — какое правило файрвола сработает, через какой gateway пойдёт трафик
+- Without Src: shows the route from the kernel routing table
+- With Src: runs a Policy-Based Routing trace — which firewall rule will match and through which gateway the traffic will flow
 
-Результат: `matched route`, `matchedRule` (PBR-правило), `steps` (шаги трассировки).
+Result: `matched route`, `matchedRule` (PBR rule), `steps` (trace steps).
 
-### Routing Tables — таблицы маршрутизации
+### Routing Tables
 
-**Routing → Tables** — список таблиц маршрутизации, обнаруженных в ядре (из `ip rule show`).
+**Routing → Tables** — list of routing tables discovered in the kernel (from `ip rule show`).
 
-При настройке PBR каждому правилу файрвола назначается отдельная таблица с маршрутом `default via <gateway>`.
+When PBR is configured, each firewall rule gets a dedicated routing table with a `default via <gateway>` entry.
 
-### Static Routes — статические маршруты
+### Static Routes
 
 **Routing → Static → + Add Route**
 
-| Поле | Описание |
-|------|----------|
-| **Destination** | CIDR или `default` (обязательно) |
-| **Via** | IP-адрес шлюза (gateway) |
-| **Dev** | Имя интерфейса (опционально) |
-| **Metric** | Приоритет маршрута (меньше = выше приоритет) |
-| **Table** | Таблица маршрутизации (по умолчанию `main`) |
-| **Description** | Комментарий |
+| Field | Description |
+|-------|-------------|
+| **Destination** | CIDR or `default` (required) |
+| **Via** | Gateway IP address |
+| **Dev** | Interface name (optional) |
+| **Metric** | Route priority (lower = higher priority) |
+| **Table** | Routing table (default: `main`) |
+| **Description** | Comment |
 
-Переключатель **Enabled** включает/отключает маршрут без удаления.
+The **Enabled** toggle enables or disables the route without deleting it.
 
-> Статические маршруты автоматически восстанавливаются после перезапуска контейнера.
+> Static routes are automatically restored after a container restart.
 
 ---
 
 ## 8. NAT
 
-### Назначение
+### Purpose
 
-NAT (Network Address Translation) подменяет исходный IP-адрес пакетов при выходе через интерфейс. Необходим для выхода клиентов в интернет через VPN.
+NAT (Network Address Translation) replaces the source IP of packets as they leave through an interface. It is required for VPN clients to access the internet.
 
-> При создании клиентского интерфейса правило MASQUERADE добавляется **автоматически**. Раздел NAT нужен для тонкой настройки.
+> When a client interface is created, a MASQUERADE rule is added **automatically**. The NAT section is for fine-grained control.
 
-### Правила NAT
+### NAT Rules
 
 **NAT → + Add Rule**
 
-| Поле | Описание |
-|------|----------|
-| **Name** | Имя правила |
-| **Source** | `any` / подсеть CIDR / IP / алиас |
-| **Out Interface** | Исходящий интерфейс (eth0, wg10 и т.д.) |
-| **Type** | `MASQUERADE` — заменить src на IP интерфейса; `SNAT` — заменить src на фиксированный IP |
-| **To Source** | При type=SNAT — целевой IP |
-| **Comment** | Комментарий |
+| Field | Description |
+|-------|-------------|
+| **Name** | Rule name |
+| **Source** | `any` / CIDR subnet / IP / alias |
+| **Out Interface** | Outgoing interface (eth0, wg10, etc.) |
+| **Type** | `MASQUERADE` — replace src with the interface IP; `SNAT` — replace src with a fixed IP |
+| **To Source** | For type=SNAT — the target IP |
+| **Comment** | Comment |
 
-### Auto-правила от интерфейсов
+### Auto-Rules from Interfaces
 
-На странице NAT отображаются автоматически созданные правила от WireGuard-интерфейсов (отмечены иконкой). Они добавляются в PostUp конфиге и обеспечивают базовый NAT для клиентов.
+The NAT page displays rules automatically created by WireGuard interfaces (marked with an icon). They are added in PostUp and provide basic NAT for clients.
 
-### Source Alias в NAT
+### Source Alias in NAT
 
-При типе source = **Alias** можно применить правило ко всему набору адресов из алиаса. Особенно удобно для ipset-алиасов с тысячами IP-адресов (например, все IP страны).
+When the source type is **Alias**, the rule applies to all addresses in the alias. Particularly useful for ipset aliases with thousands of IP addresses (e.g. all IPs of a country).
 
 ---
 
-## 9. Файрвол: алиасы
+## 9. Firewall: Aliases
 
-Алиасы — именованные наборы адресов или портов. Используются в правилах файрвола и NAT вместо ввода адресов вручную.
+Aliases are named sets of addresses or ports. They are used in firewall rules and NAT instead of manually entering addresses each time.
 
-### Типы алиасов
+### Alias Types
 
-| Тип | Описание | Примеры entries |
-|-----|----------|-----------------|
-| **host** | Единичные IP-адреса | `192.168.1.1`, `10.0.0.5` |
-| **network** | Подсети CIDR | `10.0.0.0/8`, `192.168.0.0/16` |
-| **ipset** | Большой набор IP (kernel ipset) | — загружается из файла или генерируется |
-| **client-group** | Группа клиентских пиров (kernel ipset, auto-managed) | — управляется автоматически |
-| **group** | Объединение других host/network алиасов | — выбор из существующих |
-| **port** | Порты и диапазоны | `80`, `443`, `8080-8090` |
-| **port-group** | Объединение port-алиасов | — выбор из существующих port |
+| Type | Description | Example Entries |
+|------|-------------|-----------------|
+| **host** | Individual IP addresses | `192.168.1.1`, `10.0.0.5` |
+| **network** | CIDR subnets | `10.0.0.0/8`, `192.168.0.0/16` |
+| **ipset** | Large IP sets (kernel ipset) | — loaded from file or generated |
+| **client-group** | Peer group — kernel ipset auto-managed by peer membership | — managed automatically |
+| **group** | Combination of host/network aliases | — select from existing aliases |
+| **port** | Ports and ranges | `80`, `443`, `8080-8090` |
+| **port-group** | Combination of port aliases | — select from existing port aliases |
 
 ### Client Groups
 
-Client Group — специальный тип алиаса, автоматически отражающий IP-адреса пиров. При добавлении пира в группу его IP немедленно попадает в kernel ipset; при удалении — убирается. Используется в правилах файрвола для применения политик ко всей группе клиентов сразу.
+A Client Group is a special alias type that automatically tracks the IPs of client peers assigned to it. When a peer is added to a group its IP is immediately inserted into the kernel ipset; when removed it is cleaned up. Use client groups in firewall rules to apply policies to a whole set of clients at once.
 
-- Группа `default` создаётся автоматически при запуске и не может быть удалена
-- Каждый новый клиентский пир по умолчанию попадает в группу `default`
-- Создать новую группу: **+ Add Alias → тип Client Group**
-- Переназначить группу пира: **Edit Peer → Group**
-- При удалении группы все её пиры перемещаются в `default`
-- Tooltip на бейдже группы в правилах показывает реальные IP из ipset
+- The `default` group is created automatically on first start and cannot be deleted
+- Every new client peer is placed in `default` unless you choose another group at creation time
+- Create a new group: **+ Add Alias → type: Client Group**
+- Reassign a peer's group: **Edit Peer → Group**
+- Deleting a group moves all its peers to `default`
+- Hovering the group badge in a firewall rule shows the actual IPs from the ipset
 
-### Создание алиаса
+### Creating an Alias
 
 **Firewall → Aliases → + Add**
 
-1. Выберите тип
-2. Введите entries (по одной на строку)
-3. Для group/port-group — выберите члены из списка
-4. Для client-group — достаточно задать имя; содержимое управляется автоматически
+1. Select the type
+2. Enter entries (one per line)
+3. For group/port-group — select members from the list
+4. For client-group — just set a name; contents are managed automatically
 
-### Наполнение ipset-алиаса
+### Populating an ipset Alias
 
-Для алиасов типа **ipset** доступны три способа (в порядке приоритета при создании):
+Three methods are available for **ipset** type aliases (in priority order when creating):
 
-#### 1. Ручной ввод CIDR
+#### 1. Manual CIDR Entry
 
-В секции **Enter CIDRs manually** введите префиксы по одному на строку. При сохранении они загружаются в kernel ipset. Приоритет над загрузкой файла.
+In the **Enter CIDRs manually** section, enter prefixes one per line. They are loaded into the kernel ipset on save. Takes priority over file upload.
 
-#### 2. Загрузка из файла
+#### 2. Upload from File
 
-Нажмите **Choose CIDR file** и выберите текстовый файл с CIDR-префиксами (по одному на строку, строки с `#` игнорируются). При создании — загрузка происходит сразу после сохранения алиаса.
+Click **Choose CIDR file** and select a text file with CIDR prefixes (one per line; lines starting with `#` are ignored). When creating — upload happens immediately after the alias is saved.
 
-#### 3. Генерация из RIPE NCC (для стран и AS)
+#### 3. Generate from RIPE NCC (Countries and AS Numbers)
 
-В секции **Generate** выберите источник:
-- **Country** — введите код страны (RU, US, CN и т.д.)
-- **ASN** — введите номер автономной системы
-- **ASN List** — несколько AS через запятую
+In the **Generate** section, select the source:
+- **Country** — enter a country code (RU, US, CN, etc.)
+- **ASN** — enter an autonomous system number
+- **ASN List** — multiple AS numbers separated by commas
 
-Нажмите **Generate** — префиксы загружаются из RIPE NCC асинхронно.
+Click **Generate** — prefixes are fetched from RIPE NCC asynchronously.
 
-### Редактирование ipset-алиаса
+### Editing an ipset Alias
 
-При нажатии **Edit** на ipset-алиасе поведение зависит от размера набора:
+When clicking **Edit** on an ipset alias, the behavior depends on the set size:
 
-| Условие | Что показывается |
-|---------|-----------------|
-| Набор ≤ 200 записей, не сгенерирован | Textarea с текущим содержимым — редактируйте и жмите Save |
-| Набор > 200 записей или сгенерирован | Счётчик записей + кнопка **Replace from file** |
+| Condition | What is shown |
+|-----------|---------------|
+| ≤ 200 entries, not generated | Textarea with current content — edit and click Save |
+| > 200 entries or generated | Entry count + **Replace from file** button |
 
-### Интерактивные бейджи алиасов
+### Interactive Alias Badges
 
-В таблицах правил NAT и Firewall алиасы отображаются фиолетовыми бейджами. Они поддерживают:
+In NAT and Firewall rule tables, aliases are shown as purple badges that support:
 
-- **Hover** — всплывающее окошко со списком записей (для ipset — первые 20 + "... and N more")
-- **Click** — переход на страницу Firewall → Aliases с открытым модалом редактирования этого алиаса
+- **Hover** — a popup showing the alias entries (for ipset: first 20 + "... and N more")
+- **Click** — navigates to Firewall → Aliases with the edit modal open for that alias
 
 ---
 
-## 10. Файрвол: правила и PBR
+## 10. Firewall: Rules and PBR
 
-### Порядок применения
+### Rule Evaluation Order
 
-Правила оцениваются **сверху вниз** — первое совпавшее применяется. Управляйте порядком кнопками **↑ / ↓** на каждом правиле.
+Rules are evaluated **top to bottom** — the first match applies. Use the **↑ / ↓** buttons on each rule to adjust the order.
 
-### Создание правила
+### Creating a Rule
 
 **Firewall → Rules → + Add Rule**
 
-| Поле | Описание |
-|------|----------|
-| **Name** | Имя правила |
-| **Interface** | `any` или конкретный интерфейс (wg10, eth0 и т.д.) |
+| Field | Description |
+|-------|-------------|
+| **Name** | Rule name |
+| **Interface** | `any` or a specific interface (wg10, eth0, etc.) |
 | **Protocol** | `any` / `tcp` / `udp` / `icmp` |
-| **Source** | `any` / IP / подсеть / алиас; опционально порт |
-| **Destination** | `any` / IP / подсеть / алиас; опционально порт |
+| **Source** | `any` / IP / subnet / alias; optionally with port |
+| **Destination** | `any` / IP / subnet / alias; optionally with port |
 | **Action** | `Accept` / `Drop` / `Reject` |
-| **Gateway** | (опционально) — для PBR: шлюз через который направить трафик |
-| **Fallback to Default** | При падении gateway — переключить на системный default |
+| **Gateway** | (optional) — for PBR: the gateway to route matching traffic through |
+| **Fallback to Default** | If the gateway goes down, route traffic through the system default |
 
 ### Policy-Based Routing (PBR)
 
-PBR позволяет направлять трафик через конкретный шлюз на основе характеристик соединения (источник, назначение, протокол, порт) — независимо от kernel routing table.
+PBR routes traffic through a specific gateway based on connection characteristics (source, destination, protocol, port) — independently of the kernel routing table.
 
-**Принцип работы:**
+**How It Works:**
 
-1. Создайте шлюз в разделе Gateways
-2. В правиле файрвола укажите **Action = Accept** и выберите **Gateway**
-3. Система создаёт:
+1. Create a gateway in the Gateways section
+2. In a firewall rule, set **Action = Accept** and select a **Gateway**
+3. The system creates:
    - `ip route table N default via <gateway_ip>`
    - `ip rule add fwmark N lookup N`
-   - `iptables mangle MARK --set-mark N` для совпадающего трафика
+   - `iptables mangle MARK --set-mark N` for matching traffic
 
-**Пример:** Направить трафик из подсети `10.8.0.0/24` через шлюз "KZ Provider":
+**Example:** Route traffic from `10.8.0.0/24` through the "KZ Provider" gateway:
 
-1. Создайте шлюз "KZ Provider" (interface: eth1, gateway IP: 10.0.0.1)
+1. Create a gateway "KZ Provider" (interface: eth1, gateway IP: 10.0.0.1)
 2. **Firewall → Rules → + Add**:
    - Source: `10.8.0.0/24`
    - Action: Accept
    - Gateway: KZ Provider
 
-**Пример с алиасом:** Казахстанские IP через казахстанского провайдера:
+**Example with an alias:** Route traffic to Kazakh IPs through a Kazakh ISP:
 
-1. Создайте ipset-алиас "kz_prefixes" с генерацией по Country=KZ
+1. Create an ipset alias "kz_prefixes" using Generate → Country: KZ
 2. **Firewall → Rules → + Add**:
-   - Destination: алиас `kz_prefixes`
+   - Destination: alias `kz_prefixes`
    - Action: Accept
    - Gateway: KZ Provider
 
-### Тестирование PBR
+### Testing PBR
 
 **Routing → Status → Route Test**:
-- Dst: IP назначения
-- Src: IP клиента
+- Dst: destination IP
+- Src: client IP
 
-Результат покажет: через какой gateway пойдёт трафик этого клиента к этому назначению.
+The result shows which gateway that client's traffic to that destination will use.
 
-### Дефолтная политика
+### Default Firewall Policy
 
-В нижней части страницы **Firewall → Rules** расположена карточка **Default Policy**:
+At the bottom of the **Firewall → Rules** page is the **Default Policy** card:
 
-- **Accept** (по умолчанию) — трафик, не совпавший ни с одним правилом, разрешён
-- **Drop** — трафик, не совпавший ни с одним правилом, молча отбрасывается
+- **Accept** (default) — traffic that does not match any rule is allowed
+- **Drop** — traffic that does not match any rule is silently discarded
 
-> При переключении на **Drop** система запросит подтверждение. Убедитесь, что у вас есть явные правила для разрешения нужного трафика — иначе соединение может прерваться.
-
-**Важно при политике Drop:** возвратный (ESTABLISHED/RELATED) трафик всегда пропускается автоматически — ответы на исходящие соединения не блокируются. Но весь **новый** трафик, не покрытый правилами, будет отброшен.
-
-**Типичный набор правил для VPN-клиентов при политике Drop:**
-
-| Правило | Source | Destination | Action |
-|---------|--------|-------------|--------|
-| Разрешить DNS | `client-group` | `any :53` (udp) | Accept |
-| Разрешить интернет | `client-group` | Any | Accept |
-
-> **Ограничение iptables-nft:** правило, совмещающее ipset-источник (alias типа client-group/ipset) с портом назначения, автоматически использует субцепочку для корректной обработки — это прозрачно для пользователя.
-
-### Port и Port Alias в правилах
-
-Порт можно указать двумя способами:
-
-- **Inline port** — вводится прямо в поле Source/Destination (например `53`, `8080-8090`)
-- **Port Alias** — выбирается заранее созданный алиас типа `port` или `port-group`
-
-> При использовании `Protocol = any` с указанием порта — система автоматически создаёт правила для tcp и udp. Чтобы ограничить только одним протоколом — выберите явно `udp` или `tcp`.
+> When switching to **Drop**, the system will ask for confirmation. Make sure you have explicit rules permitting the required traffic — otherwise connections may be interrupted.
 
 ---
 
-## 11. Глобальные настройки
+## 11. Global Settings
 
 **Settings → Global Settings**
 
-### Идентификация роутера
+### Router Identity
 
-| Поле | Описание |
-|------|----------|
-| **Router Name** | Отображаемое имя роутера |
-| **Public IP Mode** | `auto` — автоопределение; `manual` — вводите вручную |
-| **Public IP** | При mode=manual — внешний IP сервера |
+| Field | Description |
+|-------|-------------|
+| **Router Name** | Display name for the router |
+| **Public IP Mode** | `auto` — auto-detect; `manual` — enter manually |
+| **Public IP** | When mode=manual — the server's external IP |
 
-### Настройки VPN
+### VPN Settings
 
-| Поле | Описание |
-|------|----------|
-| **DNS** | DNS-серверы для клиентских конфигов (через запятую) |
-| **MTU** | MTU для клиентских конфигов. `0` = не задавать (WireGuard выбирает автоматически). Типичные значения: `1420` (стандарт WG), `1280` (безопасный минимум для всех сетей). Может быть переопределён на уровне конкретного интерфейса в **Edit Interface → MTU Override** |
-| **Default Persistent Keepalive** | Keepalive по умолчанию для новых пиров (сек) |
-| **Default Client Allowed IPs** | AllowedIPs по умолчанию для клиентских конфигов |
+| Field | Description |
+|-------|-------------|
+| **DNS** | DNS servers for client configs (comma-separated) |
+| **MTU** | MTU written into client configs. `0` = omit (WireGuard picks automatically). Typical values: `1420` (WireGuard default), `1280` (safe for all networks including restrictive ISPs). Can be overridden per-interface via **Edit Interface → MTU Override** |
+| **Default Persistent Keepalive** | Default keepalive for new peers (seconds) |
+| **Default Client Allowed IPs** | Default AllowedIPs for client configs |
 
-### Пулы адресов и портов
+### Address and Port Pools
 
-| Поле | Описание | Пример |
-|------|----------|--------|
-| **Subnet Pool** | Диапазон для авто-назначения адресов интерфейсов | `192.168.0.0/16` |
-| **Port Pool** | Диапазон UDP-портов для новых интерфейсов | `51831-65535` |
+| Field | Description | Example |
+|-------|-------------|---------|
+| **Subnet Pool** | Range for auto-assigning interface addresses | `192.168.0.0/16` |
+| **Port Pool** | UDP port range for new interfaces | `51831-65535` |
 
-### Мониторинг шлюзов
+### Gateway Monitoring
 
-| Поле | Описание |
-|------|----------|
-| **Gateway Window** | Скользящее окно для расчёта статистики (сек) |
-| **Healthy Threshold** | Минимальный % успешных проверок для статуса Healthy |
-| **Degraded Threshold** | Минимальный % для статуса Degraded |
+| Field | Description |
+|-------|-------------|
+| **Gateway Window** | Sliding window for statistics calculation (seconds) |
+| **Healthy Threshold** | Minimum % of successful checks for Healthy status |
+| **Degraded Threshold** | Minimum % for Degraded status |
 
-### Файрвол
+### Firewall
 
-| Поле | Описание |
-|------|----------|
-| **Default Firewall Policy** | `accept` или `drop` — политика для несовпавшего трафика |
+| Field | Description |
+|-------|-------------|
+| **Default Firewall Policy** | `accept` or `drop` — policy for unmatched traffic |
 
-### Политика истёкших пиров (Expired Peer Policy)
+### Expired Peer Policy
 
-Определяет, что происходит с клиентскими пирами, когда у них истекает срок действия.
+Controls what happens to client peers when their expiry date is reached.
 
-| Значение | Поведение |
-|----------|-----------|
-| **Disable** (по умолчанию) | Пир отключается (`enabled = false`) — исключается из конфига WireGuard, трафик не проходит |
-| **Restrict** | Пир остаётся включённым, но получает ограничение скорости и перемещается в указанную группу. При продлении срока действия оригинальная группа и настройки скорости восстанавливаются автоматически |
+| Value | Behaviour |
+|-------|-----------|
+| **Disable** (default) | Peer is disabled (`enabled = false`) — excluded from the WireGuard config, no traffic passes |
+| **Restrict** | Peer remains enabled but is rate-limited and moved to a specified group. Original group and rate-limit settings are restored automatically when the expiry date is extended |
 
-При выборе **Restrict** появляются дополнительные поля:
+When **Restrict** is selected, two additional fields appear:
 
-| Поле | Описание |
-|------|----------|
-| **Rate Limit Down** | Лимит скорости загрузки для пира по истечении срока (кбит/с) |
-| **Rate Limit Up** | Лимит скорости выгрузки для пира по истечении срока (кбит/с) |
-| **Move to Group** | Группа клиентов, в которую пир переносится по истечении срока |
+| Field | Description |
+|-------|-------------|
+| **Rate Limit Down** | Download cap applied to the peer at expiry (kbps) |
+| **Rate Limit Up** | Upload cap applied to the peer at expiry (kbps) |
+| **Move to Group** | Client group the peer is moved to at expiry |
 
 ---
 
-## 12. Администрирование
+## 12. Administration
 
-### Управление пользователями
+### User Management
 
 **Administration → Users**
 
-- Создание дополнительных пользователей
-- Сброс паролей
-- Включение TOTP (двухфакторная аутентификация)
+- Create additional users
+- Reset passwords
+- Enable TOTP two-factor authentication
 
 ### TOTP (2FA)
 
-1. Нажмите **"Setup TOTP"** рядом с пользователем
-2. Отсканируйте QR-код в Google Authenticator / Authy / любом TOTP-приложении
-3. После активации при каждом входе запрашивается 6-значный код
+1. Click **"Setup TOTP"** next to a user
+2. Scan the QR code with Google Authenticator / Authy / any TOTP app
+3. After activation, a 6-digit code will be required at every login
 
 ### API Tokens
 
 **Administration → API Tokens**
 
-Токены для доступа к API без сессии. Используются для автоматизации, скриптов, CI/CD.
+Tokens for API access without a session. Used for automation, scripts, and CI/CD.
 
-- Нажмите **"+ New Token"**, задайте имя
-- Скопируйте токен — он показывается только один раз
-- Передавайте в заголовке: `Authorization: Bearer <token>`
+- Click **"+ New Token"**, set a name
+- Copy the token — it is shown only once
+- Pass it in the header: `Authorization: Bearer <token>`
 
-### Уведомления о новой версии
+### Version Notifications
 
-Когда выходит новый релиз Cascade, в шапке появляется иконка колокольчика (🔔). Клик по ней открывает диалог с changelog — что нового в актуальной версии.
+When a new Cascade release is available, a bell icon (🔔) appears in the header. Clicking it opens a changelog dialog showing what is new in the latest version.
 
-Для обновления сервера выполните на хосте:
+To update the server, run on the host:
 
 ```bash
 cd /root/cascade
@@ -717,585 +699,522 @@ docker compose -f docker-compose.yml down
 docker compose -f docker-compose.yml up -d
 ```
 
-### Бэкап и восстановление
+### Backup and Restore
 
-#### Бэкап конкретного интерфейса
+#### Interface Backup
 
-На карточке интерфейса нажмите **Backup** — скачается JSON с:
-- Конфигурацией интерфейса (ключи, адрес, порт, AWG2-параметры)
-- Всеми пирами (ключи, allowedIPs, настройки)
+Click **Backup** on the interface card — a JSON file downloads containing:
+- Interface configuration (keys, address, port, and versioned AmneziaWG parameters)
+- All peers (keys, allowedIPs, settings)
 
-#### Восстановление интерфейса
+#### Interface Restore
 
-**Restore** → выберите JSON-файл бэкапа. Конфигурация интерфейса и все пиры будут восстановлены.
+**Restore** → select a JSON backup file. The interface configuration and all peers will be restored.
 
-#### Полный бэкап системы (Settings → System Backup)
+#### Full System Backup (Settings → System Backup)
 
 **Settings → System Backup → Download Backup**
 
-Открывается диалог с опциональным паролем:
+A dialog opens with an optional password field:
 
-| Пароль | Результат |
-|--------|-----------|
-| Не указан | `cascade-backup-YYYYMMDD.tar.gz` — обычный архив |
-| Указан | `cascade-backup-YYYYMMDD.tar.gz.enc` — зашифрован AES-256-GCM |
+| Password | Result |
+|----------|--------|
+| Not set | `cascade-backup-YYYYMMDD.tar.gz` — plain archive |
+| Set | `cascade-backup-YYYYMMDD.tar.gz.enc` — AES-256-GCM encrypted |
 
-Содержимое архива:
-- `cascade.db` — вся конфигурация: интерфейсы, пиры, правила NAT/Firewall, алиасы, пользователи, шлюзы
-- `*.save` — содержимое всех ipset-алиасов
+Archive contents:
+- `cascade.db` — all configuration: interfaces, peers, NAT/Firewall rules, aliases, users, gateways
+- `*.save` — kernel ipset alias contents
 
-> ⚠️ **Если пароль утерян — бэкап не восстановить.** AES-256-GCM использует аутентифицированное шифрование: даже частичный подбор пароля невозможен без знания оригинала.
+> ⚠️ **If the password is lost, the backup cannot be decrypted.** AES-256-GCM uses authenticated encryption — brute-forcing the password is not feasible without knowing the original.
 
-> **Что НЕ входит в бэкап:** `.env`, `docker-compose.yml`, TLS-сертификаты — перенести вручную.
+> **Not included in the backup:** `.env`, `docker-compose.yml`, TLS certificates — transfer these separately.
 
-#### Полное восстановление системы
+#### Full System Restore
 
 **Settings → System Backup → Restore Backup**
 
-Выберите `.tar.gz` или `.tar.gz.enc` файл.
+Select a `.tar.gz` or `.tar.gz.enc` file.
 
-- **Незашифрованный файл** — восстановление начинается сразу
-- **Зашифрованный файл** — появляется поле для пароля
+- **Unencrypted file** — restore begins immediately
+- **Encrypted file** — a password field appears before restore starts
 
-**Безопасность:** при неверном пароле расшифровка падает с ошибкой аутентификации GCM **до** того как хоть один файл записан на диск. Данные не повреждаются.
+**Security:** if the wrong password is entered, AES-256-GCM authentication fails **before** any file is written to disk. Your data is not affected.
 
-После успешного восстановления система:
-1. Заменяет `cascade.db` и `*.save` файлы данными из архива
-2. Перезапускает контейнер (требуется `restart: always` в `docker-compose.yml`)
-3. Страница перезагружается через ~4 секунды
+After a successful restore, the system:
+1. Replaces `awg.db` and `*.save` files with the archive contents
+2. Restarts the container (requires `restart: always` in `docker-compose.yml`)
+3. Reloads the page after ~4 seconds
 
-> **Внимание:** восстановление заменяет ВСЕ текущие данные. После перезапуска все активные WireGuard-сессии будут разорваны — клиентам потребуется переподключение.
+> **Warning:** Restore replaces ALL current data. After restart, all active WireGuard sessions will be dropped — clients will need to reconnect.
 
-#### Миграция на другой сервер
+#### Migrating to a New Server
 
-1. На старом сервере: **Settings → System Backup → Download Backup**
-2. Перенести вручную: `.env`, `docker-compose.yml` (при необходимости — TLS-сертификаты)
-3. На новом сервере: установить Cascade (скрипт установки)
-4. Войти с любым временным паролем (Welcome screen)
-5. **Settings → System Backup → Restore Backup** → выбрать `.tar.gz` файл
-6. Сервер перезапустится (~5 сек)
-7. **Войти с логином и паролем со старого сервера** — БД заменилась, временный аккаунт удалён
-8. Обновить DNS / firewall-правила на новый IP
-9. Сообщить пользователям новый endpoint (IP сервера изменился)
+1. On the old server: **Settings → System Backup → Download Backup**
+2. Transfer manually: `.env`, `docker-compose.yml` (and TLS certificates if applicable)
+3. On the new server: install Cascade (installation script)
+4. Log in with any temporary password (Welcome screen)
+5. **Settings → System Backup → Restore Backup** → select the `.tar.gz` file
+6. Server restarts (~5 seconds)
+7. **Log in with the old server's username and password** — the database was replaced, the temporary account is gone
+8. Update DNS / firewall rules to the new IP
+9. Notify users of the new endpoint (server IP has changed)
 
-> **После восстановления будет доступно:** все интерфейсы (поднимутся автоматически), пиры, NAT/Firewall/Aliases/Gateways, ipset-содержимое алиасов, пользователи, API-токены, TOTP.
+> **What is restored:** all interfaces (start automatically), peers, NAT/Firewall/Aliases/Gateways, ipset alias contents, users, API tokens, TOTP.
 
-#### Миграция с AWG-Easy (Import Backup)
+#### Migrating from AWG-Easy (Import Backup)
 
-Если вы ранее использовали **AWG-Easy** и хотите перенести конфигурацию в Cascade **без перевыпуска клиентских конфигов**:
+If you previously used **AWG-Easy** and want to move your configuration to Cascade **without reissuing client configs**:
 
-1. В AWG-Easy скачайте бэкап (файл `wg0.json` или аналогичный)
-2. **Interfaces → Import Backup** (фиолетовая кнопка)
-3. Нажать **"Browse…"** и выбрать JSON-файл
-4. Ввести **UDP Listen Port** (не должен совпадать с существующими интерфейсами)
-5. Нажать **"Import & Start"**
+1. Download the AWG-Easy backup file (`wg0.json` or similar)
+2. **Interfaces → Import Backup** (purple button)
+3. Click **"Browse…"** and select the JSON file
+4. Enter the **UDP Listen Port** (must not conflict with existing interfaces)
+5. Click **"Import & Start"**
 
-Cascade создаст новый интерфейс и воссоздаст всех клиентов:
-- **Ключи сервера и клиентов сохраняются as-is** — клиентам не нужно обновлять конфиги
-- **QR-коды доступны** сразу — приватные ключи клиентов сохранены в БД
-- **AWG2-параметры** импортируются автоматически (Jc, H1-H4, S1-S4)
-- Отключённые клиенты из AWG-Easy останутся отключёнными
+Cascade will create a new interface and recreate all clients:
+- **Server and client keys are preserved as-is** — clients do not need to update their configs
+- **QR codes are available** immediately — client private keys are stored in the database
+- **AmneziaWG protocol and parameters** are detected automatically, including AWG 3.1 header protection and timing fields
+- Disabled clients from AWG-Easy remain disabled
 
-> **Конфликт порта или адресного пространства** — импорт отменяется целиком с объяснением причины.
+> **Port or address space conflict** — the import is cancelled entirely with an explanation.
 
 ---
 
-## Приложение: типичные сценарии
+## Appendix: Common Scenarios
 
-### Сценарий 1: Простой клиентский VPN
+### Scenario 1: Simple Client VPN
 
-1. **Settings** → выбрать DNS, установить Default Client Allowed IPs = `0.0.0.0/0, ::/0`
-2. **Settings → AWG2 Templates** → создать шаблон с профилем TLS 1.3 или DNS Query
-3. **Interfaces → + New Interface** → Protocol: AmneziaWG 2.0, Address: `10.8.0.1/24`, применить шаблон
-4. **Start** интерфейс
-5. **+ New Peer** → Name: имя клиента → QR-код → клиент сканирует
+1. **Settings** → set DNS, set Default Client Allowed IPs = `0.0.0.0/0, ::/0`
+2. **Settings → AWG3 Templates** → create an AWG 3.1 template with a TLS 1.3 or DNS Query profile
+3. **Interfaces → + New Interface** → Protocol: AmneziaWG 3.1, Address: `10.8.0.1/24`, apply the matching template
+4. **Start** the interface
+5. **+ New Peer** → enter name → share QR code with the client
 
-### Сценарий 2: Каскадный VPN (трафик через два сервера)
-
-```
-Клиент → Сервер A (wg10) → Сервер B (wg11) → Интернет
-```
-
-1. **Сервер B**: создать интерфейс wg11 (10.200.0.1/24), создать клиентский пир для Сервера A
-2. **Сервер A**: создать интерфейс wg10 (10.100.0.1/24) для клиентов; создать S2S интерфейс для соединения с Сервером B
-3. **Сервер A → Firewall → Rules**: Source = 10.100.0.0/24, Gateway = wg11-interface
-4. Клиенты Сервера A автоматически выходят через Сервер B
-
-### Сценарий 3: Маршрутизация по странам
+### Scenario 2: Cascaded VPN (Traffic Through Two Servers)
 
 ```
-Клиент → Сервер:
-  - Трафик к RU-сайтам → через российского провайдера
-  - Остальное → через зарубежный VPN
+Client → Server A (wg10) → Server B (wg11) → Internet
 ```
 
-1. **Gateways**: создать "RU ISP" (eth0) и "Abroad VPN" (wg20)
-2. **Aliases**: создать ipset "ru_prefixes" → Generate → Country: RU
+1. **Server B**: create interface wg11 (10.200.0.1/24), create a client peer for Server A
+2. **Server A**: create interface wg10 (10.100.0.1/24) for clients; create an S2S interface to connect to Server B
+3. **Server A → Firewall → Rules**: Source = 10.100.0.0/24, Gateway = wg11-interface
+4. Server A's clients automatically exit through Server B
+
+### Scenario 3: Country-Based Routing
+
+```
+Client → Server:
+  - Traffic to RU sites → through Russian ISP
+  - Everything else → through foreign VPN
+```
+
+1. **Gateways**: create "RU ISP" (eth0) and "Abroad VPN" (wg20)
+2. **Aliases**: create ipset "ru_prefixes" → Generate → Country: RU
 3. **Firewall → Rules**:
    - Rule 1: Dst = `ru_prefixes`, Action = Accept, Gateway = RU ISP
    - Rule 2: Dst = any, Action = Accept, Gateway = Abroad VPN
-4. **Route Test**: проверить что `8.8.8.8` идёт через Abroad VPN, а `ya.ru` через RU ISP
+4. **Route Test**: verify that `8.8.8.8` goes through Abroad VPN and `ya.ru` through RU ISP
 
-### Сценарий 4: Проброс клиентского WireGuard-подключения через промежуточный сервер
+### Scenario 4: Relay Third-Party WireGuard via DNAT
 
-**Когда применяется:** у клиента уже есть конфиг от стороннего WireGuard-сервера (NL, DE, любой),
-но прямое подключение к нему заблокировано. Cascade на промежуточном сервере прозрачно
-перенаправляет трафик — клиент ничего не знает о реальном сервере.
+**Use case:** the client has a config from a third-party WireGuard server (NL, DE, etc.) but
+cannot connect to it directly. The Cascade intermediate server transparently forwards traffic —
+the client is unaware of the real server.
 
 ```
-Клиент ──UDP:51820──► Cascade RU ──UDP:51820──► WG сервер NL
-                      (DNAT + MASQUERADE)        (любой, не Cascade)
+Client ──UDP:51820──► Cascade RU ──UDP:51820──► WG server NL
+                      (DNAT + MASQUERADE)        (any, not Cascade)
 ```
 
-**Принцип работы:**
+The WireGuard session is **end-to-end** between client and NL server. Cascade RU only forwards
+encrypted UDP datagrams and cannot see the traffic content.
 
-1. Клиент отправляет зашифрованный WireGuard UDP-пакет на IP Cascade RU
-2. Cascade делает **DNAT**: меняет destination с `IP-Cascade-RU:51820` на `IP-NL:51820`
-3. Cascade делает **MASQUERADE**: меняет source с `IP-клиента` на `IP-Cascade-RU`
-   — без этого NL сервер отвечал бы **напрямую клиенту** (которого не знает как достичь), туннель не работал бы
-4. NL WireGuard сервер получает пакет с `source = IP-Cascade-RU`, расшифровывает его
-   ключом клиента, запоминает Cascade RU как текущий endpoint пира
-5. Ответ идёт обратно на Cascade RU → connection tracking разворачивает NAT → клиент получает ответ
-
-Шифрование **сквозное** между клиентом и NL сервером. Cascade RU видит только зашифрованный UDP-поток.
-
-**Настройка Cascade RU — одно правило:**
+**Setup on Cascade RU — one rule:**
 
 1. **NAT → Port Forwarding → + New Rule**
-   - Name: `Relay to NL`
    - Protocol: `UDP`
-   - In Port: `51820` (порт из конфига NL сервера)
-   - Redirect to Host: `<IP NL сервера>`
+   - In Port: `51820` (port from NL server config)
+   - Redirect to Host: `<NL server IP>`
    - Redirect to Port: `51820`
-   - Interface: внешний интерфейс (`eth0`)
-   - **Masquerade: ✅** — обязательно включить; именно это заставляет NL сервер
-     отвечать через Cascade RU, а не напрямую клиенту
+   - Interface: external interface (`eth0`)
+   - **Masquerade: ✅** — required; without it NL server replies directly to the client, bypassing Cascade RU
 
-WireGuard интерфейс на Cascade RU создавать **не нужно**.
+No WireGuard interface on Cascade RU is needed.
 
-**Что меняет клиент в своём конфиге** (полученном от NL сервера):
+**What the client changes in their config** (received from NL server):
 
 ```ini
 [Peer]
-PublicKey = <публичный ключ NL сервера — не меняем>
-Endpoint = <IP Cascade RU>:51820   # ← меняем только это
-AllowedIPs = 0.0.0.0/0             # не меняем
-PresharedKey = ...                 # не меняем, если есть
+PublicKey = <NL server public key — unchanged>
+Endpoint = <Cascade RU IP>:51820   # ← change only this
+AllowedIPs = 0.0.0.0/0             # unchanged
 ```
 
-Остальная часть конфига (`[Interface]`, `PrivateKey`, `Address`, `DNS`) остаётся без изменений.
+> **Note:** if Cascade RU already has its own WireGuard interface on port 51820, use a different
+> In Port (e.g. 51821) — the client connects to 51821, Cascade forwards to NL server's 51820.
 
-> **Ограничение:** если на Cascade RU уже поднят собственный WireGuard-интерфейс на порту 51820,
-> он перехватит трафик раньше DNAT-правила. В этом случае используйте другой In Port
-> (например, 51821) — клиент подключается на 51821, Cascade перенаправляет на 51820 NL сервера.
+### Scenario 5: Cascade as a WireGuard Client (Uplink + PBR)
 
-**Проверка:**
-
-```bash
-# После подключения клиента:
-curl ifconfig.io        # должен показать выходной IP NL сервера, не Cascade RU
-```
-
-На Cascade RU статистики пиров не будет — он не участвует в WireGuard-сессии.
-
-### Сценарий 5: Cascade как клиент стороннего WireGuard-сервера (аплинк + PBR)
-
-**Когда применяется:** у вас есть готовый `.conf` файл от стороннего WireGuard-сервера
-(VPN-провайдер, зарубежный сервер коллеги, собственный WG не на Cascade). Вы хотите
-подключить Cascade к этому серверу и использовать туннель как шлюз для избирательной
-маршрутизации (PBR) — например, пускать определённый трафик через зарубежный сервер.
+**Use case:** you have a ready-made `.conf` file from a third-party WireGuard server
+(VPN provider, colleague's server, any WireGuard server not running Cascade). You want
+to connect Cascade to that server and use the tunnel as a gateway for selective
+policy-based routing — routing specific traffic through the foreign server.
 
 ```
-Клиенты → Cascade (wg11: аплинк к NL серверу) → NL WG сервер → Интернет
-                    ↑
-             PBR: только выбранный трафик
+Clients → Cascade (wg11: uplink to NL server) → NL WG server → Internet
+                   ↑
+            PBR: selected traffic only
 ```
 
-**Ключевые особенности:**
-- Таблица маршрутизации ядра **не изменяется** — существующие клиенты и правила остаются в силе
-- Адрес из `.conf` конвертируется в `/32` — конфликты подсетей исключены
-- Управление трафиком — через Firewall → Rules (PBR)
+**Key properties:**
+- The kernel routing table is **not modified** — existing clients and rules remain intact
+- The address from `.conf` is converted to `/32` — subnet conflicts are prevented
+- Traffic control is via Firewall → Rules (PBR)
 
-**Шаг 1 — Импорт `.conf` файла:**
+**Step 1 — Import the `.conf` file:**
 
 1. **Interfaces → Import .conf**
-2. Нажать **"Browse file…"** и выбрать `.conf`, или вставить содержимое вручную
-3. Поле **Name** заполнится из имени файла — при необходимости отредактировать
-4. Нажать **"Import & Start"**
+2. Click **"Browse file…"** and select the `.conf`, or paste the content manually
+3. The **Name** field is pre-filled from the filename — edit if needed
+4. Click **"Import & Start"**
 
-Cascade создаст интерфейс (например `wg11`) с адресом из `.conf` (скажем `10.8.0.5/32`)
-и автоматически добавит upstream-пир с публичным ключом и endpoint удалённого сервера.
+Cascade creates an interface (e.g. `wg11`) with the address from `.conf` (e.g. `10.8.0.5/32`)
+and automatically adds an upstream peer with the remote server's public key and endpoint.
 
-> Интерфейс поднимется и WireGuard-handshake с удалённым сервером произойдёт автоматически —
-> дополнительной настройки на стороне сервера не нужно, он уже знает ваш ключ (из `.conf`).
+> The interface will connect and WireGuard handshake with the remote server happens
+> automatically — no additional setup on the server side is needed (it already knows your key).
 
-**Шаг 2 — NAT Outbound на wg11 (обязательно):**
+**Step 2 — Outbound NAT on wg11 (required):**
 
-Трафик клиентов уходит на NL сервер с source IP = адрес клиента в Cascade (например `10.8.0.2`).
-NL сервер не знает маршрута к подсети `10.8.0.0/24` и не сможет ответить.
-Нужно подменить source IP на адрес Cascade в туннеле (`10.8.0.5`) — тогда NL сервер
-знает куда отвечать (это его зарегистрированный пир).
+Client traffic leaves Cascade towards the NL server with the client's inner source IP
+(e.g. `10.8.0.2`). The NL server has no route to the `10.8.0.0/24` subnet and cannot
+reply — the traffic is one-way. The fix: MASQUERADE rewrites the source IP to Cascade's
+own tunnel address (`10.8.0.5`), which the NL server knows as a registered peer.
 
 1. **NAT → Outbound → + New Rule**
    - Name: `Masquerade via NL Uplink`
-   - Source: подсеть клиентов (например `10.8.0.0/24`, или все интерфейсы через `any`)
+   - Source: client subnet (e.g. `10.8.0.0/24`, or `any` for all interfaces)
    - Outbound Interface: `wg11`
    - Type: `MASQUERADE`
 
-**Шаг 3 — Создать шлюз для PBR:**
+**Step 3 — Create a gateway for PBR:**
 
 1. **Gateways → + New Gateway**
    - Name: `NL Uplink`
    - Interface: `wg11`
-   - Gateway IP: tunnel IP удалённого сервера (например `10.8.0.1` — первый адрес в подсети)
-   - Monitor Address: оставить пустым (= ping Gateway IP)
+   - Gateway IP: remote server's tunnel IP (e.g. `10.8.0.1` — the first address in the subnet)
+   - Monitor Address: leave empty (= ping Gateway IP)
 
-Cascade автоматически добавит host-маршрут `/32` для gateway IP через wg11, чтобы
-мониторинг мог пинговать inner tunnel IP.
+Cascade automatically adds a `/32` host route for the gateway IP via wg11 so that monitoring
+can ping the inner tunnel IP.
 
-**Шаг 4 — Настроить PBR-правила:**
+**Step 4 — Configure PBR rules:**
 
 1. **Firewall → Rules → + New Rule**
-   - Source: подсеть ваших клиентов (или `any`)
-   - Destination: нужные ресурсы (алиас, подсеть, или `any`)
+   - Source: your client subnet (or `any`)
+   - Destination: target resources (alias, subnet, or `any`)
    - Action: `Accept`
    - Gateway: `NL Uplink`
 
-Трафик, попадающий под правило, будет направлен через wg11 на NL сервер.
-Остальной трафик — через обычный маршрут.
+Traffic matching the rule is routed through wg11 to the NL server.
+All other traffic uses the normal routing path.
 
-**Проверка:**
+**Verification:**
 
 ```bash
-# С клиента, подключённого к Cascade:
-curl ifconfig.io        # должен вернуть IP NL сервера для трафика под правилом
+# From a client connected to Cascade:
+curl ifconfig.io        # should return the NL server's IP for traffic matching the rule
 ```
 
-В карточке интерфейса wg11 в Cascade будет виден RX/TX и время последнего handshake.
+The wg11 interface card in Cascade will show RX/TX counters and latest handshake time.
 
 ---
 
-## Приложение Б: Транзитный (промежуточный) сервер
+## Appendix B: Transit (Relay) Server
 
-### Назначение
-
-Схема применяется когда основной VPN-сервер (Сервер B) недоступен клиентам напрямую — заблокирован,
-находится в приватной сети или требует скрытия реального IP. Промежуточный сервер (Сервер A)
-принимает UDP-трафик клиентов и прозрачно перенаправляет его на Сервер B.
+**Use case:** the main VPN server (Server B) is inaccessible to clients directly — blocked,
+in a private network, or its real IP needs to be hidden. The relay server (Server A) accepts
+client UDP traffic and transparently forwards it to Server B.
 
 ```
-Клиент ──UDP:51820──► Сервер A ──UDP:51820──► Сервер B ──► Интернет
-            публичный IP          скрытый сервер
-            (видим клиенту)       (реальный VPN)
+Client ──UDP:51820──► Server A ──UDP:51820──► Server B ──► Internet
+            public IP             hidden server
+            (visible to clients)  (real VPN)
 ```
 
-WireGuard-сессия устанавливается **напрямую между клиентом и Сервером B** — Сервер A только
-перенаправляет UDP-датаграммы. Шифрование сквозное, Сервер A не видит содержимое трафика.
+The WireGuard session is **end-to-end** between client and Server B — Server A only forwards
+UDP datagrams and cannot see the traffic content.
 
-### Типичные применения
+**Why two NAT rules on Server A:**
 
-| Ситуация | Роль Сервера A |
-|----------|----------------|
-| Сервер B заблокирован в стране клиента | "Входная точка" в незаблокированной юрисдикции |
-| Сервер B в приватной сети без публичного IP | Reverse proxy с публичным IP |
-| Скрытие реального IP VPN-сервера | Разделение "видимого" и "реального" адреса |
+1. **DNAT** — changes the destination: `Client→A:51820` becomes `Client→B:51820`
+2. **MASQUERADE** — changes the source: `Client→B:51820` becomes `A→B:51820`
+   Without MASQUERADE, Server B would reply **directly to the client** (which it cannot reach),
+   and the tunnel would not work.
 
-### Как работает NAT на Сервере A
+**Setup on Server B** (normal WireGuard/AWG server):
 
-Серверу A нужны два правила NAT:
-
-1. **DNAT (Port Forwarding)** — меняет destination входящих пакетов:
-   `Клиент→A:51820` становится `Клиент→B:51820`
-
-2. **MASQUERADE (Outbound NAT)** — меняет source пакетов при пересылке к Серверу B:
-   `Клиент→B:51820` становится `A→B:51820`
-
-Без MASQUERADE Сервер B получал бы пакеты с source = реальный IP клиента и отвечал бы
-**напрямую клиенту** — минуя Сервер A. Клиент бы не принял такой ответ (не от ожидаемого IP).
-MASQUERADE гарантирует, что ответы Сервера B идут обратно через Сервер A, где connection tracking
-восстанавливает оригинальные адреса.
-
-### Настройка Сервера B
-
-Обычная настройка клиентского VPN-сервера с одним важным отличием: публичный адрес, который
-попадает в клиентские конфиги как `Endpoint`, должен быть IP **Сервера A**, а не самого Сервера B.
-
-В Cascade этот адрес задаётся глобально через **Settings → Global Settings → Public IP**:
-
-1. Cascade → **Settings → Global Settings → Public IP**
-   - Переключить в **Manual**
-   - Ввести публичный IP Сервера A
-
-2. **Interfaces → + New Interface**
-   - Protocol: AmneziaWG 2.0 (или WireGuard 1.0)
+1. **Interfaces → + New Interface**
    - Address: `10.8.0.1/24`
    - Listen Port: `51820`
+   - **Host (Endpoint)**: `<Server A public IP>` ← this goes into client peer configs
+2. Start the interface — Cascade automatically adds MASQUERADE for client internet traffic
+3. Create peers — downloaded configs will have endpoint `<Server A IP>:51820`
 
-3. Запустить интерфейс — Cascade автоматически добавит MASQUERADE для клиентского трафика
-   в интернет (правило из PostUp). Дополнительная настройка NAT не нужна.
+**Setup on Server A** (pure relay, no WireGuard interface):
 
-4. Создать пиров — в скачанных конфигах endpoint будет `<IP Сервера A>:51820`.
+**Step 1 — Port Forwarding (DNAT):**
 
-> **Важно:** Public IP в Settings — глобальная настройка. Она влияет на все интерфейсы и
-> S2S exports. Это нормально если Server B полностью работает через транзит Server A.
-
-### Настройка Сервера A
-
-На Сервере A WireGuard-интерфейс **не создаётся** — только два правила NAT.
-
-**Шаг 1 — Port Forwarding (DNAT):**
-
-1. Cascade → **NAT → Port Forwarding → + New Rule**
+1. **NAT → Port Forwarding → + New Rule**
    - Protocol: `UDP`
-   - Destination Port: `51820`
-   - Redirect to Host: `<IP Сервера B>`
+   - In Port: `51820`
+   - Redirect to Host: `<Server B IP>`
    - Redirect to Port: `51820`
-   - Interface: внешний интерфейс (`eth0` или аналог)
-   - Name: `Transit to VPN`
+   - Interface: external interface (`eth0`)
 
-**Шаг 2 — Outbound NAT (MASQUERADE):**
+**Step 2 — Outbound NAT (MASQUERADE):**
 
-1. Cascade → **NAT → Outbound → + New Rule**
+1. **NAT → Outbound → + New Rule**
    - Name: `Masquerade to Server B`
    - Source: `any`
-   - Outbound Interface: интерфейс в сторону Сервера B (обычно тот же `eth0`)
+   - Outbound Interface: interface towards Server B (usually `eth0`)
    - Type: `MASQUERADE`
 
-> Если Сервер A и Сервер B в одной подсети (например, облачные серверы одного провайдера) —
-> Outbound Interface будет тот же, через который Сервер A выходит в интернет.
-
-### Проверка
-
-```
-# На клиенте: подключиться к <IP Сервера A>:51820
-# После подключения:
-ping 10.8.0.1          # ping до Сервера B должен работать
-curl ifconfig.io       # должен показать выходной IP Сервера B (не A, не клиента)
-```
-
-На Сервере B в карточке пира должны появиться RX/TX и последнее handshake время —
-это подтверждает что туннель работает через транзит.
-
----
-
-## 14. Управление несколькими серверами 🆕
-
-Cascade позволяет управлять несколькими роутерами из одного браузерного сеанса. Всё
-взаимодействие с удалёнными серверами проксируется через локальный сервер — браузер
-никогда не обращается к удалённому напрямую, токены не передаются на клиент.
-
-### Добавление удалённого сервера
-
-Нажмите **«+ Add Server»** в разделе **Remotes** в сайдбаре.
-
-**Режим логина** (рекомендуется):
-
-| Поле | Описание |
-|------|----------|
-| **Name** | Отображаемое имя сервера в сайдбаре |
-| **URL** | Базовый URL удалённого Cascade (напр. `https://1.2.3.4/secret-path`) |
-| **Username / Password** | Учётные данные на удалённом сервере |
-| **TOTP code** | 6-значный код — появляется автоматически, если на удалённом включён TOTP |
-| **Skip TLS verification** | Включить для серверов с самоподписанным сертификатом |
-
-**Режим токена**: если у вас есть готовый API-токен (`ws_...`) с удалённого сервера,
-введите его напрямую в поле **API Token** вместо логина/пароля.
-
-После сохранения Cascade логинится на удалённый сервер, создаёт отдельный API-токен
-и сохраняет его локально. Пароль не сохраняется.
-
-### Переключение между серверами
-
-Нажмите на имя любого сервера в сайдбаре. UI перезагружается и все последующие
-действия направляются на выбранный сервер. В шапке отображается бейдж активного сервера.
-
-Нажмите **Local** чтобы вернуться на локальный сервер в любой момент.
-
-### Тест подключения и удаление
-
-- **Test** — отправляет ping на `/api/health` удалённого сервера для проверки токена
-- **Remove** — удаляет запись из локальной БД (удалённый сервер не затрагивается)
-
-### Примечания
-
-- При недоступности удалённого (401 или 5xx) Cascade автоматически переключается на локальный
-- Оркестрация Speed Test всегда выполняется на локальном сервере независимо от активного
-
----
-
-## 15. Speed Test 🆕
-
-Измерение пропускной способности между любыми управляемыми серверами Cascade через iperf3.
-
-### Требования
-
-- `iperf3` должен быть установлен на **обоих** серверах — источнике и назначении
-- Серверы должны быть доступны друг для друга по выбранному маршруту (интернет или туннель)
+**Verification:**
 
 ```bash
-# Установить iperf3 на каждом сервере
+# On client: connect to <Server A IP>:51820
+ping 10.8.0.1          # ping to Server B gateway should work
+curl ifconfig.io       # should show Server B's exit IP (not Server A or client)
+```
+
+On Server B, the peer card should show RX/TX and last handshake time — confirming the
+tunnel is working through the relay.
+
+---
+
+## 13. Multi-Server Management 🆕
+
+Cascade lets you manage multiple routers from a single browser session. All communication
+with remote servers is proxied through the local server — the browser never contacts remote
+servers directly, and tokens are never exposed to the client.
+
+### Adding a Remote Server
+
+Click **"+ Add Server"** in the **Remotes** sidebar section.
+
+**Login mode** (recommended):
+
+| Field | Description |
+|-------|-------------|
+| **Name** | Display name for this server in the sidebar |
+| **URL** | Base URL of the remote Cascade instance (e.g. `https://1.2.3.4/secret-path`) |
+| **Username / Password** | Credentials on the remote server |
+| **TOTP code** | 6-digit code — appears automatically if the remote has 2FA enabled |
+| **Skip TLS verification** | Enable for servers with self-signed certificates |
+
+**Token mode**: if you have a pre-created API token (`ws_...`) from the remote server,
+enter it directly in the **API Token** field instead of username/password.
+
+After saving, Cascade logs into the remote, creates a dedicated API token, and stores it
+locally. Your password is never saved.
+
+### Switching Servers
+
+Click any server name in the sidebar. The UI reloads and all subsequent actions target
+that server. A badge in the header shows which server is currently active.
+
+Click **Local** to return to the local server at any time.
+
+### Testing and Removing
+
+- **Test** — sends a ping to the remote's `/api/health` endpoint to verify the token is still valid
+- **Remove** — deletes the remote entry from the local database (does not affect the remote server)
+
+### Notes
+
+- If the remote becomes unreachable (401 or 5xx), Cascade automatically switches back to local
+- The Speed Test orchestration always runs on the local server regardless of which server is active
+
+---
+
+## 14. Speed Test 🆕
+
+Measure throughput between any two managed Cascade servers using iperf3.
+
+### Requirements
+
+- `iperf3` must be installed on **both** the source and destination servers
+- The servers must be reachable from each other on the chosen route (internet or tunnel)
+
+```bash
+# Install iperf3 on each server
 apt install iperf3
 ```
 
-### Запуск теста
+### Running a Speed Test
 
-Откройте **Speed Test** из сайдбара (или со страницы Administration).
+Open **Speed Test** from the sidebar (or the Administration page).
 
-| Поле | Описание |
-|------|----------|
-| **From** | Сервер-источник — здесь запускается iperf3 server |
-| **To** | Сервер-назначение — здесь запускается iperf3 client |
-| **Route** | `Auto`, `Tunnel`, `Internet` или `Manual` — см. ниже |
-| **Duration** | Длительность теста в секундах (по умолчанию: 10) |
-| **Streams** | Количество параллельных потоков iperf3 (по умолчанию: 4) |
+| Field | Description |
+|-------|-------------|
+| **From** | Source server — iperf3 server runs here |
+| **To** | Destination server — iperf3 client runs here |
+| **Route** | `Auto`, `Tunnel`, `Internet`, or `Manual` — see below |
+| **Duration** | Test duration in seconds (default: 10) |
+| **Streams** | Parallel iperf3 streams (default: 4) |
 
-### Режимы маршрута
+### Route Modes
 
-| Режим | Поведение |
-|-------|-----------|
-| **Auto** | Автоопределяет общую подсеть S2S туннеля; при отсутствии — через интернет |
-| **Tunnel** | Принудительно через WireGuard S2S туннель между двумя серверами |
-| **Internet** | Через публичные IP независимо от наличия туннеля |
-| **Manual** | Выбор конкретных WireGuard интерфейсов на каждом сервере для bind-адреса |
-
-### Чтение результатов
-
-| Метрика | Описание |
-|---------|----------|
-| **Send** | Пропускная способность от источника к назначению (Мбит/с) |
-| **Receive** | Пропускная способность от назначения к источнику (Мбит/с) |
-| **Retransmits** | TCP-ретрансмиссии — высокое значение указывает на потери пакетов |
-| **Latency** | Средний RTT по всем потокам (мс) |
-
-Предыдущие результаты сохраняются и отображаются в таблице **History** под формой.
-
----
-
-## 16. Мониторинг и диагностика 🆕
-
-### Расположение виджетов на дашборде
-
-Дашборд поддерживает **свободное размещение виджетов** — перетащите любую карточку в любое место на сетке. Виджеты привязываются к сетке, но не выстраиваются принудительно в колонки — можно оставлять пустое пространство между ними.
-
-- **Изменить размер** — тянуть за правый нижний угол карточки
-- **Переместить** — тянуть за заголовок карточки
-- **Масштаб** — кнопки **+** / **−** на карточках виджетов (кроме графиков мониторинга) увеличивают или уменьшают содержимое. Масштаб сохраняется для каждого виджета
-- **Добавить виджет** — кнопка **"+ Add Widget"** для вставки нового виджета из доступных типов
-
-### Виджет метрик трафика
-
-Виджет **Monitoring** на дашборде показывает TX/RX трафик в реальном времени по каждому WireGuard интерфейсу.
-
-- **Выбор периода** — 5 мин (реальное время), 1 ч, 24 ч или 7 дней
-- Каждый интерфейс отображается отдельным area-графиком; цвета стабильны между перезагрузками
-- Графики автоматически ставятся на паузу когда вкладка скрыта — чтобы не нагружать браузер
-- Виджет можно добавить на любую страницу дашборда через **Add Widget**
-
-### Страница Diagnostics
-
-Страница **Diagnostics** (в сайдбаре) показывает все виджеты мониторинга в полноэкранном режиме:
-
-- Графики трафика по всем активным интерфейсам
-- Графики истории состояния шлюзов для всех групп
-
-Используйте эту страницу для быстрой оценки состояния роутера без переключения между разделами.
-
-### История состояния шлюзов
-
-На странице Diagnostics для каждой группы шлюзов отображается **stacked bar chart** —
-распределение состояний шлюза во времени:
-
-| Цвет | Состояние |
+| Mode | Behaviour |
 |------|-----------|
-| Зелёный | Online |
-| Жёлтый | Degraded |
-| Красный | Offline |
-| Серый | Admin down (отключён вручную) |
+| **Auto** | Detects a shared S2S subnet automatically; falls back to internet if none found |
+| **Tunnel** | Forces traffic through the WireGuard S2S tunnel between the two servers |
+| **Internet** | Uses public IPs regardless of any tunnel |
+| **Manual** | Lets you pick specific WireGuard interfaces on each server for the bind address |
 
-При наведении на бар отображается точное процентное распределение состояний за этот период.
+### Reading Results
 
----
+After the test completes the result card shows:
 
-## 17. Rate Limits (ограничение скорости) 🆕
+| Metric | Description |
+|--------|-------------|
+| **Send** | Throughput from source to destination (Mbps) |
+| **Receive** | Throughput from destination to source (Mbps) |
+| **Retransmits** | TCP retransmissions — high values indicate packet loss |
+| **Latency** | Mean RTT across all streams (ms) |
 
-Ограничения пропускной способности применяются к **группе клиентов (client-group)** и
-ограничивают скорость загрузки и выгрузки каждого пира в группе. Лимит применяется
-на отдельный IP через Linux Traffic Control (tc HTB).
-
-### Настройка
-
-1. Перейдите в **Firewall → Aliases**
-2. Откройте существующий алиас типа **Client Group** или создайте новый
-3. Заполните поля **Rate Limit Down** (кбит/с) и **Rate Limit Up** (кбит/с)
-4. Сохраните — лимиты применяются немедленно ко всем активным пирам группы
-
-| Поле | Описание |
-|------|----------|
-| **Rate Limit Down** | Максимальная скорость загрузки на IP клиента в кбит/с. `0` = без ограничений |
-| **Rate Limit Up** | Максимальная скорость выгрузки на IP клиента в кбит/с. `0` = без ограничений |
-
-### Примечания
-
-- Лимит применяется на каждый IP индивидуально, а не как общий на всю группу
-- При переносе пира в другую группу старый лимит удаляется, применяется лимит новой группы
-- Лимиты восстанавливаются автоматически при старте или перезапуске WireGuard интерфейса
-- Установка обоих полей в `0` удаляет все tc-правила для группы
+Previous results are saved and visible in the **History** table below the test form.
 
 ---
 
-## 18. Визарды 🆕
+## 15. Monitoring & Diagnostics 🆕
 
-Визарды проводят через многошаговые сценарии настройки автоматически, создавая все необходимые объекты (интерфейсы, алиасы, шлюзы, правила файрвола, NAT) в правильном порядке.
+### Dashboard Layout
 
-Доступ через раздел **Wizards** в сайдбаре (нажмите для раскрытия/скрытия).
+The Dashboard supports **free widget placement** — drag any widget card to any position on the grid. Widgets snap to the grid but are not forced into a compact column layout, so you can leave empty space between them.
+
+- **Resize** — drag the bottom-right corner of any widget
+- **Move** — drag the widget header to reposition it
+- **Zoom** — use the **+** / **−** buttons on widget cards (except monitoring charts) to scale the content. Zoom is saved per widget across page reloads
+- **Add Widget** — click **"+ Add Widget"** to insert a new widget from the available types
+
+### Traffic Metrics Widget
+
+The **Monitoring** widget on the Dashboard shows real-time TX/RX traffic per WireGuard interface.
+
+- **Period selector** — choose between 5 min (live), 1 h, 24 h, or 7 days
+- Each interface gets its own area chart; colors are consistent across reloads
+- Charts pause automatically when the browser tab is hidden to save resources
+- The widget can be added to any dashboard page via **Add Widget**
+
+### Diagnostics Page
+
+The **Diagnostics** page (sidebar) shows all monitoring widgets in a full-screen layout:
+
+- Per-interface traffic charts for all active interfaces
+- Gateway status history charts for all gateway groups
+
+Use this page for a quick overview of the router's health without navigating between sections.
+
+### Gateway Status History
+
+Each gateway group card on the Diagnostics page includes a **stacked bar chart** showing
+the distribution of gateway states over time:
+
+| Color | State |
+|-------|-------|
+| Green | Online |
+| Yellow | Degraded |
+| Red | Offline |
+| Gray | Admin down (disabled) |
+
+Hover over any bar to see the exact percentage for each state in that time bucket.
 
 ---
 
-### Визард: Simple Client VPN
+## 16. Rate Limits 🆕
 
-Создаёт готовый WireGuard/AWG интерфейс для клиентских пиров в несколько кликов.
+Bandwidth limits can be applied per **client group** to cap the download and upload speed
+of all peers in that group. Limits are enforced per individual IP using Linux Traffic Control (tc HTB).
 
-**Шаги:**
-1. Выбрать протокол (WireGuard или AmneziaWG)
-2. Задать имя интерфейса и DNS
-3. Добавить первый пир
-4. Готово — QR-код и конфиг готовы к раздаче
+### Configuring Rate Limits
 
----
+1. Go to **Firewall → Aliases**
+2. Open an existing **Client Group** alias or create a new one
+3. Set **Rate Limit Down** (kbps) and **Rate Limit Up** (kbps)
+4. Save — limits are applied immediately to all active peers in the group
 
-### Визард: Cascade via WireGuard Uplink
+| Field | Description |
+|-------|-------------|
+| **Rate Limit Down** | Maximum download speed per client IP in kbps. `0` = unlimited |
+| **Rate Limit Up** | Maximum upload speed per client IP in kbps. `0` = unlimited |
 
-Подключает Cascade как клиент к вышестоящему WireGuard серверу и маршрутизирует выбранный клиентский трафик через него с помощью PBR.
+### Notes
 
-**Сценарий использования:** направить определённых клиентов или направления через арендованный VPN-сервер, оставив остальной трафик на дефолтном шлюзе.
-
-**Шаги:**
-1. **Импорт `.conf`** — вставить или загрузить конфиг WireGuard апстрим-сервера. Визард автоматически извлекает публичный ключ, endpoint и allowed IPs.
-2. **Source** — выбрать клиентские интерфейсы, трафик которых должен идти через аплинк. Визард может автоматически создать source alias.
-3. **Destination** — выбрать какой трафик маршрутизировать: весь, конкретные страны (GeoIP) или AS-номер.
-4. **Options** — задать имена интерфейса и шлюза, MSS clamping, политику fallback.
-5. **Apply** — визард создаёт аплинк-интерфейс, запускает его, создаёт алиасы, шлюз, PBR-правило файрвола и правило masquerade NAT.
-
-> **Примечание:** аплинк-интерфейс создаётся с **Disable Routes** — маршрутизация полностью управляется PBR-правилом, а не wg-quick.
+- Limits apply per IP address inside the group, not shared across the group
+- When a peer moves to a different group, the old limit is removed and the new group's limit is applied
+- Limits are restored automatically when a WireGuard interface is started or restarted
+- Setting both fields to `0` removes all tc rules for the group
 
 ---
 
-### Визард: Cascade ↔ Cascade S2S
+## 17. Wizards 🆕
 
-Соединяет два роутера Cascade по WireGuard или AWG S2S-туннелю и настраивает PBR чтобы выбранные клиенты на локальном сервере ходили через удалённый сервер.
+Wizards guide you through multi-step configuration scenarios automatically, creating all required objects (interfaces, aliases, gateways, firewall rules, NAT) in the correct order.
 
-**Требования:** оба сервера должны быть добавлены в **Multi-Server Management** (Settings → Remotes).
+Access wizards via the **Wizards** section in the sidebar (click to expand/collapse).
 
-**Шаги:**
-1. **Remote** — выбрать удалённый Cascade-сервер. Если ещё не добавлен — заполнить встроенную форму (URL + пароль или API-токен).
-2. **Source** — выбрать локальные клиентские интерфейсы, трафик которых должен идти через S2S-туннель.
-3. **Destination** — выбрать что форвардить: всё, конкретные страны или AS-номер.
-4. **Options** — задать имена интерфейсов, протокол (WireGuard / AWG), MSS clamping, политику fallback.
-5. **Apply** — визард:
-   - Выделяет `/30` подсеть из `10.255.255.0/24` для S2S-линка
-   - Создаёт локальный и удалённый S2S-интерфейсы (через API)
-   - Обменивается публичными ключами и PSK между сторонами (корректный порядок синхронизации PSK)
-   - Создаёт source alias, destination alias, шлюз, PBR-правило файрвола и NAT на локальном сервере
-   - Создаёт обратный маршрут и NAT на удалённом сервере
+---
 
-> **Синхронизация PSK:** визард сначала импортирует локальные параметры на удалённый сервер (там генерируется PSK), затем повторно экспортирует параметры удалённого сервера (PSK уже включён) и импортирует на локальный — обе стороны получают одинаковый PSK.
+### Wizard: Simple Client VPN
+
+Creates a ready-to-use WireGuard/AWG interface for client peers in a few clicks.
+
+**Steps:**
+1. Choose protocol (WireGuard or AmneziaWG)
+2. Name the interface and set DNS
+3. Add the first peer
+4. Done — QR code and config are ready to share
+
+---
+
+### Wizard: Cascade via WireGuard Uplink
+
+Connects Cascade as a client to an upstream WireGuard server and routes selected client traffic through it using PBR.
+
+**Use case:** route specific clients or destinations through a rented VPN server, while keeping other traffic on the default gateway.
+
+**Steps:**
+1. **Import `.conf`** — paste or upload the upstream server's WireGuard config. The wizard parses the public key, endpoint, and allowed IPs automatically.
+2. **Source** — select which client interfaces (and their peers) should use this uplink. The wizard can create a source alias automatically.
+3. **Destination** — choose what traffic to route through the uplink: all traffic, specific countries (GeoIP), or an AS number.
+4. **Options** — set interface name, gateway name, MSS clamping, and fallback policy.
+5. **Apply** — the wizard creates the uplink interface, starts it, creates aliases, a gateway, a PBR firewall rule, and a masquerade NAT rule.
+
+> **Note:** The uplink interface is created with **Disable Routes** enabled — routing is handled entirely by the PBR rule, not by wg-quick.
+
+---
+
+### Wizard: Cascade ↔ Cascade S2S
+
+Interconnects two Cascade routers over a WireGuard or AWG site-to-site tunnel and sets up PBR so selected clients on the local server route through the remote server.
+
+**Prerequisites:** both servers must be added to **Multi-Server Management** (Settings → Remotes).
+
+**Steps:**
+1. **Remote** — select the remote Cascade server. If not yet added, fill in the inline form (URL + password or API token).
+2. **Source** — select local client interfaces whose traffic should be routed through the S2S tunnel.
+3. **Destination** — choose what traffic to forward: all, specific countries, or an AS number.
+4. **Options** — set interface names, protocol (WireGuard / AWG), MSS clamping, and fallback policy.
+5. **Apply** — the wizard:
+   - Allocates a `/30` subnet from `10.255.255.0/24` for the S2S link
+   - Creates a local S2S interface and a remote S2S interface (via API)
+   - Exchanges public keys and PSK between both sides (correct PSK sync order)
+   - Creates source alias, destination alias, gateway, PBR firewall rule, and NAT on the local server
+   - Creates a return route and NAT on the remote server
+
+> **PSK sync:** the wizard first imports local params into the remote (which generates the PSK), then re-exports remote params (PSK now included) and imports into local — both sides end up with the same PSK.

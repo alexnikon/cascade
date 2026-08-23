@@ -20,10 +20,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/aliases"
-	"github.com/JohnnyVBut/cascade/internal/firewall"
-	"github.com/JohnnyVBut/cascade/internal/nat"
-	"github.com/JohnnyVBut/cascade/internal/tunnel"
+	"github.com/alexnikon/cascade/internal/aliases"
+	"github.com/alexnikon/cascade/internal/firewall"
+	"github.com/alexnikon/cascade/internal/nat"
+	"github.com/alexnikon/cascade/internal/tunnel"
 )
 
 // RegisterAliases registers all /api/aliases/* routes.

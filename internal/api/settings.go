@@ -4,6 +4,7 @@
 package api
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -11,9 +12,11 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/awgparams"
-	"github.com/JohnnyVBut/cascade/internal/firewall"
-	"github.com/JohnnyVBut/cascade/internal/settings"
+	"github.com/alexnikon/cascade/internal/awgcap"
+	"github.com/alexnikon/cascade/internal/awgparams"
+	"github.com/alexnikon/cascade/internal/firewall"
+	"github.com/alexnikon/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/settings"
 )
 
 // getHostname returns the real host hostname.
@@ -60,6 +63,11 @@ type SettingsResponse struct {
 	PublicIPWarning  string `json:"publicIPWarning"`
 	AwgMode          string `json:"awgMode"`     // "userspace" | "kernel"
 	NetworkMode      string `json:"networkMode"` // "host" | "bridge" | "none"
+	AWGEngineVersion string `json:"awgEngineVersion"`
+	AWGToolsVersion  string `json:"awgToolsVersion"`
+	AWGMaxProtocol   string `json:"awgMaxProtocol"`
+	AWG3Supported    bool   `json:"awg3Supported"`
+	AWG3SupportError string `json:"awg3SupportError"`
 }
 
 // RegisterSettings registers all /api/settings and /api/templates routes.
@@ -88,6 +96,7 @@ func RegisterSettings(api fiber.Router) {
 		}
 		hostname := getHostname()
 		resolvedIP, ipWarn := settings.ResolvePublicIP(s.PublicIPMode, s.PublicIPManual)
+		capability := awgcap.Detect()
 		return c.JSON(SettingsResponse{
 			GlobalSettings:   *s,
 			Hostname:         hostname,
@@ -95,6 +104,11 @@ func RegisterSettings(api fiber.Router) {
 			PublicIPWarning:  ipWarn,
 			AwgMode:          awgRunMode(),
 			NetworkMode:      dockerNetworkMode(),
+			AWGEngineVersion: capability.EngineVersion,
+			AWGToolsVersion:  capability.ToolsVersion,
+			AWGMaxProtocol:   capability.MaxProtocol,
+			AWG3Supported:    capability.AWG3Supported,
+			AWG3SupportError: capability.SupportError,
 		})
 	})
 
@@ -163,6 +177,7 @@ func RegisterSettings(api fiber.Router) {
 
 		hostname := getHostname()
 		resolvedIP, ipWarn := settings.ResolvePublicIP(updated.PublicIPMode, updated.PublicIPManual)
+		capability := awgcap.Detect()
 
 		log.Println("settings: updated")
 		return c.JSON(SettingsResponse{
@@ -170,10 +185,17 @@ func RegisterSettings(api fiber.Router) {
 			Hostname:         hostname,
 			ResolvedPublicIP: resolvedIP,
 			PublicIPWarning:  ipWarn,
+			AwgMode:          awgRunMode(),
+			NetworkMode:      dockerNetworkMode(),
+			AWGEngineVersion: capability.EngineVersion,
+			AWGToolsVersion:  capability.ToolsVersion,
+			AWGMaxProtocol:   capability.MaxProtocol,
+			AWG3Supported:    capability.AWG3Supported,
+			AWG3SupportError: capability.SupportError,
 		})
 	})
 
-	// ── AWG2 Templates ────────────────────────────────────────────────────────
+	// ── AmneziaWG Templates ──────────────────────────────────────────────────
 
 	// GET /api/templates — list all templates
 	api.Get("/templates", func(c *fiber.Ctx) error {
@@ -188,46 +210,56 @@ func RegisterSettings(api fiber.Router) {
 		return c.JSON(fiber.Map{"templates": list})
 	})
 
-	// POST /api/templates/generate — generate AWG2 obfuscation params
+	// POST /api/templates/generate — generate versioned AmneziaWG parameters
 	// Registered BEFORE /:id routes so Fiber doesn't interpret "generate" as an id.
 	// Body: { profile?, intensity?, host?, browser?, iterCount?, jc?, saveName? }
 	// browser: "chrome"|"firefox"|"safari"|"edge"|"yandex_desktop"|"yandex_mobile"|"" (default: no BFP)
 	// Returns: { params, profiles } | { params, profiles, template } if saveName provided
 	api.Post("/templates/generate", func(c *fiber.Ctx) error {
 		var body struct {
-			Profile   string `json:"profile"`
-			Intensity string `json:"intensity"`
-			Host      string `json:"host"`
-			Browser   string `json:"browser"`
-			IterCount int    `json:"iterCount"`
-			Jc        int    `json:"jc"`
-			SaveName  string `json:"saveName"`
+			Profile         string `json:"profile"`
+			Intensity       string `json:"intensity"`
+			Host            string `json:"host"`
+			Browser         string `json:"browser"`
+			IterCount       int    `json:"iterCount"`
+			Jc              int    `json:"jc"`
+			SaveName        string `json:"saveName"`
+			ProtocolVersion string `json:"protocolVersion"`
 		}
 		// Body is optional — ignore parse errors, use zero values → defaults
 		_ = c.BodyParser(&body)
 
-		params := awgparams.Generate(awgparams.Options{
+		opts := awgparams.Options{
 			Profile:   body.Profile,
 			Intensity: body.Intensity,
 			Host:      body.Host,
 			Browser:   body.Browser,
 			IterCount: body.IterCount,
 			Jc:        body.Jc,
-		})
+		}
+		version := body.ProtocolVersion
+		if version == "" {
+			version = "3.1"
+		}
+		var params any
+		if version == "2.0" {
+			params = awgparams.Generate(opts)
+		} else if version == "3.1" {
+			generated, err := awgparams.GenerateAWG3(opts)
+			if err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+			}
+			params = generated
+		} else {
+			return fiber.NewError(fiber.StatusBadRequest, "protocolVersion must be 2.0 or 3.1")
+		}
 
 		if body.SaveName != "" {
-			tmpl, err := settings.CreateTemplate(settings.Template{
-				Name: body.SaveName,
-				Host: body.Host,
-				Jc: params.Jc, Jmin: params.Jmin, Jmax: params.Jmax,
-				S1: params.S1, S2: params.S2, S3: params.S3, S4: params.S4,
-				H1: params.H1, H2: params.H2, H3: params.H3, H4: params.H4,
-				I1: params.I1, I2: params.I2, I3: params.I3, I4: params.I4, I5: params.I5,
-			})
+			tmpl, err := createGeneratedTemplate(body.SaveName, body.Host, version, params)
 			if err != nil {
 				return fiber.NewError(fiber.StatusBadRequest, err.Error())
 			}
-			log.Printf("awgparams: generated + saved as %q (profile=%s)", body.SaveName, params.Profile)
+			log.Printf("awgparams: generated + saved as %q (protocol=%s)", body.SaveName, version)
 			return c.JSON(fiber.Map{
 				"params":   params,
 				"profiles": awgparams.Profiles,
@@ -235,7 +267,7 @@ func RegisterSettings(api fiber.Router) {
 			})
 		}
 
-		log.Printf("awgparams: generated profile=%s intensity=%s", params.Profile, body.Intensity)
+		log.Printf("awgparams: generated protocol=%s intensity=%s", version, body.Intensity)
 		return c.JSON(fiber.Map{
 			"params":   params,
 			"profiles": awgparams.Profiles,
@@ -326,7 +358,7 @@ func RegisterSettings(api fiber.Router) {
 		return c.JSON(fiber.Map{"template": tmpl})
 	})
 
-	// POST /api/templates/:id/apply — get AWG2 params from template (H1-H4 as-is, FIX-4)
+	// POST /api/templates/:id/apply — get a copy of the versioned parameters.
 	api.Post("/templates/:id/apply", func(c *fiber.Ctx) error {
 		id := c.Params("id")
 		params, err := settings.ApplyTemplate(id)
@@ -338,4 +370,29 @@ func RegisterSettings(api fiber.Router) {
 		}
 		return c.JSON(fiber.Map{"settings": params})
 	})
+}
+
+func createGeneratedTemplate(name, host, version string, generated any) (*settings.Template, error) {
+	t := settings.Template{Name: name, Host: host, ProtocolVersion: version}
+	switch p := generated.(type) {
+	case awgparams.Params:
+		t.Jc, t.Jmin, t.Jmax = p.Jc, p.Jmin, p.Jmax
+		t.S1, t.S2, t.S3, t.S4 = p.S1, p.S2, p.S3, p.S4
+		t.H1, t.H2, t.H3, t.H4 = p.H1, p.H2, p.H3, p.H4
+		t.I1, t.I2, t.I3, t.I4, t.I5 = p.I1, p.I2, p.I3, p.I4, p.I5
+	case *peer.AWGSettings:
+		t.Jc, t.Jmin, t.Jmax = p.Jc, p.Jmin, p.Jmax
+		t.S1, t.S2, t.S3, t.S4 = p.S1, p.S2, p.S3, p.S4
+		t.H1, t.H2, t.H3, t.H4 = p.H1, p.H2, p.H3, p.H4
+		t.I1, t.I2, t.I3, t.I4, t.I5 = p.I1, p.I2, p.I3, p.I4, p.I5
+		t.HeaderProtectionKey = p.HeaderProtectionKey
+		t.ContentPaddingAddition = p.ContentPaddingAddition
+		t.RekeyAfterTime, t.RekeyTimeout = p.RekeyAfterTime, p.RekeyTimeout
+		t.RejectAfterTime, t.KeepaliveTimeout = p.RejectAfterTime, p.KeepaliveTimeout
+		t.MaxHandshakeAttempts = p.MaxHandshakeAttempts
+		t.RandomTrailers, t.DisableCookies = p.RandomTrailers, p.DisableCookies
+	default:
+		return nil, fmt.Errorf("unsupported generated parameter type")
+	}
+	return settings.CreateTemplate(t)
 }

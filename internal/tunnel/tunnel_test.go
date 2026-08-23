@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JohnnyVBut/cascade/internal/aliases"
-	"github.com/JohnnyVBut/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/aliases"
+	"github.com/alexnikon/cascade/internal/peer"
 )
 
 // ── quickBin / syncBin ────────────────────────────────────────────────────────
@@ -64,6 +64,33 @@ func newTestIface() *TunnelInterface {
 		Address:    "10.8.0.1/24",
 		Protocol:   "wireguard-1.0",
 		peers:      make(map[string]*peer.Peer),
+	}
+}
+
+func TestReplaceCachedPeerRemovesStaleAliases(t *testing.T) {
+	iface := newTestIface()
+	stale := &peer.Peer{ID: "peer-1", PublicKey: "public-key", Name: "stale"}
+	iface.peers["wrong-map-key"] = stale
+	iface.peers["duplicate-key"] = &peer.Peer{ID: "other-id", PublicKey: "public-key", Name: "duplicate"}
+	iface.peers["peer-2"] = &peer.Peer{ID: "peer-2", PublicKey: "other-key", Name: "keep"}
+
+	fresh := &peer.Peer{ID: "peer-1", PublicKey: "public-key", Name: "fresh"}
+	iface.replaceCachedPeer(fresh)
+
+	if len(iface.peers) != 2 {
+		t.Fatalf("cache size = %d, want 2", len(iface.peers))
+	}
+	if iface.peers["peer-1"] != fresh {
+		t.Fatal("fresh peer is not stored under its own ID")
+	}
+	if _, ok := iface.peers["wrong-map-key"]; ok {
+		t.Fatal("stale ID alias was not removed")
+	}
+	if _, ok := iface.peers["duplicate-key"]; ok {
+		t.Fatal("stale public-key alias was not removed")
+	}
+	if iface.peers["peer-2"] == nil {
+		t.Fatal("unrelated peer was removed")
 	}
 }
 
@@ -210,6 +237,36 @@ func TestGenerateWgConfig_AWG2ParamsIncluded(t *testing.T) {
 		if !strings.Contains(cfg, want) {
 			t.Errorf("AWG2 config missing %q", want)
 		}
+	}
+}
+
+func TestGenerateConfigsAWG31IncludeExtensionsAndAWG2DoesNot(t *testing.T) {
+	on := true
+	off := false
+	iface := newTestIface()
+	iface.Protocol = "amneziawg-3.1"
+	iface.AWG2 = &peer.AWGSettings{
+		Jc: 6, Jmin: 10, Jmax: 50, S1: 64, S2: 67, S3: 64, S4: 12,
+		H1: "1-2", H2: "3-4", H3: "5-6", H4: "7-8",
+		HeaderProtectionKey:    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		ContentPaddingAddition: "10-100", RekeyAfterTime: "100-120", RekeyTimeout: "3-7",
+		RejectAfterTime: "150-180", KeepaliveTimeout: "5-15", MaxHandshakeAttempts: "15-20",
+		RandomTrailers: &on, DisableCookies: &off,
+	}
+	for name, cfg := range map[string]string{"full": iface.generateWgConfig(), "sync": iface.generateSyncConfig()} {
+		for _, expected := range []string{"HeaderProtectionKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "ContentPaddingAddition = 10-100", "RandomTrailers = on", "DisableCookies = off"} {
+			if !strings.Contains(cfg, expected) {
+				t.Errorf("%s AWG3 config missing %q", name, expected)
+			}
+		}
+		if strings.Contains(cfg, "RandomTrailers = true") || strings.Contains(cfg, "DisableCookies = false") {
+			t.Errorf("%s AWG3 config contains a Go boolean literal", name)
+		}
+	}
+	iface.Protocol = "amneziawg-2.0"
+	awg2Config := iface.generateWgConfig()
+	if strings.Contains(awg2Config, "HeaderProtectionKey") || strings.Contains(awg2Config, "RandomTrailers") || strings.Contains(awg2Config, "DisableCookies") {
+		t.Fatal("AWG2 config leaked AWG3 fields")
 	}
 }
 
@@ -563,10 +620,10 @@ func newTrafficIface(peerID, pubKey string, dbTotal int64) *TunnelInterface {
 		totalTx: dbTotal,
 	}
 	return &TunnelInterface{
-		ID:       "wg10",
-		Enabled:  true,
-		Protocol: "wireguard-1.0",
-		peers:    map[string]*peer.Peer{peerID: p},
+		ID:           "wg10",
+		Enabled:      true,
+		Protocol:     "wireguard-1.0",
+		peers:        map[string]*peer.Peer{peerID: p},
 		trafficState: map[string]*peerTrafficState{peerID: st},
 	}
 }
@@ -588,9 +645,12 @@ func TestTrafficAccumulation_DeltaAccumulates(t *testing.T) {
 	// Manually apply the same delta logic used in GetStatus inner loop.
 	dRx := p.TransferRx - st.lastSeenRx
 	dTx := p.TransferTx - st.lastSeenTx
-	st.totalRx += dRx; st.totalTx += dTx
-	st.lastSeenRx = p.TransferRx; st.lastSeenTx = p.TransferTx
-	p.TotalRx = st.totalRx; p.TotalTx = st.totalTx
+	st.totalRx += dRx
+	st.totalTx += dTx
+	st.lastSeenRx = p.TransferRx
+	st.lastSeenTx = p.TransferTx
+	p.TotalRx = st.totalRx
+	p.TotalTx = st.totalTx
 	iface.trafficMu.Unlock()
 
 	if p.TotalRx != 100 {
@@ -604,9 +664,12 @@ func TestTrafficAccumulation_DeltaAccumulates(t *testing.T) {
 	iface.trafficMu.Lock()
 	dRx = 300 - st.lastSeenRx
 	dTx = 500 - st.lastSeenTx
-	st.totalRx += dRx; st.totalTx += dTx
-	st.lastSeenRx = 300; st.lastSeenTx = 500
-	p.TotalRx = st.totalRx; p.TotalTx = st.totalTx
+	st.totalRx += dRx
+	st.totalTx += dTx
+	st.lastSeenRx = 300
+	st.lastSeenTx = 500
+	p.TotalRx = st.totalRx
+	p.TotalTx = st.totalTx
 	iface.trafficMu.Unlock()
 
 	if p.TotalRx != 300 {
@@ -639,7 +702,9 @@ func TestTrafficAccumulation_CounterReset(t *testing.T) {
 	iface.trafficMu.Lock()
 	newRx := int64(0)
 	dRx := newRx - st.lastSeenRx
-	if dRx < 0 { dRx = 0 }
+	if dRx < 0 {
+		dRx = 0
+	}
 	st.totalRx += dRx
 	st.lastSeenRx = newRx
 	p.TotalRx = st.totalRx

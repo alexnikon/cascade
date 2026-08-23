@@ -15,7 +15,7 @@ package api
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/tokens"
+	"github.com/alexnikon/cascade/internal/tokens"
 )
 
 // RegisterTokens registers API token management endpoints on the router group.

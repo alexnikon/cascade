@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/db"
 )
 
 // ── isValidEndpoint ───────────────────────────────────────────────────────────
@@ -252,10 +252,10 @@ func TestGenerateCompleteConfig_AWG2WithSettings(t *testing.T) {
 		PersistentKeepalive: 25,
 	}
 	iface := InterfaceData{
-		Protocol:  "amneziawg-2.0",
-		PublicKey: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
-		Address:   "10.9.0.1/24",
-		Host:      "awg.example.com",
+		Protocol:   "amneziawg-2.0",
+		PublicKey:  "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+		Address:    "10.9.0.1/24",
+		Host:       "awg.example.com",
 		ListenPort: 51821,
 		Settings: &AWG2Settings{
 			Jc: 6, Jmin: 64, Jmax: 1280,
@@ -275,6 +275,33 @@ func TestGenerateCompleteConfig_AWG2WithSettings(t *testing.T) {
 	}
 	if !strings.Contains(cfg, "I1 = <r 100>") {
 		t.Error("expected I1 line in AWG2 config")
+	}
+}
+
+func TestGenerateCompleteConfigAWG31CopiesSharedFieldsExactly(t *testing.T) {
+	on := true
+	off := false
+	settings := &AWGSettings{
+		Jc: 6, Jmin: 10, Jmax: 50, S1: 64, S2: 67, S3: 64, S4: 12,
+		H1: "1-2", H2: "3-4", H3: "5-6", H4: "7-8",
+		HeaderProtectionKey:    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		ContentPaddingAddition: "10-100", RekeyAfterTime: "100-120", RekeyTimeout: "3-7",
+		RejectAfterTime: "150-180", KeepaliveTimeout: "5-15", MaxHandshakeAttempts: "15-20",
+		RandomTrailers: &on, DisableCookies: &off,
+	}
+	p := &Peer{PrivateKey: "private", Address: "10.9.0.2/32", PersistentKeepalive: 25}
+	cfg := p.generateCompleteConfig(InterfaceData{Protocol: "amneziawg-3.1", PublicKey: "public", Host: "vpn.example.com", ListenPort: 51820, Settings: settings})
+	for _, expected := range []string{"HeaderProtectionKey = " + settings.HeaderProtectionKey, "RekeyAfterTime = " + settings.RekeyAfterTime, "RandomTrailers = on", "DisableCookies = off"} {
+		if !strings.Contains(cfg, expected) {
+			t.Errorf("client config missing %q", expected)
+		}
+	}
+	p.PrivateKey = ""
+	template := p.GenerateRemoteConfig(InterfaceData{Protocol: "amneziawg-3.1", PublicKey: "public", Host: "vpn.example.com", ListenPort: 51820, Settings: settings})
+	for _, expected := range []string{"# AmneziaWG 3.1 Parameters", "RandomTrailers = on", "DisableCookies = off"} {
+		if !strings.Contains(template, expected) {
+			t.Errorf("S2S template config missing %q", expected)
+		}
 	}
 }
 

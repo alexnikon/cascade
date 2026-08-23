@@ -29,15 +29,15 @@ package tunnel
 //	PublicKey  = <client1 pubkey>
 //	AllowedIPs = 10.8.0.2/32
 //
-// AmneziaWG extensions (Jc, Jmin, Jmax, S1-S4, H1-H4, I1-I5) are parsed
-// from the [Interface] section and used to set Protocol = amneziawg-2.0.
+// AmneziaWG extensions are parsed from [Interface]. AWG 3.1 markers take
+// precedence over the shared AWG 2.0 fields during protocol detection.
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/JohnnyVBut/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/peer"
 )
 
 // ParsedPeer holds data from a single [Peer] section.
@@ -57,7 +57,7 @@ type ParsedConf struct {
 	ListenPort int    // 0 = not specified
 	DNS        string // first DNS entry
 	MTU        int    // 0 = not specified
-	Protocol   string // "wireguard-1.0" or "amneziawg-2.0"
+	Protocol   string // WireGuard 1.0, AWG 2.0, or AWG 3.1
 	AWG2       *peer.AWG2Settings
 
 	// All [Peer] sections.
@@ -78,6 +78,7 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 	c := &ParsedConf{Protocol: "wireguard-1.0"}
 	awg := &peer.AWG2Settings{}
 	hasAWG := false
+	hasAWG3 := false
 
 	var section string
 	var cur *ParsedPeer // current [Peer] being parsed
@@ -189,6 +190,37 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 				awg.I4 = val
 			case "i5":
 				awg.I5 = val
+			case "headerprotectionkey":
+				awg.HeaderProtectionKey = val
+				hasAWG, hasAWG3 = true, true
+			case "contentpaddingaddition":
+				awg.ContentPaddingAddition = val
+				hasAWG, hasAWG3 = true, true
+			case "rekeyaftertime":
+				awg.RekeyAfterTime = val
+				hasAWG, hasAWG3 = true, true
+			case "rekeytimeout":
+				awg.RekeyTimeout = val
+				hasAWG, hasAWG3 = true, true
+			case "rejectaftertime":
+				awg.RejectAfterTime = val
+				hasAWG, hasAWG3 = true, true
+			case "keepalivetimeout":
+				awg.KeepaliveTimeout = val
+				hasAWG, hasAWG3 = true, true
+			case "maxhandshakeattempts":
+				awg.MaxHandshakeAttempts = val
+				hasAWG, hasAWG3 = true, true
+			case "randomtrailers":
+				if v, err := peer.ParseAWGBool(val); err == nil {
+					awg.RandomTrailers = &v
+				}
+				hasAWG, hasAWG3 = true, true
+			case "disablecookies":
+				if v, err := peer.ParseAWGBool(val); err == nil {
+					awg.DisableCookies = &v
+				}
+				hasAWG, hasAWG3 = true, true
 			}
 
 		case "peer":
@@ -226,6 +258,9 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 
 	if hasAWG {
 		c.Protocol = "amneziawg-2.0"
+		if hasAWG3 {
+			c.Protocol = "amneziawg-3.1"
+		}
 		c.AWG2 = awg
 	}
 

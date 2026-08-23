@@ -1,0 +1,10 @@
+# Explicit local-development override. This example is not loaded automatically.
+#
+# Usage:
+#   ./build.sh
+#   docker compose -f docker-compose.yml \
+#     -f docker-compose.override.yml.example up -d
+
+services:
+  cascade:
+    image: cascade:latest

@@ -44,19 +44,6 @@ const i18n = new VueI18n({
   messages,
 });
 
-const UI_CHART_TYPES = [
-  { type: false, strokeWidth: 0 },
-  { type: 'line', strokeWidth: 3 },
-  { type: 'area', strokeWidth: 0 },
-  { type: 'bar', strokeWidth: 0 },
-];
-
-const CHART_COLORS = {
-  rx: { light: 'rgba(128,128,128,0.3)', dark: 'rgba(255,255,255,0.3)' },
-  tx: { light: 'rgba(128,128,128,0.4)', dark: 'rgba(255,255,255,0.3)' },
-  gradient: { light: ['rgba(0,0,0,1.0)', 'rgba(0,0,0,1.0)'], dark: ['rgba(128,128,128,0)', 'rgba(128,128,128,0)'] },
-};
-
 new Vue({
   el: '#app',
   components: {
@@ -69,7 +56,7 @@ new Vue({
     versionInfo: null,       // populated by loadVersionInfo() — version + update status
     updateBannerDismissed: false, // hides update banner until next loadVersionInfo() call
     updateChecking: false,        // spinner state for "Check for updates" button
-    username: 'admin',     // login form username field
+    username: '',          // login form username field
     password: null,
     requiresPassword: null,
     remember: false,
@@ -126,12 +113,8 @@ new Vue({
     clientEditExpireDateId: null,
     qrcode: null,
 
-    currentRelease: null,
-    latestRelease: null,
-
     uiTrafficStats: false,
 
-    uiChartType: 0,
     avatarSettings: {
       'dicebear': null,
       'gravatar': false,
@@ -143,8 +126,11 @@ new Vue({
 
     // Sidebar navigation
     activePage: 'dashboard', // 'dashboard' | 'interfaces' | 'gateways' | 'routing' | 'firewall' | 'settings' | 'administration'
-    activeInterfaceId: null,  // ID выбранного интерфейса (вкладка)
-    hoverPage: null,          // для hover-эффекта в sidebar
+    activeInterfaceId: null,  // ID of the selected interface tab
+    hoverPage: null,          // hovered sidebar page
+    mobileNavOpen: false,
+    isCompactViewport: window.matchMedia('(max-width: 1023px)').matches,
+    compactMediaQuery: null,
     sidebarMenu: [
       { id: 'dashboard',        label: 'Dashboard' },
       { id: 'interfaces',       label: 'Interfaces' },
@@ -189,6 +175,12 @@ new Vue({
     metricsGatewaySeriesCache: {},  // { [widgetId+key]: [series] } — stable refs so ApexCharts skips re-render
     metricsAreaSeriesCache: {},     // { [widgetId+key]: [{name, data:[]}] } — stable refs for area charts
     metricsPoller: null,            // setInterval handle
+    metricsHistoryPromise: null,    // prevents overlapping history refreshes
+    resourcePoller: null,           // shared UI resource polling handle
+    resourcePollPromise: null,      // prevents overlapping scheduler ticks
+    refreshPeersPromise: null,      // prevents overlapping interface peer requests
+    refreshAllPeersPromise: null,   // prevents overlapping aggregate peer requests
+    resourcePollSkipped: 0,         // diagnostics counter for coalesced refreshes
     metricsConfigWidget: null,      // widget being configured (modal open)
     metricsConfigPage: 'dashboard', // page the config modal was opened from
     metricsConfigDraft: [],         // draft graphs[] for config modal
@@ -258,7 +250,7 @@ new Vue({
       mtu: 0,
       mss: 0,
       kernelMtu: 0,
-      protocol: 'wireguard-1.0',
+      protocol: 'amneziawg-3.1',
       selectedTemplateId: '',
       settings: {
         jc: 6, jmin: 10, jmax: 50,
@@ -272,17 +264,21 @@ new Vue({
     loadingInterfaceId: null,
     interfaceCreate: {
       name: '',
-      protocol: 'wireguard-1.0',
+      protocol: 'amneziawg-3.1',
       address: '',
       listenPort: '',
       disableRoutes: false,
       dns: '',
-      selectedTemplateId: '',   // UI-only: выбранный профиль обфускации (не отправляется в API)
+      selectedTemplateId: '',   // UI-only template selection; not sent to the API
       settings: {
         jc: 6, jmin: 10, jmax: 50,
         s1: 64, s2: 67, s3: 64, s4: 4,
         h1: '', h2: '', h3: '', h4: '',
         i1: '', i2: '', i3: '', i4: '', i5: '',
+        headerProtectionKey: '', contentPaddingAddition: '10-100',
+        rekeyAfterTime: '100-120', rekeyTimeout: '3-7', rejectAfterTime: '150-180',
+        keepaliveTimeout: '5-15', maxHandshakeAttempts: '15-20',
+        randomTrailers: true, disableCookies: true,
       },
     },
     peerCreate: {
@@ -337,10 +333,10 @@ new Vue({
       dns: '1.1.1.1, 8.8.8.8',
       defaultPersistentKeepalive: 25,
       defaultClientAllowedIPs: '0.0.0.0/0, ::/0',
-      subnetPool:       '192.168.0.0/16',
+      subnetPool:       '10.10.0.0/16',
       portPool:         '51831-65535',
       defaultFwPolicy:  'accept',
-      gatewayWindowSeconds:     30,
+      gatewayWindowSeconds:     60,
       gatewayHealthyThreshold:  95,
       gatewayDegradedThreshold: 90,
       // Router identity
@@ -360,6 +356,8 @@ new Vue({
       hostname:         '',
       resolvedPublicIP: '',
       publicIPWarning:  '',
+      awgEngineVersion: '', awgToolsVersion: '', awgMaxProtocol: '2.0',
+      awg3Supported: false, awg3SupportError: '',
     },
     settingsSaved: false,
     templates: [],
@@ -368,14 +366,19 @@ new Vue({
     templateForm: {
       name: '',
       isDefault: false,
+      protocolVersion: '3.1',
       host: '',
       jc: 6, jmin: 10, jmax: 50,
       s1: 64, s2: 67, s3: 64, s4: 4,
       h1: '', h2: '', h3: '', h4: '',
       i1: '', i2: '', i3: '', i4: '', i5: '',
+      headerProtectionKey: '', contentPaddingAddition: '10-100',
+      rekeyAfterTime: '100-120', rekeyTimeout: '3-7', rejectAfterTime: '150-180',
+      keepaliveTimeout: '5-15', maxHandshakeAttempts: '15-20',
+      randomTrailers: true, disableCookies: true,
     },
 
-    // Generate AWG2 modal
+    // Generate AmneziaWG template modal
     showGenerateModal: false,
     generateForm: {
       profile: 'random',
@@ -383,13 +386,16 @@ new Vue({
       host: '',
       browser: '',
       saveName: '',
+      protocolVersion: '3.1',
     },
     generatedParams: null,
     generatingParams: false,
+    savingGeneratedTemplate: false,
     generateProfiles: [],
 
     // Gateways
     gateways: [],
+    gatewaysLoaded: false,
     gatewayGroups: [],
     systemInterfaces: [],
 
@@ -435,7 +441,7 @@ new Vue({
     // ── Wizard: Simple Client VPN ─────────────────────────────────────────────
     wizardVPN: {
       step: 1,                // 1=protocol, 2=name, 3=dns+peer, 4=result
-      protocol: 'wireguard',  // 'wireguard' | 'amneziawg'
+	  protocol: 'amneziawg',  // 'wireguard' | 'amneziawg'
       ifaceName: '',
       dns: '',
       peerName: 'My Device',
@@ -464,7 +470,7 @@ new Vue({
       inlineIfaceName: '',
       inlineIfaceAddr: '',
       inlineIfacePort: '',
-      inlineIfaceProto: 'wireguard',
+	  inlineIfaceProto: 'amneziawg-3.1',
       inlineIfaceCreating: false,
       // step 3
       dstType: 'all',   // 'all' | 'geo' | 'as'
@@ -514,7 +520,7 @@ new Vue({
       dstNegate: false,
       dstAliasName: '',
       // step 4 — options
-      protocol: 'wireguard',
+	  protocol: 'amneziawg-3.1',
       mssClamp: true,
       fallback: 'drop',
       localIfaceName: '',
@@ -767,90 +773,8 @@ new Vue({
     // Toast notifications
     toasts: [],
 
-    uiShowCharts: localStorage.getItem('uiShowCharts') === '1',
     uiTheme: localStorage.theme || 'auto',
     prefersDarkScheme: window.matchMedia('(prefers-color-scheme: dark)'),
-
-    chartOptions: {
-      chart: {
-        background: 'transparent',
-        stacked: false,
-        toolbar: {
-          show: false,
-        },
-        animations: {
-          enabled: false,
-        },
-        parentHeightOffset: 0,
-        sparkline: {
-          enabled: true,
-        },
-      },
-      colors: [],
-      stroke: {
-        curve: 'smooth',
-      },
-      fill: {
-        type: 'gradient',
-        gradient: {
-          shade: 'dark',
-          type: 'vertical',
-          shadeIntensity: 0,
-          gradientToColors: CHART_COLORS.gradient[this.theme],
-          inverseColors: false,
-          opacityTo: 0,
-          stops: [0, 100],
-        },
-      },
-      dataLabels: {
-        enabled: false,
-      },
-      plotOptions: {
-        bar: {
-          horizontal: false,
-        },
-      },
-      xaxis: {
-        labels: {
-          show: false,
-        },
-        axisTicks: {
-          show: false,
-        },
-        axisBorder: {
-          show: false,
-        },
-      },
-      yaxis: {
-        labels: {
-          show: false,
-        },
-        min: 0,
-      },
-      tooltip: {
-        enabled: false,
-      },
-      legend: {
-        show: false,
-      },
-      grid: {
-        show: false,
-        padding: {
-          left: -10,
-          right: 0,
-          bottom: -15,
-          top: -15,
-        },
-        column: {
-          opacity: 0,
-        },
-        xaxis: {
-          lines: {
-            show: false,
-          },
-        },
-      },
-    },
 
     // ISO 3166-1 alpha-2 country list for the country picker combobox.
     countries: [
@@ -950,9 +874,7 @@ new Vue({
     },
 
 
-    async refresh({
-      updateCharts = false,
-    } = {}) {
+    async refresh() {
       if (!this.authenticated) return;
 
       const clients = await this.api.getClients();
@@ -965,9 +887,7 @@ new Vue({
 
         if (!this.clientsPersist[client.id]) {
           this.clientsPersist[client.id] = {};
-          this.clientsPersist[client.id].transferRxHistory = Array(50).fill(0);
           this.clientsPersist[client.id].transferRxPrevious = client.transferRx;
-          this.clientsPersist[client.id].transferTxHistory = Array(50).fill(0);
           this.clientsPersist[client.id].transferTxPrevious = client.transferTx;
         }
 
@@ -982,31 +902,6 @@ new Vue({
         this.clientsPersist[client.id].transferTxCurrent = client.transferTx - this.clientsPersist[client.id].transferTxPrevious;
         this.clientsPersist[client.id].transferTxPrevious = client.transferTx;
 
-        if (updateCharts) {
-          this.clientsPersist[client.id].transferRxHistory.push(this.clientsPersist[client.id].transferRxCurrent);
-          this.clientsPersist[client.id].transferRxHistory.shift();
-
-          this.clientsPersist[client.id].transferTxHistory.push(this.clientsPersist[client.id].transferTxCurrent);
-          this.clientsPersist[client.id].transferTxHistory.shift();
-
-          this.clientsPersist[client.id].transferTxSeries = [{
-            name: 'Tx',
-            data: this.clientsPersist[client.id].transferTxHistory,
-          }];
-
-          this.clientsPersist[client.id].transferRxSeries = [{
-            name: 'Rx',
-            data: this.clientsPersist[client.id].transferRxHistory,
-          }];
-
-          client.transferTxHistory = this.clientsPersist[client.id].transferTxHistory;
-          client.transferRxHistory = this.clientsPersist[client.id].transferRxHistory;
-          client.transferMax = Math.max(...client.transferTxHistory, ...client.transferRxHistory);
-
-          client.transferTxSeries = this.clientsPersist[client.id].transferTxSeries;
-          client.transferRxSeries = this.clientsPersist[client.id].transferRxSeries;
-        }
-
         client.transferTxCurrent = this.clientsPersist[client.id].transferTxCurrent;
         client.transferRxCurrent = this.clientsPersist[client.id].transferRxCurrent;
 
@@ -1020,15 +915,17 @@ new Vue({
         this.clients = sortByProperty(this.clients, 'name', this.sortClient);
       }
     },
-    login(e) {
-      e.preventDefault();
-
-      if (!this.password) return;
+    login() {
+      const usernameInput = document.getElementById('login-username');
+      const passwordInput = document.getElementById('login-password');
+      if (usernameInput) this.username = usernameInput.value.trim();
+      if (passwordInput) this.password = passwordInput.value;
+      if (!this.username || !this.password) return;
       if (this.authenticating) return;
 
       this.authenticating = true;
       this.api.createSession({
-        username: this.username || 'admin',
+        username: this.username,
         password: this.password,
         remember: this.remember,
       })
@@ -1047,7 +944,7 @@ new Vue({
         })
         .finally(() => {
           this.authenticating = false;
-          this.password = null;
+          this.password = '';
         });
     },
 
@@ -1080,10 +977,10 @@ new Vue({
       this.loadUsers();
       this.loadCurrentUser();
       this.loadRemotes();
-      // Re-load dashboard after login: loadDashboard() in mounted() ran before
-      // the dashboard DOM existed (authenticated=false → v-if removed the div),
-      // so dashInitGrid() silently returned without initialising GridStack.
+      // Initialize the dashboard now; authenticated-only startup was skipped
+      // while the login form was visible.
       this.loadDashboard();
+      this.metricsStartPoller();
       if (this.activePage === 'gateways') {
         this.loadGateways();
         this.loadGatewayGroups();
@@ -1168,26 +1065,83 @@ new Vue({
     toggleTheme() {
       const themes = ['light', 'dark', 'auto'];
       const currentIndex = themes.indexOf(this.uiTheme);
-      const newIndex = (currentIndex + 1) % themes.length;
-      this.uiTheme = themes[newIndex];
+      this.uiTheme = themes[(currentIndex + 1) % themes.length];
       localStorage.theme = this.uiTheme;
       this.setTheme(this.uiTheme);
     },
     setTheme(theme) {
-      const { classList } = document.documentElement;
-      const shouldAddDarkClass = theme === 'dark' || (theme === 'auto' && this.prefersDarkScheme.matches);
-      classList.toggle('dark', shouldAddDarkClass);
+      window.applyCascadeTheme(theme, this.prefersDarkScheme);
     },
-    handlePrefersChange(e) {
-      if (localStorage.theme === 'auto') {
-        this.setTheme(e.matches ? 'dark' : 'light');
+    handlePrefersChange() {
+      if (this.uiTheme === 'auto') {
+        this.setTheme('auto');
       }
     },
-    toggleCharts() {
-      localStorage.setItem('uiShowCharts', this.uiShowCharts ? 1 : 0);
+    // Sidebar navigation
+    openMobileNav() {
+      if (!this.isCompactViewport) return;
+      this.mobileNavOpen = true;
+      this.$nextTick(() => {
+        const closeButton = this.$refs.mobileNav && this.$refs.mobileNav.querySelector('.mobile-nav-close');
+        if (closeButton) closeButton.focus();
+      });
     },
 
-    // Sidebar navigation
+    closeMobileNav(restoreFocus = true) {
+      if (!this.mobileNavOpen) return;
+      this.mobileNavOpen = false;
+      if (restoreFocus) {
+        this.$nextTick(() => {
+          if (this.$refs.mobileMenuButton) this.$refs.mobileMenuButton.focus();
+        });
+      }
+    },
+
+    onMobileNavKeydown(event) {
+      if (!this.mobileNavOpen || event.key !== 'Tab') return;
+      const nav = this.$refs.mobileNav;
+      if (!nav) return;
+      const focusable = Array.from(nav.querySelectorAll(
+        'button:not([disabled]), a[href], select:not([disabled]), input:not([disabled])'
+      )).filter(el => el.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    },
+
+    handleCompactViewportChange(event) {
+      // GridStack may emit a change while switching column modes. Suppress saves
+      // before updating the viewport flag so compact geometry cannot overwrite
+      // the persisted desktop layout during a mobile-to-desktop transition.
+      this._dashSaveEnabled = false;
+      this._diagSaveEnabled = false;
+      this.isCompactViewport = event.matches;
+      if (!event.matches) this.closeMobileNav(false);
+      if (this.activePage === 'dashboard') {
+        this.loadDashboard();
+        return;
+      }
+      if (this.activePage === 'diagnostics') {
+        this.loadDiagnostics();
+        return;
+      }
+      [this.dashGrid, this.diagGrid].filter(Boolean).forEach(grid => {
+        grid.enableMove(!event.matches);
+        grid.enableResize(!event.matches);
+      });
+    },
+
+    handleGlobalKeydown(event) {
+      if (event.key === 'Escape' && this.mobileNavOpen) this.closeMobileNav();
+    },
+
     switchPage(pageId) {
       // FIX: destroy GridStack when leaving dashboard — clears ResizeObserver,
       // inline styles and CSS vars it set on parent elements (which caused a
@@ -1218,6 +1172,7 @@ new Vue({
         this._dashResizeObs = null;
       }
       this.activePage = pageId;
+      if (this.isCompactViewport) this.closeMobileNav(false);
       if (pageId.startsWith('wizard-')) this.wizardsExpanded = true;
       // Reset scroll and any GridStack inline styles AFTER Vue updates the DOM.
       this.$nextTick(() => {
@@ -1225,8 +1180,11 @@ new Vue({
         // then restore only the original padding. height/overflow come from CSS.
         const mainEl = document.querySelector('.app-main');
         if (mainEl) {
-          mainEl.style.cssText = 'padding: 24px 32px;';
           mainEl.scrollTop = 0;
+        }
+        const dashboardScroll = document.querySelector('.dashboard-scroll');
+        if (dashboardScroll) {
+          dashboardScroll.scrollTop = 0;
         }
         // Also reset window scroll in case overflow:hidden on mainEl caused
         // the window to be the scroll container while on the previous page.
@@ -1308,19 +1266,23 @@ new Vue({
           return;
         }
 
-        // Tunnel Address обязателен — нужен для авто-IP пиров и PostUp/PostDown
+        // Tunnel Address is required for peer allocation and routing hooks.
         if (!this.interfaceCreate.address || !this.interfaceCreate.address.includes('/')) {
           this.showToast('Please enter Tunnel Address in CIDR format (e.g. 10.100.0.1/24)', 'error');
           return;
         }
 
-        if (this.interfaceCreate.protocol === 'amneziawg-2.0') {
+        if (this.interfaceCreate.protocol.startsWith('amneziawg-')) {
           if (!this.interfaceCreate.settings.h1 || !this.interfaceCreate.settings.h2 ||
               !this.interfaceCreate.settings.h3 || !this.interfaceCreate.settings.h4) {
-            this.showToast('Please set H1-H4 parameters for AWG 2.0 (select a profile or enter manually)', 'error');
+            this.showToast('Please set H1-H4 parameters for AmneziaWG', 'error');
             return;
           }
         }
+		if (this.interfaceCreate.protocol === 'amneziawg-3.1' && !this.globalSettings.awg3Supported) {
+		  this.showToast(this.globalSettings.awg3SupportError || 'This runtime does not support AWG 3.1', 'error');
+		  return;
+		}
 
         const payload = {
           name: this.interfaceCreate.name,
@@ -1331,7 +1293,7 @@ new Vue({
           dns: this.interfaceCreate.dns || '',
         };
 
-        if (this.interfaceCreate.protocol === 'amneziawg-2.0') {
+        if (this.interfaceCreate.protocol.startsWith('amneziawg-')) {
           payload.settings = this.interfaceCreate.settings;
         }
 
@@ -1377,7 +1339,7 @@ new Vue({
         const iface = data.interface || {};
         const addr  = iface.address    || '';
         const port  = iface.listenPort || '';
-        const proto = iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : '';
+		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : '');
 
         if (data.started) {
           this.showToast(`✅ ${iface.id} created & started\n${addr} · UDP ${port}${proto}`, 'success');
@@ -1430,7 +1392,7 @@ new Vue({
         this.loadFirewallInterfaces();
 
         const iface = res.interface || {};
-        const proto = iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1';
+		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1');
         if (res.conflictWarning) {
           this.showToast(`⚠️ ${res.conflictWarning}`, 'error');
         }
@@ -1492,7 +1454,7 @@ new Vue({
         this.loadFirewallInterfaces();
 
         const iface = res.interface || {};
-        const proto = iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1';
+		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1');
         const failed = (res.peersFailed || []).length;
 
         if (res.started) {
@@ -1555,7 +1517,7 @@ new Vue({
         this.loadNatInterfaces();
         this.loadFirewallInterfaces();
         const iface = res.interface || {};
-        const proto = iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1';
+		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1');
         const msg = res.started
           ? `✅ Interface restored: ${iface.id} · ${iface.address}${proto} · ${res.peersCreated} peers`
           : `⚠️ Interface restored but failed to start: ${res.startError || ''}`;
@@ -1566,31 +1528,14 @@ new Vue({
       }
     },
 
-    // generateAndFillInterfaceParams — fills AWG2 fields in the Manual form
+    // Generate and fill the version-appropriate manual interface fields.
     // by generating a random profile via the /templates/generate endpoint.
     async generateAndFillInterfaceParams() {
       try {
-        const { params } = await this.api.generateTemplate({ profile: 'random', intensity: 'medium' });
-        // Merge generated params into interfaceCreate.settings.
-        Object.assign(this.interfaceCreate.settings, {
-          jc:   params.jc   ?? this.interfaceCreate.settings.jc,
-          jmin: params.jmin ?? this.interfaceCreate.settings.jmin,
-          jmax: params.jmax ?? this.interfaceCreate.settings.jmax,
-          s1:   params.s1   ?? this.interfaceCreate.settings.s1,
-          s2:   params.s2   ?? this.interfaceCreate.settings.s2,
-          s3:   params.s3   ?? this.interfaceCreate.settings.s3,
-          s4:   params.s4   ?? this.interfaceCreate.settings.s4,
-          h1:   params.h1   ?? this.interfaceCreate.settings.h1,
-          h2:   params.h2   ?? this.interfaceCreate.settings.h2,
-          h3:   params.h3   ?? this.interfaceCreate.settings.h3,
-          h4:   params.h4   ?? this.interfaceCreate.settings.h4,
-          i1:   params.i1   ?? this.interfaceCreate.settings.i1,
-          i2:   params.i2   ?? this.interfaceCreate.settings.i2,
-          i3:   params.i3   ?? this.interfaceCreate.settings.i3,
-          i4:   params.i4   ?? this.interfaceCreate.settings.i4,
-          i5:   params.i5   ?? this.interfaceCreate.settings.i5,
-        });
-        this.showToast('AWG2 params generated ✓', 'success');
+        const protocolVersion = this.interfaceCreate.protocol === 'amneziawg-2.0' ? '2.0' : '3.1';
+        const { params } = await this.api.generateTemplate({ profile: 'random', intensity: 'medium', protocolVersion });
+        Object.assign(this.interfaceCreate.settings, params);
+        this.showToast(`AWG ${protocolVersion} parameters generated`, 'success');
       } catch (err) {
         console.error('generateAndFillInterfaceParams failed:', err);
         this.showToast(`Failed to generate params: ${err.message}`, 'error');
@@ -1602,12 +1547,16 @@ new Vue({
     _resetInterfaceCreate() {
       this.createMode = 'quick';
       this.interfaceCreate = {
-        name: '', protocol: 'wireguard-1.0', address: '', listenPort: '',
+		name: '', protocol: 'amneziawg-3.1', address: '', listenPort: '',
         disableRoutes: false, dns: '', selectedTemplateId: '',
         settings: {
           jc: 6, jmin: 10, jmax: 50, s1: 64, s2: 67, s3: 64, s4: 4,
           h1: '', h2: '', h3: '', h4: '',
-          i1: '', i2: '', i3: '', i4: '', i5: '',
+		  i1: '', i2: '', i3: '', i4: '', i5: '',
+		  headerProtectionKey: this.generateHeaderProtectionKey(), contentPaddingAddition: '10-100',
+		  rekeyAfterTime: '100-120', rekeyTimeout: '3-7', rejectAfterTime: '150-180',
+		  keepaliveTimeout: '5-15', maxHandshakeAttempts: '15-20',
+		  randomTrailers: true, disableCookies: true,
         },
       };
     },
@@ -1624,7 +1573,11 @@ new Vue({
           const prev = this.versionInfo;
           this.versionInfo = await res.json();
           this.updateBannerDismissed = false;
-          if (this.versionInfo.updateAvailable) {
+          if (this.versionInfo.error) {
+            this.showToast(`Update check failed: ${this.versionInfo.error}`, 'error');
+          } else if (!this.versionInfo.latestVersion) {
+            this.showToast('No releases published yet', 'info', 4000);
+          } else if (this.versionInfo.updateAvailable) {
             this.showToast(`Update available: ${this.versionInfo.latestVersion}`, 'info', 6000);
           } else {
             this.showToast("You're up to date", 'success', 4000);
@@ -1678,6 +1631,12 @@ new Vue({
           s1:   s.s1   ?? 64,  s2:   s.s2   ?? 67,  s3:   s.s3  ?? 64,  s4: s.s4 ?? 4,
           h1:   s.h1   || '',  h2:   s.h2   || '',  h3:   s.h3  || '',  h4: s.h4 || '',
           i1:   s.i1   || '',  i2:   s.i2   || '',  i3:   s.i3  || '',  i4: s.i4 || '',  i5: s.i5 || '',
+		  headerProtectionKey: s.headerProtectionKey || '',
+		  contentPaddingAddition: s.contentPaddingAddition || '',
+		  rekeyAfterTime: s.rekeyAfterTime || '', rekeyTimeout: s.rekeyTimeout || '',
+		  rejectAfterTime: s.rejectAfterTime || '', keepaliveTimeout: s.keepaliveTimeout || '',
+		  maxHandshakeAttempts: s.maxHandshakeAttempts || '',
+		  randomTrailers: s.randomTrailers, disableCookies: s.disableCookies,
         },
       };
       this.showInterfaceEdit = true;
@@ -1694,12 +1653,23 @@ new Vue({
       if (!templateId) return;
       const tmpl = (this.templates || []).find(t => t.id === templateId);
       if (!tmpl) return;
+	  const version = this.interfaceEdit.protocol === 'amneziawg-3.1' ? '3.1' : '2.0';
+	  if ((tmpl.protocolVersion || '2.0') !== version) {
+		this.showToast(`This template is for AWG ${tmpl.protocolVersion || '2.0'}`, 'error');
+		return;
+	  }
       this.interfaceEdit.settings = {
         jc:   tmpl.jc,   jmin: tmpl.jmin,  jmax: tmpl.jmax,
         s1:   tmpl.s1,   s2:   tmpl.s2,    s3:   tmpl.s3,   s4: tmpl.s4,
         h1:   tmpl.h1,   h2:   tmpl.h2,    h3:   tmpl.h3,   h4: tmpl.h4,
         i1:   tmpl.i1 || '', i2: tmpl.i2 || '', i3: tmpl.i3 || '',
         i4:   tmpl.i4 || '', i5: tmpl.i5 || '',
+		headerProtectionKey: tmpl.headerProtectionKey || '',
+		contentPaddingAddition: tmpl.contentPaddingAddition || '',
+		rekeyAfterTime: tmpl.rekeyAfterTime || '', rekeyTimeout: tmpl.rekeyTimeout || '',
+		rejectAfterTime: tmpl.rejectAfterTime || '', keepaliveTimeout: tmpl.keepaliveTimeout || '',
+		maxHandshakeAttempts: tmpl.maxHandshakeAttempts || '',
+		randomTrailers: tmpl.randomTrailers, disableCookies: tmpl.disableCookies,
       };
     },
 
@@ -1711,9 +1681,9 @@ new Vue({
         this.showToast('Please enter Tunnel Address in CIDR format (e.g. 10.100.0.1/24)', 'error');
         return;
       }
-      if (protocol === 'amneziawg-2.0') {
+	  if (protocol.startsWith('amneziawg-')) {
         if (!settings.h1 || !settings.h2 || !settings.h3 || !settings.h4) {
-          this.showToast('Please set H1-H4 parameters for AWG 2.0 (select a profile or enter manually)', 'error');
+		  this.showToast('Please set H1-H4 parameters for AmneziaWG', 'error');
           return;
         }
       }
@@ -1729,7 +1699,7 @@ new Vue({
         mtu: mtu || 0,
         mss: mss || 0,
       };
-      if (protocol === 'amneziawg-2.0') {
+	  if (protocol.startsWith('amneziawg-')) {
         payload.settings = { ...settings };
       }
 
@@ -1954,6 +1924,7 @@ new Vue({
       try {
         const res = await this.api.getGateways();
         this.gateways = res.gateways || [];
+        this.gatewaysLoaded = true;
       } catch (err) {
         console.error('loadGateways error:', err);
       }
@@ -2246,8 +2217,7 @@ new Vue({
       this.firewallRules = [];
       this.aliases = [];
       this.switchPage('dashboard');
-      // Must reload interfaces explicitly: refreshAllPeers() iterates
-      // tunnelInterfaces, so it returns nothing until they are populated.
+      // Reload interfaces explicitly so navigation can select the new item.
       this.loadTunnelInterfaces();
       this.loadSettings();
     },
@@ -2847,7 +2817,7 @@ new Vue({
         const res = await this.api.call({ method: 'GET', path: '/nat/dnat' });
         this.dnatRules = res.rules || [];
       } catch (e) {
-        this.showToast('error', e.message || 'Failed to load port forwarding rules');
+        this.showToast(e.message || 'Failed to load port forwarding rules', 'error');
       } finally {
         this.dnatLoading = false;
       }
@@ -2911,15 +2881,15 @@ new Vue({
       try {
         if (this.dnatEditMode) {
           await this.api.call({ method: 'PATCH', path: `/nat/dnat/${this.dnatForm.id}`, body });
-          this.showToast('success', 'Rule updated');
+          this.showToast('Rule updated', 'success');
         } else {
           await this.api.call({ method: 'POST', path: '/nat/dnat', body });
-          this.showToast('success', 'Rule created');
+          this.showToast('Rule created', 'success');
         }
         this.showDnatModal = false;
         await this.loadDnatRules();
       } catch (e) {
-        this.showToast('error', e.message || 'Failed to save rule');
+        this.showToast(e.message || 'Failed to save rule', 'error');
       }
     },
 
@@ -2928,7 +2898,7 @@ new Vue({
         await this.api.call({ method: 'PATCH', path: `/nat/dnat/${rule.id}`, body: { enabled: !rule.enabled } });
         await this.loadDnatRules();
       } catch (e) {
-        this.showToast('error', e.message || 'Failed to toggle rule');
+        this.showToast(e.message || 'Failed to toggle rule', 'error');
       }
     },
 
@@ -2936,10 +2906,10 @@ new Vue({
       if (!confirm(`Delete "${rule.name}"?`)) return;
       try {
         await this.api.call({ method: 'DELETE', path: `/nat/dnat/${rule.id}` });
-        this.showToast('success', 'Rule deleted');
+        this.showToast('Rule deleted', 'success');
         await this.loadDnatRules();
       } catch (e) {
-        this.showToast('error', e.message || 'Failed to delete rule');
+        this.showToast(e.message || 'Failed to delete rule', 'error');
       }
     },
 
@@ -3162,6 +3132,24 @@ new Vue({
       const el = document.getElementById('dashboard-grid');
       if (!el) return;
 
+      // Responsive GridStack teardown can leave gs-1 classes and compact DOM
+      // attributes behind. Rehydrate every item from the persisted Vue model
+      // before init so a mobile-first session restores the desktop layout.
+      el.className = 'grid-stack';
+      el.style.cssText = '';
+      for (const widget of this.dashWidgets) {
+        const item = el.querySelector(`[gs-id="${widget.id}"]`);
+        if (!item) continue;
+        item.className = 'grid-stack-item';
+        item.style.cssText = '';
+        item.setAttribute('gs-x', widget.x);
+        item.setAttribute('gs-y', widget.y);
+        item.setAttribute('gs-w', widget.w);
+        item.setAttribute('gs-h', widget.h);
+        const content = item.querySelector('.grid-stack-item-content');
+        if (content) content.style.cssText = '';
+      }
+
       // GridStack auto-adopts existing .grid-stack-item children rendered by Vue v-for.
       // FIX: GridStack fires 'change' synchronously during init() before all items are placed,
       // which would cause dashSaveLayout to overwrite correct positions with wrong ones.
@@ -3169,15 +3157,22 @@ new Vue({
       this._dashSaveEnabled = false;
       const grid = GridStack.init({
         column: 12,
+        columnOpts: {
+          breakpointForWindow: true,
+          breakpoints: [{ w: 1023, c: 1, layout: 'list' }],
+        },
         cellHeight: 60,
         margin: 8,
         animate: true,
         float: true,
+        disableDrag: this.isCompactViewport,
+        disableResize: this.isCompactViewport,
+        draggable: { handle: '.dash-card-header' },
         resizable: { handles: 'se' },
       }, el);
 
       grid.on('change', () => {
-        if (this._dashSaveEnabled) this.dashSaveLayout(grid);
+        if (this._dashSaveEnabled && !this.isCompactViewport) this.dashSaveLayout(grid);
       });
       this.dashGrid = grid;
 
@@ -3264,10 +3259,12 @@ new Vue({
     dashDefaultWidgets() {
       return [
         { id: 'w-server-info',   type: 'server-info',   x: 0, y: 0, w: 4, h: 4 },
-        { id: 'w-peers-summary', type: 'peers-summary',  x: 4, y: 0, w: 4, h: 4 },
-        { id: 'w-gateways',      type: 'gateways',       x: 8, y: 0, w: 4, h: 4 },
+        { id: 'w-gateways',      type: 'gateways',       x: 4, y: 0, w: 4, h: 4 },
+        { id: 'w-output-traffic', type: 'monitoring',     x: 8, y: 0, w: 4, h: 4, graphs: [], title: 'Output Traffic', period: '5m' },
         { id: 'w-interfaces',    type: 'interfaces',     x: 0, y: 4, w: 6, h: 5 },
-        { id: 'w-traffic',       type: 'traffic',        x: 6, y: 4, w: 6, h: 4 },
+        { id: 'w-peers',         type: 'peers',          x: 6, y: 4, w: 6, h: 9 },
+        { id: 'w-peers-summary', type: 'peers-summary',  x: 0, y: 9, w: 3, h: 4 },
+        { id: 'w-traffic',       type: 'traffic',        x: 3, y: 9, w: 3, h: 4 },
       ];
     },
 
@@ -3378,21 +3375,31 @@ new Vue({
     },
 
     async _metricsRefreshHistory() {
-      if (this.metricsConfigWidget) return;
-      const allWidgets = [
-        ...this.dashWidgets.filter(w => w.type === 'monitoring'),
-        ...this.diagWidgets.filter(w => w.type === 'monitoring'),
-      ];
-      for (const w of allWidgets) {
-        const period = this.metricsWidgetPeriod[w.id] || '5m';
-        if (period === '5m') continue;
-        for (const key of (w.graphs || [])) {
-          if (key.startsWith('gateway:')) {
-            await this.metricsLoadGatewayDist(w.id, key, period);
-          } else {
-            await this.metricsLoadHistory(w.id, key, period);
-          }
+      if (this.metricsConfigWidget || document.hidden) return;
+      if (this.metricsHistoryPromise) return this.metricsHistoryPromise;
+      this.metricsHistoryPromise = (async () => {
+        let widgets = [];
+        if (this.activePage === 'dashboard') {
+          widgets = this.dashWidgets.filter(w => w.type === 'monitoring');
+        } else if (this.activePage === 'diagnostics') {
+          widgets = this.diagWidgets.filter(w => w.type === 'monitoring');
         }
+        for (const w of widgets) {
+          const period = this.metricsWidgetPeriod[w.id] || '5m';
+          if (period === '5m') continue;
+          const requests = (w.graphs || []).map(key => {
+            if (key.startsWith('gateway:')) {
+              return this.metricsLoadGatewayDist(w.id, key, period);
+            }
+            return this.metricsLoadHistory(w.id, key, period);
+          });
+          await Promise.all(requests);
+        }
+      })();
+      try {
+        return await this.metricsHistoryPromise;
+      } finally {
+        this.metricsHistoryPromise = null;
       }
     },
 
@@ -3400,6 +3407,7 @@ new Vue({
       if (this.metricsConfigWidget) return;
       try {
         const snap = await this.api.getMetrics();
+        if (snap) snap.frontend = { resourcePollSkipped: this.resourcePollSkipped };
         this.metricsSnapshot = snap;
 
         // Build available keys list; rebuild static keys on first snapshot,
@@ -3418,6 +3426,7 @@ new Vue({
           const gwKeys = [...gwIds].map(id => `gateway:${id}`);
           const withoutGw = this.metricsAvailableKeys.filter(k => !k.startsWith('gateway:'));
           this.metricsAvailableKeys = [...withoutGw, ...gwKeys];
+          this.metricsPruneUnavailableGraphs(snap);
         }
 
         // Append to rolling buffers for realtime (5m) widgets — both dashboard and diagnostics
@@ -3443,6 +3452,50 @@ new Vue({
           }
         }
       } catch (e) { /* non-fatal */ }
+    },
+
+    metricsPruneUnavailableGraphs(snap) {
+      const valid = new Set(['cpu', 'mem']);
+      for (const iface of (snap.interfaces || [])) {
+        valid.add(`net:${iface}:rx`);
+        valid.add(`net:${iface}:tx`);
+      }
+      if (this.gatewaysLoaded) {
+        for (const gateway of this.gateways) valid.add(`gateway:${gateway.id}`);
+      } else {
+        for (const id of Object.keys(snap.gateways || {})) valid.add(`gateway:${id}`);
+      }
+
+      const prunePage = (widgets, page) => {
+        let changed = false;
+        const next = widgets.map(widget => {
+          if (widget.type !== 'monitoring') return widget;
+          const currentGraphs = widget.graphs || [];
+          const graphs = currentGraphs.filter(key => valid.has(key));
+          if (graphs.length === currentGraphs.length) return widget;
+          changed = true;
+          for (const key of currentGraphs.filter(key => !valid.has(key))) {
+            const cacheKey = `${widget.id}:${key}`;
+            this.$delete(this.metricsHistory, cacheKey);
+            this.$delete(this.metricsGatewayDist, cacheKey);
+            this.$delete(this.metricsGatewaySeriesCache, cacheKey);
+            this.$delete(this.metricsAreaSeriesCache, cacheKey);
+            if (this._chartOptionsCache) {
+              const prefix = `${widget.id}:${key}:`;
+              Object.keys(this._chartOptionsCache).forEach(k => {
+                if (k.startsWith(prefix)) delete this._chartOptionsCache[k];
+              });
+            }
+          }
+          return { ...widget, graphs };
+        });
+        if (!changed) return widgets;
+        this.api.putDashboardWidgets(next, page).catch(console.error);
+        return next;
+      };
+
+      this.dashWidgets = prunePage(this.dashWidgets, 'dashboard');
+      this.diagWidgets = prunePage(this.diagWidgets, 'diagnostics');
     },
 
     metricsValueFromSnap(snap, key) {
@@ -3626,15 +3679,7 @@ new Vue({
       if (!this._chartOptionsCache) this._chartOptionsCache = {};
       if (!this._chartOptionsCache[ck]) {
         this._chartOptionsCache[ck] = {
-          chart: { id: widgetId+'_'+key, type:'area', animations:{ enabled:false }, toolbar:{ show:false }, sparkline:{ enabled:false }, background:'transparent',
-            events: {
-              mouseMove: function(event, chartContext) {
-                // ApexCharts sets style.top on each mouseMove — override it to pin tooltip to top.
-                var tt = chartContext.el && chartContext.el.querySelector('.apexcharts-tooltip');
-                if (tt) tt.style.top = '4px';
-              },
-            },
-          },
+          chart: { id: widgetId+'_'+key, type:'area', animations:{ enabled:false }, toolbar:{ show:false }, sparkline:{ enabled:false }, background:'transparent' },
           colors: [color],
           stroke: { curve:'smooth', width:2 },
           markers: { size: 0 },
@@ -3643,7 +3688,7 @@ new Vue({
           xaxis: { type:'datetime', labels:{ show: period !== '5m', datetimeUTC:false, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, axisBorder:{ show:false }, axisTicks:{ show:false }, tooltip:{ enabled:false } },
           yaxis: { labels:{ show:true, minWidth:42, maxWidth:42, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, min:0 },
           grid: { borderColor: this.theme==='dark'?'#404040':'#f0f0f0', padding:{ left:0, right:0, top:0 } },
-          tooltip: { x:{ format:'HH:mm:ss' }, theme: this.theme==='dark'?'dark':'light' },
+          tooltip: { fixed:{ enabled:true, position:'topRight', offsetX:-12, offsetY:8 }, x:{ format:'HH:mm:ss' }, theme: this.theme==='dark'?'dark':'light' },
           theme: { mode: this.theme==='dark'?'dark':'light' },
         };
       }
@@ -3725,6 +3770,8 @@ new Vue({
         this.diagWidgets = [];
       }
       if (seq !== this._diagLoadSeq) return; // superseded by a newer load
+      await this.loadGateways();
+      if (seq !== this._diagLoadSeq) return;
       // Restore persisted periods and pre-load history
       for (const w of this.diagWidgets) {
         if (w.period) this.$set(this.metricsWidgetPeriod, w.id, w.period);
@@ -3749,13 +3796,20 @@ new Vue({
         cellHeight: 60,
         margin: 8,
         column: 12,
+        columnOpts: {
+          breakpointForWindow: true,
+          breakpoints: [{ w: 1023, c: 1, layout: 'list' }],
+        },
         animate: true,
         float: true,
+        disableDrag: this.isCompactViewport,
+        disableResize: this.isCompactViewport,
+        draggable: { handle: '.dash-card-header' },
         resizable: { handles: 'se' },
       }, el);
       // Sync positions back to diagWidgets on change
       this.diagGrid.on('change', () => {
-        if (this._diagSaveEnabled) this.diagSaveLayout();
+        if (this._diagSaveEnabled && !this.isCompactViewport) this.diagSaveLayout();
       });
       this._diagSaveEnabled = false;
       setTimeout(() => { this._diagSaveEnabled = true; }, 500);
@@ -4016,9 +4070,47 @@ new Vue({
     // Returns (or lazily creates) reactive per-widget peers filter state
     dashPeersGetState(widgetId) {
       if (!this.dashPeersState[widgetId]) {
-        this.$set(this.dashPeersState, widgetId, { iface: '', sort: 'name' });
+        const widget = this.dashWidgets.find(w => w.id === widgetId) || {};
+        this.$set(this.dashPeersState, widgetId, {
+          iface: widget.peerFilter || '',
+          sort: widget.peerSort || 'name',
+        });
       }
       return this.dashPeersState[widgetId];
+    },
+
+    async dashSavePeersView(widgetId) {
+      const state = this.dashPeersGetState(widgetId);
+      const idx = this.dashWidgets.findIndex(w => w.id === widgetId);
+      if (idx === -1) return;
+      const updated = {
+        ...this.dashWidgets[idx],
+        peerFilter: state.iface || '',
+        peerSort: state.sort || 'name',
+      };
+      this.dashWidgets.splice(idx, 1, updated);
+      try {
+        await this.api.putDashboardWidgets(this.dashWidgets);
+        this.showToast('Peers view saved', 'success');
+      } catch (err) {
+        this.showToast(`Failed to save peers view: ${err.message}`, 'error');
+      }
+    },
+
+    async dashResetPeersView(widgetId) {
+      this.$set(this.dashPeersState, widgetId, { iface: '', sort: 'name' });
+      const idx = this.dashWidgets.findIndex(w => w.id === widgetId);
+      if (idx === -1) return;
+      const updated = { ...this.dashWidgets[idx] };
+      delete updated.peerFilter;
+      delete updated.peerSort;
+      this.dashWidgets.splice(idx, 1, updated);
+      try {
+        await this.api.putDashboardWidgets(this.dashWidgets);
+        this.showToast('Peers view reset', 'success');
+      } catch (err) {
+        this.showToast(`Failed to reset peers view: ${err.message}`, 'error');
+      }
     },
 
     // Returns filtered + sorted peers for a given widget
@@ -4070,6 +4162,7 @@ new Vue({
     dashProtoLabel(protocol) {
       if (protocol === 'wireguard') return 'WG1.0';
       if (protocol === 'amneziawg-2.0') return 'AWG2.0';
+	  if (protocol === 'amneziawg-3.1') return 'AWG3.1';
       if (protocol === 'amneziawg') return 'AWG';
       return protocol || 'WG';
     },
@@ -4521,10 +4614,19 @@ new Vue({
       }
     },
 
-    async confirmRestoreWithPassword() {
+    cancelRestoreFlow() {
       this.showRestorePasswordModal = false;
-      await this._startRestorePreview(this.restoreFile, this.restorePassword);
+      this.showRestorePreviewModal = false;
+      this.restoreFile = null;
       this.restorePassword = '';
+      this.restorePreview = null;
+      this.restoreIfaceMap = {};
+    },
+
+    async confirmRestoreWithPassword() {
+      if (!this.restorePassword || this.restorePreviewLoading) return;
+      const previewReady = await this._startRestorePreview(this.restoreFile, this.restorePassword);
+      if (previewReady) this.showRestorePasswordModal = false;
     },
 
     // Step 1: preview — upload file, get interface mapping info.
@@ -4542,8 +4644,10 @@ new Vue({
         }
         this.restoreIfaceMap = map;
         this.showRestorePreviewModal = true;
+        return true;
       } catch (err) {
         this.showToast(err.message || 'Preview failed', 'error');
+        return false;
       } finally {
         this.restorePreviewLoading = false;
       }
@@ -4558,6 +4662,7 @@ new Vue({
       const ifaceMap = (this.restorePreview && this.restorePreview.needsRemap) ? this.restoreIfaceMap : null;
       await this._doRestore(file, password, ifaceMap);
       this.restoreFile = null;
+      this.restorePassword = '';
       this.restorePreview = null;
       this.restoreIfaceMap = {};
     },
@@ -5188,7 +5293,76 @@ new Vue({
     /**
      * Refresh peers with transfer stats (called periodically like admin tunnel's refresh()).
      */
-    async refreshPeers({ updateCharts = false } = {}) {
+    startResourcePoller() {
+      if (!this._resourceVisibilityHandler) {
+        this._resourceVisibilityHandler = () => {
+          if (document.hidden) {
+            this.stopResourcePoller();
+            return;
+          }
+          this.startResourcePoller();
+          this.resourcePollTick().catch(console.error);
+        };
+        document.addEventListener('visibilitychange', this._resourceVisibilityHandler);
+      }
+      if (document.hidden || this.resourcePoller) return;
+      this.resourcePoller = setInterval(() => {
+        this.resourcePollTick().catch(console.error);
+      }, 5000);
+    },
+
+    stopResourcePoller() {
+      if (!this.resourcePoller) return;
+      clearInterval(this.resourcePoller);
+      this.resourcePoller = null;
+    },
+
+    async resourcePollTick() {
+      if (!this.authenticated || document.hidden) return;
+      if (this.resourcePollPromise) {
+        this.resourcePollSkipped += 1;
+        return this.resourcePollPromise;
+      }
+      this.resourcePollPromise = (async () => {
+        await this.refresh();
+        if (this.activePage === 'interfaces') {
+          if (this.activeInterfaceId) {
+            await this.refreshPeers({ scheduled: true });
+          } else {
+            await this.refreshAllPeers({ scheduled: true });
+          }
+        } else if (this.activePage === 'gateways') {
+          await this.refreshGateways();
+        } else if (this.activePage === 'dashboard') {
+          await Promise.all([
+            this.refreshGateways(),
+            this.refreshAllPeers({ scheduled: true }),
+          ]);
+        }
+      })();
+      try {
+        return await this.resourcePollPromise;
+      } finally {
+        this.resourcePollPromise = null;
+      }
+    },
+
+    async refreshPeers(options = {}) {
+      if (this.refreshPeersPromise) {
+        this.resourcePollSkipped += 1;
+        if (options.scheduled) return this.refreshPeersPromise;
+        await this.refreshPeersPromise;
+        if (this.refreshPeersPromise) return this.refreshPeersPromise;
+      }
+      this.refreshPeersPromise = this._refreshPeersNow(options);
+      try {
+        return await this.refreshPeersPromise;
+      } finally {
+        this.refreshPeersPromise = null;
+      }
+    },
+
+    async _refreshPeersNow() {
       if (!this.authenticated || !this.activeInterfaceId) return;
 
       try {
@@ -5208,12 +5382,10 @@ new Vue({
             peer.avatar = `https://api.dicebear.com/9.x/${this.avatarSettings.dicebear}/svg?seed=${sha256(peer.name.toLowerCase().trim())}`;
           }
 
-          // Transfer stats persistence (delta calculation for charts)
+          // Transfer stats persistence for current-rate display.
           if (!this.peersPersist[peer.id]) {
             this.peersPersist[peer.id] = {};
-            this.peersPersist[peer.id].transferRxHistory = Array(50).fill(0);
             this.peersPersist[peer.id].transferRxPrevious = peer.transferRx || 0;
-            this.peersPersist[peer.id].transferTxHistory = Array(50).fill(0);
             this.peersPersist[peer.id].transferTxPrevious = peer.transferTx || 0;
           }
 
@@ -5222,22 +5394,6 @@ new Vue({
           pp.transferRxPrevious = peer.transferRx || 0;
           pp.transferTxCurrent = (peer.transferTx || 0) - pp.transferTxPrevious;
           pp.transferTxPrevious = peer.transferTx || 0;
-
-          if (updateCharts) {
-            pp.transferRxHistory.push(pp.transferRxCurrent);
-            pp.transferRxHistory.shift();
-            pp.transferTxHistory.push(pp.transferTxCurrent);
-            pp.transferTxHistory.shift();
-
-            pp.transferTxSeries = [{ name: 'Tx', data: pp.transferTxHistory }];
-            pp.transferRxSeries = [{ name: 'Rx', data: pp.transferRxHistory }];
-
-            peer.transferTxHistory = pp.transferTxHistory;
-            peer.transferRxHistory = pp.transferRxHistory;
-            peer.transferMax = Math.max(...peer.transferTxHistory, ...peer.transferRxHistory);
-            peer.transferTxSeries = pp.transferTxSeries;
-            peer.transferRxSeries = pp.transferRxSeries;
-          }
 
           peer.transferTxCurrent = pp.transferTxCurrent;
           peer.transferRxCurrent = pp.transferRxCurrent;
@@ -5257,64 +5413,59 @@ new Vue({
      * Dashboard mode: load peers from ALL interfaces into this.allPeers.
      * Each peer gets peer.interfaceId and peer.interfaceName set.
      */
-    async refreshAllPeers({ updateCharts = false } = {}) {
-      if (!this.authenticated) return;
-      const all = [];
-      for (const iface of this.tunnelInterfaces) {
-        try {
-          const res = await this.api.getTunnelInterfacePeers({ interfaceId: iface.id });
-          const peers = (res.peers || []).map(peer => {
-            peer.interfaceId   = iface.id;
-            peer.interfaceName = iface.name || iface.id;
-
-            peer.createdAt = peer.createdAt ? new Date(peer.createdAt) : null;
-            peer.updatedAt = peer.updatedAt ? new Date(peer.updatedAt) : null;
-            peer.expiredAt = peer.expiredAt ? new Date(peer.expiredAt) : null;
-            peer.latestHandshakeAt = peer.latestHandshakeAt ? new Date(peer.latestHandshakeAt) : null;
-
-            if (peer.name && this.avatarSettings.dicebear) {
-              peer.avatar = `https://api.dicebear.com/9.x/${this.avatarSettings.dicebear}/svg?seed=${sha256(peer.name.toLowerCase().trim())}`;
-            }
-
-            if (!this.peersPersist[peer.id]) {
-              this.peersPersist[peer.id] = {};
-              this.peersPersist[peer.id].transferRxHistory  = Array(50).fill(0);
-              this.peersPersist[peer.id].transferRxPrevious = peer.transferRx || 0;
-              this.peersPersist[peer.id].transferTxHistory  = Array(50).fill(0);
-              this.peersPersist[peer.id].transferTxPrevious = peer.transferTx || 0;
-            }
-            const pp = this.peersPersist[peer.id];
-            pp.transferRxCurrent = (peer.transferRx || 0) - pp.transferRxPrevious;
-            pp.transferRxPrevious = peer.transferRx || 0;
-            pp.transferTxCurrent = (peer.transferTx || 0) - pp.transferTxPrevious;
-            pp.transferTxPrevious = peer.transferTx || 0;
-
-            if (updateCharts) {
-              pp.transferRxHistory.push(pp.transferRxCurrent);
-              pp.transferRxHistory.shift();
-              pp.transferTxHistory.push(pp.transferTxCurrent);
-              pp.transferTxHistory.shift();
-              pp.transferTxSeries = [{ name: 'Tx', data: pp.transferTxHistory }];
-              pp.transferRxSeries = [{ name: 'Rx', data: pp.transferRxHistory }];
-              peer.transferTxHistory = pp.transferTxHistory;
-              peer.transferRxHistory = pp.transferRxHistory;
-              peer.transferMax       = Math.max(...peer.transferTxHistory, ...peer.transferRxHistory);
-              peer.transferTxSeries  = pp.transferTxSeries;
-              peer.transferRxSeries  = pp.transferRxSeries;
-            }
-            peer.transferTxCurrent = pp.transferTxCurrent;
-            peer.transferRxCurrent = pp.transferRxCurrent;
-            peer.hoverTx = pp.hoverTx;
-            peer.hoverRx = pp.hoverRx;
-
-            return peer;
-          });
-          all.push(...peers);
-        } catch (err) {
-          // skip failed interface silently
-        }
+    async refreshAllPeers(options = {}) {
+      if (this.refreshAllPeersPromise) {
+        this.resourcePollSkipped += 1;
+        if (options.scheduled) return this.refreshAllPeersPromise;
+        await this.refreshAllPeersPromise;
+        if (this.refreshAllPeersPromise) return this.refreshAllPeersPromise;
       }
-      this.allPeers = all;
+      this.refreshAllPeersPromise = this._refreshAllPeersNow(options);
+      try {
+        return await this.refreshAllPeersPromise;
+      } finally {
+        this.refreshAllPeersPromise = null;
+      }
+    },
+
+    async _refreshAllPeersNow() {
+      if (!this.authenticated) return;
+      try {
+        const res = await this.api.getAllTunnelPeers();
+        const all = (res.peers || []).map(peer => {
+          peer.interfaceName = peer.interfaceName || peer.interfaceId;
+
+          peer.createdAt = peer.createdAt ? new Date(peer.createdAt) : null;
+          peer.updatedAt = peer.updatedAt ? new Date(peer.updatedAt) : null;
+          peer.expiredAt = peer.expiredAt ? new Date(peer.expiredAt) : null;
+          peer.latestHandshakeAt = peer.latestHandshakeAt ? new Date(peer.latestHandshakeAt) : null;
+
+          if (peer.name && this.avatarSettings.dicebear) {
+            peer.avatar = `https://api.dicebear.com/9.x/${this.avatarSettings.dicebear}/svg?seed=${sha256(peer.name.toLowerCase().trim())}`;
+          }
+
+          if (!this.peersPersist[peer.id]) {
+            this.peersPersist[peer.id] = {};
+            this.peersPersist[peer.id].transferRxPrevious = peer.transferRx || 0;
+            this.peersPersist[peer.id].transferTxPrevious = peer.transferTx || 0;
+          }
+          const pp = this.peersPersist[peer.id];
+          pp.transferRxCurrent = (peer.transferRx || 0) - pp.transferRxPrevious;
+          pp.transferRxPrevious = peer.transferRx || 0;
+          pp.transferTxCurrent = (peer.transferTx || 0) - pp.transferTxPrevious;
+          pp.transferTxPrevious = peer.transferTx || 0;
+
+          peer.transferTxCurrent = pp.transferTxCurrent;
+          peer.transferRxCurrent = pp.transferRxCurrent;
+          peer.hoverTx = pp.hoverTx;
+          peer.hoverRx = pp.hoverRx;
+
+          return peer;
+        });
+        this.allPeers = all;
+      } catch (err) {
+        console.error('refreshAllPeers failed:', err);
+      }
     },
 
     async backupInterface() {
@@ -5362,7 +5513,7 @@ new Vue({
      * Workflow: this side clicks "Export My Params" → sends file to remote side →
      * remote side clicks "Import JSON" → peer for us is created automatically.
      *
-     * File contains: name, publicKey, endpoint, address, protocol, AWG2 settings.
+	 * File contains endpoint metadata and versioned AmneziaWG settings when applicable.
      * Remote side derives AllowedIPs subnet from our address (10.x.x.1/24 → 10.x.x.0/24).
      */
     async exportMyInterfaceParams(iface) {
@@ -5435,9 +5586,6 @@ new Vue({
     async loadSettings() {
       try {
         this.globalSettings = await this.api.getSettings();
-        if (typeof this.globalSettings.chartType === 'number') {
-          this.uiChartType = this.globalSettings.chartType;
-        }
         if (this.globalSettings.lang && i18n.availableLocales.includes(this.globalSettings.lang)) {
           i18n.locale = this.globalSettings.lang;
           localStorage.setItem('lang', this.globalSettings.lang);
@@ -5458,7 +5606,11 @@ new Vue({
         // Strip runtime-only fields and fields managed by dedicated save handlers.
         // defaultFwPolicy has its own saveDefaultFwPolicy() path — exclude here to
         // avoid triggering an unnecessary firewall RebuildChains on every Settings save.
-        const { hostname, resolvedPublicIP, publicIPWarning, defaultFwPolicy, ...storable } = this.globalSettings;
+		const {
+		  hostname, resolvedPublicIP, publicIPWarning, defaultFwPolicy,
+		  awgEngineVersion, awgToolsVersion, awgMaxProtocol, awg3Supported, awg3SupportError,
+		  ...storable
+		} = this.globalSettings;
         const updated = await this.api.updateSettings(storable);
         // Merge response back (includes fresh resolvedPublicIP / hostname).
         this.globalSettings = { ...this.globalSettings, ...updated };
@@ -5523,10 +5675,15 @@ new Vue({
       this.templateForm = {
         name: '',
         isDefault: false,
+		protocolVersion: '3.1',
         jc: 6, jmin: 10, jmax: 50,
-        s1: 64, s2: 67, s3: 64, s4: 4,
+		s1: 64, s2: 67, s3: 64, s4: 12,
         h1: '', h2: '', h3: '', h4: '',
         i1: '', i2: '', i3: '', i4: '', i5: '',
+		headerProtectionKey: this.generateHeaderProtectionKey(),
+		contentPaddingAddition: '10-100', rekeyAfterTime: '100-120', rekeyTimeout: '3-7',
+		rejectAfterTime: '150-180', keepaliveTimeout: '5-15', maxHandshakeAttempts: '15-20',
+		randomTrailers: true, disableCookies: true,
       };
       this.randomiseTemplateH();
       this.templateEditTarget = null;
@@ -5538,6 +5695,12 @@ new Vue({
       this.templateEditTarget = tmpl;
       this.showTemplateModal = true;
     },
+
+	generateHeaderProtectionKey() {
+	  const bytes = new Uint8Array(32);
+	  crypto.getRandomValues(bytes);
+	  return btoa(String.fromCharCode(...bytes));
+	},
 
     async saveTemplate() {
       try {
@@ -5572,36 +5735,36 @@ new Vue({
       }
     },
 
-    /**
-     * Экспортировать профиль обфускации в JSON файл.
-     * Скачивает файл с AWG2 параметрами шаблона.
-     * Формат: { name, jc, jmin, jmax, s1-s4, h1-h4, i1-i5 }.
-     * Поля meta (id, isDefault, createdAt) не включаются — они специфичны для этого сервера.
-     */
+	/** Export a portable versioned AmneziaWG template as JSON. */
     exportTemplateJSON(tmpl) {
       const params = {
         name: tmpl.name,
+		protocolVersion: tmpl.protocolVersion || '2.0',
         jc: tmpl.jc, jmin: tmpl.jmin, jmax: tmpl.jmax,
         s1: tmpl.s1, s2: tmpl.s2, s3: tmpl.s3, s4: tmpl.s4,
         h1: tmpl.h1, h2: tmpl.h2, h3: tmpl.h3, h4: tmpl.h4,
         i1: tmpl.i1 || null, i2: tmpl.i2 || null, i3: tmpl.i3 || null,
         i4: tmpl.i4 || null, i5: tmpl.i5 || null,
+		headerProtectionKey: tmpl.headerProtectionKey || undefined,
+		contentPaddingAddition: tmpl.contentPaddingAddition || undefined,
+		rekeyAfterTime: tmpl.rekeyAfterTime || undefined,
+		rekeyTimeout: tmpl.rekeyTimeout || undefined,
+		rejectAfterTime: tmpl.rejectAfterTime || undefined,
+		keepaliveTimeout: tmpl.keepaliveTimeout || undefined,
+		maxHandshakeAttempts: tmpl.maxHandshakeAttempts || undefined,
+		randomTrailers: tmpl.randomTrailers,
+		disableCookies: tmpl.disableCookies,
       };
       const blob = new Blob([JSON.stringify(params, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `awg2-profile-${tmpl.name.replace(/[^a-zA-Z0-9_-]/g, '-')}.json`;
+	  a.download = `awg${(tmpl.protocolVersion || '2.0').replace('.', '')}-profile-${tmpl.name.replace(/[^a-zA-Z0-9_-]/g, '-')}.json`;
       a.click();
       URL.revokeObjectURL(url);
     },
 
-    /**
-     * Импортировать профиль обфускации из JSON файла.
-     * Открывает выбор файла → читает JSON → создаёт новый шаблон через API.
-     * Если в JSON нет поля name — запрашивает имя у пользователя.
-     * Формат файла должен содержать AWG2 параметры (jc, jmin, ..., h1-h4).
-     */
+	/** Import a portable AWG 2.0 or AWG 3.1 template JSON file. */
     importTemplateJSON() {
       const input = document.createElement('input');
       input.type = 'file';
@@ -5612,7 +5775,7 @@ new Vue({
         try {
           const text = await file.text();
           const data = JSON.parse(text);
-          // Если имени нет в файле — просим пользователя
+		  // Ask for a name when the exported file did not contain one.
           if (!data.name) {
             const name = prompt('Enter a name for this profile:', file.name.replace(/\.json$/i, ''));
             if (!name) return;
@@ -5627,11 +5790,12 @@ new Vue({
       input.click();
     },
 
-    // ── Generate AWG2 modal ───────────────────────────────────────────────────
+	// ── Generate AmneziaWG modal ───────────────────────────────────────────────
 
     openGenerateModal() {
-      this.generateForm = { profile: 'random', intensity: 'medium', host: '', browser: '', saveName: '' };
+	  this.generateForm = { profile: 'random', intensity: 'medium', host: '', browser: '', saveName: '', protocolVersion: '3.1' };
       this.generatedParams = null;
+      this.savingGeneratedTemplate = false;
       this.showGenerateModal = true;
     },
 
@@ -5643,6 +5807,7 @@ new Vue({
           intensity: this.generateForm.intensity,
           host:      this.generateForm.host || undefined,
           browser:   this.generateForm.browser || undefined,
+		  protocolVersion: this.generateForm.protocolVersion,
         });
         this.generatedParams = res.params;
         if (!this.generateProfiles.length && res.profiles) {
@@ -5656,19 +5821,33 @@ new Vue({
     },
 
     async saveGeneratedTemplate() {
-      if (!this.generatedParams) return;
+      if (!this.generatedParams || this.savingGeneratedTemplate) return;
       const name = this.generateForm.saveName.trim();
       if (!name) {
         this.showToast('Enter a template name before saving', 'error');
         return;
       }
+      this.savingGeneratedTemplate = true;
       try {
-        await this.api.createTemplate({ name, ...this.generatedParams });
+		await this.api.createTemplate({ name, protocolVersion: this.generateForm.protocolVersion, ...this.generatedParams });
         await this.loadSettings();
         this.showGenerateModal = false;
         this.showToast(`Profile "${name}" saved`, 'success');
       } catch (err) {
         this.showToast(`Save failed: ${err.message}`, 'error');
+      } finally {
+        this.savingGeneratedTemplate = false;
+      }
+    },
+
+    async copyPublicIP() {
+      const ip = (this.globalSettings.resolvedPublicIP || '').trim();
+      if (!ip) return;
+      try {
+        await navigator.clipboard.writeText(ip);
+        this.showToast('Public IP copied to clipboard', 'success');
+      } catch (_) {
+        this.showToast('Failed to copy public IP', 'error');
       }
     },
 
@@ -5678,34 +5857,47 @@ new Vue({
       this.templateForm = {
         name: this.generateForm.saveName || '',
         isDefault: false,
+		protocolVersion: this.generateForm.protocolVersion,
         host: this.generateForm.host || '',
         jc: p.jc, jmin: p.jmin, jmax: p.jmax,
         s1: p.s1, s2: p.s2, s3: p.s3, s4: p.s4,
         h1: p.h1, h2: p.h2, h3: p.h3, h4: p.h4,
         i1: p.i1 || '', i2: p.i2 || '', i3: p.i3 || '',
         i4: p.i4 || '', i5: p.i5 || '',
+		headerProtectionKey: p.headerProtectionKey || '',
+		contentPaddingAddition: p.contentPaddingAddition || '',
+		rekeyAfterTime: p.rekeyAfterTime || '', rekeyTimeout: p.rekeyTimeout || '',
+		rejectAfterTime: p.rejectAfterTime || '', keepaliveTimeout: p.keepaliveTimeout || '',
+		maxHandshakeAttempts: p.maxHandshakeAttempts || '',
+		randomTrailers: p.randomTrailers, disableCookies: p.disableCookies,
       };
       this.templateEditTarget = null;
       this.showGenerateModal = false;
       this.showTemplateModal = true;
     },
 
-    /**
-     * Заполнить AWG2 поля формы из выбранного шаблона профиля обфускации.
-     * Вызывается при смене значения в дропдауне "Obfuscation Profile".
-     * Если templateId пустой ("-- Manual entry --") — поля НЕ сбрасываются,
-     * пользователь продолжает вводить вручную.
-     */
+	/** Fill the interface form from a protocol-compatible template. */
     onInterfaceTemplateSelect(templateId) {
-      if (!templateId) return; // manual entry — не трогаем поля
+	  if (!templateId) return;
       const tmpl = (this.templates || []).find(t => t.id === templateId);
       if (!tmpl) return;
+	  const version = this.interfaceCreate.protocol === 'amneziawg-3.1' ? '3.1' : '2.0';
+	  if ((tmpl.protocolVersion || '2.0') !== version) {
+		this.showToast(`This template is for AWG ${tmpl.protocolVersion || '2.0'}`, 'error');
+		return;
+	  }
       this.interfaceCreate.settings = {
         jc: tmpl.jc,    jmin: tmpl.jmin,  jmax: tmpl.jmax,
         s1: tmpl.s1,    s2: tmpl.s2,      s3: tmpl.s3,   s4: tmpl.s4,
         h1: tmpl.h1,    h2: tmpl.h2,      h3: tmpl.h3,   h4: tmpl.h4,
         i1: tmpl.i1 || '', i2: tmpl.i2 || '', i3: tmpl.i3 || '',
         i4: tmpl.i4 || '', i5: tmpl.i5 || '',
+		headerProtectionKey: tmpl.headerProtectionKey || '',
+		contentPaddingAddition: tmpl.contentPaddingAddition || '',
+		rekeyAfterTime: tmpl.rekeyAfterTime || '', rekeyTimeout: tmpl.rekeyTimeout || '',
+		rejectAfterTime: tmpl.rejectAfterTime || '', keepaliveTimeout: tmpl.keepaliveTimeout || '',
+		maxHandshakeAttempts: tmpl.maxHandshakeAttempts || '',
+		randomTrailers: tmpl.randomTrailers, disableCookies: tmpl.disableCookies,
       };
     },
 
@@ -5921,7 +6113,7 @@ new Vue({
     wizardVPNInit() {
       this.wizardVPN = {
         step: 1,
-        protocol: 'wireguard',
+		protocol: 'amneziawg',
         ifaceName: '',
         dns: this.globalSettings.dns || '',
         peerName: 'My Device',
@@ -5953,7 +6145,7 @@ new Vue({
           const res = await this.api.call({
             method: 'post',
             path: '/templates/generate',
-            body: { profile, intensity: 'medium', host: isDomain ? host : '' },
+			body: { profile, intensity: 'medium', host: isDomain ? host : '', protocolVersion: '3.1' },
           });
           awgParams = res.params;
         }
@@ -5963,7 +6155,7 @@ new Vue({
 
         // Create + start interface via quick-create
         const qcBody = {
-          protocol: proto === 'amneziawg' ? 'amneziawg-2.0' : 'wireguard-1.0',
+		  protocol: proto === 'amneziawg' ? 'amneziawg-3.1' : 'wireguard-1.0',
         };
         const trimmedName = (this.wizardVPN.ifaceName || '').trim();
         if (trimmedName) qcBody.name = trimmedName;
@@ -6383,7 +6575,7 @@ new Vue({
       w.addRemoteSkipTLS = false; w.addRemoteLoading = false;
       w.selectedIfaceIds = []; w.createSrcAlias = true; w.srcAliasName = '';
       w.dstType = 'all'; w.dstCountries = []; w.dstASN = ''; w.dstNegate = false; w.dstAliasName = '';
-      w.protocol = 'wireguard'; w.mssClamp = true; w.fallback = 'drop';
+	  w.protocol = 'amneziawg-3.1'; w.mssClamp = true; w.fallback = 'drop';
       w.localIfaceName = ''; w.remoteIfaceName = ''; w.gatewayName = ''; w.fwRuleName = '';
       w.applying = false; w.steps = [];
       w.createdLocalIfaceId = ''; w.createdRemoteIfaceId = '';
@@ -6601,8 +6793,8 @@ new Vue({
       let remoteIfaceId = '';
       try {
         const body = { name: w.remoteIfaceName, address: subnet.remoteAddr, disableRoutes: true, protocol: w.protocol };
-        // Pass AWG2 settings from local interface so remote doesn't need to generate them independently.
-        if (w.protocol === 'amneziawg-2.0' && localSettings) body.settings = localSettings;
+		// Copy the exact shared settings, including the AWG 3.1 header key.
+		if (w.protocol.startsWith('amneziawg-') && localSettings) body.settings = localSettings;
         const res = await this.api.remoteCall({ remoteId: rid, method: 'post', path: '/tunnel-interfaces', body });
         const remoteIface = res.interface || res;
         remoteIfaceId = remoteIface.id || '';
@@ -6808,8 +7000,21 @@ new Vue({
       setTimeout(() => { if (splash.parentNode) splash.parentNode.removeChild(splash); }, 400);
     }
 
-    this.prefersDarkScheme.addListener(this.handlePrefersChange);
+    if (this.prefersDarkScheme.addEventListener) {
+      this.prefersDarkScheme.addEventListener('change', this.handlePrefersChange);
+    } else {
+      this.prefersDarkScheme.addListener(this.handlePrefersChange);
+    }
     this.setTheme(this.uiTheme);
+
+    this.compactMediaQuery = window.matchMedia('(max-width: 1023px)');
+    this.isCompactViewport = this.compactMediaQuery.matches;
+    if (this.compactMediaQuery.addEventListener) {
+      this.compactMediaQuery.addEventListener('change', this.handleCompactViewportChange);
+    } else {
+      this.compactMediaQuery.addListener(this.handleCompactViewportChange);
+    }
+    document.addEventListener('keydown', this.handleGlobalKeydown);
 
     this.api = new API();
 
@@ -6831,9 +7036,11 @@ new Vue({
         this.requiresPassword = session.requiresPassword;
         // First run: no users → show setup modal (non-dismissible)
         if (!session.requiresPassword) this.showFirstRunSetup = true;
-        this.refresh({
-          updateCharts: this.updateCharts,
-        }).catch((err) => {
+        // Do not call protected endpoints while the login screen is visible.
+        // Apart from unnecessary 401 responses, dashboard preload used to turn
+        // a port-forwarding error into a misleading green "error" toast.
+        if (!session.authenticated) return;
+        this.refresh().catch((err) => {
           this.showToast(err.message || err.toString(), 'error');
         });
         // Load tunnel interfaces at startup (default page); then populate dashboard immediately
@@ -6868,30 +7075,7 @@ new Vue({
     this.loadVersionInfo();
     setInterval(() => this.loadVersionInfo(), 24 * 60 * 60 * 1000);
 
-    setInterval(() => {
-      this.refresh({
-        updateCharts: this.updateCharts,
-      }).catch(console.error);
-      if (this.activePage === 'interfaces') {
-        if (this.activeInterfaceId) {
-          this.refreshPeers({
-            updateCharts: this.updateCharts,
-          }).catch(console.error);
-        } else {
-          // Dashboard mode: refresh all interfaces' peers
-          this.refreshAllPeers({
-            updateCharts: this.updateCharts,
-          }).catch(console.error);
-        }
-      }
-      if (this.activePage === 'gateways') {
-        this.refreshGateways().catch(console.error);
-      }
-      if (this.activePage === 'dashboard') {
-        this.refreshGateways().catch(console.error);
-        this.refreshAllPeers().catch(console.error);
-      }
-    }, 1000);
+    this.startResourcePoller();
 
     // System info polling every 30s (dashboard only)
     setInterval(() => {
@@ -6907,8 +7091,6 @@ new Vue({
       .catch(() => {
         this.uiTrafficStats = false;
       });
-
-    // uiChartType is now loaded via loadSettings() from globalSettings.chartType
 
     this.api.getWGEnableOneTimeLinks()
       .then((res) => {
@@ -6952,26 +7134,35 @@ new Vue({
         i18n.locale = lang;
       }
 
-      const currentRelease = await this.api.getRelease();
-      const latestRelease = await fetch('https://wg-easy.github.io/wg-easy/changelog.json')
-        .then((res) => res.json())
-        .then((releases) => {
-          const releasesArray = Object.entries(releases).map(([version, changelog]) => ({
-            version: parseInt(version, 10),
-            changelog,
-          }));
-          releasesArray.sort((a, b) => {
-            return b.version - a.version;
-          });
-
-          return releasesArray[0];
-        });
-
-      if (currentRelease >= latestRelease.version) return;
-
-      this.currentRelease = currentRelease;
-      this.latestRelease = latestRelease;
     }).catch((err) => console.error(err));
+  },
+  beforeDestroy() {
+    this.stopResourcePoller();
+    this.metricsStopPoller();
+    if (this.prefersDarkScheme) {
+      if (this.prefersDarkScheme.removeEventListener) {
+        this.prefersDarkScheme.removeEventListener('change', this.handlePrefersChange);
+      } else {
+        this.prefersDarkScheme.removeListener(this.handlePrefersChange);
+      }
+    }
+    if (this._resourceVisibilityHandler) {
+      document.removeEventListener('visibilitychange', this._resourceVisibilityHandler);
+      this._resourceVisibilityHandler = null;
+    }
+    if (this._metricsVisibilityHandler) {
+      document.removeEventListener('visibilitychange', this._metricsVisibilityHandler);
+      this._metricsVisibilityHandler = null;
+    }
+    document.removeEventListener('keydown', this.handleGlobalKeydown);
+    if (this.compactMediaQuery) {
+      if (this.compactMediaQuery.removeEventListener) {
+        this.compactMediaQuery.removeEventListener('change', this.handleCompactViewportChange);
+      } else {
+        this.compactMediaQuery.removeListener(this.handleCompactViewportChange);
+      }
+      this.compactMediaQuery = null;
+    }
   },
   watch: {
     // Update browser tab title whenever router name or hostname changes.
@@ -6991,12 +7182,12 @@ new Vue({
     activeInterfaceId(newId) {
       if (newId) {
         this.selectedInterface = this.currentInterface;
-        this.refreshPeers({ updateCharts: false });
+        this.refreshPeers();
       } else {
         this.selectedInterface = null;
         this.selectedInterfacePeers = [];
         // Switch to dashboard — immediately load all peers
-        this.refreshAllPeers({ updateCharts: false });
+        this.refreshAllPeers();
       }
     },
   },
@@ -7004,6 +7195,11 @@ new Vue({
     // Browser tab title: routerName if set, otherwise hostname, otherwise 'Cascade'.
     pageTitle() {
       return this.globalSettings.routerName || this.globalSettings.hostname || 'Cascade';
+    },
+
+    activePageLabel() {
+      const page = this.sidebarMenu.find(item => item.id === this.activePage);
+      return page ? page.label : 'Cascade';
     },
 
     // The currently active remote record, or null if we're on the local server.
@@ -7033,27 +7229,6 @@ new Vue({
     currentInterface() {
       if (!this.activeInterfaceId) return null;
       return this.tunnelInterfaces.find(i => i.id === this.activeInterfaceId) || null;
-    },
-    chartOptionsTX() {
-      const opts = {
-        ...this.chartOptions,
-        colors: [CHART_COLORS.tx[this.theme]],
-      };
-      opts.chart.type = UI_CHART_TYPES[this.uiChartType].type || false;
-      opts.stroke.width = UI_CHART_TYPES[this.uiChartType].strokeWidth;
-      return opts;
-    },
-    chartOptionsRX() {
-      const opts = {
-        ...this.chartOptions,
-        colors: [CHART_COLORS.rx[this.theme]],
-      };
-      opts.chart.type = UI_CHART_TYPES[this.uiChartType].type || false;
-      opts.stroke.width = UI_CHART_TYPES[this.uiChartType].strokeWidth;
-      return opts;
-    },
-    updateCharts() {
-      return this.uiChartType > 0 && this.uiShowCharts;
     },
     theme() {
       if (this.uiTheme === 'auto') {

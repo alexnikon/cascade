@@ -24,7 +24,7 @@ import (
 	totpLib "github.com/pquerna/otp/totp"
 	"rsc.io/qr"
 
-	"github.com/JohnnyVBut/cascade/internal/users"
+	"github.com/alexnikon/cascade/internal/users"
 )
 
 // issuerName is displayed in authenticator apps (e.g. "WireSteer (admin)").

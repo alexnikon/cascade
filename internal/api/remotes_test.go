@@ -21,9 +21,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/tokens"
-	"github.com/JohnnyVBut/cascade/internal/users"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/tokens"
+	"github.com/alexnikon/cascade/internal/users"
 )
 
 // ── Harness ───────────────────────────────────────────────────────────────────

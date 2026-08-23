@@ -1,8 +1,9 @@
 // Package db manages the SQLite database lifecycle.
 //
 // Two files:
-//   <dataDir>/cascade.db — config, users, peers, rules (included in backups)
-//   <dataDir>/metrics.db — metrics_history only (large, exclude from backups)
+//
+//	<dataDir>/cascade.db — config, users, peers, rules (included in backups)
+//	<dataDir>/metrics.db — metrics_history only (large, exclude from backups)
 //
 // Design decisions:
 //   - modernc.org/sqlite: pure Go, no CGO → static binary (CGO_ENABLED=0)
@@ -70,10 +71,10 @@ func Init(dataDir string) error {
 
 	// Performance and safety pragmas.
 	pragmas := []string{
-		`PRAGMA journal_mode=WAL`,      // concurrent reads, faster writes
-		`PRAGMA foreign_keys=ON`,       // enforce FK constraints
-		`PRAGMA busy_timeout=5000`,     // wait up to 5s on lock instead of SQLITE_BUSY
-		`PRAGMA synchronous=NORMAL`,    // safe with WAL, faster than FULL
+		`PRAGMA journal_mode=WAL`,   // concurrent reads, faster writes
+		`PRAGMA foreign_keys=ON`,    // enforce FK constraints
+		`PRAGMA busy_timeout=5000`,  // wait up to 5s on lock instead of SQLITE_BUSY
+		`PRAGMA synchronous=NORMAL`, // safe with WAL, faster than FULL
 	}
 	for _, p := range pragmas {
 		if _, err := db.Exec(p); err != nil {
@@ -800,6 +801,32 @@ ALTER TABLE peers ADD COLUMN latest_handshake_at TEXT NOT NULL DEFAULT '';
 		version: 40,
 		sql: `
 ALTER TABLE interfaces ADD COLUMN dns TEXT NOT NULL DEFAULT '';
+`,
+	},
+	{
+		version: 41,
+		sql: `
+-- AWG 3.1 metadata and transport parameters. Existing rows remain AWG 2.0.
+ALTER TABLE templates ADD COLUMN protocol_version TEXT NOT NULL DEFAULT '2.0';
+ALTER TABLE templates ADD COLUMN header_protection_key TEXT;
+ALTER TABLE templates ADD COLUMN content_padding_addition TEXT;
+ALTER TABLE templates ADD COLUMN rekey_after_time TEXT;
+ALTER TABLE templates ADD COLUMN rekey_timeout TEXT;
+ALTER TABLE templates ADD COLUMN reject_after_time TEXT;
+ALTER TABLE templates ADD COLUMN keepalive_timeout TEXT;
+ALTER TABLE templates ADD COLUMN max_handshake_attempts TEXT;
+ALTER TABLE templates ADD COLUMN random_trailers INTEGER;
+ALTER TABLE templates ADD COLUMN disable_cookies INTEGER;
+
+ALTER TABLE interfaces ADD COLUMN header_protection_key TEXT;
+ALTER TABLE interfaces ADD COLUMN content_padding_addition TEXT;
+ALTER TABLE interfaces ADD COLUMN rekey_after_time TEXT;
+ALTER TABLE interfaces ADD COLUMN rekey_timeout TEXT;
+ALTER TABLE interfaces ADD COLUMN reject_after_time TEXT;
+ALTER TABLE interfaces ADD COLUMN keepalive_timeout TEXT;
+ALTER TABLE interfaces ADD COLUMN max_handshake_attempts TEXT;
+ALTER TABLE interfaces ADD COLUMN random_trailers INTEGER;
+ALTER TABLE interfaces ADD COLUMN disable_cookies INTEGER;
 `,
 	},
 }

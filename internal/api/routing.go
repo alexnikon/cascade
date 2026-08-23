@@ -17,9 +17,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/firewall"
-	"github.com/JohnnyVBut/cascade/internal/routing"
-	"github.com/JohnnyVBut/cascade/internal/validate"
+	"github.com/alexnikon/cascade/internal/firewall"
+	"github.com/alexnikon/cascade/internal/routing"
+	"github.com/alexnikon/cascade/internal/validate"
 )
 
 // RegisterRouting registers all /api/routing/* routes.

@@ -1,4 +1,4 @@
-// Package awgparams generates AWG 2.0 obfuscation parameters.
+// Package awgparams generates version-aware AmneziaWG transport parameters.
 // Direct port of AwgParamGenerator.js (JohnnyVBut/AmneziaWG-Architect).
 // Browser Fingerprint (BFP) ported from Vadim-Khristenko/AmneziaWG-Architect.
 //
@@ -38,7 +38,7 @@ type Options struct {
 	Jc        int    // base Jc value 0-10 (default: 6)
 }
 
-// Params is the complete set of AWG 2.0 obfuscation parameters.
+// Params is the shared AWG 2.0/3.1 obfuscation parameter set.
 type Params struct {
 	Jc      int    `json:"jc"`
 	Jmin    int    `json:"jmin"`
@@ -254,13 +254,13 @@ func Generate(opts Options) Params {
 	}
 	boost := opts.IterCount * 5
 
-	// H1-H4 — диапазоны в 4 непересекающихся зонах uint32 (как в AwgParamGenerator.js)
+	// H1-H4 occupy four non-overlapping zones of the uint32 space.
 	h1 := rRange(100_000_000)
 	h2 := rRange(1_200_000_000)
 	h3 := rRange(2_400_000_000)
 	h4 := rRange(3_600_000_000)
 
-	// S1-S4 — размеры пакетов
+	// S1-S4 are special packet sizes.
 	s1 := min(64, rnd(15, 32)+boost)
 	s2 := min(64, rnd(15, 32)+boost)
 	if s2 == s1+56 { // критичное ограничение: S1+56 ≠ S2
@@ -269,7 +269,7 @@ func Generate(opts Options) Params {
 	s3 := min(64, rnd(8, 24)+boost)
 	s4 := min(32, rnd(6, 18)+boost)
 
-	// Jc / Jmin / Jmax
+	// Junk packet count and size range.
 	jcExtra := 0
 	if opts.Intensity == "high" {
 		jcExtra = 2

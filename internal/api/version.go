@@ -3,7 +3,7 @@ package api
 import (
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/version"
+	"github.com/alexnikon/cascade/internal/version"
 )
 
 // RegisterVersion registers the unauthenticated GET /api/version endpoint.
@@ -28,8 +28,9 @@ func forceVersionCheck(c *fiber.Ctx) error {
 //	{
 //	  "version":         "v1.2.3",   // current running version ("dev" if built without ldflags)
 //	  "gitCommit":       "abc1234",
-//	  "latestVersion":   "v1.3.0",   // from GitHub Releases API (empty until first check)
-//	  "releaseURL":      "https://github.com/...",
+//	  "latestVersion":   "v1.3.0",   // from the latest GitHub release
+//	  "releaseURL":      "https://releases.example/...",
+//	  "changelog":       "Optional release summary",
 //	  "updateAvailable": true,
 //	  "checkedAt":       "2026-03-28T12:00:00Z",
 //	  "error":           ""          // non-empty if last check failed
@@ -41,6 +42,7 @@ func getVersion(c *fiber.Ctx) error {
 		"gitCommit":       version.GitCommit,
 		"latestVersion":   s.LatestVersion,
 		"releaseURL":      s.ReleaseURL,
+		"changelog":       s.Changelog,
 		"updateAvailable": s.UpdateAvailable,
 		"checkedAt":       s.CheckedAt,
 		"error":           s.Error,

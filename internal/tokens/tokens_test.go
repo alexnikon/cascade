@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/users"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/users"
 )
 
 func initTestDB(t *testing.T) {

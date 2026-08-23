@@ -1,33 +1,32 @@
 services:
   cascade:
-    # Pre-built image from GitHub Actions CI (pushed on every merge to master).
-    # To use a locally-built image instead, run ./build.sh and set image: cascade:latest
-    image: ghcr.io/johnnyvbut/cascade:latest
+    # To update Cascade, change this exact release tag, then run:
+    # docker compose pull && docker compose up -d
+    image: ghcr.io/alexnikon/cascade:0.9.5
     container_name: cascade
     restart: unless-stopped
 
-    # Load deploy config from deploy/.env (setup.sh writes here).
+    # Load deploy config from .env (setup.sh writes here).
     # Variables defined here override the defaults in environment: below.
     env_file:
-      - path: deploy/.env
+      - path: .env
         required: false   # OK if file doesn't exist (first run without setup.sh)
 
-    # All runtime config comes from deploy/.env (written by setup.sh / switch-mode.sh).
-    # Do NOT add WG_HOST, PORT, BIND_ADDR, PASSWORD_HASH here — they live in deploy/.env
-    # so that git pull never conflicts with local changes.
+    # All runtime config comes from .env (written by setup.sh / switch-mode.sh).
+    # Do NOT add WG_HOST, PORT, BIND_ADDR, PASSWORD_HASH here — they live in .env
+    # so that deployment bundle updates never conflict with local changes.
     environment:
       # Default WireGuard/AWG listen port (UDP) — used when creating interfaces.
-      # Override in deploy/.env if needed.
+      # Override in .env if needed.
       - WG_PORT=51820
 
       # Debug logging — set to false in production
       - DEBUG=false
 
       # ================================================================
-      # NOTE: AWG2 obfuscation parameters (JC, JMIN, JMAX, S1-S4,
-      # H1-H4, I1-I5) are now managed via the Web UI Settings page
-      # and stored in /etc/wireguard/data/settings.json.
-      # ENV vars are no longer used for AWG2 params.
+      # NOTE: Versioned AmneziaWG parameters, including AWG 3.1 fields,
+      # are managed in the Web UI and stored in the Cascade database.
+      # Environment variables are not used for per-interface AWG parameters.
       # ================================================================
 
     volumes:

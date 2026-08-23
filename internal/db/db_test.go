@@ -109,6 +109,35 @@ func TestOpen_MigrationVersionIsLatest(t *testing.T) {
 	}
 }
 
+func TestMigrationV41PreservesLegacyRowsAndAddsNullableAWG3Fields(t *testing.T) {
+	dir := t.TempDir()
+	if err := Init(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(Close)
+	d := DB()
+	if _, err := d.Exec(`INSERT INTO templates (id,name,jc,jmin,jmax,s1,s2,s3,s4,h1,h2,h3,h4) VALUES ('legacy','Legacy',6,10,50,64,67,64,4,'1-2','3-4','5-6','7-8')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Exec(`INSERT INTO interfaces (id,name,address,listen_port,protocol,private_key,public_key,jc,jmin,jmax,s1,s2,s3,s4) VALUES ('wg10','Legacy','10.8.0.1/24',51820,'amneziawg-2.0','private','public',6,10,50,64,67,64,4)`); err != nil {
+		t.Fatal(err)
+	}
+	var version string
+	var templateKey, interfaceKey any
+	if err := d.QueryRow(`SELECT protocol_version, header_protection_key FROM templates WHERE id='legacy'`).Scan(&version, &templateKey); err != nil {
+		t.Fatal(err)
+	}
+	if version != "2.0" || templateKey != nil {
+		t.Fatalf("legacy template changed: version=%q key=%v", version, templateKey)
+	}
+	if err := d.QueryRow(`SELECT header_protection_key FROM interfaces WHERE id='wg10'`).Scan(&interfaceKey); err != nil {
+		t.Fatal(err)
+	}
+	if interfaceKey != nil {
+		t.Fatalf("legacy interface gained AWG3 data: %v", interfaceKey)
+	}
+}
+
 // ── Idempotency: Init twice (same dir) ────────────────────────────────────────
 
 func TestOpen_IdempotentMigrations(t *testing.T) {

@@ -45,6 +45,73 @@ func TestParseWGConf_Valid(t *testing.T) {
 	}
 }
 
+func TestParseWGConfDetectsAWG31AndPreservesSharedKey(t *testing.T) {
+	conf := `[Interface]
+PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+Address = 10.8.0.1/24
+Jc = 6
+Jmin = 10
+Jmax = 50
+S1 = 64
+S2 = 67
+S3 = 64
+S4 = 12
+H1 = 1-2
+H2 = 3-4
+H3 = 5-6
+H4 = 7-8
+HeaderProtectionKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+ContentPaddingAddition = 10-100
+RekeyAfterTime = 100-120
+RekeyTimeout = 3-7
+RejectAfterTime = 150-180
+KeepaliveTimeout = 5-15
+MaxHandshakeAttempts = 15-20
+RandomTrailers = true
+DisableCookies = true
+`
+	parsed, err := ParseWGConf(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Protocol != "amneziawg-3.1" {
+		t.Fatalf("protocol=%q", parsed.Protocol)
+	}
+	if parsed.AWG2.HeaderProtectionKey != "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" {
+		t.Fatalf("header key changed: %q", parsed.AWG2.HeaderProtectionKey)
+	}
+	if parsed.AWG2.RandomTrailers == nil || !*parsed.AWG2.RandomTrailers {
+		t.Fatal("RandomTrailers was not parsed")
+	}
+}
+
+func TestParseWGConfAcceptsAWGBooleanForms(t *testing.T) {
+	tests := map[string]bool{
+		"on": true, "off": false,
+		"1": true, "0": false,
+		"true": true, "false": false,
+	}
+	for value, want := range tests {
+		t.Run(value, func(t *testing.T) {
+			conf := "[Interface]\nPrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\nAddress = 10.8.0.1/24\n" +
+				"RandomTrailers = " + value + "\nDisableCookies = " + value + "\n"
+			parsed, err := ParseWGConf(conf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if parsed.Protocol != "amneziawg-3.1" {
+				t.Fatalf("protocol = %q, want amneziawg-3.1", parsed.Protocol)
+			}
+			if parsed.AWG2.RandomTrailers == nil || *parsed.AWG2.RandomTrailers != want {
+				t.Fatalf("RandomTrailers = %v, want %t", parsed.AWG2.RandomTrailers, want)
+			}
+			if parsed.AWG2.DisableCookies == nil || *parsed.AWG2.DisableCookies != want {
+				t.Fatalf("DisableCookies = %v, want %t", parsed.AWG2.DisableCookies, want)
+			}
+		})
+	}
+}
+
 func TestParseWGConf_WindowsLineEndings(t *testing.T) {
 	crlf := strings.ReplaceAll(validConf, "\n", "\r\n")
 	c, err := ParseWGConf(crlf)

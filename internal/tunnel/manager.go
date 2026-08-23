@@ -7,8 +7,8 @@
 //  3. Caller (main.go) then invokes routing.RestoreAll() and nat.Init()
 //     so that routes/NAT rules are applied after the interfaces exist in the kernel.
 //
-// Status polling: a background goroutine calls TunnelInterface.GetStatus() every second
-// on all enabled interfaces (updates runtime fields: TransferRx/Tx, handshake, endpoint).
+// Status polling: a background goroutine calls TunnelInterface.GetStatus() at a
+// configurable interval (three seconds by default) on all enabled interfaces.
 // The goroutine is stopped by calling Manager.Stop() on graceful shutdown.
 package tunnel
 
@@ -16,16 +16,24 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/JohnnyVBut/cascade/internal/awgparams"
-	"github.com/JohnnyVBut/cascade/internal/peer"
-	"github.com/JohnnyVBut/cascade/internal/settings"
-	"github.com/JohnnyVBut/cascade/internal/tc"
-	"github.com/JohnnyVBut/cascade/internal/validate"
+	"github.com/alexnikon/cascade/internal/awgcap"
+	"github.com/alexnikon/cascade/internal/awgparams"
+	"github.com/alexnikon/cascade/internal/metrics"
+	"github.com/alexnikon/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/settings"
+	"github.com/alexnikon/cascade/internal/tc"
+	"github.com/alexnikon/cascade/internal/validate"
+)
+
+const (
+	defaultStatusPollInterval = 3 * time.Second
+	trafficFlushInterval      = 60 * time.Second
 )
 
 // Manager manages the collection of all TunnelInterface instances.
@@ -37,17 +45,19 @@ type Manager struct {
 	doneCh chan struct{} // closed by the polling goroutine after final flush completes
 
 	WGHost string // WG_HOST value — used in ExportInterfaceParams calls
+
+	statusPollInterval time.Duration
 }
 
 // CreateInput is the payload for Manager.CreateInterface.
 type CreateInput struct {
 	Name          string
-	Protocol      string             // default: "wireguard-1.0"
-	Address       string             // CIDR e.g. "10.8.0.1/24"
-	ListenPort    int                // 0 = auto-assign; if PortPool is also set, pool takes priority
-	PortPool      string             // when non-empty and ListenPort==0: select port from pool under lock
+	Protocol      string // default: "wireguard-1.0"
+	Address       string // CIDR e.g. "10.8.0.1/24"
+	ListenPort    int    // 0 = auto-assign; if PortPool is also set, pool takes priority
+	PortPool      string // when non-empty and ListenPort==0: select port from pool under lock
 	DisableRoutes bool
-	AWG2          *peer.AWG2Settings // required for amneziawg-2.0
+	AWG2          *peer.AWG2Settings // required for AmneziaWG protocols
 	DNS           string             // per-interface DNS override; empty = use global
 }
 
@@ -73,10 +83,11 @@ var (
 func Init(wgHost string) (*Manager, error) {
 	managerOnce.Do(func() {
 		m := &Manager{
-			interfaces: make(map[string]*TunnelInterface),
-			stopCh:     make(chan struct{}),
-			doneCh:     make(chan struct{}),
-			WGHost:     wgHost,
+			interfaces:         make(map[string]*TunnelInterface),
+			stopCh:             make(chan struct{}),
+			doneCh:             make(chan struct{}),
+			WGHost:             wgHost,
+			statusPollInterval: statusPollIntervalFromEnv(),
 		}
 		managerErr = m.load()
 		if managerErr == nil {
@@ -85,6 +96,19 @@ func Init(wgHost string) (*Manager, error) {
 		}
 	})
 	return managerInst, managerErr
+}
+
+func statusPollIntervalFromEnv() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("STATUS_POLL_INTERVAL"))
+	if raw == "" {
+		return defaultStatusPollInterval
+	}
+	interval, err := time.ParseDuration(raw)
+	if err != nil || interval < time.Second || interval > time.Minute {
+		log.Printf("tunnel: invalid STATUS_POLL_INTERVAL=%q; using %s", raw, defaultStatusPollInterval)
+		return defaultStatusPollInterval
+	}
+	return interval
 }
 
 // Get returns the singleton Manager. Returns nil before Init() has been called.
@@ -139,25 +163,36 @@ func (m *Manager) load() error {
 }
 
 // startPolling launches a goroutine that:
-//   - calls GetStatus on every enabled interface once per second (runtime stats)
+//   - calls GetStatus on every enabled interface at the configured interval
 //   - flushes dirty traffic totals to SQLite every 60 s (persistence)
 //   - performs a final flush on shutdown before returning
 //
 // Stops when Stop() is called (closes stopCh).
 func (m *Manager) startPolling() {
 	go func() {
-		ticker := time.NewTicker(time.Second)
-		flushTicker := time.NewTicker(60 * time.Second)
+		interval := m.statusPollInterval
+		if interval <= 0 {
+			interval = defaultStatusPollInterval
+		}
+		ticker := time.NewTicker(interval)
+		flushTicker := time.NewTicker(trafficFlushInterval)
 		defer ticker.Stop()
 		defer flushTicker.Stop()
 		for {
 			select {
 			case <-ticker.C:
 				m.mu.RLock()
+				interfaceCount := 0
+				peerCount := 0
 				for _, t := range m.interfaces {
 					t.GetStatus() // updates runtime peer fields; no-op when !t.Enabled
+					if t.Enabled {
+						interfaceCount++
+						peerCount += t.PeerCount()
+					}
 				}
 				m.mu.RUnlock()
+				metrics.RecordStatusSnapshot(interfaceCount, peerCount)
 			case <-flushTicker.C:
 				// Periodic flush: max data loss on crash = 60 s of traffic.
 				m.mu.RLock()
@@ -189,15 +224,26 @@ func (m *Manager) startPolling() {
 // If inp.Name is empty it defaults to the assigned interface ID.
 func (m *Manager) CreateInterface(inp CreateInput) (*TunnelInterface, error) {
 	if inp.Protocol == "" {
-		inp.Protocol = "wireguard-1.0"
+		inp.Protocol = awgparams.ProtocolAWG3
 	}
-	if inp.Protocol == "amneziawg-2.0" && inp.AWG2 == nil {
-		return nil, fmt.Errorf("AWG2 settings are required for amneziawg-2.0 protocol")
+	if isAWGProtocol(inp.Protocol) && inp.AWG2 == nil {
+		return nil, fmt.Errorf("AmneziaWG settings are required for %s protocol", inp.Protocol)
+	}
+	if inp.Protocol == awgparams.ProtocolAWG3 {
+		capability := awgcap.Detect()
+		if !capability.AWG3Supported {
+			return nil, fmt.Errorf("AWG 3.1 runtime is unavailable: %s", capability.SupportError)
+		}
+	}
+	if isAWGProtocol(inp.Protocol) {
+		if err := awgparams.Validate(inp.Protocol, inp.AWG2); err != nil {
+			return nil, err
+		}
 	}
 
 	// Key generation uses the protocol-specific binary (wg vs awg).
 	syncBin := "wg"
-	if inp.Protocol == "amneziawg-2.0" {
+	if isAWGProtocol(inp.Protocol) {
 		syncBin = "awg"
 	}
 	keys, err := peer.GenerateKeys(syncBin)
@@ -268,7 +314,7 @@ func (m *Manager) CreateInterface(inp CreateInput) (*TunnelInterface, error) {
 // Returns QuickCreateResult with StartError set (non-nil) if creation succeeded but start failed.
 func (m *Manager) QuickCreate(name, protocol string) (*QuickCreateResult, error) {
 	if protocol == "" {
-		protocol = "wireguard-1.0"
+		protocol = awgparams.ProtocolAWG3
 	}
 
 	gs, err := settings.GetSettings()
@@ -285,12 +331,12 @@ func (m *Manager) QuickCreate(name, protocol string) (*QuickCreateResult, error)
 		return nil, fmt.Errorf("no available subnet in pool %q: %w", gs.SubnetPool, err)
 	}
 
-	// Build AWG2 params before acquiring the lock (may hit the DB / generator).
+	// Build AmneziaWG params before acquiring the lock.
 	var awg2 *peer.AWG2Settings
-	if protocol == "amneziawg-2.0" {
-		awg2, err = m.buildAWG2Params()
+	if isAWGProtocol(protocol) {
+		awg2, err = m.buildAWGParams(protocol)
 		if err != nil {
-			return nil, fmt.Errorf("build AWG2 params: %w", err)
+			return nil, fmt.Errorf("build AmneziaWG params: %w", err)
 		}
 	}
 
@@ -320,10 +366,10 @@ func (m *Manager) QuickCreate(name, protocol string) (*QuickCreateResult, error)
 
 // ImportConfResult is returned by Manager.ImportConf.
 type ImportConfResult struct {
-	Interface       *TunnelInterface
-	Peer            *peer.Peer
-	Started         bool
-	StartError      error
+	Interface  *TunnelInterface
+	Peer       *peer.Peer
+	Started    bool
+	StartError error
 	// ConflictWarning is set when the imported address subnet overlaps with
 	// an existing interface (the address was converted to /32 to avoid conflicts).
 	ConflictWarning string
@@ -375,7 +421,7 @@ func (m *Manager) ImportConf(name, confContent string) (*ImportConfResult, error
 
 	// Derive public key from private key using the appropriate binary.
 	syncBin := "wg"
-	if parsed.Protocol == "amneziawg-2.0" {
+	if isAWGProtocol(parsed.Protocol) {
 		syncBin = "awg"
 	}
 	keys, err := peer.DerivePublicKey(syncBin, parsed.PrivateKey)
@@ -485,7 +531,7 @@ func (m *Manager) ImportConfAsServer(name, confContent string) (*ImportConfAsSer
 
 	// Override auto-generated key pair with keys from the .conf file.
 	syncBin := "wg"
-	if parsed.Protocol == "amneziawg-2.0" {
+	if isAWGProtocol(parsed.Protocol) {
 		syncBin = "awg"
 	}
 	keys, err := peer.DerivePublicKey(syncBin, parsed.PrivateKey)
@@ -689,6 +735,15 @@ func (m *Manager) ReloadPeerFromDB(interfaceID, peerID string) (*peer.Peer, erro
 	return t.ReloadPeerFromDB(peerID)
 }
 
+// ConsumePeerOneTimeLink atomically clears a peer's one-time token.
+func (m *Manager) ConsumePeerOneTimeLink(interfaceID, peerID, token string) (bool, error) {
+	t := m.GetInterface(interfaceID)
+	if t == nil {
+		return false, fmt.Errorf("interface %q not found", interfaceID)
+	}
+	return t.ConsumePeerOneTimeLink(peerID, token)
+}
+
 // RemovePeer removes the peer from the given interface.
 func (m *Manager) RemovePeer(interfaceID, peerID string) error {
 	t := m.GetInterface(interfaceID)
@@ -750,7 +805,18 @@ func (m *Manager) GetPeerRemoteConfig(interfaceID, peerID string) (string, error
 	if p == nil {
 		return "", fmt.Errorf("peer %q not found in interface %q", peerID, interfaceID)
 	}
+	return m.BuildPeerRemoteConfig(t, p)
+}
 
+// BuildPeerRemoteConfig generates a downloadable config from an authoritative
+// interface and peer pair without looking either object up in the cache again.
+func (m *Manager) BuildPeerRemoteConfig(t *TunnelInterface, p *peer.Peer) (string, error) {
+	if t == nil {
+		return "", fmt.Errorf("interface is required")
+	}
+	if p == nil {
+		return "", fmt.Errorf("peer is required")
+	}
 	gs, err := settings.GetSettings()
 	if err != nil {
 		return "", fmt.Errorf("get settings: %w", err)
@@ -770,13 +836,13 @@ func (m *Manager) GetPeerRemoteConfig(interfaceID, peerID string) (string, error
 	}
 
 	ifaceData := peer.InterfaceData{
-		ID:                      t.ID,
-		Name:                    t.Name,
-		Protocol:                t.Protocol,
-		PublicKey:               t.PublicKey,
-		Address:                 t.Address,
-		ListenPort:              t.ListenPort,
-		DNS:                     func() string {
+		ID:         t.ID,
+		Name:       t.Name,
+		Protocol:   t.Protocol,
+		PublicKey:  t.PublicKey,
+		Address:    t.Address,
+		ListenPort: t.ListenPort,
+		DNS: func() string {
 			if t.DNS != "" {
 				return t.DNS
 			}
@@ -929,18 +995,34 @@ func ipToUint32(ip net.IP) uint32 {
 // BuildAWG2Params returns AWG2 params from the default template or a random profile.
 // Exported so API handlers can reuse the same logic as QuickCreate.
 func (m *Manager) BuildAWG2Params() (*peer.AWG2Settings, error) {
-	return m.buildAWG2Params()
+	return m.buildAWGParams(awgparams.ProtocolAWG2)
+}
+
+// BuildAWGParams returns settings for the requested AmneziaWG protocol.
+func (m *Manager) BuildAWGParams(protocol string) (*peer.AWGSettings, error) {
+	return m.buildAWGParams(protocol)
 }
 
 // buildAWG2Params returns AWG2 params for QuickCreate.
 // Priority: default template → random generated profile.
 func (m *Manager) buildAWG2Params() (*peer.AWG2Settings, error) {
-	p, err := settings.ApplyDefaultTemplate()
+	return m.buildAWGParams(awgparams.ProtocolAWG2)
+}
+
+func (m *Manager) buildAWGParams(protocol string) (*peer.AWGSettings, error) {
+	version := "2.0"
+	if protocol == awgparams.ProtocolAWG3 {
+		version = "3.1"
+	}
+	p, err := settings.ApplyDefaultTemplate(version)
 	if err != nil {
 		return nil, fmt.Errorf("apply default template: %w", err)
 	}
 	if p != nil {
 		return awg2ParamsFromTemplate(p), nil
+	}
+	if protocol == awgparams.ProtocolAWG3 {
+		return awgparams.GenerateAWG3(awgparams.Options{Profile: "random", Intensity: "medium"})
 	}
 	// No default template — generate a random profile.
 	generated := awgparams.Generate(awgparams.Options{Profile: "random", Intensity: "medium"})
@@ -950,22 +1032,28 @@ func (m *Manager) buildAWG2Params() (*peer.AWG2Settings, error) {
 // awg2ParamsFromTemplate converts settings.AWG2Params to peer.AWG2Settings.
 func awg2ParamsFromTemplate(p *settings.AWG2Params) *peer.AWG2Settings {
 	return &peer.AWG2Settings{
-		Jc:   p.Jc,
-		Jmin: p.Jmin,
-		Jmax: p.Jmax,
-		S1:   p.S1,
-		S2:   p.S2,
-		S3:   p.S3,
-		S4:   p.S4,
-		H1:   p.H1,
-		H2:   p.H2,
-		H3:   p.H3,
-		H4:   p.H4,
-		I1:   p.I1,
-		I2:   p.I2,
-		I3:   p.I3,
-		I4:   p.I4,
-		I5:   p.I5,
+		Jc:                     p.Jc,
+		Jmin:                   p.Jmin,
+		Jmax:                   p.Jmax,
+		S1:                     p.S1,
+		S2:                     p.S2,
+		S3:                     p.S3,
+		S4:                     p.S4,
+		H1:                     p.H1,
+		H2:                     p.H2,
+		H3:                     p.H3,
+		H4:                     p.H4,
+		I1:                     p.I1,
+		I2:                     p.I2,
+		I3:                     p.I3,
+		I4:                     p.I4,
+		I5:                     p.I5,
+		HeaderProtectionKey:    p.HeaderProtectionKey,
+		ContentPaddingAddition: p.ContentPaddingAddition,
+		RekeyAfterTime:         p.RekeyAfterTime, RekeyTimeout: p.RekeyTimeout,
+		RejectAfterTime: p.RejectAfterTime, KeepaliveTimeout: p.KeepaliveTimeout,
+		MaxHandshakeAttempts: p.MaxHandshakeAttempts,
+		RandomTrailers:       p.RandomTrailers, DisableCookies: p.DisableCookies,
 	}
 }
 

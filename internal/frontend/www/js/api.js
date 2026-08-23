@@ -489,6 +489,13 @@ class API {
     });
   }
 
+  async getAllTunnelPeers() {
+    return this.call({
+      method: 'get',
+      path: '/peers',
+    });
+  }
+
   async createTunnelInterfacePeer({ interfaceId, ...peerData }) {
     return this.call({
       method: 'post',

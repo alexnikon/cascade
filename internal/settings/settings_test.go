@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/db"
 )
 
 func initTestDB(t *testing.T) {
@@ -41,8 +41,8 @@ func TestGetSettings_Defaults(t *testing.T) {
 	if s.DefaultClientAllowedIPs != "0.0.0.0/0, ::/0" {
 		t.Errorf("DefaultClientAllowedIPs = %q, want '0.0.0.0/0, ::/0'", s.DefaultClientAllowedIPs)
 	}
-	if s.GatewayWindowSeconds != 30 {
-		t.Errorf("GatewayWindowSeconds = %d, want 30", s.GatewayWindowSeconds)
+	if s.GatewayWindowSeconds != 60 {
+		t.Errorf("GatewayWindowSeconds = %d, want 60", s.GatewayWindowSeconds)
 	}
 	if s.PublicIPMode != "auto" {
 		t.Errorf("PublicIPMode = %q, want 'auto'", s.PublicIPMode)
@@ -55,9 +55,11 @@ func TestUpdateSettings_RoundTrip(t *testing.T) {
 	initTestDB(t)
 
 	updates := map[string]any{
-		"dns":                     "8.8.8.8, 8.8.4.4",
+		"dns":                        "8.8.8.8, 8.8.4.4",
 		"defaultPersistentKeepalive": 30,
-		"routerName":              "Moscow-01",
+		"routerName":                 "Moscow-01",
+		"subnetPool":                 "172.16.0.0/16",
+		"gatewayWindowSeconds":       45,
 	}
 	s, err := UpdateSettings(updates)
 	if err != nil {
@@ -71,6 +73,12 @@ func TestUpdateSettings_RoundTrip(t *testing.T) {
 	}
 	if s.RouterName != "Moscow-01" {
 		t.Errorf("RouterName = %q, want 'Moscow-01'", s.RouterName)
+	}
+	if s.SubnetPool != "172.16.0.0/16" {
+		t.Errorf("SubnetPool = %q, want '172.16.0.0/16'", s.SubnetPool)
+	}
+	if s.GatewayWindowSeconds != 45 {
+		t.Errorf("GatewayWindowSeconds = %d, want 45", s.GatewayWindowSeconds)
 	}
 }
 
@@ -183,6 +191,66 @@ func TestCreateTemplate_Basic(t *testing.T) {
 		if h == "" {
 			t.Errorf("expected auto-generated H range, got empty string")
 		}
+	}
+}
+
+func TestCreateTemplateAWG31RoundTripAndProtocolDefaults(t *testing.T) {
+	initTestDB(t)
+	on := true
+	created, err := CreateTemplate(Template{
+		Name: "AWG31", ProtocolVersion: "3.1", IsDefault: true,
+		Jc: 6, Jmin: 10, Jmax: 50, S1: 64, S2: 67, S3: 64, S4: 12,
+		H1: "1-2", H2: "3-4", H3: "5-6", H4: "7-8",
+		HeaderProtectionKey:    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		ContentPaddingAddition: "10-100", RekeyAfterTime: "100-120", RekeyTimeout: "3-7",
+		RejectAfterTime: "150-180", KeepaliveTimeout: "5-15", MaxHandshakeAttempts: "15-20",
+		RandomTrailers: &on, DisableCookies: &on,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := GetTemplate(created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ProtocolVersion != "3.1" || got.HeaderProtectionKey != created.HeaderProtectionKey {
+		t.Fatalf("AWG3 fields did not round-trip: %+v", got)
+	}
+	legacy, err := CreateTemplate(Template{Name: "Legacy", IsDefault: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.ProtocolVersion != "2.0" {
+		t.Fatalf("legacy payload inferred %q", legacy.ProtocolVersion)
+	}
+	if awg3Default, _ := GetDefaultTemplate("3.1"); awg3Default == nil || awg3Default.ID != created.ID {
+		t.Fatal("AWG3 default was cleared by AWG2 default")
+	}
+}
+
+func TestCreateTemplateAWG10RoundTrip(t *testing.T) {
+	initTestDB(t)
+	created, err := CreateTemplate(Template{
+		Name: "AWG10", ProtocolVersion: "1.0",
+		Jc: 6, Jmin: 10, Jmax: 50, S1: 64, S2: 67, S3: 64, S4: 4,
+		H1: "1-2", H2: "3-4", H3: "5-6", H4: "7-8",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := GetTemplate(created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ProtocolVersion != "1.0" {
+		t.Fatalf("protocol version = %q, want 1.0", got.ProtocolVersion)
+	}
+	params, err := ApplyTemplate(created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if params.ProtocolVersion != "1.0" {
+		t.Fatalf("applied protocol version = %q, want 1.0", params.ProtocolVersion)
 	}
 }
 
@@ -416,8 +484,8 @@ func TestGetSettings_SubnetPoolDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSettings: %v", err)
 	}
-	if s.SubnetPool != "192.168.0.0/16" {
-		t.Errorf("SubnetPool default = %q, want '192.168.0.0/16'", s.SubnetPool)
+	if s.SubnetPool != "10.10.0.0/16" {
+		t.Errorf("SubnetPool default = %q, want '10.10.0.0/16'", s.SubnetPool)
 	}
 }
 
@@ -450,7 +518,7 @@ func TestUpdateSettings_SubnetPool_InvalidIgnored(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateSettings: %v", err)
 	}
-	if s.SubnetPool != "192.168.0.0/16" {
+	if s.SubnetPool != "10.10.0.0/16" {
 		t.Errorf("SubnetPool should stay default on invalid value, got %q", s.SubnetPool)
 	}
 }
@@ -600,7 +668,7 @@ func TestUpdateSettings_SubnetPool_HostBitsSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateSettings: %v", err)
 	}
-	if s.SubnetPool != "192.168.0.0/16" {
+	if s.SubnetPool != "10.10.0.0/16" {
 		t.Errorf("SubnetPool with host bits should be rejected, got %q", s.SubnetPool)
 	}
 }

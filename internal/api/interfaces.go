@@ -26,12 +26,12 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/firewall"
-	"github.com/JohnnyVBut/cascade/internal/peer"
-	"github.com/JohnnyVBut/cascade/internal/routing"
-	"github.com/JohnnyVBut/cascade/internal/settings"
-	"github.com/JohnnyVBut/cascade/internal/tunnel"
-	"github.com/JohnnyVBut/cascade/internal/validate"
+	"github.com/alexnikon/cascade/internal/firewall"
+	"github.com/alexnikon/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/routing"
+	"github.com/alexnikon/cascade/internal/settings"
+	"github.com/alexnikon/cascade/internal/tunnel"
+	"github.com/alexnikon/cascade/internal/validate"
 )
 
 // kernelMTU reads the actual MTU of a network interface from the kernel sysfs.
@@ -170,16 +170,19 @@ func getInterface(c *fiber.Ctx) error {
 // Body: { name, protocol?, address?, listenPort?, disableRoutes?, settings? }
 func createInterface(c *fiber.Ctx) error {
 	var body struct {
-		Name          string              `json:"name"`
-		Protocol      string              `json:"protocol"`
-		Address       string              `json:"address"`
-		ListenPort    int                 `json:"listenPort"`
-		DisableRoutes bool                `json:"disableRoutes"`
-		DNS           string              `json:"dns"`
-		AWG2          *peer.AWG2Settings  `json:"settings"`
+		Name          string             `json:"name"`
+		Protocol      string             `json:"protocol"`
+		Address       string             `json:"address"`
+		ListenPort    int                `json:"listenPort"`
+		DisableRoutes bool               `json:"disableRoutes"`
+		DNS           string             `json:"dns"`
+		AWG2          *peer.AWG2Settings `json:"settings"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
+	}
+	if body.Protocol == "" {
+		body.Protocol = "amneziawg-3.1"
 	}
 
 	addr := strings.TrimSpace(body.Address)
@@ -190,11 +193,11 @@ func createInterface(c *fiber.Ctx) error {
 	}
 
 	awg2 := body.AWG2
-	if body.Protocol == "amneziawg-2.0" && awg2 == nil {
+	if (body.Protocol == "amneziawg-2.0" || body.Protocol == "amneziawg-3.1") && awg2 == nil {
 		var awg2Err error
-		awg2, awg2Err = mgr().BuildAWG2Params()
+		awg2, awg2Err = mgr().BuildAWGParams(body.Protocol)
 		if awg2Err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "build AWG2 params: "+awg2Err.Error())
+			return fiber.NewError(fiber.StatusInternalServerError, "build AmneziaWG params: "+awg2Err.Error())
 		}
 	}
 	t, err := mgr().CreateInterface(tunnel.CreateInput{
@@ -207,7 +210,7 @@ func createInterface(c *fiber.Ctx) error {
 		AWG2:          awg2,
 	})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(interfaceErrorStatus(err), err.Error())
 	}
 	return c.Status(fiber.StatusCreated).JSON(ifaceJSON(t, false))
 }
@@ -232,7 +235,7 @@ func quickCreateInterface(c *fiber.Ctx) error {
 
 	result, err := mgr().QuickCreate(strings.TrimSpace(body.Name), body.Protocol)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(interfaceErrorStatus(err), err.Error())
 	}
 
 	// Rebuild firewall PBR routing tables now that the interface is up.
@@ -317,7 +320,7 @@ func updateInterface(c *fiber.Ctx) error {
 
 	t, err := mgr().UpdateInterface(id, upd)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(interfaceErrorStatus(err), err.Error())
 	}
 	return c.JSON(ifaceJSON(t, true))
 }
@@ -344,7 +347,7 @@ func parseConfPreview(c *fiber.Ctx) error {
 	}
 	parsed, err := tunnel.ParseWGConf(body.Conf)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(interfaceErrorStatus(err), err.Error())
 	}
 	// Best-guess server overlay IP: take client address, replace last octet with 1.
 	// Common VPN convention (e.g. client 10.8.7.45 → server 10.8.7.1). User can override in wizard.
@@ -405,7 +408,7 @@ func importConfInterface(c *fiber.Ctx) error {
 
 	result, err := mgr().ImportConf(name, body.Conf)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(interfaceErrorStatus(err), err.Error())
 	}
 
 	if result.Started {
@@ -452,7 +455,7 @@ func importConfServerInterface(c *fiber.Ctx) error {
 
 	result, err := mgr().ImportConfAsServer(name, body.Conf)
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(interfaceErrorStatus(err), err.Error())
 	}
 
 	if result.Started {
@@ -502,7 +505,7 @@ func importBackupInterface(c *fiber.Ctx) error {
 		ListenPort: body.ListenPort,
 	})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(interfaceErrorStatus(err), err.Error())
 	}
 
 	if result.Started {
@@ -597,7 +600,7 @@ func exportObfuscation(c *fiber.Ctx) error {
 	}
 	params, err := t.ExportObfuscationParams()
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(interfaceErrorStatus(err), err.Error())
 	}
 	return c.JSON(params)
 }
@@ -728,7 +731,7 @@ func importInterface(c *fiber.Ctx) error {
 		ListenPort: body.ListenPort,
 	})
 	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		return fiber.NewError(interfaceErrorStatus(err), err.Error())
 	}
 
 	if result.Started {
@@ -800,7 +803,27 @@ func mapToAWG2(v any) (*peer.AWG2Settings, error) {
 	a.I3 = strField("i3")
 	a.I4 = strField("i4")
 	a.I5 = strField("i5")
+	a.HeaderProtectionKey = strField("headerProtectionKey")
+	a.ContentPaddingAddition = strField("contentPaddingAddition")
+	a.RekeyAfterTime = strField("rekeyAfterTime")
+	a.RekeyTimeout = strField("rekeyTimeout")
+	a.RejectAfterTime = strField("rejectAfterTime")
+	a.KeepaliveTimeout = strField("keepaliveTimeout")
+	a.MaxHandshakeAttempts = strField("maxHandshakeAttempts")
+	if v, ok := m["randomTrailers"].(bool); ok {
+		a.RandomTrailers = &v
+	}
+	if v, ok := m["disableCookies"].(bool); ok {
+		a.DisableCookies = &v
+	}
 	return a, nil
+}
+
+func interfaceErrorStatus(err error) int {
+	if err != nil && strings.Contains(err.Error(), "AWG 3.1 runtime is unavailable") {
+		return fiber.StatusConflict
+	}
+	return fiber.StatusBadRequest
 }
 
 // peerDefaults returns global peer defaults from settings (DNS, clientAllowedIPs, keepalive).

@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/JohnnyVBut/cascade/internal/peer"
-	"github.com/JohnnyVBut/cascade/internal/settings"
+	"github.com/alexnikon/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/settings"
 )
 
 // StartExpiryChecker runs a background goroutine that handles peers whose

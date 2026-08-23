@@ -1,0 +1,26 @@
+Cascade licensing and attribution notice
+========================================
+
+Copyright (c) 2026 Alex Nikonov
+
+Cascade is distributed under the MIT License in LICENSE.
+
+Project origin
+--------------
+
+Cascade includes code derived from the Cascade and AWG-Easy projects
+maintained by JohnnyVBut and from earlier wg-easy contributors. The applicable
+copyright holders granted permission to distribute that inherited code as part
+of Cascade under the MIT License. Evidence of that permission is retained
+privately by the Cascade copyright owner.
+
+This project is independently maintained and is not affiliated with or
+endorsed by the upstream projects or their contributors.
+
+Third-party software
+--------------------
+
+Portions of the AmneziaWG parameter generator are derived from
+Vadim-Khristenko/AmneziaWG-Architect and are used under its MIT License.
+Vendored frontend libraries remain subject to their respective notices and
+license terms. See THIRD_PARTY_NOTICES.md for details.

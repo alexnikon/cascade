@@ -19,7 +19,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/JohnnyVBut/cascade/internal/util"
+	"github.com/alexnikon/cascade/internal/util"
 )
 
 // JobStatus represents the current state of an async prefix-generation job.

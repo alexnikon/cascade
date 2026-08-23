@@ -165,8 +165,8 @@ or environment variable, never in plaintext files or version control.
 
 ### If ADMIN_PATH leaks
 
-1. Change ADMIN_PATH in `deploy/.env`
-2. Restart Caddy: `docker compose -f deploy/caddy/docker-compose.yml restart`
+1. Change `ADMIN_PATH` in `/opt/cascade/.env`
+2. Restart Caddy: `docker compose -f /opt/cascade/deploy/caddy/docker-compose.yml restart`
 3. Old path becomes the decoy — no access possible
 
 ### If password is compromised

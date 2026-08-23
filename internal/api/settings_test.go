@@ -16,9 +16,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/tokens"
-	"github.com/JohnnyVBut/cascade/internal/users"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/tokens"
+	"github.com/alexnikon/cascade/internal/users"
 )
 
 // ── Harness ───────────────────────────────────────────────────────────────────
@@ -256,5 +256,43 @@ func TestPutSettings_NoAuth_Returns401(t *testing.T) {
 	resp := ta.do("PUT", "/api/settings", "", map[string]any{"dns": "1.1.1.1"})
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("no auth: expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestGetSettingsIncludesAWG31RuntimeCapability(t *testing.T) {
+	t.Setenv("WG_QUICK_USERSPACE_IMPLEMENTATION", "amneziawg-go")
+	sta := newSettingsTestApp(t)
+	ta := &testApp{app: sta.app, adminToken: sta.token}
+	resp := ta.do("GET", "/api/settings", sta.token, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d body=%v", resp.StatusCode, decodeBody(resp))
+	}
+	body := decodeBody(resp)
+	if body["awg3Supported"] != true || body["awgMaxProtocol"] != "3.1" {
+		t.Fatalf("unexpected capability: %v", body)
+	}
+	if body["awgEngineVersion"] != "3.1.20260814" || body["awgToolsVersion"] != "3.1.20260812" {
+		t.Fatalf("unexpected versions: %v", body)
+	}
+}
+
+func TestGenerateTemplateDefaultsToAWG31AndCanGenerateLegacyAWG2(t *testing.T) {
+	sta := newSettingsTestApp(t)
+	ta := &testApp{app: sta.app, adminToken: sta.token}
+	resp := ta.do("POST", "/api/templates/generate", sta.token, map[string]any{"profile": "tls_client_hello"})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("AWG3 status=%d body=%v", resp.StatusCode, decodeBody(resp))
+	}
+	params, _ := decodeBody(resp)["params"].(map[string]any)
+	if params["headerProtectionKey"] == nil || params["contentPaddingAddition"] != "10-100" {
+		t.Fatalf("missing AWG3 defaults: %v", params)
+	}
+	resp = ta.do("POST", "/api/templates/generate", sta.token, map[string]any{"protocolVersion": "2.0"})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("AWG2 status=%d body=%v", resp.StatusCode, decodeBody(resp))
+	}
+	params, _ = decodeBody(resp)["params"].(map[string]any)
+	if _, exists := params["headerProtectionKey"]; exists {
+		t.Fatalf("legacy response leaked AWG3 field: %v", params)
 	}
 }

@@ -20,9 +20,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/firewall"
-	"github.com/JohnnyVBut/cascade/internal/gateway"
-	"github.com/JohnnyVBut/cascade/internal/routing"
+	"github.com/alexnikon/cascade/internal/firewall"
+	"github.com/alexnikon/cascade/internal/gateway"
+	"github.com/alexnikon/cascade/internal/routing"
 )
 
 // RegisterGateways registers all /api/gateways/* and /api/gateway-groups/* routes.

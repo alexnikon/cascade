@@ -26,8 +26,8 @@ ARG GIT_COMMIT=unknown
 # -ldflags="-s -w": strip debug symbols → smaller binary.
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w \
-      -X github.com/JohnnyVBut/cascade/internal/version.Version=${VERSION} \
-      -X github.com/JohnnyVBut/cascade/internal/version.GitCommit=${GIT_COMMIT}" \
+      -X github.com/alexnikon/cascade/internal/version.Version=${VERSION} \
+      -X github.com/alexnikon/cascade/internal/version.GitCommit=${GIT_COMMIT}" \
     -o cascade \
     ./cmd/awg-easy
 
@@ -42,10 +42,15 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # CLI v3.0.20260730 + kernel module 3.0.x = works). deploy/setup.sh's
 # ppa:amnezia/ppa is also unpinned and currently only ships 3.0.x, so tracking
 # :latest here keeps both sides on the same major line automatically.
-# TODO: once AWG 4.0 (or any breaking major) ships, pin this explicitly and
-# verify compatibility before bumping — don't let :latest silently jump again.
+# Keep both the tag and manifest digest pinned. A version bump requires
+# configuration compatibility review and an updated tools-version assertion.
 # ============================================================
-FROM amneziavpn/amneziawg-go:latest
+FROM amneziavpn/amneziawg-go:3.1.20260814@sha256:4450928744b051589bb3ba5cf6dd0cd8d7dc470b9432dc32d03d5ff5ede11b7a
+
+# The official image checks the fork's platform-neutral release manifest.
+# Operators can override this value or set it to an empty string.
+
+RUN awg --version | grep -F 'amneziawg-tools v3.1.20260812'
 
 HEALTHCHECK --interval=1m --timeout=5s --retries=3 \
     CMD /usr/bin/timeout 5s /bin/sh -c "/usr/bin/wg show | /bin/grep -q interface || exit 1"
@@ -71,7 +76,7 @@ RUN apk add --no-cache \
     coreutils
 
 # Use iptables-legacy as default iptables.
-# Alpine не имеет update-alternatives (это команда dpkg/Debian).
+# Alpine does not provide update-alternatives; that command belongs to dpkg/Debian.
 RUN ln -sf /sbin/iptables-legacy         /sbin/iptables && \
     ln -sf /sbin/iptables-legacy-restore /sbin/iptables-restore && \
     ln -sf /sbin/iptables-legacy-save    /sbin/iptables-save

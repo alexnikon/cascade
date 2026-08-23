@@ -30,9 +30,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/aliases"
-	"github.com/JohnnyVBut/cascade/internal/peer"
-	"github.com/JohnnyVBut/cascade/internal/tunnel"
+	"github.com/alexnikon/cascade/internal/aliases"
+	"github.com/alexnikon/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/tunnel"
 )
 
 // RegisterOneTimeLink registers the unauthenticated GET /cnf/:token route.
@@ -42,8 +42,8 @@ func RegisterOneTimeLink(r fiber.Router) {
 }
 
 // getPeerConfigByToken serves a peer config using a one-time token.
-// Finds the peer whose OneTimeLink matches the token, clears the token,
-// and returns the WireGuard config as a downloadable file.
+// Finds the peer whose OneTimeLink matches the token, builds the config, then
+// atomically clears the token and returns the config as a downloadable file.
 func getPeerConfigByToken(c *fiber.Ctx) error {
 	token := c.Params("token")
 	if len(token) != 32 {
@@ -60,14 +60,26 @@ func getPeerConfigByToken(c *fiber.Ctx) error {
 			if p.OneTimeLink != token {
 				continue
 			}
-			config, err := m.GetPeerRemoteConfig(iface.ID, p.ID)
+			fresh, err := m.ReloadPeerFromDB(iface.ID, p.ID)
 			if err != nil {
+				log.Printf("api: cnf: reload peer %s/%s: %v", iface.ID, p.ID, err)
 				return fiber.NewError(fiber.StatusInternalServerError, "config generation failed")
 			}
-			// Consume the token only after config is successfully generated.
-			empty := ""
-			if _, err := m.UpdatePeer(iface.ID, p.ID, peer.PeerUpdate{OneTimeLink: &empty}); err != nil {
-				log.Printf("api: cnf: clear token for peer %s: %v", p.ID, err)
+			if fresh == nil || fresh.OneTimeLink != token {
+				return fiber.NewError(fiber.StatusNotFound, "token not found or already used")
+			}
+			config, err := m.BuildPeerRemoteConfig(iface, fresh)
+			if err != nil {
+				log.Printf("api: cnf: config generation failed iface=%q peer=%q: %v", iface.ID, fresh.ID, err)
+				return fiber.NewError(fiber.StatusInternalServerError, "config generation failed")
+			}
+			consumed, err := m.ConsumePeerOneTimeLink(iface.ID, fresh.ID, token)
+			if err != nil {
+				log.Printf("api: cnf: consume token for peer %s: %v", fresh.ID, err)
+				return fiber.NewError(fiber.StatusInternalServerError, "config generation failed")
+			}
+			if !consumed {
+				return fiber.NewError(fiber.StatusNotFound, "token not found or already used")
 			}
 			c.Set("Content-Type", "text/plain; charset=utf-8")
 			c.Set("Content-Disposition", `attachment; filename="wg.conf"`)
@@ -80,6 +92,7 @@ func getPeerConfigByToken(c *fiber.Ctx) error {
 
 // RegisterPeers registers all /api/tunnel-interfaces/:id/peers/* routes.
 func RegisterPeers(api fiber.Router) {
+	api.Get("/peers", listAllPeers)
 	g := api.Group("/tunnel-interfaces/:id/peers")
 
 	g.Get("", listPeers)
@@ -103,6 +116,12 @@ func RegisterPeers(api fiber.Router) {
 	g.Put("/:peerId/expireDate", updatePeerExpireDate)
 	g.Post("/:peerId/generateOneTimeLink", generatePeerOneTimeLink)
 	g.Get("/:peerId/export-json", exportPeerJSON)
+}
+
+type peerWithInterface struct {
+	*peer.Peer
+	InterfaceID   string `json:"interfaceId"`
+	InterfaceName string `json:"interfaceName"`
 }
 
 // sanitizePeer returns a shallow copy of p with PrivateKey and PresharedKey
@@ -142,6 +161,25 @@ func listPeers(c *fiber.Ctx) error {
 		peers = []*peer.Peer{}
 	}
 	return c.JSON(fiber.Map{"peers": sanitizePeers(peers)})
+}
+
+// GET /api/peers returns cached peers from all interfaces in one response.
+func listAllPeers(c *fiber.Ctx) error {
+	m := mgr()
+	if m == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "not ready")
+	}
+	result := make([]peerWithInterface, 0)
+	for _, iface := range m.GetAllInterfaces() {
+		for _, item := range iface.GetAllPeers() {
+			result = append(result, peerWithInterface{
+				Peer:          sanitizePeer(item),
+				InterfaceID:   iface.ID,
+				InterfaceName: iface.Name,
+			})
+		}
+	}
+	return c.JSON(fiber.Map{"peers": result})
 }
 
 // GET /api/tunnel-interfaces/:id/peers/:peerId
@@ -279,7 +317,7 @@ func importClientConfigs(c *fiber.Ctx) error {
 	}
 
 	bin := "wg"
-	if t.Protocol == "amneziawg-2.0" {
+	if strings.HasPrefix(t.Protocol, "amneziawg-") {
 		bin = "awg"
 	}
 
@@ -665,7 +703,7 @@ func exportPeerJSON(c *fiber.Ctx) error {
 		"presharedKey":        p.PresharedKey,
 		"endpoint":            endpoint,
 		"persistentKeepalive": p.PersistentKeepalive,
-		"allowedIPs":          p.AllowedIPs,       // this side's tunnel IP /32
-		"clientAllowedIPs":    clientAllowedIPs,   // what remote will route through us
+		"allowedIPs":          p.AllowedIPs,     // this side's tunnel IP /32
+		"clientAllowedIPs":    clientAllowedIPs, // what remote will route through us
 	})
 }

@@ -354,8 +354,8 @@ func TestDNS_EncodeName(t *testing.T) {
 		wantPrefix string // first label length hex
 	}{
 		{"google.com", "06"}, // "google" = 6 chars
-		{"yandex.ru", "06"}, // "yandex" = 6 chars
-		{"a.b.c", "01"},     // "a" = 1 char
+		{"yandex.ru", "06"},  // "yandex" = 6 chars
+		{"a.b.c", "01"},      // "a" = 1 char
 	}
 	for _, tc := range cases {
 		got := encodeDNSName(tc.input)

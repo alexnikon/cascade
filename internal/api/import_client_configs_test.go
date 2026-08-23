@@ -14,6 +14,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -24,9 +25,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/peer"
-	"github.com/JohnnyVBut/cascade/internal/tunnel"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/tunnel"
 
 	_ "modernc.org/sqlite"
 )
@@ -38,7 +39,8 @@ import (
 // without needing a WireGuard keypair generator in the test itself.
 // Pair A (WireGuard 1.0 interface):
 const (
-	wgIfaceID = "wg-import-test"
+	wgIfaceID          = "wg-import-test"
+	fiberTestTimeoutMS = 5_000
 
 	peerAPrivateKey = "GHUf/N5ORdfBUAJprb+ThFsRdcMwlgQ+lCB8u1pQKlg="
 	peerAPublicKey  = "3EbF7pQAmm4YU75vHRIRGWMgHIVjfjhV/xL8mvYWMWc="
@@ -89,6 +91,7 @@ func TestMain(m *testing.M) {
 	}
 
 	importCfgApp = fiber.New()
+	RegisterOneTimeLink(importCfgApp)
 	api := importCfgApp.Group("/api")
 	RegisterPeers(api)
 
@@ -142,6 +145,219 @@ func clientConf(privateKey string) string {
 		"Endpoint = vpn.example.com:51900\n" +
 		"AllowedIPs = 0.0.0.0/0\n" +
 		"PersistentKeepalive = 25\n"
+}
+
+func TestListAllPeersReturnsInterfaceMetadataAndSanitizedKeys(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/api/peers", nil)
+	resp, err := importCfgApp.Test(req)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var out struct {
+		Peers []struct {
+			ID            string `json:"id"`
+			InterfaceID   string `json:"interfaceId"`
+			InterfaceName string `json:"interfaceName"`
+			PrivateKey    string `json:"privateKey"`
+			PresharedKey  string `json:"presharedKey"`
+		} `json:"peers"`
+	}
+	if err := decodeJSON(resp, &out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(out.Peers) != 1 {
+		t.Fatalf("peer count = %d, want 1", len(out.Peers))
+	}
+	if out.Peers[0].InterfaceID != wgIfaceID || out.Peers[0].InterfaceName != "wg-import-test" {
+		t.Fatalf("unexpected interface metadata: %+v", out.Peers[0])
+	}
+	if out.Peers[0].PrivateKey != "" || out.Peers[0].PresharedKey != "" {
+		t.Fatal("aggregate peer response exposed secret key material")
+	}
+}
+
+func TestOneTimeLinkReloadsAuthoritativePeerBeforeGeneratingConfig(t *testing.T) {
+	peers, err := tunnel.Get().GetPeers(wgIfaceID)
+	if err != nil || len(peers) != 1 {
+		t.Fatalf("get fixture peer: peers=%d err=%v", len(peers), err)
+	}
+	peerID := peers[0].ID
+	token := "0123456789abcdef0123456789abcdef"
+	if _, err := tunnel.Get().UpdatePeer(wgIfaceID, peerID, peer.PeerUpdate{OneTimeLink: &token}); err != nil {
+		t.Fatalf("set one-time token: %v", err)
+	}
+	// Simulate a DB-only private-key restore. The cached peer is intentionally
+	// stale, which was the failure mode reported upstream.
+	if err := peer.SavePrivateKey(peerID, peerAPrivateKey); err != nil {
+		t.Fatalf("save private key: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = peer.SavePrivateKey(peerID, "")
+		_, _ = tunnel.Get().ReloadPeerFromDB(wgIfaceID, peerID)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/cnf/"+token, nil)
+	resp, err := importCfgApp.Test(req, fiberTestTimeoutMS)
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response: %v", err)
+	}
+	if !strings.Contains(string(body), "PrivateKey = "+peerAPrivateKey) {
+		t.Fatalf("one-time config did not use the authoritative private key: %s", body)
+	}
+	if fresh, err := peer.GetPeer(peerID); err != nil || fresh.OneTimeLink != "" {
+		t.Fatalf("one-time token was not consumed: peer=%+v err=%v", fresh, err)
+	}
+}
+
+func TestBuildPeerRemoteConfigUsesAuthoritativePairWithoutCacheLookup(t *testing.T) {
+	iface := tunnel.Get().GetInterface(wgIfaceID)
+	if iface == nil {
+		t.Fatal("fixture interface not found")
+	}
+	detached := &peer.Peer{
+		ID:          "peer-not-present-in-cache",
+		InterfaceID: wgIfaceID,
+		Name:        "authoritative-peer",
+		PrivateKey:  peerAPrivateKey,
+		AllowedIPs:  "10.50.0.99/32",
+	}
+	if tunnel.Get().GetPeer(wgIfaceID, detached.ID) != nil {
+		t.Fatal("detached peer unexpectedly exists in cache")
+	}
+
+	config, err := tunnel.Get().BuildPeerRemoteConfig(iface, detached)
+	if err != nil {
+		t.Fatalf("build config: %v", err)
+	}
+	if !strings.Contains(config, "PrivateKey = "+peerAPrivateKey) ||
+		!strings.Contains(config, "Address = 10.50.0.99/32") {
+		t.Fatalf("config did not use the supplied authoritative peer: %s", config)
+	}
+}
+
+func TestRemoteConfigGenerationFailureLeavesOneTimeTokenValid(t *testing.T) {
+	peers, err := tunnel.Get().GetPeers(wgIfaceID)
+	if err != nil || len(peers) != 1 {
+		t.Fatalf("get fixture peer: peers=%d err=%v", len(peers), err)
+	}
+	peerID := peers[0].ID
+	token := "11223344556677889900aabbccddeeff"
+	if _, err := tunnel.Get().UpdatePeer(wgIfaceID, peerID, peer.PeerUpdate{OneTimeLink: &token}); err != nil {
+		t.Fatalf("set one-time token: %v", err)
+	}
+	t.Cleanup(func() {
+		empty := ""
+		_, _ = tunnel.Get().UpdatePeer(wgIfaceID, peerID, peer.PeerUpdate{OneTimeLink: &empty})
+	})
+
+	if _, err := tunnel.Get().BuildPeerRemoteConfig(nil, peers[0]); err == nil {
+		t.Fatal("config generation with a nil interface unexpectedly succeeded")
+	}
+	fresh, err := peer.GetPeer(peerID)
+	if err != nil {
+		t.Fatalf("reload peer: %v", err)
+	}
+	if fresh == nil || fresh.OneTimeLink != token {
+		t.Fatalf("generation failure consumed the token: peer=%+v", fresh)
+	}
+}
+
+func TestOneTimeLinkConcurrentRedemptionSucceedsOnce(t *testing.T) {
+	const concurrency = 20
+	peers, err := tunnel.Get().GetPeers(wgIfaceID)
+	if err != nil || len(peers) != 1 {
+		t.Fatalf("get fixture peer: peers=%d err=%v", len(peers), err)
+	}
+	peerID := peers[0].ID
+	token := "fedcba9876543210fedcba9876543210"
+	if _, err := tunnel.Get().UpdatePeer(wgIfaceID, peerID, peer.PeerUpdate{OneTimeLink: &token}); err != nil {
+		t.Fatalf("set one-time token: %v", err)
+	}
+	if err := peer.SavePrivateKey(peerID, peerAPrivateKey); err != nil {
+		t.Fatalf("save private key: %v", err)
+	}
+	if _, err := tunnel.Get().ReloadPeerFromDB(wgIfaceID, peerID); err != nil {
+		t.Fatalf("reload peer: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = peer.SavePrivateKey(peerID, "")
+		_, _ = tunnel.Get().ReloadPeerFromDB(wgIfaceID, peerID)
+	})
+
+	type result struct {
+		status int
+		body   string
+		err    error
+	}
+	start := make(chan struct{})
+	results := make(chan result, concurrency)
+	for range concurrency {
+		go func() {
+			<-start
+			resp, requestErr := importCfgApp.Test(httptest.NewRequest(http.MethodGet, "/cnf/"+token, nil), fiberTestTimeoutMS)
+			if requestErr != nil {
+				results <- result{err: requestErr}
+				return
+			}
+			defer resp.Body.Close()
+			body, readErr := io.ReadAll(resp.Body)
+			results <- result{status: resp.StatusCode, body: string(body), err: readErr}
+		}()
+	}
+	close(start)
+
+	statusCounts := map[int]int{}
+	for range concurrency {
+		got := <-results
+		if got.err != nil {
+			t.Fatalf("concurrent request: %v", got.err)
+		}
+		statusCounts[got.status]++
+		if got.status == http.StatusOK && !strings.Contains(got.body, "PrivateKey = "+peerAPrivateKey) {
+			t.Fatalf("successful response did not contain the authoritative private key: %s", got.body)
+		}
+	}
+	if statusCounts[http.StatusOK] != 1 || statusCounts[http.StatusNotFound] != concurrency-1 {
+		t.Fatalf("status counts = %v, want one 200 and %d 404 responses", statusCounts, concurrency-1)
+	}
+	if fresh, err := peer.GetPeer(peerID); err != nil || fresh.OneTimeLink != "" {
+		t.Fatalf("one-time token was not consumed: peer=%+v err=%v", fresh, err)
+	}
+}
+
+func TestRepeatedPeerUpdateAndReloadPreserveCacheIdentity(t *testing.T) {
+	peers, err := tunnel.Get().GetPeers(wgIfaceID)
+	if err != nil || len(peers) != 1 {
+		t.Fatalf("get fixture peer: peers=%d err=%v", len(peers), err)
+	}
+	peerID := peers[0].ID
+
+	for i := 0; i < 20; i++ {
+		name := "peer-a"
+		if _, err := tunnel.Get().UpdatePeer(wgIfaceID, peerID, peer.PeerUpdate{Name: &name}); err != nil {
+			t.Fatalf("update peer iteration %d: %v", i, err)
+		}
+		if _, err := tunnel.Get().ReloadPeerFromDB(wgIfaceID, peerID); err != nil {
+			t.Fatalf("reload peer iteration %d: %v", i, err)
+		}
+		cached, err := tunnel.Get().GetPeers(wgIfaceID)
+		if err != nil {
+			t.Fatalf("get peers iteration %d: %v", i, err)
+		}
+		if len(cached) != 1 || cached[0].ID != peerID {
+			t.Fatalf("cache iteration %d = %+v, want exactly peer %q", i, cached, peerID)
+		}
+	}
 }
 
 const malformedConf = "[Interface]\n" +

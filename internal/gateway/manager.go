@@ -21,10 +21,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/remoteclient"
-	"github.com/JohnnyVBut/cascade/internal/util"
-	"github.com/JohnnyVBut/cascade/internal/validate"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/remoteclient"
+	"github.com/alexnikon/cascade/internal/util"
+	"github.com/alexnikon/cascade/internal/validate"
 )
 
 // Manager manages gateways and gateway groups.

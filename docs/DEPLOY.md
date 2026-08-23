@@ -62,9 +62,10 @@ lsmod | grep amneziawg
 
 ## Step 3 — Install Docker
 
-```bash
-curl -fsSL https://get.docker.com | sh
-```
+Use Docker's signed APT repository as described in the official
+[Ubuntu](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository) or
+[Debian](https://docs.docker.com/engine/install/debian/#install-using-the-repository) instructions.
+The artifact installer configures this repository automatically and verifies the Docker signing-key fingerprint.
 
 ---
 
@@ -95,7 +96,7 @@ apt-get update && apt-get install -y git
 ```
 
 ```bash
-git clone https://github.com/JohnnyVBut/cascade.git
+git clone https://github.com/alexnikon/cascade.git
 cd cascade
 ```
 
@@ -111,7 +112,7 @@ docker compose -f docker-compose.yml pull
 ```
 
 > **Local development only:** to use a locally-built image, run `./build.sh`
-> and add `-f docker-compose.override.yml` to your compose commands.
+> and add `-f docker-compose.override.yml.example` to your Compose commands.
 
 ---
 
@@ -133,7 +134,7 @@ environment:
 **Optional — pre-set password hash (non-interactive / CI):**
 
 ```bash
-docker run --rm -it ghcr.io/johnnybut/cascade:latest /app/cascade hash
+docker run --rm -it ghcr.io/alexnikon/cascade:latest /app/cascade hash
 # Enter password when prompted — copy the $2a$... hash into PASSWORD_HASH=
 ```
 
@@ -161,11 +162,10 @@ Cascade must be running (Step 8) before this step.
 acme.sh uses standalone mode — it temporarily binds port 80 to complete the ACME HTTP-01 challenge.
 **Port 80 must be free** (Caddy is not started yet at this point).
 
-Install acme.sh:
+Install the pinned and checksum-verified acme.sh release through the bundled helper:
 
 ```bash
-curl https://get.acme.sh | sh -s email=YOUR@EMAIL.COM
-source ~/.bashrc
+sudo ./deploy/caddy/scripts/acme-install.sh YOUR_PUBLIC_IP YOUR@EMAIL.COM
 ```
 
 ### Option A — bare IP address (most common for VPS)
@@ -325,15 +325,15 @@ The data directory is mounted into the container via `docker-compose.yml`.
 ## Updating
 
 ```bash
-cd ~/cascade
-git pull origin master
-docker compose -f docker-compose.yml pull
-docker compose -f docker-compose.yml down
-docker compose -f docker-compose.yml up -d
+cd /opt/cascade
+# Edit the exact image tag in docker-compose.yml first.
+docker compose pull
+docker compose up -d
+curl -fsS http://127.0.0.1:8888/api/health
 ```
 
-The image is pre-built by CI — `docker compose pull` fetches the latest version
-from GHCR without compiling anything on the server.
+The image is pre-built by CI. Roll back by restoring the previous tag and applying
+the same commands.
 
 Caddy does not need to be restarted for Cascade updates.
 
@@ -411,11 +411,10 @@ iptables-nft -t nat -F POSTROUTING
 
 > **Tip:** A server reboot achieves the same result without risk of affecting other services.
 
-### Step 5 — Pull latest image and start
+### Step 5 — Pull the configured release image and start
 
 ```bash
 docker compose -f docker-compose.yml pull
-docker compose -f docker-compose.yml down
 docker compose -f docker-compose.yml up -d
 ```
 
@@ -526,8 +525,7 @@ docker system df -v
 docker builder prune -a -f
 ```
 
-**2. Dangling images** — left behind when a rebuild reassigns the
-`cascade:latest` tag to a new image, orphaning the old one:
+**2. Unused images** — left behind after moving the Compose file to a new release tag:
 
 ```bash
 docker image prune -f

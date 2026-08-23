@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/JohnnyVBut/cascade/internal/db"
-	"github.com/JohnnyVBut/cascade/internal/ipset"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/ipset"
 )
 
 // newTestAliasManager creates an aliases.Manager backed by a temporary DB and

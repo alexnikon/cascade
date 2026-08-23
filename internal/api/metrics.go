@@ -8,12 +8,14 @@
 package api
 
 import (
+	"database/sql"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 
-	"github.com/JohnnyVBut/cascade/internal/metrics"
+	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/metrics"
 )
 
 func RegisterMetrics(api fiber.Router) {
@@ -25,11 +27,18 @@ func RegisterMetrics(api fiber.Router) {
 
 // GET /api/metrics
 func metricsSnapshot(c *fiber.Ctx) error {
+	dbStats := db.DB().Stats()
+	metricsDBStats := db.MetricsDB().Stats()
+	runtimeStats := metrics.CurrentRuntime()
 	snap := metrics.Current()
 	if snap == nil {
 		return c.JSON(fiber.Map{
 			"cpu": 0, "mem": 0, "memUsedMb": 0, "memTotalMb": 0,
 			"net": fiber.Map{}, "interfaces": []string{},
+			"historyEnabled": metrics.HistoryEnabled(),
+			"runtime":        runtimeStats,
+			"database":       databaseStats(dbStats, metricsDBStats),
+			"processes":      map[string]metrics.ProcessStat{},
 		})
 	}
 
@@ -47,14 +56,31 @@ func metricsSnapshot(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"cpu":        snap.CPU,
-		"mem":        snap.MemUsedPct,
-		"memUsedMb":  snap.MemUsedMB,
-		"memTotalMb": snap.MemTotalMB,
-		"net":        netMap,
-		"interfaces": snap.Interfaces,
-		"gateways":   gwMap,
+		"cpu":            snap.CPU,
+		"mem":            snap.MemUsedPct,
+		"memUsedMb":      snap.MemUsedMB,
+		"memTotalMb":     snap.MemTotalMB,
+		"net":            netMap,
+		"interfaces":     snap.Interfaces,
+		"gateways":       gwMap,
+		"historyEnabled": metrics.HistoryEnabled(),
+		"runtime":        runtimeStats,
+		"database":       databaseStats(dbStats, metricsDBStats),
+		"processes":      snap.Processes,
 	})
+}
+
+func databaseStats(config, history sql.DBStats) fiber.Map {
+	return fiber.Map{
+		"config": fiber.Map{
+			"inUse": config.InUse, "idle": config.Idle,
+			"waitCount": config.WaitCount, "waitDurationMs": config.WaitDuration.Milliseconds(),
+		},
+		"history": fiber.Map{
+			"inUse": history.InUse, "idle": history.Idle,
+			"waitCount": history.WaitCount, "waitDurationMs": history.WaitDuration.Milliseconds(),
+		},
+	}
 }
 
 // GET /api/metrics/gateway-dist?key=gateway:<id>&period=1h
@@ -70,6 +96,9 @@ func metricsGatewayDist(c *fiber.Ctx) error {
 	}
 
 	period := c.Query("period", "1h")
+	if !metrics.HistoryEnabled() {
+		return c.JSON(fiber.Map{"key": key, "period": period, "buckets": [][5]float64{}})
+	}
 	now := time.Now().Unix()
 
 	var from int64
@@ -116,6 +145,9 @@ func metricsHistory(c *fiber.Ctx) error {
 	}
 
 	period := c.Query("period", "5m")
+	if !metrics.HistoryEnabled() {
+		return c.JSON(fiber.Map{"key": key, "period": period, "points": [][2]float64{}})
+	}
 	now := time.Now().Unix()
 
 	var from int64

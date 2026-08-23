@@ -22,8 +22,7 @@ sudo ./scripts/acme-install.sh <YOUR_PUBLIC_IP> <YOUR_EMAIL>
 ### 2. Configure
 
 ```bash
-cp .env.example .env
-# Edit .env — set ADMIN_PATH to a random string
+# Edit ../../.env and set ADMIN_PATH to a random string.
 # Generate one: openssl rand -hex 12
 ```
 
@@ -57,7 +56,7 @@ iptables-nft -A INPUT ! -i lo -p tcp --dport 8888 -j DROP
 ### 5. Start Caddy
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 ### 6. Access admin interface

@@ -1,350 +1,96 @@
-# MTU и MSS в цепочке WireGuard туннелей
+# MTU and MSS in chained WireGuard tunnels
 
-## Основные понятия
+## Concepts
 
-### MTU (Maximum Transmission Unit)
+MTU is the largest IP packet an interface can carry without fragmentation. TCP
+MSS is the largest TCP payload in a segment. WireGuard wraps an inner packet in
+UDP and an outer IP header, reducing the available inner MTU. Chaining tunnels
+repeats this overhead and may also encounter a smaller underlay path MTU.
 
-Максимальный размер пакета в байтах, который может пройти через сетевой интерфейс без разбивки на части (фрагментации). На большинстве сетей физический MTU равен **1500 байт**.
+MSS clamping adjusts TCP SYN advertisements so endpoints avoid creating packets
+too large for the tunnel path. It does not fix oversized UDP or non-TCP traffic.
 
-### MSS (Maximum Segment Size)
+## Calculation
 
-Максимальный размер полезных данных (payload) в одном TCP сегменте. При установке соединения (handshake) клиент и сервер договариваются об MSS — никто из них не пошлёт сегмент больше согласованного значения.
+Start with the smallest verified underlay path MTU. A typical WireGuard overhead
+budget is about 60 bytes over IPv4 and 80 bytes over IPv6. Platform details and
+additional encapsulation can require more headroom.
 
-Связь MTU и MSS:
-```
-MSS = MTU − 20 (IP заголовок) − 20 (TCP заголовок) = MTU − 40
-```
+For a chain, calculate from the outside inward:
 
-### Фрагментация
+1. Determine the physical/path MTU.
+2. Subtract outer tunnel overhead for the outer interface.
+3. Subtract the next tunnel overhead for the inner interface.
+4. Derive TCP MSS from the resulting inner MTU: subtract 40 bytes for IPv4 TCP
+   headers or 60 bytes for IPv6 TCP headers without options.
+5. Verify with real traffic and reduce conservatively if the path still drops
+   large packets.
 
-Если пакет больше MTU интерфейса — он либо разбивается на части (фрагментируется), либо дропается если установлен флаг DF (Don't Fragment). Фрагментация снижает производительность, а дроп приводит к потере соединения.
+Example with a 1500-byte IPv4 underlay and two conservative 60-byte layers:
 
-### MSS Clamping
+| Layer | MTU |
+| --- | ---: |
+| Physical path | 1500 |
+| Outer WireGuard | 1440 |
+| Inner WireGuard | 1380 |
+| Suggested IPv4 TCP MSS ceiling | 1340 |
 
-Роутер перехватывает SYN и SYN-ACK пакеты TCP handshake и принудительно уменьшает в них значение MSS. Стороны договариваются об уменьшенном MSS и больше не шлют пакеты которые не влезут в туннель. Это позволяет оставить MTU на LAN интерфейсах равным 1500 и не трогать настройки устройств в сети.
+Do not treat the example as universal. PPPoE, VLANs, IPv6 outer transport,
+cloud overlays, and provider filtering change the available budget.
 
----
+## Configuration
 
-## WireGuard: как устроен туннель
+Set interface MTU explicitly when automatic detection cannot see the complete
+chain. Cascade supports global and per-interface MTU, with the interface value
+taking precedence.
 
-WireGuard берёт исходный IP пакет, шифрует его и оборачивает в новый UDP пакет с собственными заголовками:
+Linux forwarding example:
 
-```
-┌──────────────┬────────────┬──────────────────────────────┐
-│ Outer IP+UDP │  WG Header │  Зашифрованный IP пакет      │
-│   20+8 байт  │  32 байта  │  (исходный пакет целиком)    │
-└──────────────┴────────────┴──────────────────────────────┘
-```
-
-Итого **overhead WireGuard**:
-- IPv4 транспорт: 20 + 8 + 32 = **60 байт**
-- IPv6 транспорт: 40 + 8 + 32 = **80 байт**
-
-Максимальный MTU WireGuard интерфейса:
-```
-MTU_WG = MTU_физика − WG_overhead
-```
-
-При физике 1500 и IPv4 транспорте:
-```
-MTU_WG = 1500 − 60 = 1440
-```
-
----
-
-## Ключевой принцип цепочки туннелей
-
-Самое важное что нужно понять: **на каждом промежуточном узле происходит полная декапсуляция и повторная инкапсуляция.**
-
-Это значит что заголовки туннелей **не накапливаются**. Каждый узел снимает один слой шифрования, смотрит на внутренний IP пакет, принимает решение о маршрутизации, и заворачивает пакет в новый туннель уже к следующему узлу.
-
-```
-[Узел A] ──wg──► [Узел B] ──wg──► [Узел C]
-
-На Узле B происходит:
-  входящий WG пакет (1400 байт)
-       ↓  декапсуляция  −80 байт
-  внутренний IP пакет (1320 байт)
-       ↓  инкапсуляция  +80 байт
-  исходящий WG пакет (1400 байт)
+```sh
+iptables-nft -t mangle -A FORWARD -o wg10 -p tcp --tcp-flags SYN,RST SYN \
+  -j TCPMSS --clamp-mss-to-pmtu
+iptables-nft -t mangle -A FORWARD -i wg10 -p tcp --tcp-flags SYN,RST SYN \
+  -j TCPMSS --clamp-mss-to-pmtu
 ```
 
-**Следствие:** размер физического пакета на каждом участке цепочки одинаков, независимо от количества узлов. MTU WireGuard интерфейсов можно выставить одинаковым на всех узлах.
+Locally generated server traffic may require an OUTPUT-chain rule. On
+OPNsense/pfSense, apply the equivalent normalization or MSS setting on the
+relevant tunnel/firewall rule.
 
----
+## Measuring path MTU
 
-## Расчёт MTU и MSS
+Linux IPv4 probes use a payload smaller than packet MTU by the IP and ICMP header
+size:
 
-### Шаг 1 — Определить физический MTU
-
-| Тип подключения | MTU |
-|---|---|
-| Стандартный Ethernet | 1500 |
-| DSL/PPPoE (терминируется на роутере) | 1492 |
-| DSL/PPPoE (терминируется у провайдера) | 1500 |
-
-Если в цепочке есть узлы с разным физическим MTU — берём **минимальное** значение как отправную точку.
-
-### Шаг 2 — Вычислить MTU WireGuard интерфейса
-
-```
-MTU_WG = MTU_физика − WG_overhead
+```sh
+ping -M do -s 1372 <destination>
 ```
 
-Это значение выставляется **одинаково на всех WG интерфейсах** цепочки.
+On macOS/BSD, use the platform's do-not-fragment option and adjust payload size.
+Binary-search the largest reliable size. Test both directions when possible,
+because asymmetric paths can differ.
 
-### Шаг 3 — Вычислить MSS Clamp
+Inspect configured MTUs:
 
-```
-MSS = MTU_WG − 40  (максимальное значение, впритык)
-```
-
-На практике берут с запасом 20–40 байт на непредвиденные заголовки и особенности разных реализаций:
-
-```
-MSS_safe = MTU_WG − 40 − запас
-```
-
-### Шаг 4 — Проверить
-
-```
-TCP payload (= MSS):       X байт
-+ IP + TCP заголовки:    + 40 байт
-= IP пакет:                X+40 байт
-+ WG overhead:           + WG_overhead байт
-= физический пакет:        X+40+WG_overhead байт
-
-Должно быть: физический пакет ≤ MTU_физика
-```
-
----
-
-## Пример расчёта
-
-Цепочка из 4 узлов, физика 1500, WG overhead 80 байт (IPv6 транспорт или нестандартная конфигурация):
-
-```
-[LAN-A] ←→ [Router-A] ←wg→ [VPS-1] ←wg→ [VPS-2] ←wg→ [Router-B] ←→ [LAN-B]
-```
-
-**MTU WG интерфейсов:**
-```
-MTU_WG = 1500 − 80 = 1420
-```
-
-**MSS clamp (с запасом ~60 байт):**
-```
-MSS = 1420 − 40 − 60 = 1320
-```
-
-Проверка:
-```
-TCP payload:      1320
-+ заголовки:      + 40
-= IP пакет:       1360
-+ WG overhead:    + 80
-= физический:     1440  <  1500  ✓  запас 60 байт
-```
-
----
-
-## Итоговая таблица настроек
-
-| Интерфейс | MTU | MSS Clamp |
-|---|---|---|
-| LAN (Ethernet) | 1500 | ставить clamp |
-| WG туннели между узлами | MTU_физика − overhead | не нужен |
-| WG-server (клиентские подключения) | MTU_физика − overhead | ставить clamp |
-
-MSS clamp нужен там где трафик **входит** в цепочку: LAN интерфейсы и интерфейсы для подключения клиентов.
-
-На транзитных WG интерфейсах между узлами clamp не нужен — трафик уже зажат на входе.
-
----
-
-## MSS Clamp: только TCP
-
-MSS clamping работает **только для TCP**. UDP не имеет механизма согласования размера сегмента.
-
-Для UDP единственная защита — правильный MTU на WG интерфейсах. Если UDP приложение пошлёт пакет больше MTU туннеля — он будет фрагментирован или дропнут.
-
-На практике большинство UDP приложений (DNS, VoIP, игры) используют небольшие пакеты и проблем не возникает. Современные протоколы типа QUIC умеют PMTUD и подстраиваются сами.
-
----
-
-## Настройка
-
-### OPNsense / pfSense
-
-Поле **MSS** на интерфейсе работает иначе чем ожидаешь:
-
-```
-Реальный MSS clamp = значение в поле MSS − 40
-```
-
-Чтобы получить clamp 1280 — вводить нужно **1320**.
-
-Применяется через механизм scrub, перехватывает SYN/SYN-ACK в обоих направлениях.
-
-### Linux (VPS, роутеры на Linux)
-
-```bash
-# Транзитный трафик
-iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN \
-  -j TCPMSS --set-mss 1280
-
-# Трафик самого сервера
-iptables -t mangle -A OUTPUT -p tcp --tcp-flags SYN,RST SYN \
-  -j TCPMSS --set-mss 1280
-```
-
-Чтобы правила сохранялись после перезагрузки:
-```bash
-iptables-save > /etc/iptables/rules.v4
-```
-
-### WireGuard конфиг клиента
-
-```ini
-[Interface]
-MTU = 1420    # совпадает с MTU на сервере
-```
-
-Если клиент подключается через нестабильную или неизвестную сеть (мобильный интернет, другой VPN, публичный Wi-Fi) — лучше поставить меньшее значение с запасом:
-```ini
-MTU = 1280
-```
-
----
-
-## Диагностика
-
-### Определить реальный MTU пути
-
-```bash
-# Linux — бинарный поиск рабочего размера
-ping -M do -s 1400 <destination_ip>   # если проходит — увеличивай
-ping -M do -s 1450 <destination_ip>   # если падает — уменьшай
-
-# macOS / BSD
-sudo ping -D -s 1400 <destination_ip>
-```
-
-> Реальный MTU = последний размер `-s` при котором пинг прошёл **+ 28 байт** (20 IP + 8 ICMP заголовки)
-
-### Посмотреть MTU интерфейсов
-
-```bash
-# Linux
+```sh
 ip link show
-
-# BSD / macOS
-ifconfig | grep mtu
 ```
 
-### Трассировка с MTU по хопам
+## AmneziaWG considerations
 
-```bash
-tracepath <destination_ip>    # показывает MTU на каждом хопе
-```
+AmneziaWG junk and handshake obfuscation parameters change control traffic and
+traffic appearance. Data-packet encapsulation still requires WireGuard-style
+MTU planning, while additional network layers or implementations may justify
+extra margin. Never assume that a successful handshake proves large data packets
+can traverse the path.
 
----
+## Common symptoms
 
-## AmneziaWG: обфускация и MTU
+- Handshake succeeds but websites stall on larger responses.
+- ICMP and small requests work while downloads freeze.
+- TCP improves after MSS clamping but UDP applications still fail.
+- Only one direction has throughput problems.
 
-AmneziaWG — форк WireGuard с обфускацией трафика. Существует в двух версиях: AWG 1.x и AWG 2.0, которые отличаются механизмами обфускации перед handshake.
-
-### AWG 1.x — junk пакеты
-
-Перед стандартным WireGuard handshake отправляются случайные «мусорные» пакеты чтобы трафик не был похож на WireGuard и не блокировался DPI.
-
-**Параметры:**
-```
-Jc   — количество junk пакетов
-Jmin — минимальный размер junk пакета (байт)
-Jmax — максимальный размер junk пакета (байт)
-```
-
-**Последовательность перед установкой туннеля:**
-```
-Клиент → [Jc мусорных пакетов размером Jmin..Jmax] → Сервер
-Клиент → [WG Handshake Initiation]                 → Сервер
-Сервер → [WG Handshake Response]                   → Клиент
-         туннель установлен
-```
-
----
-
-### AWG 2.0 — junk пакеты + CPS пакеты I1-I5
-
-AWG 2.0 добавляет новый уровень обфускации: помимо junk пакетов, перед handshake отправляются CPS пакеты (Custom Protocol Signature) которые имитируют реальные протоколы — QUIC, DNS, SIP.
-
-**Дополнительные параметры:**
-```
-I1..I5 — до 5 пакетов в формате CPS
-         I1 — имитирует реальный протокол (например QUIC Initial handshake)
-         I2-I5 — увеличивают энтропию через счётчики, временные метки и случайные данные
-```
-
-AWG 2.0 также добавляет случайный padding ко всем типам WireGuard сообщений и использует динамические диапазоны заголовков вместо статических — у каждого сервера своя уникальная сигнатура, нет единой DPI-сигнатуры для блокировки.
-
-**Полная последовательность AWG 2.0:**
-```
-Клиент → [пакеты I1..I5 имитирующие реальные протоколы] → Сервер
-Клиент → [Jc мусорных пакетов размером Jmin..Jmax]      → Сервер
-Клиент → [WG Handshake Initiation + padding]             → Сервер
-Сервер → [WG Handshake Response + padding]               → Клиент
-         туннель установлен
-```
-
----
-
-### Проблема с MTU
-
-Все пакеты обфускации — junk и CPS I1-I5 — отправляются **до** установки туннеля напрямую через физический интерфейс. Если их размер превышает физический MTU — они фрагментируются, что:
-
-- выглядит подозрительно для DPI (фрагментированный UDP нетипичен для обычного трафика)
-- может привести к дропу пакетов
-- туннель **не поднимается вообще**
-
-Это сложно диагностировать: ping и traceroute не помогут — они работают уже после handshake. Соединение просто не устанавливается без очевидной причины.
-
-```
-Jmax или размер I1-I5 > MTU_физика
-    → фрагментация или дроп
-    → handshake не проходит
-    → туннель не поднимается
-```
-
-### Решение
-
-Держать размеры всех пакетов обфускации меньше физического MTU с запасом:
-
-```
-Jmax      ≤ MTU_физика − 100
-размер Ix ≤ MTU_физика − 100
-
-Для Ethernet (1500):  Jmax ≤ 1400
-Для DSL/PPPoE (1492): Jmax ≤ 1392
-```
-
-На практике размер junk и CPS пакетов не влияет на производительность после установки соединения — можно держать их небольшими, **500–1000 байт**. Это гарантирует прохождение handshake в любой сети.
-
----
-
-### Overhead AWG на данные
-
-После установки туннеля overhead AmneziaWG (1.x и 2.0) на передачу данных **такой же как у обычного WireGuard** — обфускация участвует только в handshake. Расчёт MTU и MSS для туннеля идентичен стандартному WireGuard.
-
-Миф о 65% overhead относится к userspace Go реализации (`amneziawg-go`), а не к протоколу. Kernel модуль работает с накладными расходами около 3% по сравнению с обычным WireGuard.
-
----
-
-## Частые проблемы
-
-| Симптом | Причина | Решение |
-|---|---|---|
-| Сайты не открываются, но ping работает | MSS не зажат, большие TCP пакеты дропаются | Поставить MSS clamp |
-| Медленная скорость | Фрагментация пакетов | Уменьшить MTU на WG интерфейсах |
-| VoIP/игры работают, браузер нет | TCP проблема, UDP ок | MSS clamp |
-| Соединение обрывается на больших файлах | MTU слишком большой | Уменьшить MTU WG или MSS clamp |
+When these occur, inspect tunnel counters and firewall drops, test decreasing MTU
+on the innermost interface, validate both path directions, and check whether an
+intermediate NAT or overlay adds unaccounted encapsulation.

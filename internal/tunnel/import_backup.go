@@ -19,8 +19,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/JohnnyVBut/cascade/internal/peer"
-	"github.com/JohnnyVBut/cascade/internal/validate"
+	"github.com/alexnikon/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/validate"
 )
 
 // ── Backup JSON types ─────────────────────────────────────────────────────────

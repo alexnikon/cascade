@@ -29,7 +29,9 @@
 
 services:
   cascade:
-    image: ghcr.io/johnnyvbut/cascade:latest
+    # To update Cascade, change this exact release tag, then run:
+    # docker compose pull && docker compose up -d
+    image: ghcr.io/alexnikon/cascade:0.9.5
     build:
       context: .
       dockerfile: Dockerfile
