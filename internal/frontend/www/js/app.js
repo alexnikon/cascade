@@ -4079,6 +4079,13 @@ new Vue({
       return this.dashPeersState[widgetId];
     },
 
+    dashPeersViewDirty(widgetId) {
+      const state = this.dashPeersGetState(widgetId);
+      const widget = this.dashWidgets.find(w => w.id === widgetId) || {};
+      return state.iface !== (widget.peerFilter || '') ||
+        state.sort !== (widget.peerSort || 'name');
+    },
+
     async dashSavePeersView(widgetId) {
       const state = this.dashPeersGetState(widgetId);
       const idx = this.dashWidgets.findIndex(w => w.id === widgetId);
@@ -4088,9 +4095,11 @@ new Vue({
         peerFilter: state.iface || '',
         peerSort: state.sort || 'name',
       };
-      this.dashWidgets.splice(idx, 1, updated);
+      const widgets = [...this.dashWidgets];
+      widgets.splice(idx, 1, updated);
       try {
-        await this.api.putDashboardWidgets(this.dashWidgets);
+        await this.api.putDashboardWidgets(widgets);
+        this.dashWidgets.splice(idx, 1, updated);
         this.showToast('Peers view saved', 'success');
       } catch (err) {
         this.showToast(`Failed to save peers view: ${err.message}`, 'error');
@@ -4104,9 +4113,11 @@ new Vue({
       const updated = { ...this.dashWidgets[idx] };
       delete updated.peerFilter;
       delete updated.peerSort;
-      this.dashWidgets.splice(idx, 1, updated);
+      const widgets = [...this.dashWidgets];
+      widgets.splice(idx, 1, updated);
       try {
-        await this.api.putDashboardWidgets(this.dashWidgets);
+        await this.api.putDashboardWidgets(widgets);
+        this.dashWidgets.splice(idx, 1, updated);
         this.showToast('Peers view reset', 'success');
       } catch (err) {
         this.showToast(`Failed to reset peers view: ${err.message}`, 'error');

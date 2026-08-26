@@ -580,6 +580,7 @@ func TestFrontendContainsUIIssueRegressions(t *testing.T) {
 	for _, expected := range []string{
 		"dashSavePeersView(widgetId)",
 		"dashResetPeersView(widgetId)",
+		"dashPeersViewDirty(widgetId)",
 		"peerFilter: state.iface",
 		"peerSort: state.sort",
 		"metricsPruneUnavailableGraphs(snap)",
@@ -594,8 +595,7 @@ func TestFrontendContainsUIIssueRegressions(t *testing.T) {
 	for _, expected := range []string{
 		"Edit details",
 		"Save & Close",
-		"dashSavePeersView(w.id)",
-		"dashResetPeersView(w.id)",
+		"dashPeersViewDirty(w.id) ? dashSavePeersView(w.id) : dashResetPeersView(w.id)",
 		"title=\"Copy public IP\"",
 		"@click=\"peerEditForm.expiredAt = ''\"",
 	} {
@@ -667,12 +667,38 @@ func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
 
 	for _, expected := range []string{
 		`<span :title="iface.enabled ? 'Up' : 'Down'"`,
-		`dashSavePeersView(w.id)`,
-		`dashResetPeersView(w.id)`,
+		`class="dash-peers-toolbar"`,
+		`class="dash-peers-select"`,
+		`class="dash-peers-view-action"`,
 		`<!-- online status dot -->`,
 	} {
 		if !strings.Contains(index, expected) {
 			t.Errorf("read-only dashboard does not contain %q", expected)
+		}
+	}
+	if got := strings.Count(peers, `class="dash-peers-view-action"`); got != 1 {
+		t.Errorf("dashboard peers view action count = %d, want 1", got)
+	}
+	if strings.Contains(peers, "peerEffectiveRate(peer)") {
+		t.Error("dashboard peers still contains the rate-limit badge")
+	}
+
+	cssContent, err := assets.ReadFile("www/css/app.css")
+	if err != nil {
+		t.Fatalf("read app.css: %v", err)
+	}
+	css := string(cssContent)
+	for _, expected := range []string{
+		`.dash-peers-panel {`,
+		`overflow: hidden;`,
+		`.dash-peers-toolbar {`,
+		`grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;`,
+		`.dash-peers-select {`,
+		`min-width: 0 !important;`,
+		`.dash-peers-view-action.is-dirty {`,
+	} {
+		if !strings.Contains(css, expected) {
+			t.Errorf("dashboard peers responsive CSS does not contain %q", expected)
 		}
 	}
 }

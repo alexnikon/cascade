@@ -2242,6 +2242,52 @@ button.interface-filter-button {
   outline: none;
 }
 
+.dash-peers-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dash-peers-toolbar {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  max-width: 100%;
+  min-width: 0;
+  padding: 6px 12px;
+}
+
+.dash-peers-select {
+  min-width: 0 !important;
+  width: 100%;
+}
+
+.dash-peers-view-action {
+  background: transparent;
+  border: 1px solid #9ca3af;
+  border-radius: 5px;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 0.68rem;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
+
+.dash-peers-view-action.is-dirty {
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.dark .dash-peers-view-action {
+  border-color: #737373;
+  color: #d4d4d4;
+}
+
+.dark .dash-peers-view-action.is-dirty {
+  border-color: #818cf8;
+  color: #a5b4fc;
+}
+
 .restore-interface-map-row {
   align-items: center;
   display: grid;

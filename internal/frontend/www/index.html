@@ -1687,13 +1687,14 @@
                     <!-- ── peers (full list with filter + controls) ── -->
                     <template v-else-if="w.type === 'peers'">
                       <!-- expand out of body padding to fill card edge-to-edge -->
-                      <div style="display:flex; flex-direction:column; height:100%; margin:-12px -16px;">
+                      <div class="dash-peers-panel" style="display:flex; flex-direction:column; height:100%; margin:-12px -16px;">
 
                         <!-- sticky filter bar -->
-                        <div style="padding:6px 12px; border-bottom:1px solid #f3f4f6; flex-shrink:0; display:flex; gap:6px; align-items:center;"
+                        <div class="dash-peers-toolbar" style="border-bottom:1px solid #f3f4f6; flex-shrink:0;"
                           :style="{ 'border-bottom-color': theme==='dark' ? '#525252' : '#f3f4f6' }">
                           <select v-model="dashPeersGetState(w.id).iface"
-                            style="flex:1; font-size:0.72rem; border:1px solid #e5e7eb; border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
+                            class="dash-peers-select"
+                            style="font-size:0.72rem; border:1px solid #e5e7eb; border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
                             :style="{ 'border-color': theme==='dark' ? '#525252':'#e5e7eb', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
                             <option value="">All peers</option>
                             <option value="__clients__">All clients</option>
@@ -1701,16 +1702,18 @@
                             <option v-for="iface in tunnelInterfaces" :key="iface.id" :value="iface.id">{{ iface.name }}</option>
                           </select>
                           <select v-model="dashPeersGetState(w.id).sort"
-                            style="flex:1; font-size:0.72rem; border:1px solid #e5e7eb; border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
+                            class="dash-peers-select"
+                            style="font-size:0.72rem; border:1px solid #e5e7eb; border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
                             :style="{ 'border-color': theme==='dark' ? '#525252':'#e5e7eb', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
                             <option value="name">Sort: Name</option>
                             <option value="traffic">Sort: Traffic</option>
                             <option value="seen">Sort: Last seen</option>
                           </select>
-                          <button type="button" @click="dashSavePeersView(w.id)" title="Save filter and sort"
-                            style="font-size:0.68rem; padding:3px 7px; border:1px solid #6366f1; border-radius:5px; color:#6366f1; background:transparent; cursor:pointer;">Save</button>
-                          <button type="button" @click="dashResetPeersView(w.id)" title="Reset filter and sort"
-                            style="font-size:0.68rem; padding:3px 7px; border:1px solid #9ca3af; border-radius:5px; color:#6b7280; background:transparent; cursor:pointer;">Reset</button>
+                          <button type="button"
+                            @click="dashPeersViewDirty(w.id) ? dashSavePeersView(w.id) : dashResetPeersView(w.id)"
+                            class="dash-peers-view-action"
+                            :class="{ 'is-dirty': dashPeersViewDirty(w.id) }"
+                            :title="dashPeersViewDirty(w.id) ? 'Save filter and sort' : 'Reset filter and sort'">{{ dashPeersViewDirty(w.id) ? 'Save' : 'Reset' }}</button>
                         </div>
 
                         <!-- scrollable peer list -->
@@ -1741,16 +1744,6 @@
                                   style="font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:2px; font-weight:600;"
                                   :style="{ background: theme==='dark'?'rgba(34,197,94,0.18)':'rgba(34,197,94,0.1)', color: theme==='dark'?'#4ade80':'#16a34a' }"
                                   :title="'Group: ' + peerGroupName(peer.groupId)">{{ peerGroupName(peer.groupId) }}</span>
-                                <!-- rate limit badge -->
-                                <template v-if="peerEffectiveRate(peer).rateDown > 0 || peerEffectiveRate(peer).rateUp > 0">
-                                  <span style="font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:2px; font-weight:600;"
-                                    :style="peerEffectiveRate(peer).fromGroup
-                                      ? { background: theme==='dark'?'rgba(99,102,241,0.18)':'rgba(99,102,241,0.1)', color: theme==='dark'?'#a5b4fc':'#4338ca' }
-                                      : { background: theme==='dark'?'rgba(251,146,60,0.18)':'rgba(234,88,12,0.08)', color: theme==='dark'?'#fb923c':'#c2410c' }"
-                                    :title="(peerEffectiveRate(peer).fromGroup ? 'Group limit: ' : '') + (peerEffectiveRate(peer).rateDown>0 ? '↓ ' + formatRate(peerEffectiveRate(peer).rateDown) + 'bit/s ' : '') + (peerEffectiveRate(peer).rateUp>0 ? '↑ ' + formatRate(peerEffectiveRate(peer).rateUp) + 'bit/s' : '')">
-                                    <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;margin-right:1px;">G</span><span v-if="peerEffectiveRate(peer).rateDown > 0">↓{{ formatRate(peerEffectiveRate(peer).rateDown) }}</span><span v-if="peerEffectiveRate(peer).rateDown > 0 && peerEffectiveRate(peer).rateUp > 0"> </span><span v-if="peerEffectiveRate(peer).rateUp > 0">↑{{ formatRate(peerEffectiveRate(peer).rateUp) }}</span>
-                                  </span>
-                                </template>
                                 <!-- handshake time -->
                                 <span style="font-size:0.6rem; font-weight:400; margin-left:4px; opacity:0.7; display:inline-flex; align-items:center; gap:2px;"
                                   :title="peer.latestHandshakeAt ? 'Last handshake: ' + new Date(peer.latestHandshakeAt).toLocaleString() : 'Never connected'">
