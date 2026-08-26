@@ -32,14 +32,22 @@ type UpdateStatus struct {
 }
 
 var (
-	mu               sync.RWMutex
-	status           UpdateStatus
-	latestReleaseURL = "https://api.github.com/repos/alexnikon/cascade/releases/latest"
-	updateHTTPClient = http.DefaultClient
-	nowUTC           = func() time.Time { return time.Now().UTC() }
+	mu                sync.RWMutex
+	status            UpdateStatus
+	latestReleaseURL  = "https://api.github.com/repos/alexnikon/cascade/releases/latest"
+	compareReleaseURL = "https://api.github.com/repos/alexnikon/cascade/compare/"
+	updateHTTPClient  = http.DefaultClient
+	nowUTC            = func() time.Time { return time.Now().UTC() }
 )
 
 var semanticVersion = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z.-]+)?$`)
+var gitCommit = regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
+
+type releasePayload struct {
+	Version    string `json:"tag_name"`
+	ReleaseURL string `json:"html_url"`
+	Changelog  string `json:"body"`
+}
 
 // GetStatus returns the latest cached UpdateStatus (safe for concurrent use).
 func GetStatus() UpdateStatus {
@@ -95,11 +103,7 @@ func check() {
 		return
 	}
 
-	var payload struct {
-		Version    string `json:"tag_name"`
-		ReleaseURL string `json:"html_url"`
-		Changelog  string `json:"body"`
-	}
+	var payload releasePayload
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		setError(fmt.Sprintf("decode: %v", err))
 		return
@@ -117,6 +121,22 @@ func check() {
 		}
 	}
 	available := compareSemver(payload.Version, Version) > 0
+	if available && gitCommit.MatchString(GitCommit) {
+		comparison, err := compareReleaseCommit(ctx, payload.Version, GitCommit)
+		if err != nil {
+			setReleaseError(payload, fmt.Sprintf("compare: %v", err))
+			return
+		}
+		switch comparison {
+		case "ahead", "identical":
+			available = false
+		case "behind", "diverged":
+			// The running commit does not contain the latest release commit.
+		default:
+			setReleaseError(payload, fmt.Sprintf("compare: unexpected status %q", comparison))
+			return
+		}
+	}
 	log.Printf("version: update check — current=%s latest=%s updateAvailable=%v",
 		Version, payload.Version, available)
 
@@ -127,6 +147,48 @@ func check() {
 		Changelog:       payload.Changelog,
 		UpdateAvailable: available,
 		CheckedAt:       nowUTC(),
+	}
+	mu.Unlock()
+}
+
+func compareReleaseCommit(ctx context.Context, releaseTag, currentCommit string) (string, error) {
+	compareURL := compareReleaseURL + url.PathEscape(releaseTag) + "..." + url.PathEscape(currentCommit)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, compareURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	req.Header.Set("User-Agent", "cascade-update-checker/"+Version)
+
+	resp, err := updateHTTPClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("http: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GitHub returned %d", resp.StatusCode)
+	}
+
+	var payload struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return "", fmt.Errorf("decode: %w", err)
+	}
+	return payload.Status, nil
+}
+
+func setReleaseError(payload releasePayload, msg string) {
+	log.Printf("version: update check failed: %s", msg)
+	mu.Lock()
+	status = UpdateStatus{
+		LatestVersion:   payload.Version,
+		ReleaseURL:      payload.ReleaseURL,
+		Changelog:       payload.Changelog,
+		UpdateAvailable: false,
+		CheckedAt:       nowUTC(),
+		Error:           msg,
 	}
 	mu.Unlock()
 }

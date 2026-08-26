@@ -20,12 +20,6 @@
 
 ---
 
-This is the independently maintained `alexnikon/cascade` fork. It has its own
-source namespace, releases, OCI images, update protocol, and deployment
-artifacts. The original repository is not required to build or run Cascade;
-see [NOTICE](NOTICE) for origin and attribution and
-[docs/PORTABILITY.md](docs/PORTABILITY.md) for platform-neutral publishing.
-
 <img width="1484" height="775" alt="image" src="https://github.com/user-attachments/assets/01be9f90-afc5-452c-ad5e-25bfa586ba2b" />
 
 > ⚠️ **Kernel module mode users:** always update the host kernel module

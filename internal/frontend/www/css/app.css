@@ -2178,6 +2178,70 @@ button.interface-filter-button {
   width: 8px;
 }
 
+.peer-row-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.peer-action-group {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  display: grid;
+  flex: 0 0 auto;
+  grid-auto-columns: 44px;
+  grid-auto-flow: column;
+  overflow: hidden;
+}
+
+.dark .peer-action-group {
+  background: transparent;
+  border-color: #737373;
+}
+
+.peer-action-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid #d1d5db;
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  color: #6b7280;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  padding: 0;
+  transition: background 150ms ease, color 150ms ease;
+  width: 44px;
+}
+
+.peer-action-button:first-child {
+  border-left: 0;
+}
+
+.dark .peer-action-button {
+  border-left-color: #737373;
+  color: #d4d4d4;
+}
+
+.peer-action-button:not(:disabled):not(.is-disabled):hover {
+  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+  color: #ffffff;
+}
+
+.peer-action-button.is-disabled,
+.peer-action-button:disabled {
+  pointer-events: none;
+}
+
+.peer-action-button:focus-visible {
+  box-shadow: inset 0 0 0 2px #2563eb;
+  outline: none;
+}
+
 .restore-interface-map-row {
   align-items: center;
   display: grid;

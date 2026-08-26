@@ -25,27 +25,122 @@ func withUpdateServer(t *testing.T, transport roundTripFunc, currentVersion stri
 	t.Helper()
 
 	oldURL := latestReleaseURL
+	oldCompareURL := compareReleaseURL
 	oldClient := updateHTTPClient
 	oldNow := nowUTC
 	oldVersion := Version
+	oldGitCommit := GitCommit
 	oldStatus := GetStatus()
 	t.Cleanup(func() {
 		latestReleaseURL = oldURL
+		compareReleaseURL = oldCompareURL
 		updateHTTPClient = oldClient
 		nowUTC = oldNow
 		Version = oldVersion
+		GitCommit = oldGitCommit
 		mu.Lock()
 		status = oldStatus
 		mu.Unlock()
 	})
 
 	latestReleaseURL = "https://api.example.invalid/repos/cascade/releases/latest"
+	compareReleaseURL = "https://api.example.invalid/repos/cascade/compare/"
 	updateHTTPClient = &http.Client{Transport: transport}
 	nowUTC = func() time.Time { return time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC) }
 	Version = currentVersion
+	GitCommit = "unknown"
 	mu.Lock()
 	status = UpdateStatus{}
 	mu.Unlock()
+}
+
+func TestCheckUsesCommitAncestryForDevelopmentBuilds(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		status    string
+		available bool
+	}{
+		{name: "ahead", status: "ahead", available: false},
+		{name: "identical", status: "identical", available: false},
+		{name: "behind", status: "behind", available: true},
+		{name: "diverged", status: "diverged", available: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			requests := 0
+			withUpdateServer(t, func(r *http.Request) (*http.Response, error) {
+				requests++
+				switch r.URL.Path {
+				case "/repos/cascade/releases/latest":
+					return updateResponse(http.StatusOK, `{"tag_name":"v1.3.0","html_url":"https://example.invalid/release"}`), nil
+				case "/repos/cascade/compare/v1.3.0...abcdef0123456789":
+					return updateResponse(http.StatusOK, `{"status":"`+tc.status+`"}`), nil
+				default:
+					t.Fatalf("unexpected request path: %s", r.URL.Path)
+					return nil, nil
+				}
+			}, "dev")
+			GitCommit = "abcdef0123456789"
+
+			check()
+			got := GetStatus()
+			if got.UpdateAvailable != tc.available || got.Error != "" {
+				t.Fatalf("unexpected status: %+v", got)
+			}
+			if requests != 2 {
+				t.Fatalf("requests = %d, want 2", requests)
+			}
+		})
+	}
+}
+
+func TestCheckSkipsComparisonForInvalidCommit(t *testing.T) {
+	requests := 0
+	withUpdateServer(t, func(r *http.Request) (*http.Response, error) {
+		requests++
+		return updateResponse(http.StatusOK, `{"tag_name":"v1.3.0","html_url":"https://example.invalid/release"}`), nil
+	}, "dev")
+	GitCommit = "not-a-sha"
+
+	check()
+	got := GetStatus()
+	if !got.UpdateAvailable || got.Error != "" {
+		t.Fatalf("unexpected status: %+v", got)
+	}
+	if requests != 1 {
+		t.Fatalf("requests = %d, want 1", requests)
+	}
+}
+
+func TestCheckSuppressesUpdateWhenCommitComparisonFails(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		statusCode int
+		body       string
+		errorPart  string
+	}{
+		{name: "http", statusCode: http.StatusServiceUnavailable, body: "unavailable", errorPart: "503"},
+		{name: "decode", statusCode: http.StatusOK, body: "not-json", errorPart: "decode"},
+		{name: "unknown status", statusCode: http.StatusOK, body: `{"status":"unknown"}`, errorPart: "unexpected status"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			withUpdateServer(t, func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path == "/repos/cascade/releases/latest" {
+					return updateResponse(http.StatusOK, `{"tag_name":"v1.3.0","html_url":"https://example.invalid/release","body":"Changes"}`), nil
+				}
+				return updateResponse(tc.statusCode, tc.body), nil
+			}, "dev")
+			GitCommit = "abcdef0123456789"
+
+			check()
+			got := GetStatus()
+			if got.UpdateAvailable || !strings.Contains(got.Error, tc.errorPart) {
+				t.Fatalf("unexpected status: %+v", got)
+			}
+			if got.LatestVersion != "v1.3.0" || got.ReleaseURL == "" || got.Changelog != "Changes" || got.CheckedAt.IsZero() {
+				t.Fatalf("release metadata not retained: %+v", got)
+			}
+		})
+	}
 }
 
 func TestCheckLatestRelease(t *testing.T) {

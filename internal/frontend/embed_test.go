@@ -313,7 +313,7 @@ func TestFrontendClientCardsDoNotRenderAvatars(t *testing.T) {
 		}
 	}
 	if got := strings.Count(index, `class="peer-online-indicator"`); got != 3 {
-		t.Errorf("recent-handshake indicator count = %d, want 3", got)
+		t.Errorf("peer status indicator count = %d, want 3", got)
 	}
 	for _, expected := range []string{
 		`.peer-online-indicator {`,
@@ -324,6 +324,76 @@ func TestFrontendClientCardsDoNotRenderAvatars(t *testing.T) {
 		if !strings.Contains(css, expected) {
 			t.Errorf("app.css does not preserve connection status with %q", expected)
 		}
+	}
+}
+
+func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
+	indexContent, err := assets.ReadFile("www/index.html")
+	if err != nil {
+		t.Fatalf("read index.html: %v", err)
+	}
+	cssContent, err := assets.ReadFile("www/css/app.css")
+	if err != nil {
+		t.Fatalf("read app.css: %v", err)
+	}
+	index := string(indexContent)
+	css := string(cssContent)
+	interfacesStart := strings.Index(index, `<!-- Interfaces Page`)
+	if interfacesStart == -1 {
+		t.Fatal("Interfaces page marker not found")
+	}
+	interfaces := index[interfacesStart:]
+
+	for expected, want := range map[string]int{
+		`peer.enabled === true && peer.latestHandshakeAt`: 2,
+		`? '#22c55e' : '#9ca3af'`:                         2,
+		`peer.enabled === false ? 'Disabled'`:             2,
+		`? 'Inactive' : 'Never connected'`:                2,
+	} {
+		if got := strings.Count(interfaces, expected); got != want {
+			t.Errorf("Interfaces status expression %q count = %d, want %d", expected, got, want)
+		}
+	}
+
+	editHover := regexp.MustCompile(`(?s)<button @click="openPeerEdit\(peer\)".{0,300}class="peer-action-button"`)
+	if got := len(editHover.FindAllString(interfaces, -1)); got != 2 {
+		t.Errorf("Interfaces Edit buttons in action groups = %d, want 2", got)
+	}
+	if strings.Contains(interfaces, `style="hover:background`) {
+		t.Error("Interfaces still contains invalid inline hover style")
+	}
+
+	for markup, want := range map[string]int{
+		`class="peer-row-controls text-gray-400 dark:text-neutral-400"`: 2,
+		`class="peer-action-group"`:                                     2,
+		`class="peer-action-button"`:                                    10,
+	} {
+		if got := strings.Count(interfaces, markup); got != want {
+			t.Errorf("Interfaces action markup %q count = %d, want %d", markup, got, want)
+		}
+	}
+	for _, expected := range []string{
+		`.peer-row-controls {`,
+		`flex-wrap: wrap;`,
+		`.peer-action-group {`,
+		`background: transparent;`,
+		`grid-auto-columns: 44px;`,
+		`grid-auto-flow: column;`,
+		`.dark .peer-action-group {`,
+		`.peer-action-button:not(:disabled):not(.is-disabled):hover {`,
+		`background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);`,
+		`.peer-action-button:focus-visible {`,
+		`pointer-events: none;`,
+	} {
+		if !strings.Contains(css, expected) {
+			t.Errorf("peer action CSS does not contain %q", expected)
+		}
+	}
+	if got := strings.Count(interfaces, `class="border-t-2 border-b-2 border-transparent">{{peer.name}}</span>`); got != 0 {
+		t.Errorf("Interfaces peer names with transparent border classes = %d, want 0", got)
+	}
+	if got := strings.Count(interfaces, `v-show="peerEditNameId !== peer.id">{{peer.name}}</span>`); got != 2 {
+		t.Errorf("borderless Interfaces peer names = %d, want 2", got)
 	}
 }
 
@@ -535,6 +605,75 @@ func TestFrontendContainsUIIssueRegressions(t *testing.T) {
 	}
 	if got := strings.Count(index, "@click=\"dismissToast(toast.id)\""); got != 1 {
 		t.Errorf("toast dismiss control count = %d, want 1", got)
+	}
+}
+
+func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
+	appContent, err := assets.ReadFile("www/js/app.js")
+	if err != nil {
+		t.Fatalf("read app.js: %v", err)
+	}
+	indexContent, err := assets.ReadFile("www/index.html")
+	if err != nil {
+		t.Fatalf("read index.html: %v", err)
+	}
+	app := string(appContent)
+	index := string(indexContent)
+	dashboardSection := func(startMarker, endMarker string) string {
+		start := strings.Index(index, startMarker)
+		if start == -1 {
+			t.Fatalf("dashboard marker not found: %s", startMarker)
+		}
+		end := strings.Index(index[start:], endMarker)
+		if end == -1 {
+			t.Fatalf("dashboard marker not found: %s", endMarker)
+		}
+		return index[start : start+end]
+	}
+	interfaces := dashboardSection("<!-- ── interfaces ── -->", "<!-- ── traffic ── -->")
+	peers := dashboardSection("<!-- ── peers (full list with filter + controls) ── -->", "<!-- ── monitoring ── -->")
+
+	for _, obsolete := range []string{
+		"dashToggleInterface(iface)",
+		"dashOpenAddPeer(iface)",
+	} {
+		if strings.Contains(app, obsolete) || strings.Contains(index, obsolete) {
+			t.Errorf("dashboard still contains entity action %q", obsolete)
+		}
+	}
+	for _, obsolete := range []string{
+		"startTunnelInterface(iface)",
+		"stopTunnelInterface(iface)",
+		"openInterfaceEdit(iface)",
+		"cursor:pointer",
+	} {
+		if strings.Contains(interfaces, obsolete) {
+			t.Errorf("dashboard interfaces row still contains action %q", obsolete)
+		}
+	}
+	for _, obsolete := range []string{
+		"disablePeer(peer)",
+		"enablePeer(peer)",
+		"peerQrUrl(peer.interfaceId, peer.id)",
+		"downloadPeerConfig(peer)",
+		"showPeerOneTimeLink(peer)",
+		"openPeerEdit(peer)",
+		"peerDelete = peer",
+	} {
+		if strings.Contains(peers, obsolete) {
+			t.Errorf("dashboard peers row still contains action %q", obsolete)
+		}
+	}
+
+	for _, expected := range []string{
+		`<span :title="iface.enabled ? 'Up' : 'Down'"`,
+		`dashSavePeersView(w.id)`,
+		`dashResetPeersView(w.id)`,
+		`<!-- online status dot -->`,
+	} {
+		if !strings.Contains(index, expected) {
+			t.Errorf("read-only dashboard does not contain %q", expected)
+		}
 	}
 }
 

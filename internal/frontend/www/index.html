@@ -1528,12 +1528,11 @@
                         style="padding:5px 0; border-bottom:1px solid #f3f4f6;"
                         :style="{ 'border-bottom-color': theme==='dark'?'#525252':'#f3f4f6' }">
 
-                        <!-- Row 1: dot + name + badges + controls -->
+                        <!-- Row 1: status + name + badges -->
                         <div style="display:flex; align-items:center; gap:6px; font-size:0.72rem;">
-                          <!-- status dot (clickable toggle) -->
-                          <span @click="dashToggleInterface(iface)"
-                            :title="iface.enabled ? 'Up — click to stop' : 'Down — click to start'"
-                            style="width:10px; height:10px; border-radius:50%; cursor:pointer; flex-shrink:0; display:inline-block; transition:background 0.2s;"
+                          <!-- read-only status dot -->
+                          <span :title="iface.enabled ? 'Up' : 'Down'"
+                            style="width:10px; height:10px; border-radius:50%; flex-shrink:0; display:inline-block;"
                             :style="{ background: iface.enabled ? '#22c55e' : '#ef4444' }"></span>
 
                           <!-- name -->
@@ -1568,38 +1567,6 @@
                             {{ iface.mss === -1 ? 'MSS auto' : 'MSS ' + iface.mss }}
                           </span>
 
-                          <div style="flex:1;"></div>
-
-                          <!-- controls: start / stop / add peer -->
-                          <div style="display:flex; gap:2px; flex-shrink:0; align-items:center;">
-                            <button @click="startTunnelInterface(iface)" title="Start"
-                              style="padding:3px; border:none; border-radius:4px; cursor:pointer; display:flex; align-items:center; line-height:0;"
-                              :style="{ background: iface.enabled ? 'rgba(107,114,128,0.07)' : 'rgba(34,197,94,0.12)', color: iface.enabled ? '#9ca3af' : '#16a34a' }">
-                              <svg style="width:13px;height:13px;" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                            </button>
-                            <button @click="stopTunnelInterface(iface)" title="Stop"
-                              style="padding:3px; border:none; border-radius:4px; cursor:pointer; display:flex; align-items:center; line-height:0;"
-                              :style="{ background: iface.enabled ? 'rgba(239,68,68,0.1)' : 'rgba(107,114,128,0.07)', color: iface.enabled ? '#ef4444' : '#9ca3af' }">
-                              <svg style="width:13px;height:13px;" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
-                            </button>
-                            <button @click="dashOpenAddPeer(iface)"
-                              :title="iface.disableRoutes ? 'N/A for S2S' : 'Quick add client'"
-                              :style="{ padding:'3px', border:'none', borderRadius:'4px', display:'flex', alignItems:'center', lineHeight:'0',
-                                background: iface.disableRoutes ? 'rgba(107,114,128,0.07)' : 'rgba(99,102,241,0.1)',
-                                color: iface.disableRoutes ? '#9ca3af' : '#6366f1',
-                                cursor: iface.disableRoutes ? 'default' : 'pointer',
-                                opacity: iface.disableRoutes ? '0.35' : '1',
-                                pointerEvents: iface.disableRoutes ? 'none' : 'auto' }">
-                              <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                            </button>
-                            <!-- Edit interface -->
-                            <button @click="openInterfaceEdit(iface)" title="Edit interface"
-                              :style="{ padding:'3px', border:'none', borderRadius:'4px', cursor:'pointer', display:'flex', alignItems:'center', lineHeight:'0',
-                                background: theme==='dark' ? '#525252' : 'rgba(107,114,128,0.1)',
-                                color: theme==='dark' ? '#d4d4d4' : 'inherit' }">
-                              <svg style="width:13px;height:13px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                            </button>
-                          </div>
                         </div>
 
                         <!-- Row 2: address + traffic + peers -->
@@ -1814,79 +1781,6 @@
                               <div style="color:#22c55e;">↑ {{ dashFmtBytes(peer.totalRx || 0) }}</div>
                             </div>
 
-                            <!-- controls -->
-                            <div style="display:flex; gap:2px; flex-shrink:0; align-items:center;">
-                              <!-- enable/disable toggle -->
-                              <div @click="peer.enabled ? disablePeer(peer) : enablePeer(peer)"
-                                :title="peer.enabled ? 'Disable' : 'Enable'"
-                                style="width:26px; height:14px; border-radius:7px; cursor:pointer; position:relative; transition:background 0.2s; flex-shrink:0;"
-                                :style="{ background: peer.enabled ? '#16a34a' : '#d1d5db' }">
-                                <div style="position:absolute; top:2px; width:10px; height:10px; border-radius:50%; background:#fff; transition:left 0.15s;"
-                                  :style="{ left: peer.enabled ? '14px' : '2px' }"></div>
-                              </div>
-                              <!-- QR: active for client peers, dimmed/disabled for S2S -->
-                              <button
-                                @click="!peer.peerType || peer.peerType !== 'interconnect' ? (qrcode = peerQrUrl(peer.interfaceId, peer.id)) : null"
-                                :title="peer.peerType === 'interconnect' ? 'N/A for S2S' : 'Show QR'"
-                                :style="{ padding:'3px', border:'none', borderRadius:'4px', display:'flex', alignItems:'center', lineHeight:'0',
-                                  background: peer.peerType === 'interconnect' ? (theme==='dark' ? 'rgba(255,255,255,0.04)' : 'rgba(107,114,128,0.05)') : (theme==='dark' ? '#525252' : 'rgba(107,114,128,0.1)'),
-                                  color: theme==='dark' ? '#d4d4d4' : 'inherit',
-                                  cursor: peer.peerType === 'interconnect' ? 'default' : 'pointer',
-                                  opacity: peer.peerType === 'interconnect' ? '0.25' : '1',
-                                  pointerEvents: peer.peerType === 'interconnect' ? 'none' : 'auto' }">
-                                <svg style="width:13px;height:13px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
-                                </svg>
-                              </button>
-                              <!-- Download config: active for client peers, dimmed/disabled for S2S -->
-                              <button
-                                @click="!peer.peerType || peer.peerType !== 'interconnect' ? downloadPeerConfig(peer) : null"
-                                :title="peer.peerType === 'interconnect' ? 'N/A for S2S' : 'Download config'"
-                                :style="{ padding:'3px', border:'none', borderRadius:'4px', display:'flex', alignItems:'center', lineHeight:'0',
-                                  background: peer.peerType === 'interconnect' ? (theme==='dark' ? 'rgba(255,255,255,0.04)' : 'rgba(107,114,128,0.05)') : (theme==='dark' ? '#525252' : 'rgba(107,114,128,0.1)'),
-                                  color: theme==='dark' ? '#d4d4d4' : 'inherit',
-                                  cursor: peer.peerType === 'interconnect' ? 'default' : 'pointer',
-                                  opacity: peer.peerType === 'interconnect' ? '0.25' : '1',
-                                  pointerEvents: peer.peerType === 'interconnect' ? 'none' : 'auto' }">
-                                <svg style="width:13px;height:13px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                                </svg>
-                              </button>
-                              <!-- One-time link -->
-                              <button v-if="enableOneTimeLinks"
-                                @click="peer.peerType !== 'interconnect' ? showPeerOneTimeLink(peer) : null"
-                                :title="peer.peerType === 'interconnect' ? 'N/A for S2S' : 'Generate one-time link'"
-                                :style="{ padding:'3px', border:'none', borderRadius:'4px', display:'flex', alignItems:'center', lineHeight:'0',
-                                  background: peer.peerType === 'interconnect' ? (theme==='dark' ? 'rgba(255,255,255,0.04)' : 'rgba(107,114,128,0.05)') : (theme==='dark' ? '#525252' : 'rgba(107,114,128,0.1)'),
-                                  color: theme==='dark' ? '#d4d4d4' : 'inherit',
-                                  cursor: peer.peerType === 'interconnect' ? 'default' : 'pointer',
-                                  opacity: peer.peerType === 'interconnect' ? '0.25' : '1',
-                                  pointerEvents: peer.peerType === 'interconnect' ? 'none' : 'auto' }">
-                                <svg style="width:13px;height:13px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-                                </svg>
-                              </button>
-                              <!-- Edit -->
-                              <button @click="openPeerEdit(peer)"
-                                title="Edit"
-                                :style="{ padding:'3px', border:'none', borderRadius:'4px', cursor:'pointer', display:'flex', alignItems:'center', lineHeight:'0',
-                                  background: theme==='dark' ? '#525252' : 'rgba(107,114,128,0.1)',
-                                  color: theme==='dark' ? '#d4d4d4' : 'inherit' }">
-                                <svg style="width:13px;height:13px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                </svg>
-                              </button>
-                              <!-- Delete -->
-                              <button @click="peerDelete = peer"
-                                title="Delete"
-                                :style="{ padding:'3px', border:'none', borderRadius:'4px', cursor:'pointer', display:'flex', alignItems:'center', lineHeight:'0',
-                                  background: theme==='dark' ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.08)',
-                                  color: '#ef4444' }">
-                                <svg style="width:13px;height:13px;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                </svg>
-                              </button>
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -2803,14 +2697,15 @@
                         <div class="flex flex-col flex-grow gap-1">
                           <div class="text-gray-700 dark:text-neutral-200 group text-sm md:text-base"
                             :title="peer.createdAt ? 'Created: ' + dateTime(new Date(peer.createdAt)) : ''">
-                            <span v-if="peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt) < 1000 * 60 * 10))"
-                              class="peer-online-indicator" title="Recently connected"></span>
+                            <span class="peer-online-indicator"
+                              :style="{ background: peer.enabled === true && peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? '#22c55e' : '#9ca3af' }"
+                              :title="peer.enabled === false ? 'Disabled' : (peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? 'Recently connected' : (peer.latestHandshakeAt ? 'Inactive' : 'Never connected'))"></span>
                             <input v-show="peerEditNameId === peer.id" v-model="peerEditName"
                               v-on:keyup.enter="updatePeerName(peer, peerEditName); peerEditName = null; peerEditNameId = null;"
                               v-on:keyup.escape="peerEditName = null; peerEditNameId = null;"
                               :ref="'dpeer-' + peer.id + '-name'"
                               class="rounded px-1 border-2 dark:bg-neutral-700 border-gray-100 dark:border-neutral-600 focus:border-gray-200 dark:focus:border-neutral-500 dark:placeholder:text-neutral-500 outline-none w-30" />
-                            <span v-show="peerEditNameId !== peer.id" class="border-t-2 border-b-2 border-transparent">{{peer.name}}</span>
+                            <span v-show="peerEditNameId !== peer.id">{{peer.name}}</span>
                             <!-- Interface name badge -->
                             <span style="margin-left:6px;font-size:0.65rem;padding:1px 6px;background:rgba(107,114,128,0.12);color:#6b7280;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;">
                               {{peer.interfaceName}}
@@ -2909,24 +2804,22 @@
                     </div>
 
                     <div class="flex items-center justify-end">
-                      <div class="text-gray-400 dark:text-neutral-400 flex gap-1 items-center justify-between">
+                      <div class="peer-row-controls text-gray-400 dark:text-neutral-400">
                         <!-- Enable/Disable -->
                         <div @click="disablePeer(peer)" v-if="peer.enabled === true" :title="'Disable ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
-                          class="inline-block align-middle rounded-full w-10 h-6 mr-1 cursor-pointer transition-all" style="background:#16a34a;">
+                          class="inline-block align-middle rounded-full w-10 h-6 cursor-pointer transition-all" style="background:#16a34a;">
                           <div class="rounded-full w-4 h-4 m-1 ml-5 bg-white"></div>
                         </div>
                         <div @click="enablePeer(peer)" v-if="peer.enabled === false" :title="'Enable ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
-                          class="inline-block align-middle rounded-full w-10 h-6 mr-1 bg-gray-200 dark:bg-neutral-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-neutral-500 transition-all">
+                          class="inline-block align-middle rounded-full w-10 h-6 bg-gray-200 dark:bg-neutral-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-neutral-500 transition-all">
                           <div class="rounded-full w-4 h-4 m-1 bg-white"></div>
                         </div>
 
+                        <div class="peer-action-group">
                         <!-- Show QR -->
                         <button :disabled="!peer.downloadableConfig"
-                          class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
-                          :class="{
-                            'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white': peer.downloadableConfig,
-                            'is-disabled': !peer.downloadableConfig
-                          }"
+                          class="peer-action-button"
+                          :class="{ 'is-disabled': !peer.downloadableConfig }"
                           :title="!peer.downloadableConfig ? 'No private key' : 'Show QR'"
                           @click="qrcode = peerQrUrl(peer.interfaceId, peer.id)">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2937,11 +2830,8 @@
                         <!-- Download Config -->
                         <button :disabled="!peer.downloadableConfig"
                           @click="if(peer.downloadableConfig) downloadPeerConfig(peer)"
-                          class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
-                          :class="{
-                            'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white': peer.downloadableConfig,
-                            'is-disabled': !peer.downloadableConfig
-                          }"
+                          class="peer-action-button"
+                          :class="{ 'is-disabled': !peer.downloadableConfig }"
                           :title="!peer.downloadableConfig ? 'No private key' : 'Download config'">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -2952,8 +2842,8 @@
                         <button v-if="enableOneTimeLinks"
                           @click="peer.peerType !== 'interconnect' ? showPeerOneTimeLink(peer) : null"
                           :title="peer.peerType === 'interconnect' ? 'N/A for S2S' : 'Generate one-time link'"
-                          class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
-                          :class="peer.peerType !== 'interconnect' ? 'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white' : 'is-disabled'">
+                          class="peer-action-button"
+                          :class="peer.peerType !== 'interconnect' ? '' : 'is-disabled'">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                           </svg>
@@ -2961,8 +2851,7 @@
 
                         <!-- Edit -->
                         <button @click="openPeerEdit(peer)" :title="'Edit ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
-                          class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
-                          style="hover:background:#7c3aed;">
+                          class="peer-action-button">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
@@ -2970,11 +2859,12 @@
 
                         <!-- Delete -->
                         <button @click="peerDelete = peer" :title="'Delete ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
-                          class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white">
+                          class="peer-action-button">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3166,14 +3056,15 @@
                       <div class="flex flex-col flex-grow gap-1">
                         <div class="text-gray-700 dark:text-neutral-200 group text-sm md:text-base"
                           :title="peer.createdAt ? 'Created: ' + dateTime(new Date(peer.createdAt)) : ''">
-                          <span v-if="peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt) < 1000 * 60 * 10))"
-                            class="peer-online-indicator" title="Recently connected"></span>
+                          <span class="peer-online-indicator"
+                            :style="{ background: peer.enabled === true && peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? '#22c55e' : '#9ca3af' }"
+                            :title="peer.enabled === false ? 'Disabled' : (peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? 'Recently connected' : (peer.latestHandshakeAt ? 'Inactive' : 'Never connected'))"></span>
                           <input v-show="peerEditNameId === peer.id" v-model="peerEditName"
                             v-on:keyup.enter="updatePeerName(peer, peerEditName); peerEditName = null; peerEditNameId = null;"
                             v-on:keyup.escape="peerEditName = null; peerEditNameId = null;"
                             :ref="'peer-' + peer.id + '-name'"
                             class="rounded px-1 border-2 dark:bg-neutral-700 border-gray-100 dark:border-neutral-600 focus:border-gray-200 dark:focus:border-neutral-500 dark:placeholder:text-neutral-500 outline-none w-30" />
-                          <span v-show="peerEditNameId !== peer.id" class="border-t-2 border-b-2 border-transparent">{{peer.name}}</span>
+                          <span v-show="peerEditNameId !== peer.id">{{peer.name}}</span>
                           <span v-if="peer.peerType === 'interconnect' && peerEditNameId !== peer.id"
                             style="margin-left:6px;font-size:0.65rem;padding:1px 6px;background:rgba(59,130,246,0.12);color:#2563eb;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;">
                             S2S
@@ -3305,24 +3196,22 @@
                   </div>
 
                   <div class="flex items-center justify-end">
-                    <div class="text-gray-400 dark:text-neutral-400 flex gap-1 items-center justify-between">
+                    <div class="peer-row-controls text-gray-400 dark:text-neutral-400">
                       <!-- Enable/Disable -->
                       <div @click="disablePeer(peer)" v-if="peer.enabled === true" :title="'Disable ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
-                        class="inline-block align-middle rounded-full w-10 h-6 mr-1 cursor-pointer transition-all" style="background:#16a34a;">
+                        class="inline-block align-middle rounded-full w-10 h-6 cursor-pointer transition-all" style="background:#16a34a;">
                         <div class="rounded-full w-4 h-4 m-1 ml-5 bg-white"></div>
                       </div>
                       <div @click="enablePeer(peer)" v-if="peer.enabled === false" :title="'Enable ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
-                        class="inline-block align-middle rounded-full w-10 h-6 mr-1 bg-gray-200 dark:bg-neutral-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-neutral-500 transition-all">
+                        class="inline-block align-middle rounded-full w-10 h-6 bg-gray-200 dark:bg-neutral-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-neutral-500 transition-all">
                         <div class="rounded-full w-4 h-4 m-1 bg-white"></div>
                       </div>
 
+                      <div class="peer-action-group">
                       <!-- Show QR -->
                       <button :disabled="!peer.downloadableConfig"
-                        class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
-                        :class="{
-                          'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white': peer.downloadableConfig,
-                          'is-disabled': !peer.downloadableConfig
-                        }"
+                        class="peer-action-button"
+                        :class="{ 'is-disabled': !peer.downloadableConfig }"
                         :title="!peer.downloadableConfig ? 'No private key' : 'Show QR'"
                         @click="qrcode = peerQrUrl(peer.interfaceId || activeInterfaceId, peer.id)">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3333,11 +3222,8 @@
                       <!-- Download Config -->
                       <button :disabled="!peer.downloadableConfig"
                         @click="if(peer.downloadableConfig) downloadPeerConfig(peer)"
-                        class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
-                        :class="{
-                          'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white': peer.downloadableConfig,
-                          'is-disabled': !peer.downloadableConfig
-                        }"
+                        class="peer-action-button"
+                        :class="{ 'is-disabled': !peer.downloadableConfig }"
                         :title="!peer.downloadableConfig ? 'No private key' : 'Download config'">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -3348,8 +3234,8 @@
                       <button v-if="enableOneTimeLinks"
                         @click="peer.peerType !== 'interconnect' ? showPeerOneTimeLink(peer) : null"
                         :title="peer.peerType === 'interconnect' ? 'N/A for S2S' : 'Generate one-time link'"
-                        class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
-                        :class="peer.peerType !== 'interconnect' ? 'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white' : 'is-disabled'">
+                        class="peer-action-button"
+                        :class="peer.peerType !== 'interconnect' ? '' : 'is-disabled'">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                         </svg>
@@ -3357,7 +3243,7 @@
 
                       <!-- Edit -->
                       <button @click="openPeerEdit(peer)" :title="'Edit ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
-                        class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition">
+                        class="peer-action-button">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
@@ -3365,11 +3251,12 @@
 
                       <!-- Delete -->
                       <button @click="peerDelete = peer" :title="'Delete ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
-                        class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white">
+                        class="peer-action-button">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
+                      </div>
                     </div>
                   </div>
                 </div>

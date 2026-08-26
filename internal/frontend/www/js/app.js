@@ -4139,25 +4139,6 @@ new Vue({
       return peers;
     },
 
-    // Toggle interface up/down from dashboard widget
-    async dashToggleInterface(iface) {
-      if (iface.enabled) {
-        await this.stopTunnelInterface(iface);
-      } else {
-        await this.startTunnelInterface(iface);
-      }
-    },
-
-    // Open Quick Create peer modal for a specific interface from dashboard
-    dashOpenAddPeer(iface) {
-      if (iface.disableRoutes) return; // S2S interfaces don't support quick-create clients
-      this.activeInterfaceId = iface.id;
-      this.peerCreateName = '';
-      this.peerCreateExpiredDate = '';
-      this.peerCreateGroupId = this.defaultGroupId();
-      this.showQuickPeerCreate = true;
-    },
-
     // Human-readable protocol label for dashboard badges
     dashProtoLabel(protocol) {
       if (protocol === 'wireguard') return 'WG1.0';
