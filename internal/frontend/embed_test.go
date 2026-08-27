@@ -608,6 +608,63 @@ func TestFrontendContainsUIIssueRegressions(t *testing.T) {
 	}
 }
 
+func TestFrontendClientExpiryUsesLocalDateTime(t *testing.T) {
+	appContent, err := assets.ReadFile("www/js/app.js")
+	if err != nil {
+		t.Fatalf("read app.js: %v", err)
+	}
+	indexContent, err := assets.ReadFile("www/index.html")
+	if err != nil {
+		t.Fatalf("read index.html: %v", err)
+	}
+	app := string(appContent)
+	index := string(indexContent)
+	section := func(startMarker, endMarker string) string {
+		start := strings.Index(index, startMarker)
+		if start == -1 {
+			t.Fatalf("expiry form marker not found: %s", startMarker)
+		}
+		end := strings.Index(index[start:], endMarker)
+		if end == -1 {
+			t.Fatalf("expiry form marker not found: %s", endMarker)
+		}
+		return index[start : start+end]
+	}
+	quickCreate := section("<!-- Quick Peer Create Dialog -->", "<!-- Peer Delete Confirmation Dialog -->")
+	peerEdit := section("<!-- Peer Edit Modal -->", "<!-- Delete Dialog -->")
+
+	for name, form := range map[string]string{
+		"New Client":  quickCreate,
+		"Edit Client": peerEdit,
+	} {
+		if got := strings.Count(form, `type="datetime-local" step="60"`); got != 1 {
+			t.Errorf("%s datetime-local inputs = %d, want 1", name, got)
+		}
+		if !strings.Contains(form, "Expiry date and time") {
+			t.Errorf("%s does not label the expiry time", name)
+		}
+	}
+	if strings.Contains(quickCreate, `v-model="peerCreateExpiredDate" type="date"`) {
+		t.Error("New Client still contains a date-only expiry input")
+	}
+	if strings.Contains(peerEdit, `v-model="peerEditForm.expiredAt" type="date"`) {
+		t.Error("Edit Client still contains a date-only expiry input")
+	}
+
+	for _, expected := range []string{
+		"expiryDateTimeToUTC(value)",
+		"expiryDateTimeForInput(value)",
+		"expiredAt: expiredAt || undefined",
+		"expiredAt: this.expiryDateTimeForInput(peer.expiredAt)",
+		"updates.expiredAt = expiredAt",
+		"Invalid expiry date and time",
+	} {
+		if !strings.Contains(app, expected) {
+			t.Errorf("client expiry implementation does not contain %q", expected)
+		}
+	}
+}
+
 func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
 	appContent, err := assets.ReadFile("www/js/app.js")
 	if err != nil {

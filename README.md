@@ -67,10 +67,6 @@
 
 ## 📋 Requirements
 - Ubuntu 22.04, 24.04, Debian 13 (other distros: not tested)
-- Root access
-- Public IP address or domain name
-- Ports: `443/tcp` (HTTPS), `51820+/udp` (WireGuard)
-- `curl`, `tar`, and `sha256sum` (included in normal Ubuntu installations)
 ---
 
 ## 🚀 Quick Install
@@ -207,7 +203,6 @@ Additional settings (WireGuard defaults, DNS, etc.) are configurable in the Web 
 - TLS certificates: shortlived (6-day) for bare IPs, standard 90-day for domains
 - Session cookie: `HttpOnly`, `Secure`, `SameSite=Strict`
 - bcrypt password hashing (cost 12)
-- Multi-user accounts — each user has a separate username and password
 - TOTP 2FA — Google Authenticator / Authy (enable per-user in Settings → Users)
 - API tokens — long-lived bearer tokens for scripts; bypass TOTP; revocable
 - Input validation on all API endpoints
@@ -278,13 +273,6 @@ docker exec cascade iptables-nft -t nat -L -n -v
 docker exec cascade ip rule show
 ```
 
-**Switch AWG mode:**
-```bash
-cd /opt/cascade/deploy
-sudo ./switch-mode.sh --userspace
-sudo ./switch-mode.sh --kernel
-```
-
 **Re-run setup (e.g. after reboot or cert renewal):**
 ```bash
 cd /opt/cascade/deploy
@@ -326,18 +314,10 @@ Full reference: [docs/API.md](docs/API.md)
 | VPN | AmneziaWG 2.0 / AmneziaWG 3.1 |
 ---
 ## 🙏 Credits
-- Based on [wg-easy](https://github.com/wg-easy/wg-easy)
+- Inspired by [wg-easy](https://github.com/wg-easy/wg-easy)
 - [AmneziaVPN](https://github.com/amnezia-vpn) for the AmneziaWG protocol
 - [Vadim-Khristenko/AmneziaWG-Architect](https://github.com/Vadim-Khristenko/AmneziaWG-Architect) — math and code for AWG 2.0 obfuscation profile generation (CPS signatures, H-ranges, browser fingerprint packet sizing)
-
 ---
 
 ## License
-
-Cascade is distributed under the [MIT License](LICENSE). Origin, relicensing,
-and third-party attribution details are recorded in [NOTICE](NOTICE) and
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
----
-
-<p align="center">Made with ❤️ for secure and private internet access</p>
+Cascade is distributed under the [MIT License](LICENSE).

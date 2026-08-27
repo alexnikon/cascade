@@ -326,7 +326,7 @@ new Vue({
       rateDown: 0,          // kbps, 0 = unlimited
       rateUp: 0,            // kbps, 0 = unlimited
       groupId: '',          // client-group alias ID
-      expiredAt: '',        // YYYY-MM-DD or '' = no expiry
+      expiredAt: '',        // Local YYYY-MM-DDTHH:mm or empty
     },
     // Settings
     globalSettings: {
@@ -5043,12 +5043,18 @@ new Vue({
       const name = this.peerCreateName;
       if (!name) return;
 
+      const expiredAt = this.expiryDateTimeToUTC(this.peerCreateExpiredDate);
+      if (this.peerCreateExpiredDate && !expiredAt) {
+        this.showToast('Invalid expiry date and time', 'error');
+        return;
+      }
+
       try {
         const payload = {
           name,
           autoAllocateIP: true,
           generateKeys: true,
-          expiredAt: this.peerCreateExpiredDate || undefined,
+          expiredAt: expiredAt || undefined,
           groupId: this.peerCreateGroupId || this.defaultGroupId() || undefined,
         };
 
@@ -5210,9 +5216,23 @@ new Vue({
         rateDown: peer.rateDown ? peer.rateDown / 1000 : 0,
         rateUp:   peer.rateUp   ? peer.rateUp   / 1000 : 0,
         groupId: peer.groupId || (peer.peerType === 'client' ? this.defaultGroupId() : ''),
-        expiredAt: peer.expiredAt ? (typeof peer.expiredAt === 'string' ? peer.expiredAt.slice(0, 10) : new Date(peer.expiredAt).toISOString().slice(0, 10)) : '',
+        expiredAt: this.expiryDateTimeForInput(peer.expiredAt),
       };
       this.showPeerEditModal = true;
+    },
+
+    expiryDateTimeToUTC(value) {
+      if (!value) return '';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+    },
+
+    expiryDateTimeForInput(value) {
+      if (!value) return '';
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+      const pad = number => String(number).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
     },
 
     // Format kbps rate for display. 0 = unlimited.
@@ -5257,11 +5277,16 @@ new Vue({
         updates.endpoint = this.peerEditForm.endpoint;
         updates.allowedIPs = this.peerEditForm.allowedIPs;
       } else {
+        const expiredAt = this.expiryDateTimeToUTC(this.peerEditForm.expiredAt);
+        if (this.peerEditForm.expiredAt && !expiredAt) {
+          this.showToast('Invalid expiry date and time', 'error');
+          return;
+        }
         updates.clientAllowedIPs = this.peerEditForm.clientAllowedIPs;
         updates.rateDown = Math.round((Number(this.peerEditForm.rateDown) || 0) * 1000);
         updates.rateUp   = Math.round((Number(this.peerEditForm.rateUp)   || 0) * 1000);
         updates.groupId  = this.peerEditForm.groupId || '';
-        updates.expiredAt = this.peerEditForm.expiredAt || '';
+        updates.expiredAt = expiredAt;
       }
       try {
         await this.api.updateTunnelInterfacePeer({
