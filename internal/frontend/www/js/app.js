@@ -971,7 +971,9 @@ new Vue({
       this.requiresPassword = session.requiresPassword;
       await this.refresh();
       // Re-load data that may have got 401 before login.
-      this.loadTunnelInterfaces();
+      this.loadTunnelInterfaces().then(() => {
+        if (!this.activeInterfaceId) this.refreshAllPeers();
+      }).catch(console.error);
       this.loadSettings();
       this.loadClientGroups();
       this.loadUsers();

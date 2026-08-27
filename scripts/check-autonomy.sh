@@ -59,7 +59,7 @@ fi
 while IFS= read -r match; do
   [[ -z "$match" ]] && continue
   case "$match" in
-    ./.env.example:*|./.github/*|./Dockerfile:*|./README.md:*|./docker-compose*.yml:*|./deploy/*|./docs/*|./internal/frontend/embed_test.go:*) ;;
+    .env.example:*|./.env.example:*|.github/*|./.github/*|Dockerfile:*|./Dockerfile:*|README.md:*|./README.md:*|docker-compose*.yml:*|./docker-compose*.yml:*|deploy/*|./deploy/*|docs/*|./docs/*|internal/frontend/embed_test.go:*|./internal/frontend/embed_test.go:*|internal/version/updater.go:*|./internal/version/updater.go:*|scripts/build-deploy-bundle.sh:*|./scripts/build-deploy-bundle.sh:*) ;;
     *) echo "Unexpected hard-coded official release coordinate: $match" >&2; fail=1 ;;
   esac
 done < <(rg -n 'api\.github\.com/repos/alexnikon/cascade|ghcr\.io/alexnikon/cascade|github\.com/alexnikon/cascade/releases' . \

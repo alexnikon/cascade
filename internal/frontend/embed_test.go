@@ -187,6 +187,32 @@ func TestFrontendNavigationThemeAndDashboardDefaults(t *testing.T) {
 	}
 }
 
+func TestFrontendLoadsDashboardPeersImmediatelyAfterLogin(t *testing.T) {
+	appContent, err := assets.ReadFile("www/js/app.js")
+	if err != nil {
+		t.Fatalf("read app.js: %v", err)
+	}
+	app := string(appContent)
+
+	loginStart := strings.Index(app, "async _onLoginSuccess() {")
+	if loginStart == -1 {
+		t.Fatal("app.js does not define _onLoginSuccess")
+	}
+	loginEnd := strings.Index(app[loginStart:], "\n    logout(e) {")
+	if loginEnd == -1 {
+		t.Fatal("app.js does not delimit _onLoginSuccess")
+	}
+	loginFlow := app[loginStart : loginStart+loginEnd]
+	for _, expected := range []string{
+		"this.loadTunnelInterfaces().then(() => {",
+		"if (!this.activeInterfaceId) this.refreshAllPeers();",
+	} {
+		if !strings.Contains(loginFlow, expected) {
+			t.Errorf("post-login flow does not contain %q", expected)
+		}
+	}
+}
+
 func TestFrontendUsesConsistentButtonRadius(t *testing.T) {
 	cssContent, err := assets.ReadFile("www/css/app.css")
 	if err != nil {
