@@ -90,6 +90,15 @@ Builds without recognizable version or commit metadata return `updateStatus: "un
 | `GET` | `/api/settings/metrics` | Safe Prometheus and history settings |
 | `PUT` | `/api/settings/metrics` | Update metrics settings (admin only; token is write-only) |
 
+`GET /api/settings/metrics` returns `enabled`, `port`, the fixed `path` value
+`/metrics`, `listening`, a safe `listenError`, `connectedPeerThresholdSeconds`,
+`tokenConfigured`, `historyEnabled`, and `canManage`. It never returns the token.
+
+`PUT /api/settings/metrics` accepts the complete settings payload:
+`{ enabled, port, connectedPeerThresholdSeconds, historyEnabled, token?, clearToken? }`.
+Changing an enabled listener's port is immediate. A port conflict returns **400**
+without changing the persisted settings or the existing listener.
+
 **GET /api/settings — response fields:**
 
 Returns `GlobalSettings` merged with runtime-only fields:

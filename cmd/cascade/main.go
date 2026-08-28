@@ -126,7 +126,7 @@ func main() {
 
 	// Prometheus is intentionally outside /api auth so a scraper can use a
 	// dedicated optional bearer token without acquiring a UI session.
-	prometheusmetrics.Register(app, metricsManager, prometheusmetrics.NewNativeCollector(
+	metricsServer := prometheusmetrics.NewServer(metricsManager, prometheusmetrics.NewNativeCollector(
 		db.DB(), version.Version, version.GitCommit, metricsManager,
 	))
 
@@ -168,7 +168,7 @@ func main() {
 	// Settings + Templates (registered before other managers are ready, but
 	// settings package only needs db which is already initialised above).
 	api.RegisterSettings(apiGroup)
-	api.RegisterMetricsSettings(apiGroup, metricsManager)
+	api.RegisterMetricsSettings(apiGroup, metricsManager, metricsServer)
 
 	// Remaining handlers are registered here; they call package-level Get()
 	// which is safe after SetInstance calls below.
@@ -323,6 +323,7 @@ func main() {
 	// cfg.BindHost="" → ":port" → listens on all interfaces (0.0.0.0).
 	// cfg.BindHost="127.0.0.1" → "127.0.0.1:port" → localhost only (behind reverse proxy).
 	addr := fmt.Sprintf("%s:%d", cfg.BindHost, cfg.Port)
+	metricsServer.Start()
 	log.Printf("Cascade | host=%s | listen=%s (tcp) | wg-port=%d (udp) | data=%s",
 		cfg.Host, addr, cfg.WGPort, cfg.DataDir)
 
@@ -345,6 +346,9 @@ func main() {
 	// Must happen before db.Close() so the DB is still open during the flush.
 	if mgr := tunnel.Get(); mgr != nil {
 		mgr.Stop()
+	}
+	if err := metricsServer.Shutdown(); err != nil {
+		log.Printf("metrics shutdown error: %v", err)
 	}
 
 	if err := app.Shutdown(); err != nil {

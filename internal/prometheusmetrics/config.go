@@ -11,11 +11,11 @@ import (
 )
 
 const defaultConnectedPeerThreshold = 180 * time.Second
+const DefaultPort = 9351
 
 // Config controls the native Prometheus endpoint.
 type Config struct {
 	Enabled                bool
-	Path                   string
 	Token                  string
 	ConnectedPeerThreshold time.Duration
 	HistoryEnabled         bool
@@ -27,13 +27,6 @@ func ConfigFromEnv() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	path := strings.TrimSpace(os.Getenv("METRICS_PATH"))
-	if path == "" {
-		path = "/metrics"
-	}
-	if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, "?#") || path == "/" {
-		return Config{}, fmt.Errorf("METRICS_PATH must be an absolute path without query or fragment")
-	}
 	threshold := defaultConnectedPeerThreshold
 	if raw := strings.TrimSpace(os.Getenv("METRICS_CONNECTED_PEER_THRESHOLD")); raw != "" {
 		threshold, err = time.ParseDuration(raw)
@@ -42,7 +35,7 @@ func ConfigFromEnv() (Config, error) {
 		}
 	}
 	return Config{
-		Enabled: enabled, Path: path, Token: os.Getenv("METRICS_TOKEN"),
+		Enabled: enabled, Token: os.Getenv("METRICS_TOKEN"),
 		ConnectedPeerThreshold: threshold,
 		HistoryEnabled:         parseHistoryEnabled(os.Getenv("METRICS_HISTORY_ENABLED")),
 	}, nil

@@ -233,9 +233,33 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Outbound traffic observed since the start of the current calendar day. The value is limited by available Prometheus samples.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "decbytes" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 12, "x": 0, "y": 35 },
+      "id": 35,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "sum(increase(cascade_interface_sent_bytes_total{instance=~\"$instance\",interface=~\"$interface\"}[$__range]))", "instant": true, "legendFormat": "Outbound", "range": false, "refId": "A" }],
+      "timeFrom": "now/d",
+      "title": "Outbound Traffic Today",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Outbound traffic observed since the start of the current calendar month. The value is limited by available Prometheus samples and retention.",
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] }, "unit": "decbytes" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 35 },
+      "id": 36,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "editorMode": "code", "expr": "sum(increase(cascade_interface_sent_bytes_total{instance=~\"$instance\",interface=~\"$interface\"}[$__range]))", "instant": true, "legendFormat": "Outbound", "range": false, "refId": "A" }],
+      "timeFrom": "now/M",
+      "title": "Outbound Traffic This Month",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "description": "Top peers by five-minute receive rate. Traffic counters are converted to bits per second with rate().",
       "fieldConfig": { "defaults": { "color": { "mode": "continuous-GrYlRd" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "bps" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 35 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
       "id": 33,
       "options": { "displayMode": "gradient", "maxVizHeight": 300, "minVizHeight": 16, "minVizWidth": 8, "namePlacement": "auto", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "showUnfilled": true, "sizing": "auto", "valueMode": "color" },
       "targets": [{ "editorMode": "code", "expr": "topk(10, sum by (instance, interface, peer_id, name) (rate(cascade_peer_received_bytes_total{instance=~\"$instance\",interface=~\"$interface\",peer_id=~\"$peer_id\"}[5m])) * 8)", "instant": true, "legendFormat": "{{instance}} / {{interface}} / {{name}}", "range": false, "refId": "A" }],
@@ -246,7 +270,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "description": "Top peers by five-minute transmit rate.",
       "fieldConfig": { "defaults": { "color": { "mode": "continuous-BlPu" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "bps" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 35 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
       "id": 34,
       "options": { "displayMode": "gradient", "maxVizHeight": 300, "minVizHeight": 16, "minVizWidth": 8, "namePlacement": "auto", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "showUnfilled": true, "sizing": "auto", "valueMode": "color" },
       "targets": [{ "editorMode": "code", "expr": "topk(10, sum by (instance, interface, peer_id, name) (rate(cascade_peer_sent_bytes_total{instance=~\"$instance\",interface=~\"$interface\",peer_id=~\"$peer_id\"}[5m])) * 8)", "instant": true, "legendFormat": "{{instance}} / {{interface}} / {{name}}", "range": false, "refId": "A" }],
@@ -255,7 +279,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 47 },
       "id": 40,
       "panels": [],
       "title": "Peers",
@@ -273,7 +297,7 @@
           { "matcher": { "id": "byName", "options": "Value #F" }, "properties": [{ "id": "unit", "value": "dateTimeAsIso" }] }
         ]
       },
-      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 44 },
+      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 48 },
       "id": 41,
       "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": false, "displayName": "Instance" }] },
       "targets": [
@@ -292,7 +316,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "Peers", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 15, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "stepAfter", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 55 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 59 },
       "id": 42,
       "options": { "legend": { "calcs": ["lastNotNull", "min", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [{ "editorMode": "code", "expr": "sum by (instance) (cascade_peer_connected{instance=~\"$instance\",interface=~\"$interface\",peer_id=~\"$peer_id\"})", "legendFormat": "{{instance}}", "range": true, "refId": "A" }],
@@ -303,7 +327,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "description": "Cascade-maintained lifetime totals survive ordinary interface restarts, but are operational counters rather than billing records.",
       "fieldConfig": { "defaults": { "color": { "mode": "continuous-GrYlRd" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "bytes" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 55 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 59 },
       "id": 43,
       "options": { "displayMode": "gradient", "maxVizHeight": 300, "minVizHeight": 16, "minVizWidth": 8, "namePlacement": "auto", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "showUnfilled": true, "sizing": "auto", "valueMode": "color" },
       "targets": [{ "editorMode": "code", "expr": "topk(20, cascade_peer_received_bytes_total{instance=~\"$instance\",interface=~\"$interface\",peer_id=~\"$peer_id\"} + cascade_peer_sent_bytes_total{instance=~\"$instance\",interface=~\"$interface\",peer_id=~\"$peer_id\"})", "instant": true, "legendFormat": "{{instance}} / {{interface}} / {{name}}", "range": false, "refId": "A" }],
@@ -312,7 +336,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 63 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 67 },
       "id": 50,
       "panels": [],
       "title": "Handshakes",
@@ -322,7 +346,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "description": "Handshake age is a recency signal, not authoritative session state. Default connected threshold is 180 seconds.",
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "max": 600, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 60 }, { "color": "red", "value": 180 }] }, "unit": "s" }, "overrides": [] },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 64 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 68 },
       "id": 51,
       "options": { "displayMode": "gradient", "maxVizHeight": 300, "minVizHeight": 16, "minVizWidth": 8, "namePlacement": "auto", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "showUnfilled": true, "sizing": "auto", "valueMode": "color" },
       "targets": [{ "editorMode": "code", "expr": "cascade_peer_handshake_age_seconds{instance=~\"$instance\",interface=~\"$interface\",peer_id=~\"$peer_id\"}", "instant": true, "legendFormat": "{{instance}} / {{interface}} / {{name}}", "range": false, "refId": "A" }],
@@ -333,7 +357,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "description": "Administratively enabled peers whose recent-handshake signal is offline.",
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] } }, "overrides": [{ "matcher": { "id": "byName", "options": "Value" }, "properties": [{ "id": "displayName", "value": "Handshake Age" }, { "id": "unit", "value": "s" }] }] },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 64 },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 68 },
       "id": 52,
       "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": true, "displayName": "Handshake Age" }] },
       "targets": [{ "editorMode": "code", "expr": "cascade_peer_handshake_age_seconds{instance=~\"$instance\",interface=~\"$interface\",peer_id=~\"$peer_id\"} and on(instance, interface, peer_id, name) (cascade_peer_enabled == 1) and on(instance, interface, peer_id, name) (cascade_peer_connected == 0)", "format": "table", "instant": true, "refId": "A" }],
@@ -343,7 +367,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 73 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 77 },
       "id": 60,
       "panels": [],
       "title": "Gateways",
@@ -353,7 +377,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "description": "Status mapping: healthy=1, degraded=0.5, down/admin_down/unknown=0. Exact state is included by cascade_gateway_info.",
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "color-text" }, "inspect": false }, "mappings": [{ "options": { "0": { "color": "red", "index": 2, "text": "DOWN / UNKNOWN" }, "0.5": { "color": "yellow", "index": 1, "text": "DEGRADED" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "green", "value": 1 }] } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 74 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 78 },
       "id": 61,
       "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [{ "desc": false, "displayName": "Instance" }] },
       "targets": [
@@ -367,7 +391,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 8, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "s" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 74 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 78 },
       "id": 62,
       "options": { "legend": { "calcs": ["lastNotNull", "mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [{ "editorMode": "code", "expr": "cascade_gateway_latency_seconds{instance=~\"$instance\",gateway=~\"$gateway\"}", "legendFormat": "{{instance}} / {{gateway}}", "range": true, "refId": "A" }],
@@ -377,7 +401,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "smooth", "lineWidth": 2, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "line+area" } }, "mappings": [], "max": 1, "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.05 }, { "color": "red", "value": 0.2 }] }, "unit": "percentunit" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 74 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 78 },
       "id": 63,
       "options": { "legend": { "calcs": ["lastNotNull", "mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [{ "editorMode": "code", "expr": "cascade_gateway_packet_loss_ratio{instance=~\"$instance\",gateway=~\"$gateway\"}", "legendFormat": "{{instance}} / {{gateway}}", "range": true, "refId": "A" }],
@@ -386,7 +410,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 82 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 86 },
       "id": 70,
       "panels": [],
       "title": "Managed Objects",
@@ -395,7 +419,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }, "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 83 },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 87 },
       "id": 71,
       "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "textMode": "auto", "wideLayout": true },
       "targets": [
@@ -415,7 +439,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 89 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 93 },
       "id": 80,
       "panels": [],
       "title": "System / Runtime",
@@ -424,7 +448,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [{ "options": { "0": { "color": "red", "index": 1, "text": "DOWN" }, "1": { "color": "green", "index": 0, "text": "UP" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }, "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 90 },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 94 },
       "id": 81,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "textMode": "name", "wideLayout": true },
       "targets": [{ "editorMode": "code", "expr": "cascade_database_up{instance=~\"$instance\"}", "instant": true, "legendFormat": "{{instance}}", "range": false, "refId": "A" }],
@@ -434,7 +458,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "s" }, "overrides": [] },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 90 },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 94 },
       "id": 82,
       "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "textMode": "auto", "wideLayout": true },
       "targets": [{ "editorMode": "code", "expr": "cascade_uptime_seconds{instance=~\"$instance\"}", "instant": true, "legendFormat": "{{instance}}", "range": false, "refId": "A" }],
@@ -444,7 +468,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 90 },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 94 },
       "id": 83,
       "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto", "wideLayout": true },
       "targets": [{ "editorMode": "code", "expr": "sum(increase(cascade_metrics_collection_errors_total{instance=~\"$instance\"}[1h]))", "instant": true, "legendFormat": "Errors", "range": false, "refId": "A" }],
@@ -455,7 +479,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "description": "Seconds since Prometheus last observed a completed Cascade metrics collection.",
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 60 }, { "color": "red", "value": 180 }] }, "unit": "s" }, "overrides": [] },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 90 },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 94 },
       "id": 84,
       "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": true }, "textMode": "auto", "wideLayout": true },
       "targets": [{ "editorMode": "code", "expr": "time() - cascade_metrics_last_collection_timestamp_seconds{instance=~\"$instance\"}", "instant": true, "legendFormat": "{{instance}}", "range": false, "refId": "A" }],
@@ -464,7 +488,7 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 96 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 100 },
       "id": 90,
       "panels": [],
       "title": "Troubleshooting",
@@ -473,7 +497,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "color-text" }, "inspect": false }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "DOWN" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 97 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 101 },
       "id": 91,
       "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [] },
       "targets": [{ "editorMode": "code", "expr": "cascade_interface_up{instance=~\"$instance\",interface=~\"$interface\"} == 0", "format": "table", "instant": true, "refId": "A" }],
@@ -484,7 +508,7 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "align": "auto", "cellOptions": { "type": "color-text" }, "inspect": false }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "DOWN / UNKNOWN" } }, "type": "value" }], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] } }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 97 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 101 },
       "id": 92,
       "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false }, "showHeader": true, "sortBy": [] },
       "targets": [{ "editorMode": "code", "expr": "cascade_gateway_status{instance=~\"$instance\",gateway=~\"$gateway\"} == 0", "format": "table", "instant": true, "refId": "A" }],
@@ -496,7 +520,7 @@
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "description": "Collection errors grouped by Cascade target over the selected time range.",
       "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "Errors", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "bars", "fillOpacity": 50, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "never", "spanNulls": false, "stacking": { "group": "A", "mode": "normal" }, "thresholdsStyle": { "mode": "off" } }, "mappings": [], "min": 0, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }, "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 97 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 101 },
       "id": 93,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [{ "editorMode": "code", "expr": "increase(cascade_metrics_collection_errors_total{instance=~\"$instance\"}[$__rate_interval])", "legendFormat": "{{instance}}", "range": true, "refId": "A" }],
@@ -602,6 +626,6 @@
   "timezone": "browser",
   "title": "Cascade VPN / AmneziaWG",
   "uid": "cascade-vpn",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

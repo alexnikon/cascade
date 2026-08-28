@@ -11,6 +11,7 @@ package api
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -31,9 +32,11 @@ import (
 // registered behind AuthMiddleware.  A single "owner" user is pre-created
 // with a raw API token that can be passed to ta.do().
 type settingsTestApp struct {
-	app     *fiber.App
-	token   string // raw Bearer token for the owner user
-	metrics *prometheusmetrics.Manager
+	app           *fiber.App
+	token         string // raw Bearer token for the owner user
+	metrics       *prometheusmetrics.Manager
+	metricsServer *prometheusmetrics.Server
+	metricsPort   int
 }
 
 func newSettingsTestApp(t *testing.T) *settingsTestApp {
@@ -77,13 +80,26 @@ func newSettingsTestApp(t *testing.T) *settingsTestApp {
 
 	api := app.Group("/api", AuthMiddleware)
 	RegisterSettings(api)
-	metricsManager, err := prometheusmetrics.NewManager(db.DB(), prometheusmetrics.Config{Path: "/metrics", ConnectedPeerThreshold: 3 * time.Minute, HistoryEnabled: true})
+	metricsManager, err := prometheusmetrics.NewManager(db.DB(), prometheusmetrics.Config{ConnectedPeerThreshold: 3 * time.Minute, HistoryEnabled: true})
 	if err != nil {
 		t.Fatalf("NewManager: %v", err)
 	}
-	RegisterMetricsSettings(api, metricsManager)
+	metricsServer := prometheusmetrics.NewServer(metricsManager, prometheusmetrics.NewCollector(nil, nil, db.DB(), "test", "test", 3*time.Minute))
+	RegisterMetricsSettings(api, metricsManager, metricsServer)
+	metricsPort := availableMetricsPort(t)
+	t.Cleanup(func() { _ = metricsServer.Shutdown() })
 
-	return &settingsTestApp{app: app, token: rawToken, metrics: metricsManager}
+	return &settingsTestApp{app: app, token: rawToken, metrics: metricsManager, metricsServer: metricsServer, metricsPort: metricsPort}
+}
+
+func availableMetricsPort(t *testing.T) int {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	return listener.Addr().(*net.TCPAddr).Port
 }
 
 // put is a convenience wrapper: PUT /api/settings with JSON body.
@@ -290,7 +306,7 @@ func TestMetricsSettingsAdminUpdateAndSafeResponse(t *testing.T) {
 	sta := newSettingsTestApp(t)
 	ta := &testApp{app: sta.app, adminToken: sta.token}
 	resp := ta.do("PUT", "/api/settings/metrics", sta.token, map[string]any{
-		"enabled": true, "path": "/prometheus", "connectedPeerThresholdSeconds": 90,
+		"enabled": true, "port": sta.metricsPort, "connectedPeerThresholdSeconds": 90,
 		"historyEnabled": false, "token": "do-not-return-this-token",
 	})
 	if resp.StatusCode != http.StatusOK {
@@ -299,6 +315,9 @@ func TestMetricsSettingsAdminUpdateAndSafeResponse(t *testing.T) {
 	body := decodeBody(resp)
 	if body["tokenConfigured"] != true || body["canManage"] != true {
 		t.Fatalf("unexpected response: %v", body)
+	}
+	if body["path"] != "/metrics" || body["port"] != float64(sta.metricsPort) || body["listening"] != true {
+		t.Fatalf("unexpected listener response: %v", body)
 	}
 	if _, exists := body["token"]; exists {
 		t.Fatalf("write-only token leaked in response: %v", body)
@@ -311,7 +330,7 @@ func TestMetricsSettingsAdminUpdateAndSafeResponse(t *testing.T) {
 	if strings.Contains(encoded, "do-not-return-this-token") {
 		t.Fatalf("plaintext token leaked in response: %s", encoded)
 	}
-	if got := sta.metrics.Current(); got.Path != "/prometheus" || got.ConnectedPeerThresholdSeconds != 90 || got.HistoryEnabled {
+	if got := sta.metrics.Current(); got.Port != sta.metricsPort || got.ConnectedPeerThresholdSeconds != 90 || got.HistoryEnabled {
 		t.Fatalf("runtime settings were not applied: %+v", got)
 	}
 }
@@ -335,7 +354,7 @@ func TestMetricsSettingsNonAdminReadOnly(t *testing.T) {
 		t.Fatalf("regular user received manage permission: %v", body)
 	}
 	resp = ta.do("PUT", "/api/settings/metrics", rawToken, map[string]any{
-		"enabled": true, "path": "/metrics", "connectedPeerThresholdSeconds": 60, "historyEnabled": true,
+		"enabled": true, "port": sta.metricsPort, "connectedPeerThresholdSeconds": 60, "historyEnabled": true,
 	})
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("PUT status=%d body=%v", resp.StatusCode, decodeBody(resp))

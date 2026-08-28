@@ -9,7 +9,10 @@ import (
 
 type metricsSettingsResponse struct {
 	Enabled                       bool   `json:"enabled"`
+	Port                          int    `json:"port"`
 	Path                          string `json:"path"`
+	Listening                     bool   `json:"listening"`
+	ListenError                   string `json:"listenError"`
 	ConnectedPeerThresholdSeconds int    `json:"connectedPeerThresholdSeconds"`
 	TokenConfigured               bool   `json:"tokenConfigured"`
 	HistoryEnabled                bool   `json:"historyEnabled"`
@@ -18,10 +21,12 @@ type metricsSettingsResponse struct {
 
 // RegisterMetricsSettings exposes safe runtime metrics configuration. The
 // write-only bearer token is never included in a response.
-func RegisterMetricsSettings(api fiber.Router, manager *prometheusmetrics.Manager) {
+func RegisterMetricsSettings(api fiber.Router, manager *prometheusmetrics.Manager, server *prometheusmetrics.Server) {
 	respond := func(c *fiber.Ctx, snapshot prometheusmetrics.Snapshot) error {
+		listening, listenError := server.Status()
 		return c.JSON(metricsSettingsResponse{
-			Enabled: snapshot.Enabled, Path: snapshot.Path,
+			Enabled: snapshot.Enabled, Port: snapshot.Port, Path: prometheusmetrics.Path,
+			Listening: listening, ListenError: listenError,
 			ConnectedPeerThresholdSeconds: snapshot.ConnectedPeerThresholdSeconds,
 			TokenConfigured:               snapshot.TokenConfigured,
 			HistoryEnabled:                snapshot.HistoryEnabled,
@@ -41,7 +46,7 @@ func RegisterMetricsSettings(api fiber.Router, manager *prometheusmetrics.Manage
 		if err := c.BodyParser(&update); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
 		}
-		snapshot, err := manager.Update(update)
+		snapshot, err := server.Apply(update)
 		if err != nil {
 			var validationErr *prometheusmetrics.ValidationError
 			if errors.As(err, &validationErr) {

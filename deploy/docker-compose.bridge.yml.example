@@ -46,6 +46,12 @@ services:
       # inside the container so Docker can forward traffic here.
       - "127.0.0.1:__CASCADE_PORT__:__CASCADE_PORT__/tcp"
 
+      # Native Prometheus endpoint. The default Settings value is 9351.
+      # If the Metrics port is changed in the UI, update both sides of this
+      # mapping and recreate the container. Protect the port with a token,
+      # trusted VPN, or host firewall.
+      - "9351:9351/tcp"
+
       # WireGuard UDP: full range must be published at container start time.
       # Adding a new interface outside this range is not possible without restarting
       # the container with an expanded range — plan the range at deploy time.

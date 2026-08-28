@@ -288,6 +288,7 @@ Open in browser: `https://YOUR.SERVER.IP/YOUR_ADMIN_PATH/`
 | 443 | TCP + UDP (HTTP/3) | HTTPS — Caddy (public) |
 | 80 | TCP | ACME renewal only (not permanently open) |
 | 8888 | TCP | Cascade UI — bound to 127.0.0.1, not public |
+| 9351 | TCP | Optional native Prometheus endpoint — fixed path `/metrics`; protect with a token, VPN, or firewall |
 | 51830 | UDP | WireGuard interface wg10 (first tunnel) |
 | 51831 | UDP | WireGuard interface wg11, etc. |
 

@@ -529,7 +529,7 @@ func TestFrontendMetricsSettingsCardAndBindings(t *testing.T) {
 	}
 	for _, expected := range []string{
 		`v-model="metricsSettings.enabled"`,
-		`v-model.trim="metricsSettings.path"`,
+		`v-model.number="metricsSettings.port"`,
 		`v-model.number="metricsSettings.connectedPeerThresholdSeconds"`,
 		`v-model="metricsSettings.token"`,
 		`v-model="metricsSettings.historyEnabled"`,
@@ -539,6 +539,9 @@ func TestFrontendMetricsSettingsCardAndBindings(t *testing.T) {
 		if !strings.Contains(index, expected) {
 			t.Fatalf("Metrics card missing %q", expected)
 		}
+	}
+	if strings.Contains(index, `v-model.trim="metricsSettings.path"`) {
+		t.Fatal("Metrics path must not be editable")
 	}
 	app := readEmbedded(t, "www/js/app.js")
 	api := readEmbedded(t, "www/js/api.js")

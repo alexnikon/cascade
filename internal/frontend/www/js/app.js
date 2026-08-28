@@ -362,7 +362,10 @@ new Vue({
     settingsSaved: false,
     metricsSettings: {
       enabled: false,
+      port: 9351,
       path: '/metrics',
+      listening: false,
+      listenError: '',
       connectedPeerThresholdSeconds: 180,
       tokenConfigured: false,
       historyEnabled: true,
@@ -5605,7 +5608,7 @@ new Vue({
       try {
         const payload = {
           enabled: this.metricsSettings.enabled,
-          path: this.metricsSettings.path,
+          port: Number(this.metricsSettings.port),
           connectedPeerThresholdSeconds: Number(this.metricsSettings.connectedPeerThresholdSeconds),
           historyEnabled: this.metricsSettings.historyEnabled,
           clearToken: this.metricsSettings.clearToken,
@@ -5627,7 +5630,7 @@ new Vue({
     },
 
     metricsEndpointURL() {
-      return `${window.location.origin}${this.metricsSettings.path || '/metrics'}`;
+      return `http://${window.location.hostname}:${this.metricsSettings.port || 9351}/metrics`;
     },
 
     async saveSettings() {

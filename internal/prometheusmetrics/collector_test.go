@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -134,7 +136,7 @@ func TestCollectorUsesDynamicConnectedPeerThreshold(t *testing.T) {
 	}
 }
 
-func TestRegisterEnabledDisabledAndToken(t *testing.T) {
+func TestServerEnabledDisabledAndToken(t *testing.T) {
 	collector := NewCollector(nil, nil, downDatabase{}, "dev", "unknown", time.Minute)
 	database, err := sql.Open("sqlite", t.TempDir()+"/settings.db")
 	if err != nil {
@@ -144,43 +146,57 @@ func TestRegisterEnabledDisabledAndToken(t *testing.T) {
 	if _, err := database.Exec(`CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')`); err != nil {
 		t.Fatal(err)
 	}
-	manager, err := NewManager(database, Config{Path: "/metrics", ConnectedPeerThreshold: time.Minute, HistoryEnabled: true})
+	manager, err := NewManager(database, Config{ConnectedPeerThreshold: time.Minute, HistoryEnabled: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := fiber.New()
-	Register(app, manager, collector)
+	server := NewServer(manager, collector)
+	t.Cleanup(func() { _ = server.Shutdown() })
+	port := availablePort(t)
+	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
 	request := func(path, auth string) int {
-		req, _ := http.NewRequest(http.MethodGet, path, nil)
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d%s", port, path), nil)
 		req.Header.Set("Authorization", auth)
-		resp, err := app.Test(req)
+		resp, err := client.Do(req)
 		if err != nil {
-			t.Fatal(err)
+			return 0
 		}
+		resp.Body.Close()
 		return resp.StatusCode
 	}
-	if got := request("/metrics", ""); got != fiber.StatusNotFound {
+	if got := request("/metrics", ""); got != 0 {
 		t.Fatalf("disabled status=%d", got)
 	}
 
-	if _, err := manager.Update(Update{Enabled: true, Path: "/prom", ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true, Token: "token"}); err != nil {
+	if _, err := server.Apply(Update{Enabled: true, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true, Token: "token"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := request("/prom", ""); got != fiber.StatusUnauthorized {
+	if got := request("/metrics", ""); got != fiber.StatusUnauthorized {
 		t.Fatalf("missing token status=%d", got)
 	}
-	if got := request("/prom", "Bearer token"); got != fiber.StatusOK {
+	if got := request("/metrics", "Bearer token"); got != fiber.StatusOK {
 		t.Fatalf("valid token status=%d", got)
 	}
-	if _, err := manager.Update(Update{Enabled: true, Path: "/new-metrics", ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true, ClearToken: true}); err != nil {
+	if got := request("/other", "Bearer token"); got != fiber.StatusNotFound {
+		t.Fatalf("unexpected path status=%d", got)
+	}
+	if _, err := server.Apply(Update{Enabled: false, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true, ClearToken: true}); err != nil {
 		t.Fatal(err)
 	}
-	if got := request("/prom", "Bearer token"); got != fiber.StatusNotFound {
-		t.Fatalf("old path status=%d", got)
+	if got := request("/metrics", ""); got != 0 {
+		t.Fatalf("disabled status=%d", got)
 	}
-	if got := request("/new-metrics", ""); got != fiber.StatusOK {
-		t.Fatalf("new path status=%d", got)
+}
+
+func availablePort(t *testing.T) int {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
 	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+	return port
 }
 
 func gatherText(t *testing.T, collector prometheus.Collector) string {

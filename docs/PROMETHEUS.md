@@ -8,7 +8,7 @@ monitor, and configuration database. A Prometheus scrape does not run `wg` or
 ## Configuration
 
 Administrators configure metrics in **Settings → Metrics**. Changes to the
-endpoint state, path, token, connected-peer threshold, and local history apply
+endpoint state, port, token, connected-peer threshold, and local history apply
 immediately without restarting Cascade.
 
 On the first startup after metrics settings are introduced, Cascade imports the
@@ -16,7 +16,6 @@ following environment variables into its configuration database:
 
 ```dotenv
 METRICS_ENABLED=true
-METRICS_PATH=/metrics
 METRICS_CONNECTED_PEER_THRESHOLD=180s
 METRICS_TOKEN=replace-with-a-long-random-token
 METRICS_HISTORY_ENABLED=true
@@ -25,7 +24,6 @@ METRICS_HISTORY_ENABLED=true
 | Variable | Default | Behavior |
 |----------|---------|----------|
 | `METRICS_ENABLED` | `false` | Initial endpoint state |
-| `METRICS_PATH` | `/metrics` | Initial absolute endpoint path |
 | `METRICS_CONNECTED_PEER_THRESHOLD` | `180s` | Initial positive Go duration used by `cascade_peer_connected` |
 | `METRICS_TOKEN` | unset | Initial optional bearer token |
 | `METRICS_HISTORY_ENABLED` | `true` | Initial local metrics-history state |
@@ -36,12 +34,16 @@ ignored. Cascade stores only a SHA-256 token hash and never returns the token
 through the API. Leaving the token field blank preserves an existing token;
 use **Remove token** to clear it explicitly.
 
-The endpoint uses Cascade's existing `PORT` and `BIND_ADDR`; it does not open a
-second listener. With the standard internal port, the URL is
-`http://127.0.0.1:8888/metrics` from the host. If `METRICS_TOKEN` is unset, the
-endpoint is intentionally unauthenticated. In that mode, bind Cascade to
-loopback or a trusted VPN interface and restrict access at the firewall or
-reverse proxy. Do not expose it directly to the public Internet.
+The endpoint always uses `/metrics` on a dedicated listener bound to all network
+interfaces. Its port is configured in Settings and defaults to `9351`, so the
+default URL is `http://SERVER:9351/metrics`. It is independent of the Web UI
+port, Caddy, and `ADMIN_PATH`. If `METRICS_TOKEN` is unset, restrict access to
+the port using a trusted VPN or firewall. Do not expose it directly to the
+public Internet.
+
+Host-network and isolated deployments need no Docker port mapping. A bridge
+deployment must explicitly publish the selected TCP port (for example,
+`9351:9351`); changing the setting cannot change Docker's published ports.
 
 The output excludes private keys, preshared keys, credentials, API tokens,
 configuration secrets, runtime endpoints, and public keys. Peer IDs and names,
@@ -58,7 +60,7 @@ scrape_configs:
       credentials: replace-with-a-long-random-token
     static_configs:
       - targets:
-          - 10.8.0.1:8888
+          - 10.8.0.1:9351
 ```
 
 For multiple Cascade servers, add all targets to the job. Prometheus's standard
@@ -84,6 +86,11 @@ monitor has not produced those optional measurements yet. Interface throughput
 panels appear after Cascade's system collector has produced its first network
 snapshot. The dashboard deliberately has no node-exporter dependency and does
 not expect CPU or memory metrics that the native endpoint does not expose.
+
+The Traffic section includes outbound totals for the current calendar day and
+calendar month. These panels use the available Prometheus samples and retention;
+when scraping started after the calendar boundary, they show traffic from the
+first available sample rather than reconstructing earlier traffic.
 
 ## Metrics
 

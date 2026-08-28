@@ -4488,11 +4488,14 @@
               <div :class="(!metricsSettings.enabled || !metricsSettings.canManage) ? 'opacity-60' : ''"
                 style="display:flex; flex-direction:column; gap:16px;">
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Endpoint path</label>
-                  <input v-model.trim="metricsSettings.path" type="text" placeholder="/metrics"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Metrics port</label>
+                  <input v-model.number="metricsSettings.port" type="number" min="1" max="65535" placeholder="9351"
                     :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
-                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                    class="w-40 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1 font-mono">{{ metricsEndpointURL() }}</p>
+                  <p class="text-xs mt-1" :class="metricsSettings.listening ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-neutral-500'">
+                    {{ metricsSettings.listening ? 'Listening on all network interfaces' : (metricsSettings.listenError || 'Listener is stopped') }}
+                  </p>
                 </div>
 
                 <div>
@@ -4527,7 +4530,7 @@
                       Remove token
                     </button>
                   </div>
-                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Optional. Without a token, restrict access using the bind address, VPN, or firewall.</p>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Optional. The metrics port listens on all interfaces; without a token, restrict access using a VPN or firewall.</p>
                 </div>
               </div>
 

@@ -7,9 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net/url"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -17,18 +15,19 @@ import (
 )
 
 const (
-	settingBootstrap = "prometheus_metrics_bootstrapped"
-	settingEnabled   = "prometheus_metrics_enabled"
-	settingPath      = "prometheus_metrics_path"
-	settingThreshold = "prometheus_metrics_connected_peer_threshold_seconds"
-	settingTokenHash = "prometheus_metrics_token_sha256"
-	settingHistory   = "prometheus_metrics_history_enabled"
+	settingBootstrap  = "prometheus_metrics_bootstrapped"
+	settingEnabled    = "prometheus_metrics_enabled"
+	settingPort       = "prometheus_metrics_port"
+	legacySettingPath = "prometheus_metrics_path"
+	settingThreshold  = "prometheus_metrics_connected_peer_threshold_seconds"
+	settingTokenHash  = "prometheus_metrics_token_sha256"
+	settingHistory    = "prometheus_metrics_history_enabled"
 )
 
 // Snapshot is an immutable copy of the active metrics configuration.
 type Snapshot struct {
 	Enabled                       bool
-	Path                          string
+	Port                          int
 	ConnectedPeerThresholdSeconds int
 	TokenConfigured               bool
 	HistoryEnabled                bool
@@ -39,7 +38,7 @@ type Snapshot struct {
 // token preserves the existing credential unless ClearToken is true.
 type Update struct {
 	Enabled                       bool   `json:"enabled"`
-	Path                          string `json:"path"`
+	Port                          int    `json:"port"`
 	ConnectedPeerThresholdSeconds int    `json:"connectedPeerThresholdSeconds"`
 	HistoryEnabled                bool   `json:"historyEnabled"`
 	Token                         string `json:"token,omitempty"`
@@ -74,7 +73,7 @@ func NewManager(database *sql.DB, bootstrap Config) (*Manager, error) {
 func (m *Manager) Current() Snapshot {
 	s := m.current.Load()
 	if s == nil {
-		return Snapshot{Path: "/metrics", ConnectedPeerThresholdSeconds: int(defaultConnectedPeerThreshold.Seconds()), HistoryEnabled: true}
+		return Snapshot{Port: DefaultPort, ConnectedPeerThresholdSeconds: int(defaultConnectedPeerThreshold.Seconds()), HistoryEnabled: true}
 	}
 	return *s
 }
@@ -93,9 +92,20 @@ func (m *Manager) Authorize(token string) bool {
 }
 
 func (m *Manager) Update(update Update) (Snapshot, error) {
-	path, err := validatePath(update.Path)
+	next, err := m.next(update)
 	if err != nil {
 		return Snapshot{}, err
+	}
+	if err := m.persist(next); err != nil {
+		return Snapshot{}, err
+	}
+	m.publish(next)
+	return next, nil
+}
+
+func (m *Manager) next(update Update) (Snapshot, error) {
+	if update.Port < 1 || update.Port > 65535 {
+		return Snapshot{}, invalid("port must be between 1 and 65535")
 	}
 	if update.ConnectedPeerThresholdSeconds <= 0 {
 		return Snapshot{}, invalid("connectedPeerThresholdSeconds must be greater than zero")
@@ -106,7 +116,7 @@ func (m *Manager) Update(update Update) (Snapshot, error) {
 
 	next := m.Current()
 	next.Enabled = update.Enabled
-	next.Path = path
+	next.Port = update.Port
 	next.ConnectedPeerThresholdSeconds = update.ConnectedPeerThresholdSeconds
 	next.HistoryEnabled = update.HistoryEnabled
 	if update.ClearToken {
@@ -116,40 +126,15 @@ func (m *Manager) Update(update Update) (Snapshot, error) {
 		next.TokenConfigured = true
 		next.tokenHash = sha256.Sum256([]byte(update.Token))
 	}
-	if err := m.persist(next); err != nil {
-		return Snapshot{}, err
-	}
-	m.publish(next)
 	return next, nil
-}
-
-func validatePath(raw string) (string, error) {
-	path := strings.TrimSpace(raw)
-	if path == "" || path == "/" || !strings.HasPrefix(path, "/") {
-		return "", invalid("path must be an absolute path other than /")
-	}
-	parsed, err := url.ParseRequestURI(path)
-	if err != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != path {
-		return "", invalid("path must not contain a query or fragment")
-	}
-	for _, reserved := range []string{"/api", "/js", "/css"} {
-		if path == reserved || strings.HasPrefix(path, reserved+"/") {
-			return "", invalid(fmt.Sprintf("path conflicts with reserved prefix %s", reserved))
-		}
-	}
-	return path, nil
 }
 
 func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 	var marker string
 	err := m.db.QueryRow(`SELECT value FROM settings WHERE key = ?`, settingBootstrap).Scan(&marker)
 	if errors.Is(err, sql.ErrNoRows) {
-		path, pathErr := validatePath(bootstrap.Path)
-		if pathErr != nil {
-			return pathErr
-		}
 		s := Snapshot{
-			Enabled: bootstrap.Enabled, Path: path,
+			Enabled: bootstrap.Enabled, Port: DefaultPort,
 			ConnectedPeerThresholdSeconds: int(bootstrap.ConnectedPeerThreshold.Seconds()),
 			HistoryEnabled:                bootstrap.HistoryEnabled,
 		}
@@ -171,10 +156,10 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 	if err != nil {
 		return fmt.Errorf("load metrics settings: %w", err)
 	}
-	defer rows.Close()
 	for rows.Next() {
 		var key, value string
 		if err := rows.Scan(&key, &value); err != nil {
+			rows.Close()
 			return err
 		}
 		values[key] = value
@@ -183,12 +168,15 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 	if err != nil || threshold <= 0 {
 		return errors.New("stored metrics connected peer threshold is invalid")
 	}
-	path, err := validatePath(values[settingPath])
-	if err != nil {
-		return fmt.Errorf("stored metrics path: %w", err)
+	port := DefaultPort
+	if raw := values[settingPort]; raw != "" {
+		port, err = strconv.Atoi(raw)
+		if err != nil || port < 1 || port > 65535 {
+			return errors.New("stored metrics port is invalid")
+		}
 	}
 	s := Snapshot{
-		Enabled: values[settingEnabled] == "true", Path: path,
+		Enabled: values[settingEnabled] == "true", Port: port,
 		ConnectedPeerThresholdSeconds: threshold,
 		HistoryEnabled:                values[settingHistory] != "false",
 	}
@@ -200,8 +188,18 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 		copy(s.tokenHash[:], decoded)
 		s.TokenConfigured = true
 	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if err := m.persist(s); err != nil {
+		return err
+	}
 	m.publish(s)
-	return rows.Err()
+	return nil
 }
 
 func (m *Manager) persist(s Snapshot) error {
@@ -212,7 +210,7 @@ func (m *Manager) persist(s Snapshot) error {
 	defer tx.Rollback()
 	values := map[string]string{
 		settingBootstrap: "1", settingEnabled: strconv.FormatBool(s.Enabled),
-		settingPath: s.Path, settingThreshold: strconv.Itoa(s.ConnectedPeerThresholdSeconds),
+		settingPort: strconv.Itoa(s.Port), settingThreshold: strconv.Itoa(s.ConnectedPeerThresholdSeconds),
 		settingHistory: strconv.FormatBool(s.HistoryEnabled), settingTokenHash: "",
 	}
 	if s.TokenConfigured {
@@ -222,6 +220,9 @@ func (m *Manager) persist(s Snapshot) error {
 		if _, err := tx.Exec(`INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, key, value); err != nil {
 			return fmt.Errorf("persist metrics setting %s: %w", key, err)
 		}
+	}
+	if _, err := tx.Exec(`DELETE FROM settings WHERE key = ?`, legacySettingPath); err != nil {
+		return fmt.Errorf("remove legacy metrics path: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit metrics settings update: %w", err)
