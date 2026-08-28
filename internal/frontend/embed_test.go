@@ -10,6 +10,15 @@ import (
 	"testing"
 )
 
+func readEmbedded(t *testing.T, name string) string {
+	t.Helper()
+	content, err := assets.ReadFile(name)
+	if err != nil {
+		t.Fatalf("read %s: %v", name, err)
+	}
+	return string(content)
+}
+
 func TestFrontendDefinesEveryDarkTextUtility(t *testing.T) {
 	indexContent, err := assets.ReadFile("www/index.html")
 	if err != nil {
@@ -209,6 +218,18 @@ func TestFrontendLoadsDashboardPeersImmediatelyAfterLogin(t *testing.T) {
 	} {
 		if !strings.Contains(loginFlow, expected) {
 			t.Errorf("post-login flow does not contain %q", expected)
+		}
+	}
+}
+
+func TestFrontendHandlesUnknownDevelopmentBuildUpdateStatus(t *testing.T) {
+	app := readEmbedded(t, "www/js/app.js")
+	for _, expected := range []string{
+		"this.versionInfo.updateStatus === 'unknown'",
+		"Current development build cannot be compared.",
+	} {
+		if !strings.Contains(app, expected) {
+			t.Errorf("version UI does not contain %q", expected)
 		}
 	}
 }
@@ -494,6 +515,41 @@ func TestFrontendBackupModalDimsLaterSettingsPanels(t *testing.T) {
 	} {
 		if !strings.Contains(css, expected) {
 			t.Errorf("backup modal stacking CSS does not contain %q", expected)
+		}
+	}
+}
+
+func TestFrontendMetricsSettingsCardAndBindings(t *testing.T) {
+	index := readEmbedded(t, "www/index.html")
+	users := strings.Index(index, "<!-- Users Management -->")
+	metrics := strings.Index(index, "<!-- Metrics Settings -->")
+	backup := strings.Index(index, "<!-- System Backup -->")
+	if users < 0 || metrics < 0 || backup < 0 || !(users < metrics && metrics < backup) {
+		t.Fatalf("Metrics card must be located after Users and before System Backup")
+	}
+	for _, expected := range []string{
+		`v-model="metricsSettings.enabled"`,
+		`v-model.trim="metricsSettings.path"`,
+		`v-model.number="metricsSettings.connectedPeerThresholdSeconds"`,
+		`v-model="metricsSettings.token"`,
+		`v-model="metricsSettings.historyEnabled"`,
+		`@click="saveMetricsSettings"`,
+		`:disabled="!metricsSettings.canManage"`,
+	} {
+		if !strings.Contains(index, expected) {
+			t.Fatalf("Metrics card missing %q", expected)
+		}
+	}
+	app := readEmbedded(t, "www/js/app.js")
+	api := readEmbedded(t, "www/js/api.js")
+	for _, expected := range []string{"loadMetricsSettings", "saveMetricsSettings", "clearToken"} {
+		if !strings.Contains(app, expected) {
+			t.Fatalf("app.js missing %q", expected)
+		}
+	}
+	for _, expected := range []string{"getMetricsSettings", "updateMetricsSettings", "/settings/metrics"} {
+		if !strings.Contains(api, expected) {
+			t.Fatalf("api.js missing %q", expected)
 		}
 	}
 }

@@ -30,6 +30,7 @@ type HTTPRouteStat struct {
 type StatusCommandStat struct {
 	Count          uint64  `json:"count"`
 	Errors         uint64  `json:"errors"`
+	LastSuccess    bool    `json:"lastSuccess"`
 	DurationLastMs float64 `json:"durationLastMs"`
 	DurationMaxMs  float64 `json:"durationMaxMs"`
 }
@@ -92,6 +93,7 @@ func RecordStatusCommand(interfaceID string, duration time.Duration, success boo
 		runtimeState.statusCommands[interfaceID] = stat
 	}
 	stat.Count++
+	stat.LastSuccess = success
 	if !success {
 		stat.Errors++
 		runtimeState.reconcileErrors++

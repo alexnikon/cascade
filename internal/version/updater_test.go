@@ -56,14 +56,15 @@ func withUpdateServer(t *testing.T, transport roundTripFunc, currentVersion stri
 
 func TestCheckUsesCommitAncestryForDevelopmentBuilds(t *testing.T) {
 	for _, tc := range []struct {
-		name      string
-		status    string
-		available bool
+		name         string
+		status       string
+		available    bool
+		updateStatus string
 	}{
-		{name: "ahead", status: "ahead", available: false},
-		{name: "identical", status: "identical", available: false},
-		{name: "behind", status: "behind", available: true},
-		{name: "diverged", status: "diverged", available: true},
+		{name: "ahead", status: "ahead", available: false, updateStatus: UpdateStatusCurrent},
+		{name: "identical", status: "identical", available: false, updateStatus: UpdateStatusCurrent},
+		{name: "behind", status: "behind", available: true, updateStatus: UpdateStatusAvailable},
+		{name: "diverged", status: "diverged", available: true, updateStatus: UpdateStatusAvailable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			requests := 0
@@ -83,7 +84,7 @@ func TestCheckUsesCommitAncestryForDevelopmentBuilds(t *testing.T) {
 
 			check()
 			got := GetStatus()
-			if got.UpdateAvailable != tc.available || got.Error != "" {
+			if got.UpdateAvailable != tc.available || got.UpdateStatus != tc.updateStatus || got.Error != "" {
 				t.Fatalf("unexpected status: %+v", got)
 			}
 			if requests != 2 {
@@ -93,7 +94,7 @@ func TestCheckUsesCommitAncestryForDevelopmentBuilds(t *testing.T) {
 	}
 }
 
-func TestCheckSkipsComparisonForInvalidCommit(t *testing.T) {
+func TestCheckTreatsBuildWithoutVersionMetadataAsUnknown(t *testing.T) {
 	requests := 0
 	withUpdateServer(t, func(r *http.Request) (*http.Response, error) {
 		requests++
@@ -103,7 +104,7 @@ func TestCheckSkipsComparisonForInvalidCommit(t *testing.T) {
 
 	check()
 	got := GetStatus()
-	if !got.UpdateAvailable || got.Error != "" {
+	if got.UpdateAvailable || got.UpdateStatus != UpdateStatusUnknown || got.Error != "" {
 		t.Fatalf("unexpected status: %+v", got)
 	}
 	if requests != 1 {
@@ -133,7 +134,7 @@ func TestCheckSuppressesUpdateWhenCommitComparisonFails(t *testing.T) {
 
 			check()
 			got := GetStatus()
-			if got.UpdateAvailable || !strings.Contains(got.Error, tc.errorPart) {
+			if got.UpdateAvailable || got.UpdateStatus != UpdateStatusUnknown || !strings.Contains(got.Error, tc.errorPart) {
 				t.Fatalf("unexpected status: %+v", got)
 			}
 			if got.LatestVersion != "v1.3.0" || got.ReleaseURL == "" || got.Changelog != "Changes" || got.CheckedAt.IsZero() {
@@ -156,7 +157,7 @@ func TestCheckLatestRelease(t *testing.T) {
 
 	check()
 	got := GetStatus()
-	if got.LatestVersion != "v1.3.0" || !got.UpdateAvailable {
+	if got.LatestVersion != "v1.3.0" || !got.UpdateAvailable || got.UpdateStatus != UpdateStatusAvailable {
 		t.Fatalf("unexpected status: %+v", got)
 	}
 	if got.ReleaseURL != "https://releases.example/v1.3.0" || got.Changelog != "Portable updates" {
@@ -173,7 +174,18 @@ func TestCheckEqualReleaseIsCurrent(t *testing.T) {
 	}, "v1.2.3-4-gabcdef0")
 
 	check()
-	if got := GetStatus(); got.UpdateAvailable || got.LatestVersion != "v1.2.3" || got.Error != "" {
+	if got := GetStatus(); got.UpdateAvailable || got.UpdateStatus != UpdateStatusCurrent || got.LatestVersion != "v1.2.3" || got.Error != "" {
+		t.Fatalf("unexpected status: %+v", got)
+	}
+}
+
+func TestCheckNewerDevelopmentVersionIsCurrentWithoutCommitMetadata(t *testing.T) {
+	withUpdateServer(t, func(_ *http.Request) (*http.Response, error) {
+		return updateResponse(http.StatusOK, `{"tag_name":"v1.2.3","html_url":"https://example.invalid/release"}`), nil
+	}, "v1.2.4-2-gabcdef0")
+
+	check()
+	if got := GetStatus(); got.UpdateAvailable || got.UpdateStatus != UpdateStatusCurrent || got.Error != "" {
 		t.Fatalf("unexpected status: %+v", got)
 	}
 }
@@ -184,7 +196,7 @@ func TestCheckReportsHTTPAndDecodeErrors(t *testing.T) {
 			return updateResponse(http.StatusServiceUnavailable, "unavailable"), nil
 		}, "v1.2.3")
 		check()
-		if got := GetStatus(); !strings.Contains(got.Error, "503") || got.CheckedAt.IsZero() {
+		if got := GetStatus(); got.UpdateStatus != UpdateStatusUnknown || !strings.Contains(got.Error, "503") || got.CheckedAt.IsZero() {
 			t.Fatalf("unexpected status: %+v", got)
 		}
 	})

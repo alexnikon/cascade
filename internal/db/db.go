@@ -408,8 +408,7 @@ ALTER TABLE peers ADD COLUMN one_time_link  TEXT NOT NULL DEFAULT '';
 		version: 7,
 		sql: `
 -- Multi-user authentication table.
--- Replaces the single PASSWORD_HASH env-var approach.
--- Seeded at startup: if empty and PASSWORD_HASH env is set, admin user is created.
+-- The first user created through the setup flow becomes an administrator.
 CREATE TABLE IF NOT EXISTS users (
     id            TEXT PRIMARY KEY,
     username      TEXT NOT NULL UNIQUE COLLATE NOCASE,

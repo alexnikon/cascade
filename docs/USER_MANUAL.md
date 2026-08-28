@@ -762,26 +762,6 @@ After a successful restore, the system:
 
 > **What is restored:** all interfaces (start automatically), peers, NAT/Firewall/Aliases/Gateways, ipset alias contents, users, API tokens, TOTP.
 
-#### Migrating from AWG-Easy (Import Backup)
-
-If you previously used **AWG-Easy** and want to move your configuration to Cascade **without reissuing client configs**:
-
-1. Download the AWG-Easy backup file (`wg0.json` or similar)
-2. **Interfaces → Import Backup** (purple button)
-3. Click **"Browse…"** and select the JSON file
-4. Enter the **UDP Listen Port** (must not conflict with existing interfaces)
-5. Click **"Import & Start"**
-
-Cascade will create a new interface and recreate all clients:
-- **Server and client keys are preserved as-is** — clients do not need to update their configs
-- **QR codes are available** immediately — client private keys are stored in the database
-- **AmneziaWG protocol and parameters** are detected automatically, including AWG 3.1 header protection and timing fields
-- Disabled clients from AWG-Easy remain disabled
-
-> **Port or address space conflict** — the import is cancelled entirely with an explanation.
-
----
-
 ## Appendix: Common Scenarios
 
 ### Scenario 1: Simple Client VPN

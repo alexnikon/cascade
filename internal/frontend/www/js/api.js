@@ -300,6 +300,14 @@ class API {
     });
   }
 
+  async getMetricsSettings() {
+    return this.call({ method: 'get', path: '/settings/metrics' });
+  }
+
+  async updateMetricsSettings(settings) {
+    return this.call({ method: 'put', path: '/settings/metrics', body: settings });
+  }
+
   // ============================================================
   // AWG2 Templates API
   // ============================================================
@@ -414,14 +422,6 @@ class API {
       method: 'post',
       path: '/tunnel-interfaces/import-conf',
       body: { name, conf },
-    });
-  }
-
-  async importTunnelBackup({ json, listenPort }) {
-    return this.call({
-      method: 'post',
-      path: '/tunnel-interfaces/import-backup',
-      body: { json, listenPort },
     });
   }
 

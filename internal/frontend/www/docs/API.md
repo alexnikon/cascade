@@ -66,7 +66,7 @@ curl -H "Authorization: Bearer ws_<token>" \
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/version` | ❌ public | Current version and latest GitHub release status. Response: `{ version, gitCommit, latestVersion, releaseURL, changelog?, updateAvailable: bool, checkedAt, error? }` |
+| `GET` | `/api/version` | ❌ public | Current version and latest GitHub release status. Response: `{ version, gitCommit, latestVersion, releaseURL, changelog?, updateStatus: "available" | "current" | "unknown", updateAvailable: bool, checkedAt, error? }` |
 | `POST` | `/api/version/check` | ❌ public | Force an immediate GitHub release check, bypassing the 24 h cache. Returns the same shape as `GET /api/version`. |
 | `GET` | `/api/health` | ❌ public | Health check. Response: `{ status: "ok", version, host }` |
 
@@ -77,6 +77,7 @@ curl -H "Authorization: Bearer ws_<token>" \
 The first check happens 10 s after startup. Results are cached in memory, so
 `/api/version` always returns immediately. GitHub errors are reported in the existing
 `error` field without affecting Cascade startup.
+Builds without recognizable version or commit metadata return `updateStatus: "unknown"` and never claim that a release update is available.
 
 ---
 
@@ -86,6 +87,8 @@ The first check happens 10 s after startup. Results are cached in memory, so
 |--------|------|-------------|
 | `GET` | `/api/settings` | Global settings + runtime info |
 | `PUT` | `/api/settings` | Partial update. Body: see below |
+| `GET` | `/api/settings/metrics` | Safe Prometheus and history settings |
+| `PUT` | `/api/settings/metrics` | Update metrics settings (admin only; token is write-only) |
 
 **GET /api/settings — response fields:**
 
@@ -148,7 +151,7 @@ Returns `GlobalSettings` merged with runtime-only fields:
 | `POST` | `/api/tunnel-interfaces` | Create. Body: `{ name, address, listenPort, protocol, disableRoutes?, natDisabled?, settings? }` |
 | `POST` | `/api/tunnel-interfaces/quick-create` | Create and start a client interface. `protocol` accepts `wireguard-1.0`, `amneziawg-2.0`, or `amneziawg-3.1`; matching protocol defaults are isolated. Unsupported AWG 3.1 runtimes return `409`. |
 | `POST` | `/api/tunnel-interfaces/import-conf` | Import a WireGuard/AmneziaWG client `.conf` file as an uplink (client-mode) interface. `DisableRoutes` is always set to `true` — the kernel routing table is not modified. Body: `{ name: string, conf: string }`. Response: `{ interface, peer, started: bool, startError?: string, conflictWarning?: string }` |
-| `POST` | `/api/tunnel-interfaces/import-backup` | Import an AWG-Easy JSON backup. Creates a new interface with all clients from the file. Server and client keys are preserved as-is — existing client configs remain valid without reissue. Body: `{ json: string, listenPort: int }`. Response: `{ interface, peersCreated: int, peersFailed?: string[], started: bool, startError?: string }`. Port or subnet conflict → **400** |
+| `POST` | `/api/tunnel-interfaces/import-interface` | Restore a native Cascade interface export. Body: `{ json: string, listenPort: int }`. Server and peer keys are preserved. |
 | `GET` | `/api/tunnel-interfaces/:id` | Get interface |
 | `PATCH` | `/api/tunnel-interfaces/:id` | Update (hot-reload via syncconf). Body: `{ name?, address?, listenPort?, natDisabled?, publicHost?, mtu?, settings? }`. `publicHost` overrides the global Public IP for this interface's peer configs (useful for transit/relay setups). `mtu` overrides the global MTU for this interface (`0` = use global). Changing `natDisabled` on a running interface triggers `Restart()` |
 | `DELETE` | `/api/tunnel-interfaces/:id` | Delete interface |
@@ -157,6 +160,7 @@ Returns `GlobalSettings` merged with runtime-only fields:
 | `POST` | `/api/tunnel-interfaces/:id/restart` | Restart. Returns `{ interface }` |
 | `GET` | `/api/tunnel-interfaces/:id/export-params` | S2S export. Returns `{ name, publicKey, endpoint, address, protocol, presharedKey? }` |
 | `GET` | `/api/tunnel-interfaces/:id/export-obfuscation` | Versioned AmneziaWG transport parameters as JSON |
+| `GET` | `/api/tunnel-interfaces/:id/export` | Download a native Cascade interface export, including peers by default. Use `?peers=0` to omit peers. |
 | `GET` | `/api/tunnel-interfaces/:id/backup` | Download interface + all peers as JSON |
 | `PUT` | `/api/tunnel-interfaces/:id/restore` | Restore peers from backup. Removes existing peers first |
 

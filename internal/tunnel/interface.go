@@ -82,6 +82,30 @@ type TunnelInterface struct {
 	trafficState map[string]*peerTrafficState // keyed by peer.ID; protected by trafficMu
 }
 
+// RuntimePeerSnapshot is an immutable, secret-free view of one peer for
+// read-only runtime consumers such as the API and Prometheus collector.
+type RuntimePeerSnapshot struct {
+	ID                  string
+	Name                string
+	AllowedIPs          string
+	GroupID             string
+	PersistentKeepalive int
+	Enabled             bool
+	TotalRx             int64
+	TotalTx             int64
+	LatestHandshakeAt   *string
+}
+
+// RuntimeInterfaceSnapshot is an immutable, secret-free interface snapshot.
+type RuntimeInterfaceSnapshot struct {
+	ID         string
+	Name       string
+	Protocol   string
+	ListenPort int
+	Enabled    bool
+	Peers      []RuntimePeerSnapshot
+}
+
 // InterfaceInput is the payload for creating a new interface.
 type InterfaceInput struct {
 	ID            string
@@ -478,6 +502,33 @@ func (t *TunnelInterface) PeerCount() int {
 	t.peersMu.RLock()
 	defer t.peersMu.RUnlock()
 	return len(t.peers)
+}
+
+// RuntimeSnapshot copies the current interface and peer state under the same
+// locks used by the tunnel poller. It never exposes private or preshared keys.
+func (t *TunnelInterface) RuntimeSnapshot() RuntimeInterfaceSnapshot {
+	t.peersMu.RLock()
+	defer t.peersMu.RUnlock()
+
+	out := RuntimeInterfaceSnapshot{
+		ID: t.ID, Name: t.Name, Protocol: t.Protocol, ListenPort: t.ListenPort,
+		Enabled: t.Enabled, Peers: make([]RuntimePeerSnapshot, 0, len(t.peers)),
+	}
+	for _, p := range t.peers {
+		var handshake *string
+		if p.LatestHandshakeAt != nil {
+			value := *p.LatestHandshakeAt
+			handshake = &value
+		}
+		out.Peers = append(out.Peers, RuntimePeerSnapshot{
+			ID: p.ID, Name: p.Name, AllowedIPs: p.AllowedIPs,
+			GroupID: p.GroupID, PersistentKeepalive: p.PersistentKeepalive,
+			Enabled: p.Enabled, TotalRx: p.TotalRx, TotalTx: p.TotalTx,
+			LatestHandshakeAt: handshake,
+		})
+	}
+	sort.Slice(out.Peers, func(i, j int) bool { return out.Peers[i].ID < out.Peers[j].ID })
+	return out
 }
 
 // ── Peer CRUD ─────────────────────────────────────────────────────────────────
@@ -1284,8 +1335,8 @@ func (t *TunnelInterface) GetStatus() {
 	// Tab-separated columns per peer line:
 	//   0: public_key   1: preshared_key   2: endpoint   3: allowed_ips
 	//   4: latest_handshake (unix ts)   5: transfer_rx   6: transfer_tx   7: persistent_keepalive
-	t.peersMu.RLock()
-	defer t.peersMu.RUnlock()
+	t.peersMu.Lock()
+	defer t.peersMu.Unlock()
 
 	t.trafficMu.Lock()
 	defer t.trafficMu.Unlock()

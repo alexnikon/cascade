@@ -64,6 +64,10 @@ func RegisterGatewaySource(fn GatewayStatusFn) { gatewayFnAtom.Store(fn) }
 // HistoryEnabled reports whether periodic metrics are persisted to SQLite.
 func HistoryEnabled() bool { return historyEnabled.Load() }
 
+// SetHistoryEnabled enables or disables persistence of periodic metrics.
+// Runtime samples continue to be collected for the dashboard either way.
+func SetHistoryEnabled(enabled bool) { historyEnabled.Store(enabled) }
+
 func parseHistoryEnabled(raw string) bool {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "0", "false", "no", "off":
@@ -121,7 +125,6 @@ var (
 // Safe to call multiple times — only the first call has effect.
 func Start(stop <-chan struct{}) {
 	once.Do(func() {
-		historyEnabled.Store(parseHistoryEnabled(os.Getenv("METRICS_HISTORY_ENABLED")))
 		instance = &collector{
 			prevNet:     make(map[string][2]uint64),
 			prevProcess: make(map[string]processSample),

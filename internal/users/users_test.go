@@ -29,6 +29,15 @@ func initTestDB(t *testing.T) {
 	})
 }
 
+func createTestAdmin(t *testing.T) *User {
+	t.Helper()
+	u, err := Create("admin", "password")
+	if err != nil {
+		t.Fatalf("Create admin: %v", err)
+	}
+	return u
+}
+
 // ── CountAdmins ───────────────────────────────────────────────────────────────
 
 func TestCountAdmins_ZeroWhenEmpty(t *testing.T) {
@@ -43,59 +52,38 @@ func TestCountAdmins_ZeroWhenEmpty(t *testing.T) {
 	}
 }
 
-func TestCountAdmins_OneAfterSeed(t *testing.T) {
+func TestCountAdmins_OneAfterFirstUser(t *testing.T) {
 	initTestDB(t)
-
-	// Use a bcrypt hash of "password" generated at cost 12.
-	// We use a pre-computed hash to avoid the cost of bcrypt in tests.
-	// $2a$04$... — cost 4 for speed in unit tests.
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm" // "password"
-
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
+	createTestAdmin(t)
 
 	n, err := CountAdmins()
 	if err != nil {
 		t.Fatalf("CountAdmins: %v", err)
 	}
 	if n != 1 {
-		t.Errorf("expected 1 admin after SeedAdminIfEmpty, got %d", n)
+		t.Errorf("expected first user to be the only admin, got %d", n)
 	}
 }
 
 // ── IsAdmin ───────────────────────────────────────────────────────────────────
 
-func TestIsAdmin_TrueForSeededAdmin(t *testing.T) {
+func TestIsAdmin_TrueForFirstUser(t *testing.T) {
 	initTestDB(t)
-
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm" // "password"
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
-
-	u, err := GetByUsername("admin")
-	if err != nil || u == nil {
-		t.Fatalf("GetByUsername(admin): %v, %v", u, err)
-	}
+	u := createTestAdmin(t)
 
 	admin, err := IsAdmin(u.ID)
 	if err != nil {
 		t.Fatalf("IsAdmin: %v", err)
 	}
 	if !admin {
-		t.Error("expected seeded 'admin' user to have is_admin=true")
+		t.Error("expected first 'admin' user to have is_admin=true")
 	}
 }
 
 func TestIsAdmin_FalseForRegularUser(t *testing.T) {
 	initTestDB(t)
 
-	// Seed admin first so we have at least 1 user.
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm"
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
+	createTestAdmin(t)
 
 	// Create a regular user.
 	regular, err := Create("regular", "pass1234")
@@ -129,18 +117,10 @@ func TestIsAdmin_FalseForNonExistentUser(t *testing.T) {
 func TestSetAdmin_FailsWhenOnlyOneAdmin(t *testing.T) {
 	initTestDB(t)
 
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm"
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
-
-	u, err := GetByUsername("admin")
-	if err != nil || u == nil {
-		t.Fatalf("GetByUsername: %v", err)
-	}
+	u := createTestAdmin(t)
 
 	// Attempt to remove admin from the only admin — must fail.
-	err = SetAdmin(u.ID, false)
+	err := SetAdmin(u.ID, false)
 	if err == nil {
 		t.Error("expected SetAdmin(false) to fail when there is only 1 admin, got nil")
 	}
@@ -149,10 +129,7 @@ func TestSetAdmin_FailsWhenOnlyOneAdmin(t *testing.T) {
 func TestSetAdmin_SucceedsWhenTwoAdmins(t *testing.T) {
 	initTestDB(t)
 
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm"
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
+	u := createTestAdmin(t)
 
 	// Create a second user and promote them to admin.
 	second, err := Create("second", "pass5678")
@@ -164,7 +141,6 @@ func TestSetAdmin_SucceedsWhenTwoAdmins(t *testing.T) {
 	}
 
 	// Now there are 2 admins — removing one should succeed.
-	u, _ := GetByUsername("admin")
 	if err := SetAdmin(u.ID, false); err != nil {
 		t.Errorf("SetAdmin(false) should succeed when 2 admins exist, got: %v", err)
 	}
@@ -179,10 +155,7 @@ func TestSetAdmin_SucceedsWhenTwoAdmins(t *testing.T) {
 func TestSetAdmin_GrantAndVerify(t *testing.T) {
 	initTestDB(t)
 
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm"
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
+	createTestAdmin(t)
 
 	regular, err := Create("newguy", "abc12345")
 	if err != nil {
@@ -206,71 +179,12 @@ func TestSetAdmin_GrantAndVerify(t *testing.T) {
 	}
 }
 
-// ── SeedAdminIfEmpty ──────────────────────────────────────────────────────────
-
-func TestSeedAdminIfEmpty_CreatesIsAdminTrue(t *testing.T) {
-	initTestDB(t)
-
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm"
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
-
-	u, err := GetByUsername("admin")
-	if err != nil {
-		t.Fatalf("GetByUsername: %v", err)
-	}
-	if u == nil {
-		t.Fatal("expected admin user to be created")
-	}
-	if !u.IsAdmin {
-		t.Error("SeedAdminIfEmpty should create user with IsAdmin=true")
-	}
-}
-
-func TestSeedAdminIfEmpty_DoesNotSeedWhenUsersExist(t *testing.T) {
-	initTestDB(t)
-
-	// Create a user first.
-	if _, err := Create("existing", "somepassword"); err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm"
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
-
-	// Only the original user should exist.
-	n, _ := Count()
-	if n != 1 {
-		t.Errorf("expected 1 user (no seeding when table non-empty), got %d", n)
-	}
-}
-
-func TestSeedAdminIfEmpty_NoOpWhenHashEmpty(t *testing.T) {
-	initTestDB(t)
-
-	if err := SeedAdminIfEmpty(""); err != nil {
-		t.Fatalf("SeedAdminIfEmpty with empty hash: %v", err)
-	}
-
-	n, _ := Count()
-	if n != 0 {
-		t.Errorf("expected 0 users when hash is empty, got %d", n)
-	}
-}
-
 // ── Create ────────────────────────────────────────────────────────────────────
 
 func TestCreate_DefaultIsAdminFalse(t *testing.T) {
 	initTestDB(t)
 
-	// Seed admin so the table is non-empty (matching real usage).
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm"
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
+	createTestAdmin(t)
 
 	u, err := Create("bob", "hunter2!")
 	if err != nil {
@@ -296,10 +210,7 @@ func TestCreate_DefaultIsAdminFalse(t *testing.T) {
 func TestCountAdmins_MultipleUsersOnlyOneAdmin(t *testing.T) {
 	initTestDB(t)
 
-	hash := "$2a$04$NpJMnalrDU8yFBbKWFMXrumYRZzEEiD9uq0UFXilFCJJCAtpAv/bm"
-	if err := SeedAdminIfEmpty(hash); err != nil {
-		t.Fatalf("SeedAdminIfEmpty: %v", err)
-	}
+	createTestAdmin(t)
 
 	// Add two regular users.
 	if _, err := Create("alice", "alicepass1"); err != nil {

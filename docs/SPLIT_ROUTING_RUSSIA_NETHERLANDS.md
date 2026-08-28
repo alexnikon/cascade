@@ -105,4 +105,4 @@ counters on the expected egress servers.
 - Intermittent leaks: verify gateway failover behavior and remove competing
   default routes from the policy table.
 - Small requests work but large transfers stall: validate path MTU and MSS
-  clamping using [../wireguard_chain_mtu_guide.md](../wireguard_chain_mtu_guide.md).
+  clamping using [WIREGUARD_CHAIN_MTU_GUIDE.md](WIREGUARD_CHAIN_MTU_GUIDE.md).

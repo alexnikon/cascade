@@ -10,8 +10,9 @@
 //     → Validates TOTP code, upgrades session to authenticated=true
 //
 // Authorization header fallback (for scripts / curl):
-//   "username:password" (colon-separated) → verifies against users table
-//   raw password (no colon) → tries against "admin" user for backward compat
+//
+//	"username:password" (colon-separated) → verifies against users table
+//	raw password (no colon) → tries against "admin" user for backward compat
 //
 // Open mode: if no users exist in the DB, all requests pass through.
 // Session storage: in-memory (Fiber built-in).
@@ -50,12 +51,7 @@ const (
 
 // ── Package-level auth state ──────────────────────────────────────────────────
 
-var (
-	authStore *session.Store
-	// authPasswordHash is the bcrypt hash from the PASSWORD_HASH env var.
-	// Used only for SeedAdminIfEmpty — kept here so InitAuth callers still work.
-	authPasswordHash string
-)
+var authStore *session.Store
 
 // rememberMaxAge is the session lifetime when "remember me" is checked.
 const rememberMaxAge = 30 * 24 * time.Hour
@@ -64,12 +60,8 @@ const rememberMaxAge = 30 * 24 * time.Hour
 const defaultSessionAge = 24 * time.Hour
 
 // InitAuth initialises the auth subsystem.
-// passwordHash is the value of the PASSWORD_HASH env var (bcrypt hash).
-// It is used to seed the admin user via users.SeedAdminIfEmpty on first run.
 // Call once from main() before registering routes.
-func InitAuth(passwordHash string) {
-	authPasswordHash = strings.TrimSpace(passwordHash)
-
+func InitAuth() {
 	authStore = session.New(session.Config{
 		Expiration:     defaultSessionAge,
 		KeyLookup:      "cookie:session_id",

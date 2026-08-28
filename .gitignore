@@ -1,7 +1,6 @@
 /config
 /data/
 /wg0.conf
-/wg0.json
 /src/node_modules
 .DS_Store
 *.swp
@@ -41,6 +40,5 @@ docker-compose.override.yml
 !docker-compose.override.yml.example
 
 # Build artifacts — compiled binaries
-/awg-easy
 /cascade
 /wiresteer

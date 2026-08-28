@@ -195,6 +195,11 @@ Configuration is collected interactively by `setup.sh` and saved to `/opt/cascad
 | `AWG_USERSPACE_IMPL` | `amneziawg-go` | `amneziawg-go` or `kernel` |
 | `NETWORK_MODE` | `host` | `host` or `bridge` — Docker network mode |
 | `BRIDGE_PORT_RANGE` | *(bridge only)* | Published UDP port range for WireGuard in bridge mode (e.g. `51831-65535`) |
+| `METRICS_ENABLED` | `false` | Initial native Prometheus endpoint state |
+| `METRICS_PATH` | `/metrics` | Initial Prometheus endpoint path |
+| `METRICS_CONNECTED_PEER_THRESHOLD` | `180s` | Initial maximum handshake age considered connected |
+| `METRICS_TOKEN` | unset | Initial optional bearer token for the metrics endpoint |
+| `METRICS_HISTORY_ENABLED` | `true` | Initial local metrics-history state |
 Additional settings (WireGuard defaults, DNS, etc.) are configurable in the Web UI under **Settings**.
 
 ## 🔒 Security Model
@@ -299,11 +304,23 @@ curl -b cookies.txt -X POST http://127.0.0.1:8888/api/tunnel-interfaces/wg10/pee
 Use it to automate peer provisioning, integrate with your own dashboards, or build custom clients.
 Full reference: [docs/API.md](docs/API.md)
 
+## 📈 Prometheus
+
+Cascade has an optional native Prometheus endpoint backed by the same cached
+runtime state used by its UI and API. Administrators can enable and configure
+it in **Settings → Metrics**, then scrape `http://127.0.0.1:8888/metrics`.
+Environment variables provide first-run bootstrap values only. See the
+[Prometheus monitoring guide](docs/PROMETHEUS.md) for security, metric names,
+multi-server configuration, Grafana dashboard import, and migration from
+`awgexporter`. The ready-to-import dashboard is
+[`grafana/cascade-dashboard.json`](grafana/cascade-dashboard.json).
+
 ## 📖 Documentation
 - [Artifact-only deployment](docs/ARTIFACT_DEPLOYMENT.md)
 - [Deploy guide](docs/DEPLOY.md)
 - [API reference](docs/API.md)
 - [Security model](docs/SECURITY.md)
+- [Prometheus monitoring](docs/PROMETHEUS.md)
 ## 🏗️ Stack
 | Layer | Technology |
 |-------|------------|

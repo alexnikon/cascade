@@ -12,7 +12,8 @@ echo -e "${BLUE}  Building Cascade (Go/Fiber)${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-cd "$(dirname "$0")"
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+cd "$SCRIPT_DIR/.."
 
 # Verify we're not on master (local builds are for development only)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)

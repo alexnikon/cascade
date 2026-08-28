@@ -1,4 +1,4 @@
-// AWG-Easy 3.0 — Go/Fiber entry point.
+// Cascade Go/Fiber entry point.
 // All managers are initialised in FIX-13 order before the HTTP server starts.
 package main
 
@@ -27,26 +27,29 @@ import (
 	"github.com/alexnikon/cascade/internal/ipset"
 	"github.com/alexnikon/cascade/internal/metrics"
 	"github.com/alexnikon/cascade/internal/nat"
+	"github.com/alexnikon/cascade/internal/prometheusmetrics"
 	"github.com/alexnikon/cascade/internal/routing"
 	"github.com/alexnikon/cascade/internal/tunnel"
-	"github.com/alexnikon/cascade/internal/users"
 	"github.com/alexnikon/cascade/internal/version"
 )
 
 // Config holds all runtime configuration resolved from flags and ENV.
 // Flag takes priority over ENV (standard Go service pattern).
 type Config struct {
-	DataDir      string // --data-dir / DATA_DIR
-	Port         int    // --port / PORT         (TCP, Web UI)
-	BindHost     string // --bind / BIND_ADDR    (listen host, default "" = 0.0.0.0)
-	WGPort       int    // --wg-port / WG_PORT   (UDP, WireGuard default)
-	Host         string // --host / WG_HOST      (required)
-	PasswordHash string // --password-hash / PASSWORD_HASH
-	Debug        bool   // --debug / DEBUG
+	DataDir  string // --data-dir / DATA_DIR
+	Port     int    // --port / PORT         (TCP, Web UI)
+	BindHost string // --bind / BIND_ADDR    (listen host, default "" = 0.0.0.0)
+	WGPort   int    // --wg-port / WG_PORT   (UDP, WireGuard default)
+	Host     string // --host / WG_HOST      (required)
+	Debug    bool   // --debug / DEBUG
 }
 
 func main() {
 	cfg := parseConfig()
+	metricsBootstrap, err := prometheusmetrics.ConfigFromEnv()
+	if err != nil {
+		log.Fatalf("metrics config: %v", err)
+	}
 
 	log.Printf("Cascade %s (%s)", version.Version, version.GitCommit)
 
@@ -61,6 +64,10 @@ func main() {
 		log.Fatalf("db init: %v", err)
 	}
 	defer db.Close()
+	metricsManager, err := prometheusmetrics.NewManager(db.DB(), metricsBootstrap)
+	if err != nil {
+		log.Fatalf("metrics settings: %v", err)
+	}
 
 	// ── Metrics collector ─────────────────────────────────────────────────────
 	// Starts right after DB init — collects CPU/RAM/net every 5 s into SQLite.
@@ -72,20 +79,11 @@ func main() {
 
 	// ── Auth subsystem ────────────────────────────────────────────────────────
 	// Initialise before registering routes so middleware is ready.
-	api.InitAuth(cfg.PasswordHash)
-
-	// Seed the admin user from PASSWORD_HASH env if the users table is empty.
-	// After this point PASSWORD_HASH is only used for the initial seed —
-	// subsequent logins use the users table directly.
-	if cfg.PasswordHash != "" {
-		if err := users.SeedAdminIfEmpty(cfg.PasswordHash); err != nil {
-			log.Printf("user seed warning: %v", err)
-		}
-	}
+	api.InitAuth()
 
 	// ── Fiber app + middleware ────────────────────────────────────────────────
 	app := fiber.New(fiber.Config{
-		AppName:               "AWG-Easy 3.0",
+		AppName:               "Cascade",
 		DisableStartupMessage: true,
 		ReadTimeout:           30 * time.Second,
 		WriteTimeout:          30 * time.Second,
@@ -126,6 +124,12 @@ func main() {
 		return err
 	})
 
+	// Prometheus is intentionally outside /api auth so a scraper can use a
+	// dedicated optional bearer token without acquiring a UI session.
+	prometheusmetrics.Register(app, metricsManager, prometheusmetrics.NewNativeCollector(
+		db.DB(), version.Version, version.GitCommit, metricsManager,
+	))
+
 	// ── API routes ────────────────────────────────────────────────────────────
 	// Must be registered BEFORE the static middleware so /api/* requests are
 	// handled by the API handlers and not swallowed by the SPA fallback.
@@ -164,6 +168,7 @@ func main() {
 	// Settings + Templates (registered before other managers are ready, but
 	// settings package only needs db which is already initialised above).
 	api.RegisterSettings(apiGroup)
+	api.RegisterMetricsSettings(apiGroup, metricsManager)
 
 	// Remaining handlers are registered here; they call package-level Get()
 	// which is safe after SetInstance calls below.
@@ -373,10 +378,6 @@ func parseConfig() Config {
 	flag.StringVar(&cfg.Host, "host",
 		envStr("WG_HOST", ""),
 		"Server public hostname or IP address (optional — can be configured via Settings UI)")
-
-	flag.StringVar(&cfg.PasswordHash, "password-hash",
-		envStr("PASSWORD_HASH", ""),
-		"bcrypt password hash for Web UI login")
 
 	flag.BoolVar(&cfg.Debug, "debug",
 		envBool("DEBUG", false),

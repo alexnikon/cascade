@@ -51,7 +51,7 @@ func newRemotesTestApp(t *testing.T) *remotesTestApp {
 		os.RemoveAll(dir)
 	})
 
-	InitAuth("")
+	InitAuth()
 
 	owner, err := users.Create("owner", "ownerpass1")
 	if err != nil {

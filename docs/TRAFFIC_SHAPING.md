@@ -27,7 +27,7 @@ application identity.
 The configured payload rate and on-wire rate differ because WireGuard, UDP, and
 IP headers add overhead. Cascade applies the configured policy consistently, but
 operators should leave capacity headroom on constrained physical links. See
-[../wireguard_chain_mtu_guide.md](../wireguard_chain_mtu_guide.md).
+[WIREGUARD_CHAIN_MTU_GUIDE.md](WIREGUARD_CHAIN_MTU_GUIDE.md).
 
 ## Lifecycle
 

@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
       -X github.com/alexnikon/cascade/internal/version.Version=${VERSION} \
       -X github.com/alexnikon/cascade/internal/version.GitCommit=${GIT_COMMIT}" \
     -o cascade \
-    ./cmd/awg-easy
+    ./cmd/cascade
 
 # ============================================================
 # Stage 2: Runtime image

@@ -26,6 +26,7 @@ type UpdateStatus struct {
 	LatestVersion   string    `json:"latestVersion"`
 	ReleaseURL      string    `json:"releaseURL"`
 	Changelog       string    `json:"changelog,omitempty"`
+	UpdateStatus    string    `json:"updateStatus"`
 	UpdateAvailable bool      `json:"updateAvailable"`
 	CheckedAt       time.Time `json:"checkedAt"`
 	Error           string    `json:"error,omitempty"`
@@ -33,11 +34,18 @@ type UpdateStatus struct {
 
 var (
 	mu                sync.RWMutex
-	status            UpdateStatus
+	status            = UpdateStatus{UpdateStatus: UpdateStatusUnknown}
 	latestReleaseURL  = "https://api.github.com/repos/alexnikon/cascade/releases/latest"
 	compareReleaseURL = "https://api.github.com/repos/alexnikon/cascade/compare/"
 	updateHTTPClient  = http.DefaultClient
 	nowUTC            = func() time.Time { return time.Now().UTC() }
+	startOnce         sync.Once
+)
+
+const (
+	UpdateStatusAvailable = "available"
+	UpdateStatusCurrent   = "current"
+	UpdateStatusUnknown   = "unknown"
 )
 
 var semanticVersion = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z.-]+)?$`)
@@ -60,15 +68,17 @@ func GetStatus() UpdateStatus {
 // It checks immediately after initialDelay, then every checkInterval.
 // Safe to call multiple times — only the first call has effect.
 func Start() {
-	go func() {
-		time.Sleep(initialDelay)
-		check()
-		ticker := time.NewTicker(checkInterval)
-		defer ticker.Stop()
-		for range ticker.C {
+	startOnce.Do(func() {
+		go func() {
+			time.Sleep(initialDelay)
 			check()
-		}
-	}()
+			ticker := time.NewTicker(checkInterval)
+			defer ticker.Stop()
+			for range ticker.C {
+				check()
+			}
+		}()
+	})
 }
 
 // Check forces an immediate update check, bypassing the 24h cache.
@@ -120,8 +130,18 @@ func check() {
 			return
 		}
 	}
-	available := compareSemver(payload.Version, Version) > 0
-	if available && gitCommit.MatchString(GitCommit) {
+	versionKnown := semanticVersion.MatchString(Version)
+	commitKnown := gitCommit.MatchString(GitCommit)
+	available := false
+	comparisonStatus := UpdateStatusUnknown
+	if versionKnown {
+		available = compareSemver(payload.Version, Version) > 0
+		comparisonStatus = UpdateStatusCurrent
+		if available {
+			comparisonStatus = UpdateStatusAvailable
+		}
+	}
+	if commitKnown && (!versionKnown || available) {
 		comparison, err := compareReleaseCommit(ctx, payload.Version, GitCommit)
 		if err != nil {
 			setReleaseError(payload, fmt.Sprintf("compare: %v", err))
@@ -130,21 +150,25 @@ func check() {
 		switch comparison {
 		case "ahead", "identical":
 			available = false
+			comparisonStatus = UpdateStatusCurrent
 		case "behind", "diverged":
 			// The running commit does not contain the latest release commit.
+			available = true
+			comparisonStatus = UpdateStatusAvailable
 		default:
 			setReleaseError(payload, fmt.Sprintf("compare: unexpected status %q", comparison))
 			return
 		}
 	}
-	log.Printf("version: update check — current=%s latest=%s updateAvailable=%v",
-		Version, payload.Version, available)
+	log.Printf("version: update check — current=%s latest=%s updateStatus=%s updateAvailable=%v",
+		Version, payload.Version, comparisonStatus, available)
 
 	mu.Lock()
 	status = UpdateStatus{
 		LatestVersion:   payload.Version,
 		ReleaseURL:      payload.ReleaseURL,
 		Changelog:       payload.Changelog,
+		UpdateStatus:    comparisonStatus,
 		UpdateAvailable: available,
 		CheckedAt:       nowUTC(),
 	}
@@ -186,6 +210,7 @@ func setReleaseError(payload releasePayload, msg string) {
 		LatestVersion:   payload.Version,
 		ReleaseURL:      payload.ReleaseURL,
 		Changelog:       payload.Changelog,
+		UpdateStatus:    UpdateStatusUnknown,
 		UpdateAvailable: false,
 		CheckedAt:       nowUTC(),
 		Error:           msg,
@@ -196,6 +221,9 @@ func setReleaseError(payload releasePayload, msg string) {
 func setError(msg string) {
 	log.Printf("version: update check failed: %s", msg)
 	mu.Lock()
+	if status.UpdateStatus == "" {
+		status.UpdateStatus = UpdateStatusUnknown
+	}
 	status.Error = msg
 	status.CheckedAt = nowUTC()
 	mu.Unlock()

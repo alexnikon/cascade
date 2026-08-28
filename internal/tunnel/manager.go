@@ -627,6 +627,20 @@ func (m *Manager) GetAllInterfaces() []*TunnelInterface {
 	return out
 }
 
+// RuntimeSnapshots returns one immutable snapshot of all managed interfaces.
+// It reuses the background status poller's in-memory data and performs no AWG
+// commands or database queries.
+func (m *Manager) RuntimeSnapshots() []RuntimeInterfaceSnapshot {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := make([]RuntimeInterfaceSnapshot, 0, len(m.interfaces))
+	for _, iface := range m.interfaces {
+		out = append(out, iface.RuntimeSnapshot())
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
 // UpdateInterface applies upd to the interface, persists, regenerates config,
 // and hot-reloads via syncconf if the interface is running.
 func (m *Manager) UpdateInterface(id string, upd InterfaceUpdate) (*TunnelInterface, error) {

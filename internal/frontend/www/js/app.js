@@ -360,6 +360,17 @@ new Vue({
       awg3Supported: false, awg3SupportError: '',
     },
     settingsSaved: false,
+    metricsSettings: {
+      enabled: false,
+      path: '/metrics',
+      connectedPeerThresholdSeconds: 180,
+      tokenConfigured: false,
+      historyEnabled: true,
+      canManage: false,
+      token: '',
+      clearToken: false,
+    },
+    metricsSettingsSaved: false,
     templates: [],
     showTemplateModal: false,
     templateEditTarget: null, // null = create, object = edit
@@ -1205,7 +1216,7 @@ new Vue({
         this.pingLoadInterfaces();
       }
       if (pageId === 'interfaces') this.loadTunnelInterfaces();
-      if (pageId === 'settings') { this.loadSettings(); this.loadUsers(); this.loadApiTokens(); this.loadPreRestoreBackups(); }
+      if (pageId === 'settings') { this.loadSettings(); this.loadMetricsSettings(); this.loadUsers(); this.loadApiTokens(); this.loadPreRestoreBackups(); }
       if (pageId === 'remotes') this.loadRemotes();
       if (pageId === 'gateways') {
         this.loadGateways();
@@ -1428,55 +1439,13 @@ new Vue({
         // Auto-detect listen port from JSON
         try {
           const parsed = JSON.parse(text);
-          const port =
-            (parsed.interface && parsed.interface.listenPort) || // Cascade export
-            (parsed.server && parsed.server.port);               // AWG-Easy
+          const port = parsed.interface && parsed.interface.listenPort;
           if (port && !this.importBackupForm.listenPort) {
             this.importBackupForm.listenPort = String(port);
           }
         } catch (_) {}
       };
       reader.readAsText(file);
-    },
-
-    async doImportBackup() {
-      const json = (this.importBackupForm.json || '').trim();
-      const port = parseInt(this.importBackupForm.listenPort, 10);
-      if (!json)        { this.showToast('Please select a backup file', 'error'); return; }
-      if (!port || port < 1 || port > 65535) {
-        this.showToast('Please enter a valid UDP port (1–65535)', 'error'); return;
-      }
-
-      try {
-        const res = await this.api.importTunnelBackup({ json, listenPort: port });
-        this.showImportBackup = false;
-        this.importBackupForm = { json: '', listenPort: '', fileName: '' };
-        await this.loadTunnelInterfaces();
-        this.loadNatInterfaces();
-        this.loadFirewallInterfaces();
-
-        const iface = res.interface || {};
-		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1');
-        const failed = (res.peersFailed || []).length;
-
-        if (res.started) {
-          let msg = `✅ Backup imported: ${iface.id} · ${iface.address}${proto} · ${res.peersCreated} clients`;
-          if (failed > 0) msg += ` (${failed} failed)`;
-          this.showToast(msg);
-          this.activeInterfaceId = iface.id;
-        } else {
-          this.showToast(
-            `⚠️ Backup imported but interface failed to start\n${res.startError || ''}`,
-            'error'
-          );
-        }
-        if (failed > 0) {
-          this.showToast(`⚠️ Failed to import clients: ${res.peersFailed.join(', ')}`, 'error');
-        }
-      } catch (err) {
-        console.error('Import backup failed:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
-      }
     },
 
     openExportInterface(iface) {
@@ -1579,6 +1548,8 @@ new Vue({
             this.showToast(`Update check failed: ${this.versionInfo.error}`, 'error');
           } else if (!this.versionInfo.latestVersion) {
             this.showToast('No releases published yet', 'info', 4000);
+          } else if (this.versionInfo.updateStatus === 'unknown') {
+            this.showToast(`Latest release: ${this.versionInfo.latestVersion}. Current development build cannot be compared.`, 'info', 6000);
           } else if (this.versionInfo.updateAvailable) {
             this.showToast(`Update available: ${this.versionInfo.latestVersion}`, 'info', 6000);
           } else {
@@ -5618,6 +5589,45 @@ new Vue({
       } catch (err) {
         console.error('loadSettings failed:', err);
       }
+    },
+
+    async loadMetricsSettings() {
+      try {
+        const settings = await this.api.getMetricsSettings();
+        this.metricsSettings = { ...settings, token: '', clearToken: false };
+      } catch (err) {
+        console.error('loadMetricsSettings failed:', err);
+      }
+    },
+
+    async saveMetricsSettings() {
+      if (!this.metricsSettings.canManage) return;
+      try {
+        const payload = {
+          enabled: this.metricsSettings.enabled,
+          path: this.metricsSettings.path,
+          connectedPeerThresholdSeconds: Number(this.metricsSettings.connectedPeerThresholdSeconds),
+          historyEnabled: this.metricsSettings.historyEnabled,
+          clearToken: this.metricsSettings.clearToken,
+        };
+        if (this.metricsSettings.token) payload.token = this.metricsSettings.token;
+        const updated = await this.api.updateMetricsSettings(payload);
+        this.metricsSettings = { ...updated, token: '', clearToken: false };
+        this.metricsSettingsSaved = true;
+        setTimeout(() => { this.metricsSettingsSaved = false; }, 2500);
+      } catch (err) {
+        this.showToast(`Failed to save metrics settings: ${err.message}`, 'error');
+      }
+    },
+
+    removeMetricsToken() {
+      if (!this.metricsSettings.canManage) return;
+      this.metricsSettings.token = '';
+      this.metricsSettings.clearToken = true;
+    },
+
+    metricsEndpointURL() {
+      return `${window.location.origin}${this.metricsSettings.path || '/metrics'}`;
     },
 
     async saveSettings() {

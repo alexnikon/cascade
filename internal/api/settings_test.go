@@ -10,13 +10,17 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/prometheusmetrics"
 	"github.com/alexnikon/cascade/internal/tokens"
 	"github.com/alexnikon/cascade/internal/users"
 )
@@ -27,8 +31,9 @@ import (
 // registered behind AuthMiddleware.  A single "owner" user is pre-created
 // with a raw API token that can be passed to ta.do().
 type settingsTestApp struct {
-	app   *fiber.App
-	token string // raw Bearer token for the owner user
+	app     *fiber.App
+	token   string // raw Bearer token for the owner user
+	metrics *prometheusmetrics.Manager
 }
 
 func newSettingsTestApp(t *testing.T) *settingsTestApp {
@@ -46,7 +51,7 @@ func newSettingsTestApp(t *testing.T) *settingsTestApp {
 		os.RemoveAll(dir)
 	})
 
-	InitAuth("") // initialise session store
+	InitAuth() // initialise session store
 
 	owner, err := users.Create("owner", "ownerpass1")
 	if err != nil {
@@ -72,8 +77,13 @@ func newSettingsTestApp(t *testing.T) *settingsTestApp {
 
 	api := app.Group("/api", AuthMiddleware)
 	RegisterSettings(api)
+	metricsManager, err := prometheusmetrics.NewManager(db.DB(), prometheusmetrics.Config{Path: "/metrics", ConnectedPeerThreshold: 3 * time.Minute, HistoryEnabled: true})
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	RegisterMetricsSettings(api, metricsManager)
 
-	return &settingsTestApp{app: app, token: rawToken}
+	return &settingsTestApp{app: app, token: rawToken, metrics: metricsManager}
 }
 
 // put is a convenience wrapper: PUT /api/settings with JSON body.
@@ -273,6 +283,62 @@ func TestGetSettingsIncludesAWG31RuntimeCapability(t *testing.T) {
 	}
 	if body["awgEngineVersion"] != "3.1.20260814" || body["awgToolsVersion"] != "3.1.20260812" {
 		t.Fatalf("unexpected versions: %v", body)
+	}
+}
+
+func TestMetricsSettingsAdminUpdateAndSafeResponse(t *testing.T) {
+	sta := newSettingsTestApp(t)
+	ta := &testApp{app: sta.app, adminToken: sta.token}
+	resp := ta.do("PUT", "/api/settings/metrics", sta.token, map[string]any{
+		"enabled": true, "path": "/prometheus", "connectedPeerThresholdSeconds": 90,
+		"historyEnabled": false, "token": "do-not-return-this-token",
+	})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("PUT status=%d body=%v", resp.StatusCode, decodeBody(resp))
+	}
+	body := decodeBody(resp)
+	if body["tokenConfigured"] != true || body["canManage"] != true {
+		t.Fatalf("unexpected response: %v", body)
+	}
+	if _, exists := body["token"]; exists {
+		t.Fatalf("write-only token leaked in response: %v", body)
+	}
+	encodedJSON, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := string(encodedJSON)
+	if strings.Contains(encoded, "do-not-return-this-token") {
+		t.Fatalf("plaintext token leaked in response: %s", encoded)
+	}
+	if got := sta.metrics.Current(); got.Path != "/prometheus" || got.ConnectedPeerThresholdSeconds != 90 || got.HistoryEnabled {
+		t.Fatalf("runtime settings were not applied: %+v", got)
+	}
+}
+
+func TestMetricsSettingsNonAdminReadOnly(t *testing.T) {
+	sta := newSettingsTestApp(t)
+	regular, err := users.Create("viewer", "viewerpass1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, rawToken, err := tokens.Create(regular.ID, "viewer-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ta := &testApp{app: sta.app}
+	resp := ta.do("GET", "/api/settings/metrics", rawToken, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET status=%d body=%v", resp.StatusCode, decodeBody(resp))
+	}
+	if body := decodeBody(resp); body["canManage"] != false {
+		t.Fatalf("regular user received manage permission: %v", body)
+	}
+	resp = ta.do("PUT", "/api/settings/metrics", rawToken, map[string]any{
+		"enabled": true, "path": "/metrics", "connectedPeerThresholdSeconds": 60, "historyEnabled": true,
+	})
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("PUT status=%d body=%v", resp.StatusCode, decodeBody(resp))
 	}
 }
 

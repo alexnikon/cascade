@@ -337,31 +337,3 @@ func IsTOTPEnabled(userID string) (bool, error) {
 	}
 	return enabled, nil
 }
-
-// ── Startup seeding ───────────────────────────────────────────────────────────
-
-// SeedAdminIfEmpty creates an "admin" user with the given bcrypt password hash
-// if the users table is empty.  Called once at startup so that an existing
-// PASSWORD_HASH env-var keeps working after the migration to multi-user auth.
-func SeedAdminIfEmpty(passwordHash string) error {
-	n, err := Count()
-	if err != nil {
-		return err
-	}
-	if n > 0 {
-		return nil // table already has users — nothing to do
-	}
-	if passwordHash == "" {
-		return nil // no seed hash provided — run in open mode
-	}
-
-	id := uuid.New().String()
-	_, err = db.DB().Exec(
-		`INSERT INTO users (id, username, password_hash, is_admin) VALUES (?, 'admin', ?, 1)`,
-		id, passwordHash,
-	)
-	if err != nil {
-		return fmt.Errorf("users.SeedAdminIfEmpty: %w", err)
-	}
-	return nil
-}

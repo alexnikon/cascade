@@ -111,7 +111,7 @@ to GitHub Container Registry. No local build required:
 docker compose -f docker-compose.yml pull
 ```
 
-> **Local development only:** to use a locally-built image, run `./build.sh`
+> **Local development only:** to use a locally-built image, run `./scripts/build.sh`
 > and add `-f docker-compose.override.yml.example` to your Compose commands.
 
 ---
@@ -122,21 +122,13 @@ Edit `docker-compose.yml`. The key variables:
 
 ```yaml
 environment:
-  - PASSWORD_HASH=          # leave empty for open mode — first user created via UI
   - WG_HOST=1.2.3.4         # public IP or domain (can also be set in Settings UI)
   - PORT=8888               # Web UI port (listens on localhost only)
   - BIND_ADDR=127.0.0.1     # bind to localhost — Caddy proxies from outside
 ```
 
-> **Open mode:** if `PASSWORD_HASH` is empty, the web UI shows a "Create First User" form on first visit.
-> Create your admin account there. After creation, the form disappears and login is required.
-
-**Optional — pre-set password hash (non-interactive / CI):**
-
-```bash
-docker run --rm -it ghcr.io/alexnikon/cascade:latest /app/cascade hash
-# Enter password when prompted — copy the $2a$... hash into PASSWORD_HASH=
-```
+On first visit, the web UI shows a **Create First User** form. Create the admin
+account there; after creation, the form disappears and login is required.
 
 ---
 
@@ -441,7 +433,7 @@ docker logs cascade
 ```
 
 Common causes:
-- `PASSWORD_HASH` is empty or malformed
+- invalid or missing runtime configuration; inspect the preceding log message
 
 ### Interfaces not appearing in UI
 
@@ -500,7 +492,7 @@ To silence it, apply the sysctl settings from Step 4 and restart Caddy.
 
 ### Disk filling up over time
 
-On small VPS disks (e.g. 10 GB), repeated manual `./build.sh` runs and normal
+On small VPS disks (e.g. 10 GB), repeated manual `./scripts/build.sh` runs and normal
 container operation can accumulate disk usage outside of anything Cascade
 itself stores. Check where the space actually went before deleting anything:
 
@@ -513,7 +505,7 @@ Then drill into whichever top-level directory is largest
 (`du -xh --max-depth=1 /usr`, `/var`, etc.) until you find the actual offender.
 Common culprits, safest-first:
 
-**1. Docker build cache** — grows with every manual `docker build`/`./build.sh`
+**1. Docker build cache** — grows with every manual `docker build`/`./scripts/build.sh`
 run; a `--filter "until=..."` prune often leaves cache entries marked
 `shared: true` behind. Confirm with `docker system df -v` (look at "Build
 cache usage"), then clear it fully — this never touches running containers or

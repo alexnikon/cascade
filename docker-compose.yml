@@ -13,7 +13,7 @@ services:
         required: false   # OK if file doesn't exist (first run without setup.sh)
 
     # All runtime config comes from .env (written by setup.sh / switch-mode.sh).
-    # Do NOT add WG_HOST, PORT, BIND_ADDR, PASSWORD_HASH here — they live in .env
+    # Do not add WG_HOST, PORT, or BIND_ADDR here — they live in .env
     # so that deployment bundle updates never conflict with local changes.
     environment:
       # Default WireGuard/AWG listen port (UDP) — used when creating interfaces.

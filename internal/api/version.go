@@ -31,7 +31,8 @@ func forceVersionCheck(c *fiber.Ctx) error {
 //	  "latestVersion":   "v1.3.0",   // from the latest GitHub release
 //	  "releaseURL":      "https://releases.example/...",
 //	  "changelog":       "Optional release summary",
-//	  "updateAvailable": true,
+//	  "updateStatus":    "available", // available, current, or unknown
+//	  "updateAvailable": true,        // compatibility boolean
 //	  "checkedAt":       "2026-03-28T12:00:00Z",
 //	  "error":           ""          // non-empty if last check failed
 //	}
@@ -43,6 +44,7 @@ func getVersion(c *fiber.Ctx) error {
 		"latestVersion":   s.LatestVersion,
 		"releaseURL":      s.ReleaseURL,
 		"changelog":       s.Changelog,
+		"updateStatus":    s.UpdateStatus,
 		"updateAvailable": s.UpdateAvailable,
 		"checkedAt":       s.CheckedAt,
 		"error":           s.Error,

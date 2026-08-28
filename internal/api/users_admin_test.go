@@ -95,7 +95,7 @@ func newTestApp(t *testing.T) *testApp {
 	})
 
 	// InitAuth must be called so the session store is initialised.
-	InitAuth("")
+	InitAuth()
 
 	// Create admin user.
 	adminUser, err := users.Create("admin", "adminpass1")
@@ -422,7 +422,7 @@ func TestListUsers_OpenModeNoAuth(t *testing.T) {
 		os.RemoveAll(dir)
 	})
 
-	InitAuth("")
+	InitAuth()
 
 	app := buildFiberApp()
 

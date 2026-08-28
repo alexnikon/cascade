@@ -1,8 +1,8 @@
 # Cascade — Feature Overview
 
-Cascade is a self-hosted WireGuard / AmneziaWG router management platform.
-It replaces the original AWG-Easy with a full-stack rewrite in Go + Fiber, providing
-enterprise-grade routing, firewall, and monitoring capabilities through a clean web UI.
+Cascade is a self-hosted WireGuard / AmneziaWG router management platform built
+in Go and Fiber, providing routing, firewall, and monitoring capabilities through
+a clean web UI.
 
 ---
 
