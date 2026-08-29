@@ -1,0 +1,880 @@
+[[ define "peer-modals" ]]
+        <!-- Template Create / Edit Modal -->
+        <div v-if="showTemplateModal"
+          class="modal-overlay"
+         >
+
+          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-md">
+            <div class="modal-header dark:border-neutral-600">
+              <h2 class="text-xl font-medium dark:text-neutral-200">
+				{{ templateEditTarget ? 'Edit Template' : 'New template' }}
+              </h2>
+            </div>
+
+            <div class="modal-body">
+
+              <!-- Name + Default -->
+              <div class="flex gap-3 items-end">
+                <div class="flex-grow">
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
+                  <input v-model="templateForm.name" type="text" placeholder="e.g. My Obfuscation Profile"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                </div>
+                <label class="flex items-center gap-2 mb-2 cursor-pointer whitespace-nowrap">
+                  <input type="checkbox" v-model="templateForm.isDefault" class="w-4 h-4">
+                  <span class="text-sm dark:text-neutral-300">Default</span>
+                </label>
+              </div>
+
+			  <div>
+				<label class="block text-sm font-medium dark:text-neutral-300 mb-1">Protocol version</label>
+				<select v-model="templateForm.protocolVersion" :disabled="!!templateEditTarget" class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+				  <option value="3.1">AWG 3.1</option>
+				  <option value="2.0">AWG 2.0</option>
+				  <option value="1.0">AWG 1.0</option>
+				</select>
+			  </div>
+
+              <!-- Host (SNI) -->
+              <div>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
+                  Custom Host <span class="text-gray-400 dark:text-neutral-500 font-normal">(SNI, optional)</span>
+                </label>
+                <input v-model="templateForm.host" type="text" placeholder="e.g. 1.2.3.4 or example.com"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                  Self-stealing SNI — enter your server's IP or domain. AWG traffic will appear as TLS to this host.
+                </p>
+              </div>
+
+              <!-- Jc / Jmin / Jmax -->
+              <div>
+                <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Junk Parameters</p>
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Jc</label>
+                    <input v-model.number="templateForm.jc" type="number"
+                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Jmin</label>
+                    <input v-model.number="templateForm.jmin" type="number"
+                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Jmax</label>
+                    <input v-model.number="templateForm.jmax" type="number"
+                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                  </div>
+                </div>
+              </div>
+
+              <!-- S1-S4 -->
+              <div>
+                <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Size Parameters</p>
+                <div class="grid grid-cols-4 gap-3">
+                  <div v-for="k in ['s1','s2','s3','s4']" :key="k">
+                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{ k.toUpperCase() }}</label>
+                    <input v-model.number="templateForm[k]" type="number"
+                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                  </div>
+                </div>
+              </div>
+
+              <!-- H1-H4 -->
+              <div>
+                <div class="flex items-center mb-2">
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 tracking-wide flex-grow">
+                    Hash Ranges (H1–H4)
+                  </p>
+                  <button @click="randomiseTemplateH()"
+                    class="text-xs text-purple-600 dark:text-purple-400 hover:underline">
+                    Randomise
+                  </button>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mb-2">
+                  Format: <code class="font-mono">start-end</code> (e.g. <code class="font-mono">5000000-55000000</code>).
+                  Re-randomised on every template apply.
+                </p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div v-for="k in ['h1','h2','h3','h4']" :key="k">
+                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{ k.toUpperCase() }}</label>
+                    <input v-model="templateForm[k]" type="text" placeholder="start-end"
+                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono">
+                  </div>
+                </div>
+              </div>
+
+              <!-- I1-I5 -->
+              <div>
+                <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">
+                  Imitation Parameters (I1–I5)
+                </p>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mb-2">
+                  Optional. Full obfuscation: I1 starts with <code class="font-mono">&lt;r 2&gt; &lt;b 0x...&gt;</code>.
+                </p>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <div v-for="k in ['i1','i2','i3','i4','i5']" :key="k" class="flex items-center gap-2">
+                    <label class="text-xs font-medium dark:text-neutral-300 w-6 flex-shrink-0">{{ k.toUpperCase() }}</label>
+                    <input v-model="templateForm[k]" type="text" :placeholder="k === 'i1' ? '<r 2> <b 0x...>' : 'optional'"
+                      class="flex-1 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono">
+                  </div>
+                </div>
+              </div>
+
+			  <div v-if="templateForm.protocolVersion === '3.1'">
+				<p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">AWG 3.1 transport protection</p>
+				<label class="block text-xs font-medium dark:text-neutral-300 mb-1">HeaderProtectionKey</label>
+				<input v-model="templateForm.headerProtectionKey" class="w-full px-2 py-1 text-xs border rounded font-mono dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+				<div class="grid grid-cols-2 gap-2 mt-2">
+				  <label v-for="field in [{k:'contentPaddingAddition',l:'Content padding'},{k:'rekeyAfterTime',l:'Rekey after'},{k:'rekeyTimeout',l:'Rekey timeout'},{k:'rejectAfterTime',l:'Reject after'},{k:'keepaliveTimeout',l:'Keepalive timeout'},{k:'maxHandshakeAttempts',l:'Handshake attempts'}]" :key="field.k" class="text-xs dark:text-neutral-300">
+					{{ field.l }} <input v-model="templateForm[field.k]" placeholder="min-max" class="w-full px-2 py-1 mt-1 border rounded font-mono dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+				  </label>
+				</div>
+				<div class="flex gap-4 mt-2 text-xs dark:text-neutral-300">
+				  <label><input type="checkbox" v-model="templateForm.randomTrailers"> Random trailers</label>
+				  <label><input type="checkbox" v-model="templateForm.disableCookies"> Disable cookies</label>
+				</div>
+				<p class="text-xs text-gray-400 mt-2">S1-S4 must be at least 12; ranges use min-max format.</p>
+			  </div>
+
+            </div><!-- /content area -->
+
+            <div class="modal-section dark:border-neutral-600">
+              <div class="flex gap-3 justify-end">
+                <button @click="showTemplateModal = false"
+                  class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded hover:bg-gray-50 dark:hover:bg-neutral-600 dark:text-neutral-200 transition text-sm">
+                  Cancel
+                </button>
+                <button @click="saveTemplate()"
+                  :disabled="!templateForm.name"
+                  class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded transition text-sm font-medium">
+                  {{ templateEditTarget ? 'Save Changes' : 'Create Template' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+		<!-- Generate versioned AmneziaWG profile modal -->
+        <div v-if="showGenerateModal"
+          class="modal-overlay awg-generator-overlay"
+         >
+          <div class="bg-white dark:bg-neutral-700 modal-panel awg-generator-panel">
+            <div class="awg-generator-header dark:border-neutral-600">
+              <div class="flex items-start justify-between" style="gap:16px;">
+				<div>
+				  <div class="flex items-center" style="gap:9px;">
+				    <span aria-hidden="true" style="font-size:1.2rem; line-height:1;">⚡</span>
+				    <h2 class="text-lg font-semibold dark:text-neutral-100">Generate AmneziaWG Profile</h2>
+				  </div>
+				  <p class="text-sm text-gray-500 dark:text-neutral-400" style="margin-top:5px; line-height:1.45;">
+				    Create a balanced obfuscation profile from tested protocol signatures.
+				  </p>
+				</div>
+                <button type="button" @click="showGenerateModal = false" aria-label="Close profile generator"
+                  class="text-gray-400 hover:text-gray-600 dark:hover:text-neutral-200"
+                  style="padding:4px; flex-shrink:0;">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="awg-generator-body dark:text-neutral-200">
+			  <div class="awg-generator-field">
+				<label>AWG version</label>
+				<div class="awg-generator-segmented">
+				  <button type="button" @click="generateForm.protocolVersion='3.1'" :class="{ 'is-active': generateForm.protocolVersion === '3.1' }" :aria-pressed="generateForm.protocolVersion === '3.1'">AWG 3.1</button>
+				  <button type="button" @click="generateForm.protocolVersion='2.0'" :class="{ 'is-active': generateForm.protocolVersion === '2.0' }" :aria-pressed="generateForm.protocolVersion === '2.0'">AWG 2.0</button>
+				</div>
+			  </div>
+              <div class="awg-generator-grid">
+              <div class="awg-generator-field">
+                <label>Protocol profile</label>
+                <select v-model="generateForm.profile"
+                  class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                  <option value="random">Random (any profile)</option>
+                  <option value="quic_initial">QUIC Initial (RFC 9000)</option>
+                  <option value="quic_0rtt">QUIC 0-RTT</option>
+                  <option value="tls_client_hello">TLS 1.3 ClientHello</option>
+                  <option value="dtls">DTLS 1.2 ClientHello</option>
+                  <option value="http3">HTTP/3 over QUIC</option>
+                  <option value="sip">SIP REGISTER</option>
+                  <option value="wireguard_noise">Noise_IK (WireGuard)</option>
+                  <option value="dns_query">DNS Query (RFC 1035)</option>
+                  <option value="tls_to_quic">TLS→QUIC (composite)</option>
+                  <option value="quic_burst">QUIC Burst (composite)</option>
+                </select>
+              </div>
+              <div class="awg-generator-field">
+                <label>Intensity</label>
+                <div class="awg-generator-segmented">
+                  <button type="button" v-for="lvl in ['low','medium','high']" :key="lvl"
+                    @click="generateForm.intensity = lvl"
+                    :class="{ 'is-active': generateForm.intensity === lvl }"
+                    class="awg-intensity capitalize">
+                    {{ lvl }}
+                  </button>
+                </div>
+              </div>
+              </div>
+              <div class="awg-generator-grid">
+              <div class="awg-generator-field">
+                <label>Custom host <span class="text-gray-400 font-normal">(optional)</span></label>
+                <input v-model="generateForm.host" type="text" placeholder="e.g. yandex.ru"
+                  autocomplete="off" spellcheck="false"
+                  class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Used for SNI; leave empty to choose randomly.</p>
+              </div>
+              <div class="awg-generator-field" v-show="generateForm.profile !== 'sip' && generateForm.profile !== 'dns_query'">
+                <label>Browser fingerprint <span class="text-gray-400 font-normal">(optional)</span></label>
+                <select v-model="generateForm.browser"
+                  class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                  <option value="">None (protocol defaults)</option>
+                  <option value="chrome">Chrome</option>
+                  <option value="firefox">Firefox</option>
+                  <option value="safari">Safari</option>
+                  <option value="edge">Edge</option>
+                  <option value="yandex_desktop">Yandex Browser (Desktop)</option>
+                  <option value="yandex_mobile">Yandex Browser (Mobile)</option>
+                </select>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Matches common QUIC/TLS packet sizes.</p>
+              </div>
+              </div>
+              <div v-if="generatedParams" class="awg-generator-preview text-xs font-mono" style="display:flex; flex-direction:column; gap:6px;">
+                <div class="text-gray-500 dark:text-neutral-400 font-sans text-xs font-medium mb-1">
+                  Preview — Profile: <span class="text-yellow-600 dark:text-yellow-400">{{ generatedParams.profile }}</span>
+                </div>
+                <div class="flex flex-wrap gap-x-4 gap-y-1">
+                  <span><span class="text-gray-400">Jc=</span>{{ generatedParams.jc }}</span>
+                  <span><span class="text-gray-400">Jmin=</span>{{ generatedParams.jmin }}</span>
+                  <span><span class="text-gray-400">Jmax=</span>{{ generatedParams.jmax }}</span>
+                </div>
+                <div class="flex flex-wrap gap-x-4 gap-y-1">
+                  <span><span class="text-gray-400">S1=</span>{{ generatedParams.s1 }}</span>
+                  <span><span class="text-gray-400">S2=</span>{{ generatedParams.s2 }}</span>
+                  <span><span class="text-gray-400">S3=</span>{{ generatedParams.s3 }}</span>
+                  <span><span class="text-gray-400">S4=</span>{{ generatedParams.s4 }}</span>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <span class="truncate"><span class="text-gray-400">H1=</span>{{ generatedParams.h1 }}</span>
+                  <span class="truncate"><span class="text-gray-400">H2=</span>{{ generatedParams.h2 }}</span>
+                  <span class="truncate"><span class="text-gray-400">H3=</span>{{ generatedParams.h3 }}</span>
+                  <span class="truncate"><span class="text-gray-400">H4=</span>{{ generatedParams.h4 }}</span>
+                </div>
+                <div class="break-all"><span class="text-gray-400">I1=</span>{{ generatedParams.i1 }}</div>
+              </div>
+              <div v-if="generatedParams" style="display:flex; flex-direction:column; gap:10px;">
+                <label class="text-sm font-medium" for="generated-template-name">Template name</label>
+                <input v-model="generateForm.saveName" type="text" placeholder="Template name..."
+                  id="generated-template-name" autocomplete="off"
+                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+                <div class="awg-generator-actions">
+                  <button type="button" @click="useGeneratedInForm()"
+                    class="py-2 border border-purple-400 text-purple-600 dark:text-purple-400 dark:border-purple-500 rounded text-sm transition">
+                    Edit details
+                  </button>
+                  <button type="button" @click="saveGeneratedTemplate()" :disabled="!generateForm.saveName.trim() || savingGeneratedTemplate"
+                    class="py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded text-sm font-medium transition">
+                    {{ savingGeneratedTemplate ? 'Saving...' : 'Save & Close' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="awg-generator-footer">
+              <button type="button" @click="generateParams()" :disabled="generatingParams"
+                class="w-full py-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-white rounded font-medium text-sm transition flex items-center justify-center gap-2"
+                style="min-height:42px;">
+                <svg v-if="generatingParams" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                {{ generatingParams ? 'Generating...' : (generatedParams ? 'Regenerate profile' : 'Generate profile') }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Create Peer Modal -->
+        <div v-if="showPeerCreate"
+          class="modal-overlay"
+         >
+
+          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-sm">
+            <div class="modal-header dark:border-neutral-600">
+              <h2 class="text-2xl font-medium dark:text-neutral-200">{{ peerCreate.peerType === 'client' ? 'Add Client' : 'Add Peer' }}</h2>
+              <p v-if="selectedInterface" class="text-sm text-gray-500 dark:text-neutral-400">
+                Adding to {{ selectedInterface.name }} ({{ selectedInterface.id }})
+              </p>
+            </div>
+
+            <div style="padding:16px 24px 24px;">
+
+              <!-- Peer Type toggle -->
+              <div class="mb-4 flex rounded-lg overflow-hidden border dark:border-neutral-500">
+                <button @click="peerCreate.peerType = 'client'"
+                  :class="peerCreate.peerType === 'client'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-neutral-600 text-gray-600 dark:text-neutral-300 hover:bg-gray-50 dark:hover:bg-neutral-500'"
+                  class="flex-1 py-2 px-3 text-sm font-medium transition flex items-center justify-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                  </svg>
+                  Client
+                </button>
+                <button @click="peerCreate.peerType = 'interconnect'"
+                  :class="peerCreate.peerType === 'interconnect'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-neutral-600 text-gray-600 dark:text-neutral-300 hover:bg-gray-50 dark:hover:bg-neutral-500'"
+                  class="flex-1 py-2 px-3 text-sm font-medium transition flex items-center justify-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                  </svg>
+                  Interconnect
+                </button>
+              </div>
+
+              <!-- Key mode toggle -->
+              <div class="mb-5 flex rounded-lg overflow-hidden border dark:border-neutral-500">
+                <button @click="peerCreate.mode = 'generate'"
+                  :class="peerCreate.mode === 'generate'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-white dark:bg-neutral-600 text-gray-600 dark:text-neutral-300 hover:bg-gray-50 dark:hover:bg-neutral-500'"
+                  class="flex-1 py-2 px-3 text-sm font-medium transition flex items-center justify-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                  </svg>
+                  Generate Keys
+                </button>
+                <button @click="peerCreate.mode = 'manual'"
+                  :class="peerCreate.mode === 'manual'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-white dark:bg-neutral-600 text-gray-600 dark:text-neutral-300 hover:bg-gray-50 dark:hover:bg-neutral-500'"
+                  class="flex-1 py-2 px-3 text-sm font-medium transition flex items-center justify-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                  Enter Manually
+                </button>
+              </div>
+
+              <div class="mb-4">
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{ peerCreate.peerType === 'client' ? 'Client Name' : 'Peer Name' }}</label>
+                <input v-model="peerCreate.name"
+                  type="text"
+                  placeholder="e.g., Phone, Laptop, Office-A"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+              </div>
+
+              <!-- Generate mode: info box (text varies by peer type) -->
+              <div v-if="peerCreate.mode === 'generate'"
+                class="mb-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg text-sm text-green-800 dark:text-green-300 flex items-start gap-2">
+                <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                <span v-if="peerCreate.peerType === 'client'">Keys and IP will be generated automatically. Enable "Show QR" below to scan the config immediately after creation.</span>
+                <span v-else>Keys will be generated on the server. After creation, download the config to configure the remote side manually.</span>
+              </div>
+
+              <!-- Manual mode: Public Key field -->
+              <div v-if="peerCreate.mode === 'manual'" class="mb-4">
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Public Key</label>
+                <input v-model="peerCreate.publicKey"
+                  type="text"
+                  placeholder="base64-encoded public key (44 chars)"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+              </div>
+
+              <!-- AllowedIPs: required for interconnect, optional for client+generate -->
+              <div class="mb-4" v-if="peerCreate.peerType === 'interconnect' || peerCreate.mode === 'manual'">
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
+                  Allowed IPs
+                  <span v-if="peerCreate.peerType === 'interconnect'" class="text-red-500">*</span>
+                  <span v-else class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span>
+                </label>
+                <input v-model="peerCreate.allowedIPs"
+                  type="text"
+                  :placeholder="peerCreate.peerType === 'interconnect' ? 'e.g., 192.168.2.0/24 (remote subnet)' : 'e.g., 10.100.0.2/32 (leave empty for auto-assign)'"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1" v-if="peerCreate.peerType === 'interconnect'">
+                  Hub will route traffic for this subnet through the interconnect tunnel.
+                </p>
+                <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1" v-else>
+                  Hub will route traffic to this peer's VPN IP. Leave empty to auto-assign a /32 address.
+                </p>
+              </div>
+
+              <div class="mb-4">
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
+                  Endpoint
+                  <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span>
+                </label>
+                <input v-model="peerCreate.endpoint"
+                  type="text"
+                  :placeholder="peerCreate.peerType === 'interconnect' ? 'e.g., office-b.example.com:51820' : 'e.g., peer.example.com:51820'"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                <p v-if="peerCreate.peerType === 'interconnect'" class="text-xs text-gray-500 dark:text-neutral-400 mt-1">
+                  Remote side address. Leave empty if the remote side initiates the connection.
+                </p>
+              </div>
+
+              <div class="mb-4">
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Client Allowed IPs <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span></label>
+                <input v-model="peerCreate.clientAllowedIPs"
+                  type="text"
+                  placeholder="default: 0.0.0.0/0, ::/0 (all traffic)"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1">What the remote side routes through VPN (in client config). Leave empty for default.</p>
+              </div>
+
+              <div class="mb-4">
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Persistent Keepalive</label>
+                <input v-model.number="peerCreate.persistentKeepalive"
+                  type="number"
+                  placeholder="25"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+              </div>
+
+              <div v-if="peerCreate.peerType === 'client'" class="mb-4">
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-sm font-medium dark:text-neutral-300">Client Group</label>
+                  <button @click="inlineGroupShow = !inlineGroupShow; inlineGroupInput = ''"
+                    title="Create new group"
+                    class="flex items-center justify-center w-5 h-5 rounded text-white text-sm font-bold leading-none"
+                    style="background:#16a34a; flex-shrink:0;">+</button>
+                </div>
+                <div v-if="inlineGroupShow" class="flex gap-2 mb-2">
+                  <input v-model="inlineGroupInput"
+                    type="text"
+                    placeholder="New group name"
+                    @keyup.enter="createInlineClientGroup('manual')"
+                    @keyup.esc="inlineGroupShow = false; inlineGroupInput = ''"
+                    class="flex-1 px-2 py-1 border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
+                    ref="inlineGroupInputManual">
+                  <button @click="createInlineClientGroup('manual')"
+                    class="px-2 py-1 rounded text-white text-sm"
+                    style="background:#16a34a;">Add</button>
+                </div>
+                <select v-model="peerCreate.groupId"
+                  class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
+                  style="padding:8px 12px;">
+                  <option v-for="g in clientGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Expiry date (client peers only) -->
+            <div v-if="peerCreate.peerType === 'client'" class="modal-section dark:border-neutral-600">
+              <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
+                Expiry date <span class="font-normal text-gray-400">(optional — peer will be disabled after this date)</span>
+              </label>
+              <div class="flex gap-2">
+                <input v-model="peerCreate.expiredAt" type="date"
+                  class="flex-1 border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
+                  style="padding:8px 12px;">
+                <button v-if="peerCreate.expiredAt" type="button" @click="peerCreate.expiredAt = ''"
+                  class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">Clear</button>
+              </div>
+            </div>
+
+            <div class="modal-section dark:border-neutral-600">
+              <div class="flex items-center justify-between">
+                <label v-if="peerCreate.peerType === 'client' && peerCreate.mode === 'generate'"
+                  class="flex items-center gap-2 text-sm cursor-pointer select-none"
+                  :style="{ color: theme === 'dark' ? '#d4d4d4' : '#374151' }">
+                  <input type="checkbox" v-model="peerCreate.showQR" class="rounded">
+                  Show QR after create
+                </label>
+                <div v-else></div>
+                <div class="flex gap-3">
+                  <button @click="showPeerCreate = false"
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded hover:bg-gray-50 dark:hover:bg-neutral-600 dark:text-neutral-200 transition">
+                    Cancel
+                  </button>
+                  <button @click="createPeer" :disabled="peerMutationInFlight"
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition">
+                    <span v-if="peerCreate.peerType === 'client' && peerCreate.mode === 'generate'">{{ peerCreate.showQR ? 'Create & Show QR' : 'Create' }}</span>
+                    <span v-else-if="peerCreate.peerType === 'client'">Add Client</span>
+                    <span v-else-if="peerCreate.mode === 'generate'">Generate Keys & Create</span>
+                    <span v-else>Add Interconnect Peer</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Peer Create Dialog -->
+        <div v-if="showQuickPeerCreate"
+          class="modal-overlay"
+         >
+          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-xs">
+            <div class="modal-header dark:border-neutral-600">
+              <h2 class="text-xl font-medium dark:text-neutral-200">New Client</h2>
+              <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">
+                IP will be assigned automatically. Keys will be generated on server.
+              </p>
+            </div>
+            <div style="padding:16px 24px 24px;">
+              <div class="mb-4">
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name</label>
+                <input v-model="peerCreateName" type="text" placeholder="e.g., Phone, Laptop"
+                  v-on:keyup.enter="createQuickPeer"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+              </div>
+              <div class="mb-4">
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Expiry date and time <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span></label>
+                <div class="flex gap-2">
+                  <input v-model="peerCreateExpiredDate" type="datetime-local" step="60"
+                    class="flex-1 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                  <button v-if="peerCreateExpiredDate" type="button" @click="peerCreateExpiredDate = ''"
+                    class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">Clear</button>
+                </div>
+              </div>
+              <div class="mb-4">
+                <div class="flex items-center justify-between" style="margin-bottom:4px;">
+                  <label class="block text-sm font-medium dark:text-neutral-300">Client Group</label>
+                  <button @click="inlineGroupShowQuick = !inlineGroupShowQuick; inlineGroupInput = ''"
+                    title="Create new group"
+                    class="flex items-center justify-center w-5 h-5 rounded text-white text-sm font-bold leading-none"
+                    style="background:#16a34a; flex-shrink:0;">+</button>
+                </div>
+                <div v-if="inlineGroupShowQuick" class="flex gap-2 mb-2">
+                  <input v-model="inlineGroupInput"
+                    type="text"
+                    placeholder="New group name"
+                    @keyup.enter="createInlineClientGroup('quick')"
+                    @keyup.esc="inlineGroupShowQuick = false; inlineGroupInput = ''"
+                    class="flex-1 px-2 py-1 border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                  <button @click="createInlineClientGroup('quick')"
+                    class="px-2 py-1 rounded text-white text-sm"
+                    style="background:#16a34a;">Add</button>
+                </div>
+                <select v-model="peerCreateGroupId"
+                  class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
+                  style="padding:8px 12px;">
+                  <option v-if="clientGroups.length === 0" value="" disabled>Loading groups…</option>
+                  <option v-for="g in clientGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-section dark:border-neutral-600">
+              <div class="flex items-center justify-between">
+                <label class="flex items-center gap-2 text-sm cursor-pointer select-none"
+                  :style="{ color: theme === 'dark' ? '#d4d4d4' : '#374151' }">
+                  <input type="checkbox" v-model="peerCreateShowQR" class="rounded">
+                  Show QR after create
+                </label>
+                <div class="flex gap-3">
+                  <button @click="showQuickPeerCreate = false"
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded hover:bg-gray-50 dark:hover:bg-neutral-600 dark:text-neutral-200 transition text-sm">
+                    Cancel
+                  </button>
+                  <button @click="createQuickPeer" :disabled="!peerCreateName || peerMutationInFlight"
+                    class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition text-sm font-medium">
+                    {{ peerCreateShowQR ? 'Create & Show QR' : 'Create' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Peer Delete Confirmation Dialog -->
+        <div v-if="peerDelete" class="fixed z-10 inset-0 overflow-y-auto">
+          <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div class="absolute inset-0 bg-gray-500 dark:bg-black opacity-75 dark:opacity-50"></div>
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white dark:bg-neutral-700 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full"
+              role="dialog" aria-modal="true">
+              <div class="bg-white dark:bg-neutral-700 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                  <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-neutral-200">{{ peerDelete && peerDelete.peerType === 'interconnect' ? 'Delete Peer' : 'Delete Client' }}</h3>
+                    <div class="mt-2">
+                      <p class="text-sm text-gray-500 dark:text-neutral-300">
+                        Are you sure you want to delete <strong>{{peerDelete.name}}</strong>? This action cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-gray-50 dark:bg-neutral-600 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" @click="confirmDeletePeer()"
+                  class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 dark:bg-red-600 text-base font-medium text-white dark:text-white hover:bg-red-700 dark:hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                  {{ peerDelete && peerDelete.peerType === 'interconnect' ? 'Delete Peer' : 'Delete Client' }}
+                </button>
+                <button type="button" @click="peerDelete = null"
+                  class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-neutral-500 shadow-sm px-4 py-2 bg-white dark:bg-neutral-500 text-base font-medium text-gray-700 dark:text-neutral-50 hover:bg-gray-50 dark:hover:bg-neutral-600 dark:hover:border-neutral-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delete Interface Confirmation Dialog -->
+        <div v-if="interfaceDelete" class="fixed z-10 inset-0 overflow-y-auto">
+          <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div class="absolute inset-0 bg-gray-500 dark:bg-black opacity-75 dark:opacity-50"></div>
+            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div class="inline-block align-bottom bg-white dark:bg-neutral-700 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full"
+              role="dialog" aria-modal="true">
+              <div class="bg-white dark:bg-neutral-700 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                  <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-neutral-200">Delete Interface</h3>
+                    <div class="mt-2">
+                      <p class="text-sm text-gray-500 dark:text-neutral-300">
+                        Are you sure you want to delete interface <strong>{{interfaceDelete.name}} ({{interfaceDelete.id}})</strong>?
+                      </p>
+                      <p class="text-sm text-red-600 dark:text-red-400 mt-1">
+                        This will permanently delete the interface and <strong>all {{ interfaceDelete.disableRoutes ? 'peers' : 'clients' }} ({{ interfaceDelete.peerCount || 0 }})</strong>. This action cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-gray-50 dark:bg-neutral-600 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" @click="confirmDeleteInterface()"
+                  class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 dark:bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                  Delete Interface
+                </button>
+                <button type="button" @click="interfaceDelete = null"
+                  class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-neutral-500 shadow-sm px-4 py-2 bg-white dark:bg-neutral-500 text-base font-medium text-gray-700 dark:text-neutral-50 hover:bg-gray-50 dark:hover:bg-neutral-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Peer Edit Modal -->
+        <div v-if="showPeerEditModal && peerEditForm._peer"
+          class="modal-overlay"
+         >
+          <div class="modal-panel modal-panel-md bg-white dark:bg-neutral-700">
+
+            <!-- Header -->
+            <div class="modal-header flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-semibold dark:text-neutral-100">{{ peerEditForm._peer && peerEditForm._peer.peerType === 'interconnect' ? 'Edit Peer' : 'Edit Client' }}</h3>
+                <p class="text-xs text-gray-500 dark:text-neutral-400" style="margin-top:2px;">
+                  {{ peerEditForm._peer.peerType === 'interconnect' ? 'S2S Interconnect' : 'Client' }}
+                  · {{ peerEditForm._peer.publicKey ? peerEditForm._peer.publicKey.slice(0,16) + '…' : '' }}
+                </p>
+              </div>
+              <button @click="showPeerEditModal = false"
+                class="text-gray-400 dark:text-neutral-400 rounded"
+                style="padding:4px;">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body">
+
+              <!-- Name -->
+              <div>
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Name</label>
+                <input v-model="peerEditForm.name" type="text" :placeholder="peerEditForm._peer && peerEditForm._peer.peerType === 'interconnect' ? 'Peer name' : 'Client name'"
+                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+              </div>
+
+              <!-- Endpoint (interconnect only) -->
+              <div v-if="peerEditForm._peer.peerType === 'interconnect'">
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Endpoint</label>
+                <input v-model="peerEditForm.endpoint" type="text" placeholder="IP:port (e.g. 1.2.3.4:51820)"
+                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono"/>
+                <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
+                  Remote side address. Leave empty if the remote side initiates the connection.
+                </p>
+              </div>
+
+              <!-- AllowedIPs (interconnect — editable) -->
+              <div v-if="peerEditForm._peer.peerType === 'interconnect'">
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Allowed IPs</label>
+                <input v-model="peerEditForm.allowedIPs" type="text" placeholder="e.g. 10.100.1.1/32"
+                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono"/>
+                <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
+                  CIDRs routed through this peer.
+                </p>
+              </div>
+
+              <!-- AllowedIPs (client — read-only) -->
+              <div v-if="peerEditForm._peer.peerType !== 'interconnect'">
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Address <span class="text-gray-400 font-normal">(read-only)</span></label>
+                <input :value="peerEditForm.allowedIPs" type="text" disabled
+                  class="w-full border border-gray-200 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-400 text-gray-400 rounded px-3 py-2 text-sm font-mono"/>
+              </div>
+
+              <!-- Client Allowed IPs (client only) -->
+              <div v-if="peerEditForm._peer.peerType !== 'interconnect'">
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Client Allowed IPs</label>
+                <input v-model="peerEditForm.clientAllowedIPs" type="text" placeholder="e.g. 0.0.0.0/0, ::/0"
+                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono"/>
+                <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
+                  Routes pushed to the client in its WireGuard config.
+                </p>
+              </div>
+
+              <!-- Bandwidth limits (client only) -->
+              <div v-if="peerEditForm._peer.peerType !== 'interconnect'">
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">
+                  Bandwidth Limit
+                  <span class="text-gray-400 font-normal">(Mbit/s, 0 = unlimited)</span>
+                </label>
+                <div style="display:flex; gap:8px; align-items:flex-end;">
+                  <div style="flex:1;">
+                    <label class="block text-xs mb-1" style="color:#dc2626;">↓ Download</label>
+                    <input v-model.number="peerEditForm.rateDown" type="number" min="0" step="0.1" placeholder="0"
+                      class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+                  </div>
+                  <div style="flex:1;">
+                    <label class="block text-xs mb-1" style="color:#16a34a;">↑ Upload</label>
+                    <input v-model.number="peerEditForm.rateUp" type="number" min="0" step="0.1" placeholder="0"
+                      class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+                  </div>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
+                  Examples: 10 = 10 Mbit/s, 0.5 = 500 Kbit/s. WireGuard overhead compensated automatically.
+                </p>
+              </div>
+
+              <!-- Client Group (client only) -->
+              <div v-if="peerEditForm._peer.peerType !== 'interconnect'">
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Client Group</label>
+                <select v-model="peerEditForm.groupId"
+                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                  <option v-for="g in clientGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+                </select>
+              </div>
+
+              <!-- Expiry date (client peers only) -->
+              <div v-if="peerEditForm._peer && peerEditForm._peer.peerType !== 'interconnect'">
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">
+                  Expiry date and time <span class="text-gray-400 font-normal">(optional — clear to remove)</span>
+                </label>
+                <div class="flex gap-2">
+                  <input v-model="peerEditForm.expiredAt" type="datetime-local" step="60"
+                    class="flex-1 border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+                  <button v-if="peerEditForm.expiredAt" type="button" @click="peerEditForm.expiredAt = ''"
+                    class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">Clear</button>
+                </div>
+              </div>
+
+              <!-- Persistent Keepalive -->
+              <div>
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Persistent Keepalive <span class="text-gray-400 font-normal">(seconds, 0 = off)</span></label>
+                <input v-model.number="peerEditForm.persistentKeepalive" type="number" min="0" max="65535" placeholder="0"
+                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+              </div>
+
+            </div><!-- /modal-body -->
+
+            <!-- Footer -->
+            <div class="modal-footer">
+              <button @click="showPeerEditModal = false"
+                class="btn border border-gray-300 dark:border-neutral-500 dark:text-neutral-200 rounded text-sm">
+                Cancel
+              </button>
+              <button @click="savePeerEdit()" :disabled="peerMutationInFlight"
+                class="btn bg-purple-600 text-white rounded text-sm font-medium"
+                style="background:#7c3aed;">
+                Save
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Delete Dialog -->
+        <div v-if="clientDelete" class="fixed z-10 inset-0 overflow-y-auto">
+          <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!--
+        Background overlay, show/hide based on modal state.
+
+        Entering: "ease-out duration-300"
+          From: "opacity-0"
+          To: "opacity-100"
+        Leaving: "ease-in duration-200"
+          From: "opacity-100"
+          To: "opacity-0"
+      -->
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div class="absolute inset-0 bg-gray-500 dark:bg-black opacity-75 dark:opacity-50"></div>
+            </div>
+
+            <!-- This element is to trick the browser into centering the modal contents. -->
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <!--
+        Modal panel, show/hide based on modal state.
+
+        Entering: "ease-out duration-300"
+          From: "opacity-0 tranneutral-y-4 sm:tranneutral-y-0 sm:scale-95"
+          To: "opacity-100 tranneutral-y-0 sm:scale-100"
+        Leaving: "ease-in duration-200"
+          From: "opacity-100 tranneutral-y-0 sm:scale-100"
+          To: "opacity-0 tranneutral-y-4 sm:tranneutral-y-0 sm:scale-95"
+      -->
+            <div
+              class="inline-block align-bottom bg-white dark:bg-neutral-700 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full"
+              role="dialog" aria-modal="true" aria-labelledby="modal-headline">
+              <div class="bg-white dark:bg-neutral-700 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                  <div
+                    class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <!-- Heroicon name: outline/exclamation -->
+                    <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                      stroke="currentColor" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-neutral-200" id="modal-headline">
+                      {{$t("deleteClient")}}
+                    </h3>
+                    <div class="mt-2">
+                      <p class="text-sm text-gray-500 dark:text-neutral-300">
+                        {{$t("deleteDialog1")}} <strong>{{clientDelete.name}}</strong>? {{$t("deleteDialog2")}}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-gray-50 dark:bg-neutral-600 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button type="button" @click="deleteClient(clientDelete); clientDelete = null"
+                  class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 dark:bg-red-600 text-base font-medium text-white dark:text-white hover:bg-red-700 dark:hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                  {{$t("deleteClient")}}
+                </button>
+                <button type="button" @click="clientDelete = null"
+                  class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-neutral-500 shadow-sm px-4 py-2 bg-white dark:bg-neutral-500 text-base font-medium text-gray-700 dark:text-neutral-50 hover:bg-gray-50 dark:hover:bg-neutral-600 dark:hover:border-neutral-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                  {{$t("cancel")}}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+[[ end ]]

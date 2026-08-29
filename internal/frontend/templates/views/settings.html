@@ -1,0 +1,722 @@
+[[ define "settings" ]]
+        <!-- Settings Page                                                  -->
+        <!-- ============================================================== -->
+        <div v-if="activePage === 'settings'" key="page-settings" class="mb-10"
+          :class="{ 'settings-backup-modal-open': showBackupModal }"
+          style="display: flex; flex-direction: column; gap: 24px;">
+
+          <!-- Router -->
+          <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="p-5 border-b dark:border-neutral-600">
+              <p class="text-xl font-medium dark:text-neutral-200">Router</p>
+              <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Identity and public address of this router</p>
+            </div>
+            <div class="p-5" style="display:flex; flex-direction:column; gap:16px;">
+
+              <!-- Router Name -->
+              <div>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Router name</label>
+                <input v-model="globalSettings.routerName" type="text"
+                  :placeholder="globalSettings.hostname || 'e.g. Moscow-01'"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                  Shown in the sidebar. Defaults to system hostname
+                  <span v-if="globalSettings.hostname" class="font-mono">({{ globalSettings.hostname }})</span>.
+                </p>
+              </div>
+
+              <!-- Public IP -->
+              <div>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-2">Public IP</label>
+
+                <!-- Mode selector -->
+                <div class="flex" style="gap:20px; margin-bottom:10px;">
+                  <label class="flex items-center gap-2 cursor-pointer text-sm dark:text-neutral-300">
+                    <input type="radio" v-model="globalSettings.publicIPMode" value="auto"> Auto-detect
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer text-sm dark:text-neutral-300">
+                    <input type="radio" v-model="globalSettings.publicIPMode" value="manual"> Manual
+                  </label>
+                </div>
+
+                <!-- Manual input -->
+                <input v-if="globalSettings.publicIPMode === 'manual'"
+                  v-model="globalSettings.publicIPManual" type="text"
+                  placeholder="e.g. 45.150.39.158"
+                  class="w-64 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+
+                <!-- Resolved IP display -->
+                <div v-if="globalSettings.publicIPMode === 'auto'" class="flex items-center gap-2" style="margin-top:4px;">
+                  <span class="text-sm font-mono text-gray-600 dark:text-neutral-300">
+                    {{ globalSettings.resolvedPublicIP || 'Resolving…' }}
+                  </span>
+                  <!-- Warning badge -->
+                  <span v-if="globalSettings.publicIPWarning"
+                    class="text-xs font-medium px-2 py-0.5 rounded-full"
+                    style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;"
+                    :title="globalSettings.publicIPWarning">
+                    ⚠ {{ globalSettings.publicIPWarning }}
+                  </span>
+                </div>
+
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                  Used as the endpoint in peer configs and S2S exports when WG_HOST env is not set.
+                  Auto-detect tries external services (ip.sb, ifconfig.me, …), falls back to local routing.
+                </p>
+              </div>
+
+              <div class="flex items-center gap-3 pt-2">
+                <button @click="saveSettings"
+                  class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition text-sm font-medium">
+                  Save
+                </button>
+                <span v-if="settingsSaved" class="text-sm text-green-600 dark:text-green-400">Saved!</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Global Settings -->
+          <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="p-5 border-b dark:border-neutral-600">
+              <p class="text-xl font-medium dark:text-neutral-200">Global Settings</p>
+              <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Applied by default to all new peers</p>
+            </div>
+            <div class="p-5" style="display: flex; flex-direction: column; gap: 16px;">
+              <div>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">DNS servers</label>
+                <input v-model="globalSettings.dns" type="text" placeholder="1.1.1.1, 8.8.8.8"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Comma-separated. Used in client configs.</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">MTU <span class="font-normal text-gray-400">(client configs)</span></label>
+                <input v-model.number="globalSettings.mtu" type="number" min="0" max="9000" placeholder="0 = auto"
+                  class="w-32 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">0 = omit MTU line (WireGuard picks automatically, typically 1420). Check actual value in the interface info card. Typical overrides: 1420 (WG default), 1280 (safe for all networks).</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Default PersistentKeepalive (seconds)</label>
+                <input v-model.number="globalSettings.defaultPersistentKeepalive" type="number" min="0" max="300"
+                  class="w-32 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Default Client AllowedIPs</label>
+                <input v-model="globalSettings.defaultClientAllowedIPs" type="text" placeholder="0.0.0.0/0, ::/0"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">What the client routes through the VPN (full tunnel = 0.0.0.0/0, ::/0).</p>
+              </div>
+
+              <!-- Quick Interface Creation Pool -->
+              <div style="border-top-width:1px; padding-top:12px;" class="dark:border-neutral-600">
+                <p class="text-sm font-semibold dark:text-neutral-300 mb-3">Quick Interface Pool</p>
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Subnet Pool</label>
+                  <input v-model="globalSettings.subnetPool" type="text" placeholder="10.10.0.0/16"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    IPv4 CIDR. Quick-create auto-assigns the first free /24 from this range (e.g. 10.10.0.1/24).
+                  </p>
+                </div>
+                <div style="margin-top:12px;">
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Port Pool</label>
+                  <input v-model="globalSettings.portPool" type="text" placeholder="51831-65535"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    Ranges and/or individual ports: <span class="font-mono">51831-51840, 52000, 54321-54330</span>.
+                    Quick-create picks the first available port with a UDP bind test.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Gateway Monitor -->
+              <div style="border-top-width:1px; padding-top:12px;" class="dark:border-neutral-600">
+                <p class="text-sm font-semibold dark:text-neutral-300 mb-3">Gateway Monitor</p>
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Window (sec)</label>
+                    <input v-model.number="globalSettings.gatewayWindowSeconds" type="number" min="10"
+                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Sliding window size</p>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Healthy (%)</label>
+                    <input v-model.number="globalSettings.gatewayHealthyThreshold" type="number" min="1" max="100"
+                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Success rate ≥ → Healthy</p>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Degraded (%)</label>
+                    <input v-model.number="globalSettings.gatewayDegradedThreshold" type="number" min="1" max="100"
+                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Success rate ≥ → Degraded</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Language -->
+              <div style="border-top-width:1px; padding-top:12px;" class="dark:border-neutral-600">
+                <p class="text-sm font-semibold dark:text-neutral-300 mb-3">Language</p>
+                <div class="flex gap-2">
+                  <button v-for="l in [{code:'en',label:'English'},{code:'ru',label:'Русский'}]" :key="l.code"
+                    @click="globalSettings.lang = l.code"
+                    :class="(globalSettings.lang === l.code ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-neutral-600 text-gray-700 dark:text-neutral-300') + ' px-3 py-1 rounded text-sm font-medium transition'">
+                    {{ l.label }}
+                  </button>
+                </div>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-2">UI language. Applied after saving.</p>
+              </div>
+
+              <!-- Expired Peer Policy -->
+              <div style="border-top-width:1px; padding-top:12px;" class="dark:border-neutral-600">
+                <p class="text-sm font-semibold dark:text-neutral-300 mb-1">Expired Peer Policy</p>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mb-3">What happens when a peer's expiry date passes.</p>
+
+                <!-- Policy radio -->
+                <div class="flex flex-col gap-2 mb-3">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" v-model="globalSettings.expiredPeerPolicy" value="disable">
+                    <span class="text-sm dark:text-neutral-200">
+                      <span class="font-medium">Disable peer</span>
+                      <span class="text-gray-400 dark:text-neutral-500 ml-1">(default) — sets peer Enabled = off</span>
+                    </span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" v-model="globalSettings.expiredPeerPolicy" value="restrict">
+                    <span class="text-sm dark:text-neutral-200">
+                      <span class="font-medium">Restrict access</span>
+                      <span class="text-gray-400 dark:text-neutral-500 ml-1">— peer stays enabled, apply rate limit and/or move to group</span>
+                    </span>
+                  </label>
+                </div>
+
+                <!-- Restrict options (shown only when policy = restrict) -->
+                <div v-if="globalSettings.expiredPeerPolicy === 'restrict'"
+                  style="margin-left:20px; padding:12px; border-left:3px solid #7c3aed; background:rgba(124,58,237,0.05); border-radius:4px;">
+
+                  <!-- Rate limits -->
+                  <p class="text-xs font-medium dark:text-neutral-300 mb-2">Bandwidth limits <span class="font-normal text-gray-400">(0 = no limit)</span></p>
+                  <div class="flex gap-4 mb-3">
+                    <div>
+                      <label class="block text-xs text-gray-500 dark:text-neutral-400 mb-1">↓ Down (kbps)</label>
+                      <input v-model.number="globalSettings.expiredPeerRateDown" type="number" min="0" placeholder="0"
+                        class="w-28 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-gray-500 dark:text-neutral-400 mb-1">↑ Up (kbps)</label>
+                      <input v-model.number="globalSettings.expiredPeerRateUp" type="number" min="0" placeholder="0"
+                        class="w-28 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    </div>
+                  </div>
+
+                  <!-- Move to group -->
+                  <p class="text-xs font-medium dark:text-neutral-300 mb-2">Move to group <span class="font-normal text-gray-400">(optional — leave blank to keep current group)</span></p>
+                  <select v-model="globalSettings.expiredPeerGroupId"
+                    class="px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    <option value="">— don't change group —</option>
+                    <option v-for="g in clientGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+                  </select>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    The peer's original group is saved and restored automatically when the expiry date is extended.
+                  </p>
+
+                  <!-- Warning when neither rate nor group is configured -->
+                  <p v-if="!globalSettings.expiredPeerRateDown && !globalSettings.expiredPeerRateUp && !globalSettings.expiredPeerGroupId"
+                    class="text-xs mt-2" style="color:#f59e0b;">
+                    ⚠ No rate limits or group configured — restrict policy will have no effect.
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 pt-2">
+                <button @click="saveSettings"
+                  class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition text-sm font-medium">
+                  Save Settings
+                </button>
+                <span v-if="settingsSaved" class="text-sm text-green-600 dark:text-green-400">Saved!</span>
+              </div>
+            </div>
+          </div>
+
+		  <!-- Versioned AmneziaWG templates -->
+          <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="flex items-center p-5 border-b dark:border-neutral-600">
+              <div class="flex-grow">
+				<p class="text-xl font-medium dark:text-neutral-200">Amnezia Templates</p>
+				<p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Use predefined templates or create your own. Supported up to version AWG 3.1</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button @click="openGenerateModal()"
+                  class="px-4 py-2 text-sm font-medium rounded transition flex items-center gap-1.5 border border-yellow-400 text-yellow-600 dark:text-yellow-400 dark:border-yellow-500"
+				  title="Generate AWG 3.1 or AWG 2.0 parameters">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
+                  Generate ⚡
+                </button>
+                <button @click="importTemplateJSON()"
+                  class="px-4 py-2 text-sm font-medium rounded transition flex items-center gap-1.5 border border-purple-400 text-purple-600 dark:text-purple-400 dark:border-purple-500"
+                  title="Import profile from JSON file">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                  </svg>
+                  Import JSON
+                </button>
+                <button @click="openTemplateCreate()"
+                  class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition text-sm font-medium flex items-center gap-1.5">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                  </svg>
+                  New Template
+                </button>
+              </div>
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="!templates || templates.length === 0"
+              class="text-center text-gray-400 dark:text-neutral-500 py-10">
+			  No templates yet. Create an AWG 1.0, AWG 2.0, or AWG 3.1 template.
+            </div>
+
+            <!-- Template list -->
+            <div v-for="tmpl in templates" :key="tmpl.id"
+              class="border-b last:border-b-0 dark:border-neutral-600 flex items-center gap-3"
+              style="padding:8px 20px;">
+              <div class="flex-grow min-w-0 flex items-center gap-2">
+                <span class="font-medium dark:text-neutral-200 text-sm">{{ tmpl.name }}</span>
+				<span class="text-xs rounded-full font-medium" style="padding:1px 8px;" :class="(tmpl.protocolVersion || '2.0') === '3.1' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300'">
+				  AWG {{ tmpl.protocolVersion || '2.0' }}
+				</span>
+                <span v-if="tmpl.isDefault"
+                  class="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full font-medium"
+                  style="padding:1px 8px;">
+                  Default
+                </span>
+              </div>
+              <div class="flex gap-1.5 flex-shrink-0">
+                <button v-if="!tmpl.isDefault" @click="setDefaultTemplate(tmpl.id)"
+                  class="text-xs border border-purple-400 text-purple-600 dark:text-purple-400 rounded transition"
+                  style="padding:2px 8px;">
+                  Set Default
+                </button>
+                <button @click="openTemplateEdit(tmpl)"
+                  class="text-xs border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition"
+                  style="padding:2px 8px;">
+                  Edit
+                </button>
+                <button @click="exportTemplateJSON(tmpl)"
+                  class="text-xs border border-purple-300 text-purple-600 dark:text-purple-400 dark:border-purple-600 rounded transition"
+                  title="Download as JSON file"
+                  style="padding:2px 8px;">
+                  Export
+                </button>
+                <button @click="deleteTemplate(tmpl.id)"
+                  class="text-xs border border-red-300 text-red-600 dark:text-red-400 rounded transition"
+                  style="padding:2px 8px;">
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Users Management -->
+          <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="p-5 border-b dark:border-neutral-600 flex items-center justify-between">
+              <div>
+                <p class="text-xl font-medium dark:text-neutral-200">Users</p>
+                <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Manage accounts that can access the Web UI</p>
+              </div>
+              <button v-if="!currentUser || currentUser.is_admin"
+                @click="showAddUserModal = true"
+                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                + Add User
+              </button>
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="!users || users.length === 0"
+              class="text-center text-gray-400 dark:text-neutral-500 py-8">
+              No users yet. The server is running in open mode.
+            </div>
+
+            <!-- User table -->
+            <table v-if="users && users.length > 0" class="w-full text-sm">
+              <thead>
+                <tr class="border-b dark:border-neutral-600 text-left">
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">Username</th>
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">2FA</th>
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">Created</th>
+                  <th class="tc"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="user in users" :key="user.id"
+                  class="border-b last:border-b-0 dark:border-neutral-600">
+                  <td class="tc dark:text-neutral-200 font-medium">
+                    <div class="user-identity">
+                    <span class="user-identity-name">{{ user.username }}</span>
+                    <span v-if="user.is_admin"
+                      class="user-badge user-badge-admin">
+                      Admin
+                    </span>
+                    <span v-if="currentUser && user.id === currentUser.id"
+                      class="user-badge bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                      You
+                    </span>
+                    </div>
+                  </td>
+                  <td class="tc">
+                    <span v-if="user.totp_enabled"
+                      class="user-badge bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
+                      Enabled
+                    </span>
+                    <span v-else class="text-xs text-gray-400 dark:text-neutral-500">—</span>
+                  </td>
+                  <td class="tc text-gray-400 dark:text-neutral-500 text-xs">
+                    {{ user.created_at ? new Date(user.created_at).toLocaleDateString() : '—' }}
+                  </td>
+                  <td class="tc">
+                    <div class="flex gap-2 justify-end">
+                      <!-- TOTP toggle — only for the current user -->
+                      <template v-if="currentUser && user.id === currentUser.id">
+                        <button v-if="!user.totp_enabled"
+                          @click="openTOTPSetup()"
+                          class="px-3 py-1 text-xs border border-green-400 text-green-600 dark:text-green-400 rounded transition">
+                          Enable 2FA
+                        </button>
+                        <button v-if="user.totp_enabled"
+                          @click="openTOTPDisable()"
+                          class="px-3 py-1 text-xs border border-orange-400 text-orange-600 dark:text-orange-400 rounded transition">
+                          Disable 2FA
+                        </button>
+                      </template>
+                      <!-- Grant/Revoke Admin — visible to admin users only -->
+                      <button v-if="currentUser && currentUser.is_admin"
+                        @click="setUserAdmin(user)"
+                        class="px-3 py-1 text-xs border rounded transition"
+                        :class="user.is_admin
+                          ? 'border-orange-400 text-orange-600 dark:text-orange-400'
+                          : 'border-gray-400 text-gray-600 dark:text-neutral-400'">
+                        {{ user.is_admin ? 'Revoke Admin' : 'Make Admin' }}
+                      </button>
+                      <!-- Delete -->
+                      <button @click="deleteUser(user)"
+                        :disabled="users.length <= 1"
+                        :class="users.length <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50 dark:hover:bg-red-900'"
+                        class="px-3 py-1 text-xs border border-red-300 text-red-600 dark:text-red-400 rounded transition">
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Metrics Settings -->
+          <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="p-5 border-b dark:border-neutral-600">
+              <p class="text-xl font-medium dark:text-neutral-200">Metrics</p>
+              <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Prometheus endpoint and local metrics history</p>
+            </div>
+            <div class="p-5" style="display:flex; flex-direction:column; gap:16px;">
+              <p v-if="!metricsSettings.canManage"
+                class="text-sm px-3 py-2 rounded bg-gray-100 dark:bg-neutral-600 text-gray-600 dark:text-neutral-300">
+                Metrics settings are read-only. Administrator access is required to change them.
+              </p>
+
+              <label class="flex items-center gap-3" :class="metricsSettings.canManage ? 'cursor-pointer' : 'opacity-60'">
+                <input v-model="metricsSettings.enabled" type="checkbox" :disabled="!metricsSettings.canManage">
+                <span>
+                  <span class="block text-sm font-medium dark:text-neutral-200">Enable Prometheus endpoint</span>
+                  <span class="block text-xs text-gray-400 dark:text-neutral-500">Expose Cascade runtime metrics for Prometheus scraping.</span>
+                </span>
+              </label>
+
+              <div :class="(!metricsSettings.enabled || !metricsSettings.canManage) ? 'opacity-60' : ''"
+                style="display:flex; flex-direction:column; gap:16px;">
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Metrics port</label>
+                  <input v-model.number="metricsSettings.port" type="number" min="1" max="65535" placeholder="9351"
+                    :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
+                    class="w-40 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1 font-mono">{{ metricsEndpointURL() }}</p>
+                  <p class="text-xs mt-1" :class="metricsSettings.listening ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-neutral-500'">
+                    {{ metricsSettings.listening ? 'Listening on all network interfaces' : (metricsSettings.listenError || 'Listener is stopped') }}
+                  </p>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Connected peer threshold (seconds)</label>
+                  <input v-model.number="metricsSettings.connectedPeerThresholdSeconds" type="number" min="1"
+                    :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
+                    class="w-40 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">A peer with a newer handshake is reported as connected.</p>
+                </div>
+
+                <div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <label class="text-sm font-medium dark:text-neutral-300">Bearer token</label>
+                    <span class="text-xs rounded-full font-medium px-2 py-0.5"
+                      :class="metricsSettings.tokenConfigured && !metricsSettings.clearToken
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                        : 'bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300'">
+                      {{ metricsSettings.tokenConfigured && !metricsSettings.clearToken ? 'Configured' : 'Not configured' }}
+                    </span>
+                  </div>
+                  <div class="flex gap-2" style="flex-wrap:wrap;">
+                    <input v-model="metricsSettings.token" type="password" autocomplete="new-password"
+                      :placeholder="metricsSettings.tokenConfigured ? 'Enter a new token to replace it' : 'Optional token'"
+                      :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
+                      @input="metricsSettings.clearToken = false"
+                      class="flex-grow px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm"
+                      style="min-width:220px;">
+                    <button v-if="metricsSettings.tokenConfigured && !metricsSettings.clearToken"
+                      @click="removeMetricsToken" type="button"
+                      :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
+                      class="px-3 py-2 text-sm border border-red-300 text-red-600 dark:text-red-400 rounded transition">
+                      Remove token
+                    </button>
+                  </div>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Optional. The metrics port listens on all interfaces; without a token, restrict access using a VPN or firewall.</p>
+                </div>
+              </div>
+
+              <div style="border-top-width:1px; padding-top:16px;" class="dark:border-neutral-600">
+                <label class="flex items-center gap-3" :class="metricsSettings.canManage ? 'cursor-pointer' : 'opacity-60'">
+                  <input v-model="metricsSettings.historyEnabled" type="checkbox" :disabled="!metricsSettings.canManage">
+                  <span>
+                    <span class="block text-sm font-medium dark:text-neutral-200">Store metrics history</span>
+                    <span class="block text-xs text-gray-400 dark:text-neutral-500">Persist dashboard history in metrics.db. Live metrics remain available when disabled.</span>
+                  </span>
+                </label>
+              </div>
+
+              <div class="flex items-center gap-3 pt-2">
+                <button @click="saveMetricsSettings" :disabled="!metricsSettings.canManage"
+                  :class="metricsSettings.canManage ? 'bg-purple-600 hover:bg-purple-700' : 'bg-gray-400 cursor-not-allowed'"
+                  class="px-4 py-2 text-white rounded transition text-sm font-medium">
+                  Save Metrics
+                </button>
+                <span v-if="metricsSettingsSaved" class="text-sm text-green-600 dark:text-green-400">Saved!</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Backup -->
+          <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="p-5 border-b dark:border-neutral-600">
+              <p class="text-xl font-medium dark:text-neutral-200">System Backup</p>
+              <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">
+                Full backup includes database (all config, peers, rules) and ipset files.
+                Restore replaces all data and restarts the server.
+              </p>
+            </div>
+            <div class="p-5" style="display:flex; flex-direction:column; gap:16px;">
+              <!-- Download -->
+              <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:200px;">
+                  <p class="text-sm font-medium dark:text-neutral-300">Create Backup</p>
+                  <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1">
+                    Plain <code class="font-mono bg-gray-100 dark:bg-neutral-600 px-1 rounded">.tar.gz</code>
+                    or password-protected <code class="font-mono bg-gray-100 dark:bg-neutral-600 px-1 rounded">.tar.gz.enc</code>
+                    (AES-256).
+                  </p>
+                </div>
+                <button @click="openBackupModal()"
+                  :disabled="backupDownloading"
+                  class="btn font-medium text-sm rounded-lg text-white"
+                  style="background:#2563eb; padding:8px 20px; white-space:nowrap;">
+                  <span v-if="backupDownloading">Creating…</span>
+                  <span v-else>⬇ Create Backup</span>
+                </button>
+              </div>
+              <!-- Restore -->
+              <div style="border-top:1px solid rgba(0,0,0,0.08); padding-top:16px;">
+                <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+                  <div style="flex:1; min-width:200px;">
+                    <p class="text-sm font-medium dark:text-neutral-300">Restore from Backup</p>
+                    <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1">
+                      Supports plain <code class="font-mono bg-gray-100 dark:bg-neutral-600 px-1 rounded">.tar.gz</code>
+                      and encrypted <code class="font-mono bg-gray-100 dark:bg-neutral-600 px-1 rounded">.tar.gz.enc</code>.
+                      Current state is saved automatically before restore.
+                    </p>
+                  </div>
+                  <label class="btn font-medium text-sm rounded-lg cursor-pointer"
+                    style="background:#f3f4f6; color:#374151; padding:8px 20px; white-space:nowrap;"
+                    :style="(systemRestoring || restorePreviewLoading) ? 'opacity:0.6; pointer-events:none;' : ''">
+                    <span v-if="systemRestoring">Restoring…</span>
+                    <span v-else-if="restorePreviewLoading">Analyzing…</span>
+                    <span v-else>⬆ Restore Backup</span>
+                    <input type="file" class="hidden" accept=".tar.gz,.gz,.enc"
+                      :disabled="systemRestoring || restorePreviewLoading"
+                      @change="e => { pickRestoreFile(e.target.files[0]); e.target.value=''; }">
+                  </label>
+                </div>
+                <!-- Pre-restore auto-backups list -->
+                <div style="margin-top:14px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                    <p class="text-xs font-medium text-gray-500 dark:text-neutral-400">Pre-restore backups (rollback points)</p>
+                    <button @click="loadPreRestoreBackups()" class="text-xs" style="color:#3b82f6; background:none; border:none; cursor:pointer; padding:0;">↺ Refresh</button>
+                  </div>
+                  <div v-if="preRestoreBackupsLoading" class="text-xs text-gray-400 dark:text-neutral-500">Loading…</div>
+                  <div v-else-if="preRestoreBackups.length === 0" class="text-xs text-gray-400 dark:text-neutral-500">No pre-restore backups yet.</div>
+                  <div v-else>
+                    <div v-for="bk in preRestoreBackups" :key="bk.name"
+                      style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; border-radius:6px; margin-bottom:4px;"
+                      :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: theme==='dark' ? '1px solid #404040' : '1px solid #e5e7eb' }">
+                      <div>
+                        <span class="text-xs font-mono dark:text-neutral-300">{{ bk.name }}</span>
+                        <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-left:8px;">{{ (bk.size / 1024).toFixed(0) }} KB</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Backup Password Modal -->
+          <div v-if="showBackupModal"
+            class="settings-backup-modal fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto"
+            style="padding:40px 24px;">
+            <div class="bg-white dark:bg-neutral-700 rounded-lg" style="max-width:420px; margin:0 auto;">
+              <div class="modal-header dark:border-neutral-600">
+                <p class="text-lg font-semibold dark:text-neutral-100">Create Backup</p>
+              </div>
+              <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+                <p class="text-sm text-gray-600 dark:text-neutral-400">
+                  Optionally protect the backup with a password (AES-256 encryption).
+                  Leave empty to download an unencrypted <code class="font-mono bg-gray-100 dark:bg-neutral-600 px-1 rounded">.tar.gz</code>.
+                </p>
+                <div>
+                  <label class="text-sm font-medium dark:text-neutral-300">Password <span class="text-gray-400 font-normal">(optional)</span></label>
+                  <input v-model="backupPassword" type="password" placeholder="Leave empty for no encryption"
+                    autocomplete="new-password"
+                    class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                </div>
+                <div v-if="backupPassword">
+                  <label class="text-sm font-medium dark:text-neutral-300">Confirm Password</label>
+                  <input v-model="backupPasswordConfirm" type="password" placeholder="Repeat password"
+                    autocomplete="new-password"
+                    class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                  <p class="text-xs mt-1" style="color:#dc2626;">
+                    ⚠ If you lose the password, the backup cannot be decrypted.
+                  </p>
+                </div>
+              </div>
+              <div style="padding:0 20px 4px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                  <input type="checkbox" v-model="backupIncludeMetrics" style="width:16px; height:16px; cursor:pointer;">
+                  <span class="text-sm dark:text-neutral-300">Include metrics history</span>
+                </label>
+                <p v-if="backupIncludeMetrics" class="text-xs" style="color:#d97706; margin-top:4px; margin-left:24px;">
+                  ⚠ metrics.db can be large (several hundred MB for 30 days). Use for server migration only.
+                </p>
+              </div>
+              <div class="modal-footer dark:border-neutral-600">
+                <button @click="showBackupModal = false"
+                  class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+                  Cancel
+                </button>
+                <button @click="confirmDownloadBackup()"
+                  :disabled="backupDownloading || !!(backupPassword && backupPassword !== backupPasswordConfirm)"
+                  class="rounded-lg font-medium text-sm btn text-white"
+                  style="background:#2563eb;">
+                  <span v-if="backupDownloading">Creating…</span>
+                  <span v-else-if="backupPassword">⬇ Create Encrypted</span>
+                  <span v-else>⬇ Download</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Import Client Configs Result Modal -->
+          <div v-if="showImportClientConfigsResult"
+            class="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto"
+            style="padding:40px 24px;" @click.self="showImportClientConfigsResult = false">
+            <div class="bg-white dark:bg-neutral-700 rounded-lg" style="max-width:480px; margin:0 auto;">
+              <div class="modal-header dark:border-neutral-600">
+                <p class="text-lg font-semibold dark:text-neutral-100">Import Client Configs</p>
+              </div>
+              <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;" v-if="importClientConfigsResult">
+                <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px;">
+                  <p class="text-sm" style="color:#166534;">
+                    {{ importClientConfigsResult.matched }} config{{ importClientConfigsResult.matched === 1 ? '' : 's' }} matched — QR/download unlocked.
+                  </p>
+                </div>
+                <div v-if="importClientConfigsResult.unmatched && importClientConfigsResult.unmatched.length > 0"
+                  style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px;">
+                  <p class="text-sm" style="color:#991b1b; margin-bottom:6px;">
+                    {{ importClientConfigsResult.unmatched.length }} file{{ importClientConfigsResult.unmatched.length === 1 ? '' : 's' }} not matched to any peer:
+                  </p>
+                  <ul class="text-xs font-mono" style="color:#991b1b; padding-left:16px; margin:0;">
+                    <li v-for="fn in importClientConfigsResult.unmatched" :key="fn">{{ fn }}</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="modal-footer dark:border-neutral-600">
+                <button @click="showImportClientConfigsResult = false"
+                  class="btn font-medium text-sm rounded-lg" style="background:#f3f4f6; color:#374151; padding:8px 20px;">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- API Tokens -->
+          <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="p-5 border-b dark:border-neutral-600 flex items-center justify-between">
+              <div>
+                <p class="text-xl font-medium dark:text-neutral-200">API Tokens</p>
+                <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">
+                  Long-lived tokens for programmatic access — use as
+                  <code class="font-mono bg-gray-100 dark:bg-neutral-600 px-1 rounded">Authorization: Bearer ws_...</code>
+                </p>
+              </div>
+              <button @click="showCreateTokenModal = true"
+                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                + Create Token
+              </button>
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="!apiTokens || apiTokens.length === 0"
+              class="text-center text-gray-400 dark:text-neutral-500 py-8">
+              No API tokens yet.
+            </div>
+
+            <!-- Token table -->
+            <table v-if="apiTokens && apiTokens.length > 0" class="w-full text-sm">
+              <thead>
+                <tr class="border-b dark:border-neutral-600 text-left">
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">Name</th>
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">Last used</th>
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">Created</th>
+                  <th class="tc"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="token in apiTokens" :key="token.id"
+                  class="border-b last:border-b-0 dark:border-neutral-600">
+                  <td class="tc dark:text-neutral-200 font-medium font-mono">{{ token.name }}</td>
+                  <td class="tc text-gray-400 dark:text-neutral-500 text-xs">
+                    {{ token.last_used ? new Date(token.last_used).toLocaleString() : 'Never' }}
+                  </td>
+                  <td class="tc text-gray-400 dark:text-neutral-500 text-xs">
+                    {{ token.created_at ? new Date(token.created_at).toLocaleDateString() : '—' }}
+                  </td>
+                  <td class="tc">
+                    <button @click="deleteApiToken(token)"
+                      class="px-3 py-1 text-xs border border-red-300 text-red-600 dark:text-red-400 rounded transition hover:bg-red-50 dark:hover:bg-red-900">
+                      Revoke
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- ============================================================== -->
+[[ end ]]

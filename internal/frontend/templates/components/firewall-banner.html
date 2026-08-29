@@ -1,0 +1,14 @@
+[[ define "firewall-banner" ]]
+        <!-- Firewall pending changes global banner -->
+        <div v-if="firewallPending && activePage !== 'firewall'" class="firewall-pending-banner"
+          style="background:#fef9c3; border:1px solid #fde047; border-radius:8px; padding:10px 16px; margin-bottom:12px; display:flex; align-items:center; gap:10px; cursor:pointer;"
+          @click="activePage = 'firewall'">
+          <span style="font-size:1rem;">⚠️</span>
+          <span style="font-size:0.85rem; color:#713f12; flex:1;">
+            <strong>Unapplied firewall changes</strong> — click to go to Firewall Rules and apply.
+          </span>
+          <span style="font-size:0.75rem; color:#92400e; font-weight:600;">Go to Firewall →</span>
+        </div>
+
+
+[[ end ]]

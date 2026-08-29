@@ -1,0 +1,696 @@
+[[ define "gateways" ]]
+        <!-- Gateways Page                                                  -->
+        <!-- ============================================================== -->
+        <div v-if="activePage === 'gateways'" key="page-gateways" style="display:flex; flex-direction:column; gap:32px;">
+
+          <!-- ── Section 1: Gateways ────────────────────────────────────── -->
+          <div>
+            <!-- Section header -->
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-semibold dark:text-neutral-200">Gateways</h2>
+              <button @click="showGatewayCreate = true"
+                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                + New Gateway
+              </button>
+            </div>
+
+            <div v-if="gatewaysLoading && !gatewaysLoaded"
+              class="text-center text-gray-500 dark:text-neutral-400 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
+              Loading gateways…
+            </div>
+
+            <div v-else-if="gatewaysError && !gatewaysLoaded"
+              class="text-center text-red-600 dark:text-red-400 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
+              Unable to load gateways. Please try again.
+            </div>
+
+            <!-- Empty state -->
+            <div v-else-if="gatewaysLoaded && gateways.length === 0"
+              class="text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
+              No gateways configured yet. Create one to start monitoring.
+            </div>
+
+            <!-- Gateways table -->
+            <div v-else-if="gatewaysLoaded && gateways.length > 0"
+              class="bg-white dark:bg-neutral-800 rounded-lg shadow-sm mobile-dense-list"
+              style="overflow:hidden;">
+              <div v-for="(gw, idx) in gateways" :key="gw.id"
+                class="flex items-center"
+                :style="idx > 0 ? 'border-top:1px solid #e5e7eb;' : ''"
+                :class="'dark:' + (idx > 0 ? 'border-neutral-700' : '')"
+                style="padding:12px 16px; gap:12px;">
+
+                <!-- Admin Down toggle button -->
+                <button @click.stop="toggleGatewayAdminDown(gw)"
+                  class="shrink-0 rounded-full"
+                  style="width:14px; height:14px; display:inline-block; border:none; padding:0; cursor:pointer; transition: opacity 0.15s;"
+                  :style="{
+                    background: gatewayStatusColor(gw.status),
+                    opacity: gw.adminDown ? 0.85 : 1,
+                    outline: gw.adminDown && gw.realStatus ? '2px solid ' + gatewayStatusColor(gw.realStatus) : 'none',
+                    outlineOffset: '2px'
+                  }"
+                  :title="gw.adminDown ? 'Admin Down (probe: ' + gatewayStatusLabel(gw.realStatus || 'unknown') + ') — click to restore' : 'Click to set Admin Down'">
+                </button>
+
+                <!-- Name -->
+                <span class="font-medium dark:text-neutral-200 truncate" style="min-width:120px; max-width:160px;">
+                  {{gw.name}}
+                </span>
+
+                <!-- Interface -->
+                <span class="text-sm text-gray-500 dark:text-neutral-400 font-mono shrink-0" style="min-width:60px;">
+                  {{gw.interface}}
+                </span>
+
+                <!-- Gateway IP / Monitor IP -->
+                <span class="font-mono shrink-0" style="min-width:110px; display:flex; flex-direction:column; gap:1px;">
+                  <span class="text-sm text-gray-600 dark:text-neutral-300">{{gw.gatewayIP}}</span>
+                  <span v-if="gw.monitorAddress" class="text-xs text-gray-400 dark:text-neutral-500">▸ {{gw.monitorAddress}}</span>
+                </span>
+
+                <!-- RTT -->
+                <span class="text-sm shrink-0" style="min-width:70px;"
+                  :class="gw.latency !== null ? 'text-gray-700 dark:text-neutral-200' : 'text-gray-400 dark:text-neutral-500'">
+                  {{gw.latency !== null ? gw.latency + ' ms' : '— ms'}}
+                </span>
+
+                <!-- Packet loss -->
+                <span class="text-sm shrink-0" style="min-width:50px;"
+                  :class="gw.packetLoss !== null ? 'text-gray-700 dark:text-neutral-200' : 'text-gray-400 dark:text-neutral-500'">
+                  {{gw.packetLoss !== null ? gw.packetLoss + '%' : '—'}}
+                </span>
+
+                <!-- HTTP probe status (when monitorRule requires HTTP) -->
+                <span v-if="gw.monitorHttp && gw.monitorHttp.url && gw.monitorRule !== 'icmp_only'"
+                  class="text-sm shrink-0 font-mono"
+                  style="min-width:80px; display:flex; align-items:center; gap:5px;">
+                  <span class="w-2 h-2 rounded-full shrink-0" style="display:inline-block;"
+                    :style="'background-color:' + gatewayStatusColor(gw.httpStatus || 'unknown')"></span>
+                  <span :style="'color:' + gatewayStatusColor(gw.httpStatus || 'unknown')">
+                    <span v-if="gw.httpCode !== null && gw.httpCode !== undefined" class="text-xs" style="opacity:0.75;">{{gw.httpCode}}</span>
+                    <span v-else class="text-xs" style="opacity:0.75;">HTTP</span>
+                    {{gw.httpLatency !== null ? ' ' + gw.httpLatency + ' ms' : ' —'}}
+                  </span>
+                </span>
+
+                <!-- Status label -->
+                <span class="text-sm font-medium shrink-0" style="min-width:70px;"
+                  :style="'color:' + gatewayStatusColor(gw.status)">
+                  {{gatewayStatusLabel(gw.status)}}
+                </span>
+
+                <!-- Spacer -->
+                <div class="grow"></div>
+
+                <!-- Description -->
+                <span v-if="gw.description" class="text-xs text-gray-400 dark:text-neutral-500 truncate hidden md:block" style="max-width:140px;">
+                  {{gw.description}}
+                </span>
+
+                <!-- Actions -->
+                <div class="flex gap-1 items-center shrink-0">
+                  <!-- Edit -->
+                  <button @click="openGatewayEdit(gw); loadSystemInterfaces();"
+                    class="p-2 rounded text-gray-400 dark:text-neutral-400 transition"
+                    style="background:transparent;"
+                    title="Edit gateway">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <!-- Delete -->
+                  <button @click="deleteGateway(gw)"
+                    class="p-2 rounded text-gray-400 dark:text-neutral-400 transition"
+                    style="background:transparent;"
+                    title="Delete gateway">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Section 2: Gateway Groups ──────────────────────────────── -->
+          <div>
+            <!-- Section header -->
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="text-xl font-semibold dark:text-neutral-200">Gateway Groups</h2>
+              <button @click="showGroupCreate = true"
+                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                + New Group
+              </button>
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="gatewayGroups.length === 0"
+              class="text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
+              No gateway groups defined yet.
+            </div>
+
+            <!-- Groups list -->
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div v-for="grp in gatewayGroups" :key="grp.id"
+                class="bg-white dark:bg-neutral-800 rounded-lg shadow-sm"
+                style="padding:16px;">
+
+                <!-- Group header -->
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-3">
+                    <span class="font-medium dark:text-neutral-200">{{grp.name}}</span>
+                    <span class="text-xs bg-gray-100 dark:bg-neutral-700 text-gray-500 dark:text-neutral-400 rounded px-2 py-1">
+                      trigger: {{grp.trigger}}
+                    </span>
+                    <span v-if="grp.description" class="text-xs text-gray-400 dark:text-neutral-500">
+                      {{grp.description}}
+                    </span>
+                  </div>
+                  <!-- Actions -->
+                  <div class="flex gap-1">
+                    <button @click="openGroupEdit(grp)"
+                      class="p-2 rounded text-gray-400 dark:text-neutral-400 transition"
+                      style="background:transparent;" title="Edit group">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                    </button>
+                    <button @click="deleteGatewayGroup(grp)"
+                      class="p-2 rounded text-gray-400 dark:text-neutral-400 transition"
+                      style="background:transparent;" title="Delete group">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Tiers -->
+                <div v-if="grp.gateways && grp.gateways.length > 0" style="display:flex; flex-direction:column; gap:4px;">
+                  <!-- Group by tier -->
+                  <div v-for="tier in [...new Set(grp.gateways.map(e => e.tier))].sort()" :key="tier"
+                    class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-300">
+                    <span class="text-xs text-gray-400 dark:text-neutral-500 font-mono shrink-0" style="min-width:40px;">
+                      Tier {{tier}}:
+                    </span>
+                    <span v-for="entry in grp.gateways.filter(e => e.tier === tier)" :key="entry.gatewayId"
+                      class="flex items-center gap-1">
+                      <span class="w-2 h-2 rounded-full shrink-0" style="display:inline-block;"
+                        :style="'background-color:' + gatewayStatusColor(gatewayStatusById(entry.gatewayId))"></span>
+                      <span>{{gatewayNameById(entry.gatewayId)}}</span>
+                    </span>
+                  </div>
+                </div>
+                <div v-else class="text-xs text-gray-400 dark:text-neutral-500">
+                  No gateways in this group.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Create Gateway Modal ───────────────────────────────────── -->
+          <div v-if="showGatewayCreate"
+            class="modal-overlay"
+           >
+            <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-480">
+
+              <!-- Header -->
+              <div class="modal-header dark:border-neutral-600">
+                <h2 class="text-xl font-medium dark:text-neutral-200">New Gateway</h2>
+              </div>
+
+              <!-- Body -->
+              <div class="modal-body">
+
+                <!-- Name -->
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
+                  <input v-model="gatewayCreate.name" type="text" placeholder="e.g. VPS-Frankfurt"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                </div>
+
+                <!-- Interface -->
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Interface <span class="text-red-500">*</span></label>
+                  <select v-model="gatewayCreate.interface"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                    <option value="">— select interface —</option>
+                    <option v-for="iface in systemInterfaces" :key="iface.name" :value="iface.name">
+                      {{ iface.label || iface.name }}{{ iface.operstate ? ' (' + iface.operstate + ')' : '' }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Gateway IP + Monitor Address -->
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Gateway IP <span class="text-red-500">*</span></label>
+                    <input v-model="gatewayCreate.gatewayIP" type="text" placeholder="e.g. 192.168.1.1"
+                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Next-hop IP (for routing)</p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IP <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                    <input v-model="gatewayCreate.monitorAddress" type="text" :placeholder="gatewayCreate.gatewayIP || 'same as Gateway IP'"
+                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Ping target; blank = Gateway IP</p>
+                  </div>
+                </div>
+
+                <!-- Monitor toggle -->
+                <div class="flex items-center gap-3">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" v-model="gatewayCreate.monitor" class="w-4 h-4">
+                    <span class="text-sm dark:text-neutral-300">Enable monitoring</span>
+                  </label>
+                </div>
+
+                <!-- Monitor params (only if enabled) -->
+                <div v-if="gatewayCreate.monitor">
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Monitor Parameters</p>
+                  <div class="grid grid-cols-3 gap-3">
+                    <div>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">ICMP Interval (s)</label>
+                      <input v-model.number="gatewayCreate.monitorInterval" type="number" min="1"
+                        class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Window override (s)</label>
+                      <input v-model.number="gatewayCreate.windowSeconds" type="number" min="10"
+                        :placeholder="globalSettings.gatewayWindowSeconds"
+                        class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Latency threshold (ms)</label>
+                      <input v-model.number="gatewayCreate.latencyThreshold" type="number" min="1"
+                        class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    </div>
+                  </div>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    Status by packet loss: ≥{{globalSettings.gatewayHealthyThreshold}}% → Healthy · ≥{{globalSettings.gatewayDegradedThreshold}}% → Degraded · else → Down
+                  </p>
+                </div>
+
+                <!-- Health Decision Rule -->
+                <div v-if="gatewayCreate.monitor">
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Health Decision Rule</p>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button"
+                      v-for="rule in [{v:'icmp_only',l:'ICMP only'},{v:'http_only',l:'HTTP only'},{v:'all',l:'All (AND)'},{v:'any',l:'Any (OR)'}]"
+                      :key="rule.v"
+                      @click="gatewayCreate.monitorRule = rule.v"
+                      class="px-3 py-1 text-xs rounded border dark:border-neutral-500"
+                      :style="gatewayCreate.monitorRule === rule.v ? 'background:#7c3aed; color:#fff; border-color:#7c3aed;' : 'background:transparent;'">
+                      {{rule.l}}
+                    </button>
+                  </div>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    ICMP only — ping only · HTTP only — HTTP only · All — both must pass · Any — either passes
+                  </p>
+                </div>
+
+                <!-- HTTP Probe (when rule requires HTTP) -->
+                <div v-if="gatewayCreate.monitor && gatewayCreate.monitorRule !== 'icmp_only'">
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">HTTP Probe</p>
+                  <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">URL <span class="text-red-500">*</span></label>
+                      <input v-model="gatewayCreate.monitorHttp.url" type="text" placeholder="https://example.com"
+                        class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                      <div>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Expected status</label>
+                        <input v-model.number="gatewayCreate.monitorHttp.expectedStatus" type="number" min="100" max="599"
+                          class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                      <div>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Interval (s)</label>
+                        <input v-model.number="gatewayCreate.monitorHttp.interval" type="number" min="5"
+                          class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                      <div>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Timeout (s)</label>
+                        <input v-model.number="gatewayCreate.monitorHttp.timeout" type="number" min="1" max="30"
+                          class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Description -->
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Description</label>
+                  <input v-model="gatewayCreate.description" type="text" placeholder="Optional note"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="modal-section dark:border-neutral-600">
+                <div class="flex gap-3 justify-end">
+                  <button @click="showGatewayCreate = false"
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
+                    Cancel
+                  </button>
+                  <button @click="createGateway()" :disabled="gatewayMutationInFlight"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                    Create Gateway
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Edit Gateway Modal ─────────────────────────────────────── -->
+          <div v-if="showGatewayEdit"
+            class="modal-overlay"
+           >
+            <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-480">
+
+              <!-- Header -->
+              <div class="modal-header dark:border-neutral-600">
+                <h2 class="text-xl font-medium dark:text-neutral-200">Edit Gateway</h2>
+              </div>
+
+              <!-- Body -->
+              <div class="modal-body">
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
+                  <input v-model="gatewayEdit.name" type="text"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Interface <span class="text-red-500">*</span></label>
+                  <select v-model="gatewayEdit.interface"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                    <option value="">— select interface —</option>
+                    <option v-for="iface in systemInterfaces" :key="iface.name" :value="iface.name">
+                      {{ iface.label || iface.name }}{{ iface.operstate ? ' (' + iface.operstate + ')' : '' }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Gateway IP + Monitor Address -->
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Gateway IP <span class="text-red-500">*</span></label>
+                    <input v-model="gatewayEdit.gatewayIP" type="text" placeholder="e.g. 192.168.1.1"
+                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Next-hop IP (for routing)</p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IP <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                    <input v-model="gatewayEdit.monitorAddress" type="text" :placeholder="gatewayEdit.gatewayIP || 'same as Gateway IP'"
+                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Ping target; blank = Gateway IP</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" v-model="gatewayEdit.monitor" class="w-4 h-4">
+                    <span class="text-sm dark:text-neutral-300">Enable monitoring</span>
+                  </label>
+                </div>
+
+                <div v-if="gatewayEdit.monitor">
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Monitor Parameters</p>
+                  <div class="grid grid-cols-3 gap-3">
+                    <div>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">ICMP Interval (s)</label>
+                      <input v-model.number="gatewayEdit.monitorInterval" type="number" min="1"
+                        class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Window override (s)</label>
+                      <input v-model.number="gatewayEdit.windowSeconds" type="number" min="10"
+                        :placeholder="globalSettings.gatewayWindowSeconds"
+                        class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Latency threshold (ms)</label>
+                      <input v-model.number="gatewayEdit.latencyThreshold" type="number" min="1"
+                        class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                    </div>
+                  </div>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    Status by packet loss: ≥{{globalSettings.gatewayHealthyThreshold}}% → Healthy · ≥{{globalSettings.gatewayDegradedThreshold}}% → Degraded · else → Down
+                  </p>
+                </div>
+
+                <!-- Health Decision Rule -->
+                <div v-if="gatewayEdit.monitor">
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Health Decision Rule</p>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button"
+                      v-for="rule in [{v:'icmp_only',l:'ICMP only'},{v:'http_only',l:'HTTP only'},{v:'all',l:'All (AND)'},{v:'any',l:'Any (OR)'}]"
+                      :key="rule.v"
+                      @click="gatewayEdit.monitorRule = rule.v"
+                      class="px-3 py-1 text-xs rounded border dark:border-neutral-500"
+                      :style="gatewayEdit.monitorRule === rule.v ? 'background:#7c3aed; color:#fff; border-color:#7c3aed;' : 'background:transparent;'">
+                      {{rule.l}}
+                    </button>
+                  </div>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    ICMP only — ping only · HTTP only — HTTP only · All — both must pass · Any — either passes
+                  </p>
+                </div>
+
+                <!-- HTTP Probe (when rule requires HTTP) -->
+                <div v-if="gatewayEdit.monitor && gatewayEdit.monitorRule !== 'icmp_only'">
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">HTTP Probe</p>
+                  <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">URL <span class="text-red-500">*</span></label>
+                      <input v-model="gatewayEdit.monitorHttp.url" type="text" placeholder="https://example.com"
+                        class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono">
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
+                      <div>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Expected status</label>
+                        <input v-model.number="gatewayEdit.monitorHttp.expectedStatus" type="number" min="100" max="599"
+                          class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                      <div>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Interval (s)</label>
+                        <input v-model.number="gatewayEdit.monitorHttp.interval" type="number" min="5"
+                          class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                      <div>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Timeout (s)</label>
+                        <input v-model.number="gatewayEdit.monitorHttp.timeout" type="number" min="1" max="30"
+                          class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Description</label>
+                  <input v-model="gatewayEdit.description" type="text" placeholder="Optional note"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                </div>
+              </div>
+
+              <!-- Admin Down -->
+              <div class="mt-4 flex items-center gap-3 rounded-lg"
+                style="padding:10px 14px; background: rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25);">
+                <input type="checkbox" id="gatewayAdminDown" v-model="gatewayEdit.adminDown" class="w-4 h-4">
+                <label for="gatewayAdminDown" class="text-sm font-medium cursor-pointer select-none"
+                  style="color:#ef4444;">
+                  Admin Down — disable this gateway (monitoring continues, traffic stops)
+                </label>
+              </div>
+
+              <!-- Footer -->
+              <div class="modal-section dark:border-neutral-600">
+                <div class="flex gap-3 justify-end">
+                  <button @click="showGatewayEdit = false"
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
+                    Cancel
+                  </button>
+                  <button @click="saveGatewayEdit()" :disabled="gatewayMutationInFlight"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Create Group Modal ─────────────────────────────────────── -->
+          <div v-if="showGroupCreate"
+            class="modal-overlay"
+           >
+            <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-md">
+
+              <!-- Header -->
+              <div class="modal-header dark:border-neutral-600">
+                <h2 class="text-xl font-medium dark:text-neutral-200">New Gateway Group</h2>
+              </div>
+
+              <!-- Body -->
+              <div class="modal-body">
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
+                  <input v-model="groupCreate.name" type="text" placeholder="e.g. WAN_Failover"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Trigger</label>
+                  <select v-model="groupCreate.trigger"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                    <option value="packetloss">Packet Loss</option>
+                    <option value="latency">Latency</option>
+                    <option value="packetloss_latency">Packet Loss + Latency</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Description</label>
+                  <input v-model="groupCreate.description" type="text" placeholder="Optional"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                </div>
+
+                <!-- Gateways list -->
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 tracking-wide">Gateways</p>
+                    <button @click="addGroupGatewayEntry(groupCreate)"
+                      class="text-xs text-purple-600 dark:text-purple-400">+ Add</button>
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div v-for="(entry, idx) in groupCreate.gateways" :key="idx"
+                      class="flex items-center gap-2">
+                      <select v-model="entry.gatewayId"
+                        class="flex-1 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                        <option value="">— gateway —</option>
+                        <option v-for="gw in gateways" :key="gw.id" :value="gw.id">{{gw.name}}</option>
+                      </select>
+                      <div>
+                        <label class="text-xs dark:text-neutral-400">Tier</label>
+                        <input v-model.number="entry.tier" type="number" min="1" style="width:48px;"
+                          class="ml-1 px-1 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                      <div>
+                        <label class="text-xs dark:text-neutral-400">Wt</label>
+                        <input v-model.number="entry.weight" type="number" min="1" style="width:52px;"
+                          class="ml-1 px-1 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                      <button @click="removeGroupGatewayEntry(groupCreate, idx)"
+                        class="text-gray-400 dark:text-neutral-500 p-1" style="background:transparent;">✕</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="modal-section dark:border-neutral-600">
+                <div class="flex gap-3 justify-end">
+                  <button @click="showGroupCreate = false"
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
+                    Cancel
+                  </button>
+                  <button @click="createGatewayGroup()"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                    Create Group
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Edit Group Modal ───────────────────────────────────────── -->
+          <div v-if="showGroupEdit"
+            class="modal-overlay"
+           >
+            <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-md">
+
+              <!-- Header -->
+              <div class="modal-header dark:border-neutral-600">
+                <h2 class="text-xl font-medium dark:text-neutral-200">Edit Gateway Group</h2>
+              </div>
+
+              <!-- Body -->
+              <div class="modal-body">
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
+                  <input v-model="groupEdit.name" type="text"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Trigger</label>
+                  <select v-model="groupEdit.trigger"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                    <option value="packetloss">Packet Loss</option>
+                    <option value="latency">Latency</option>
+                    <option value="packetloss_latency">Packet Loss + Latency</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Description</label>
+                  <input v-model="groupEdit.description" type="text" placeholder="Optional"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                </div>
+
+                <!-- Gateways list -->
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 tracking-wide">Gateways</p>
+                    <button @click="addGroupGatewayEntry(groupEdit)"
+                      class="text-xs text-purple-600 dark:text-purple-400">+ Add</button>
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div v-for="(entry, idx) in groupEdit.gateways" :key="idx"
+                      class="flex items-center gap-2">
+                      <select v-model="entry.gatewayId"
+                        class="flex-1 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                        <option value="">— gateway —</option>
+                        <option v-for="gw in gateways" :key="gw.id" :value="gw.id">{{gw.name}}</option>
+                      </select>
+                      <div>
+                        <label class="text-xs dark:text-neutral-400">Tier</label>
+                        <input v-model.number="entry.tier" type="number" min="1" style="width:48px;"
+                          class="ml-1 px-1 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                      <div>
+                        <label class="text-xs dark:text-neutral-400">Wt</label>
+                        <input v-model.number="entry.weight" type="number" min="1" style="width:52px;"
+                          class="ml-1 px-1 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      </div>
+                      <button @click="removeGroupGatewayEntry(groupEdit, idx)"
+                        class="text-gray-400 dark:text-neutral-500 p-1" style="background:transparent;">✕</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="modal-section dark:border-neutral-600">
+                <div class="flex gap-3 justify-end">
+                  <button @click="showGroupEdit = false"
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
+                    Cancel
+                  </button>
+                  <button @click="saveGroupEdit()"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /gateways page -->
+
+        <!-- ============================================================== -->
+[[ end ]]

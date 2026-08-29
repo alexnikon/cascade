@@ -1,0 +1,449 @@
+[[ define "administration" ]]
+        <!-- ============================================================== -->
+        <!-- Administration Page                                            -->
+        <!-- ============================================================== -->
+        <div v-if="activePage === 'administration'" key="page-administration">
+          <div class="flex gap-2 mb-4">
+            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm">
+              Admin Tunnel
+            </button>
+          </div>
+        <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+          <div class="flex flex-row flex-auto items-center p-3 px-5 border-b-2 border-gray-100 dark:border-neutral-600">
+            <div class="flex-grow">
+              <p class="text-2xl font-medium dark:text-neutral-200">{{$t("clients")}}</p>
+            </div>
+            <div class="flex md:block md:flex-shrink-0">
+              <!-- Restore configuration -->
+              <label for="inputRC" :title="$t('titleRestoreConfig')"
+                class="hover:cursor-pointer hover:bg-red-800 hover:border-red-800 hover:text-white text-gray-700 dark:text-neutral-200 max-md:border-r-0 border-2 border-gray-100 dark:border-neutral-600 py-2 px-4 rounded-l-full md:rounded inline-flex items-center transition">
+                <svg inline class="w-4 md:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"></path>
+                </svg>
+                <span class="max-md:hidden text-sm">{{$t("restore")}}</span>
+                <input id="inputRC" type="file" name="configurationfile" accept="text/*,.json" @change="restoreConfig" class="hidden"/>
+              </label>
+              <!-- Backup configuration -->
+              <a href="./api/wireguard/backup" :title="$t('titleBackupConfig')"
+                class="hover:bg-red-800 hover:border-red-800 hover:text-white text-gray-700 dark:text-neutral-200 max-md:border-x-0 border-2 border-gray-100 dark:border-neutral-600 py-2 px-4 md:rounded inline-flex items-center transition">
+                <svg inline class="w-4 md:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Zm-3 6h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Z"></path>
+                </svg>
+                <span class="max-md:hidden text-sm">{{$t("backup")}}</span>
+              </a>
+              <!-- Sort client -->
+              <button v-if="enableSortClient" @click="sortClient = !sortClient;"
+                      class="hover:bg-red-800 hover:border-red-800 hover:text-white text-gray-700 dark:text-neutral-200 max-md:border-x-0 border-2 border-gray-100 dark:border-neutral-600 py-2 px-4 md:rounded inline-flex items-center transition">
+                  <svg v-if="sortClient === true" inline class="w-4 md:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path d="M12 19.75C11.9015 19.7504 11.8038 19.7312 11.7128 19.6934C11.6218 19.6557 11.5392 19.6001 11.47 19.53L5.47 13.53C5.33752 13.3878 5.2654 13.1997 5.26882 13.0054C5.27225 12.8111 5.35096 12.6258 5.48838 12.4883C5.62579 12.3509 5.81118 12.2722 6.00548 12.2688C6.19978 12.2654 6.38782 12.3375 6.53 12.47L12 17.94L17.47 12.47C17.6122 12.3375 17.8002 12.2654 17.9945 12.2688C18.1888 12.2722 18.3742 12.3509 18.5116 12.4883C18.649 12.6258 18.7277 12.8111 18.7312 13.0054C18.7346 13.1997 18.6625 13.3878 18.53 13.53L12.53 19.53C12.4608 19.6001 12.3782 19.6557 12.2872 19.6934C12.1962 19.7312 12.0985 19.7504 12 19.75Z" fill="#000000"/>
+                    <path d="M12 19.75C11.8019 19.7474 11.6126 19.6676 11.4725 19.5275C11.3324 19.3874 11.2526 19.1981 11.25 19V5C11.25 4.80109 11.329 4.61032 11.4697 4.46967C11.6103 4.32902 11.8011 4.25 12 4.25C12.1989 4.25 12.3897 4.32902 12.5303 4.46967C12.671 4.61032 12.75 4.80109 12.75 5V19C12.7474 19.1981 12.6676 19.3874 12.5275 19.5275C12.3874 19.6676 12.1981 19.7474 12 19.75Z" fill="#000000"/>
+                  </svg>
+                  <svg v-if="sortClient === false" inline class="w-4 md:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                    <path d="M18 11.75C17.9015 11.7505 17.8038 11.7313 17.7128 11.6935C17.6218 11.6557 17.5392 11.6001 17.47 11.53L12 6.06001L6.53 11.53C6.38782 11.6625 6.19978 11.7346 6.00548 11.7312C5.81118 11.7278 5.62579 11.649 5.48838 11.5116C5.35096 11.3742 5.27225 11.1888 5.26882 10.9945C5.2654 10.8002 5.33752 10.6122 5.47 10.47L11.47 4.47001C11.6106 4.32956 11.8012 4.25067 12 4.25067C12.1987 4.25067 12.3894 4.32956 12.53 4.47001L18.53 10.47C18.6705 10.6106 18.7493 10.8013 18.7493 11C18.7493 11.1988 18.6705 11.3894 18.53 11.53C18.4608 11.6001 18.3782 11.6557 18.2872 11.6935C18.1962 11.7313 18.0985 11.7505 18 11.75Z" fill="#000000"/>
+                    <path d="M12 19.75C11.8019 19.7474 11.6126 19.6676 11.4725 19.5275C11.3324 19.3874 11.2526 19.1981 11.25 19V5C11.25 4.80109 11.329 4.61032 11.4697 4.46967C11.6103 4.32902 11.8011 4.25 12 4.25C12.1989 4.25 12.3897 4.32902 12.5303 4.46967C12.671 4.61032 12.75 4.80109 12.75 5V19C12.7474 19.1981 12.6676 19.3874 12.5275 19.5275C12.3874 19.6676 12.1981 19.7474 12 19.75Z" fill="#000000"/>
+                  </svg>
+                  <span class="max-md:hidden text-sm">{{$t("sort")}}</span>
+              </button>
+
+              <!-- New client -->
+              <button @click="clientCreate = true; clientCreateName = ''; clientExpiredDate = '';"
+                class="hover:bg-red-800 hover:border-red-800 hover:text-white text-gray-700 dark:text-neutral-200 max-md:border-l-0 border-2 border-gray-100 dark:border-neutral-600 py-2 px-4 rounded-r-full md:rounded inline-flex items-center transition">
+                <svg class="w-4 md:mr-2" inline xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span class="max-md:hidden text-sm">{{$t("new")}}</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <!-- Client -->
+            <div v-if="clients && clients.length > 0" v-for="client in clients" :key="client.id"
+              class="relative overflow-hidden border-b last:border-b-0 border-gray-100 dark:border-neutral-600 border-solid">
+
+              <div class="relative py-3 md:py-5 px-3 z-10 flex flex-col sm:flex-row justify-between gap-3">
+                <div class="flex gap-3 md:gap-4 w-full items-center ">
+
+                  <!-- Name & Info -->
+                  <div class="flex flex-col xxs:flex-row w-full gap-2">
+
+                    <!-- Name -->
+                    <div class="flex flex-col flex-grow gap-1">
+                      <div class="text-gray-700 dark:text-neutral-200 group text-sm md:text-base"
+                        :title="$t('createdOn') + dateTime(new Date(client.createdAt))">
+                        <span v-if="client.latestHandshakeAt && ((new Date() - new Date(client.latestHandshakeAt) < 1000 * 60 * 10))"
+                          class="peer-online-indicator" title="Recently connected"></span>
+
+                        <!-- Show -->
+                        <input v-show="clientEditNameId === client.id" v-model="clientEditName"
+                          v-on:keyup.enter="updateClientName(client, clientEditName); clientEditName = null; clientEditNameId = null;"
+                          v-on:keyup.escape="clientEditName = null; clientEditNameId = null;"
+                          :ref="'client-' + client.id + '-name'"
+                          class="rounded px-1 border-2 dark:bg-neutral-700 border-gray-100 dark:border-neutral-600 focus:border-gray-200 dark:focus:border-neutral-500 dark:placeholder:text-neutral-500 outline-none w-30" />
+                        <span v-show="clientEditNameId !== client.id"
+                          class="border-t-2 border-b-2 border-transparent">{{client.name}}</span>
+
+                        <!-- Edit -->
+                        <span v-show="clientEditNameId !== client.id"
+                          @click="clientEditName = client.name; clientEditNameId = client.id; setTimeout(() => $refs['client-' + client.id + '-name'][0].select(), 1);"
+                          class="cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+                          <svg xmlns="http://www.w3.org/2000/svg"
+                            class="h-4 w-4 inline align-middle opacity-25 hover:opacity-100" fill="none"
+                            viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </span>
+                      </div>
+                      <!-- Address -->
+                      <div class=" block md:inline-block pb-1 md:pb-0 text-gray-500 dark:text-neutral-400 text-xs">
+                        <span class="group">
+                          <!-- Show -->
+                          <input v-show="clientEditAddressId === client.id" v-model="clientEditAddress"
+                            v-on:keyup.enter="updateClientAddress(client, clientEditAddress); clientEditAddress = null; clientEditAddressId = null;"
+                            v-on:keyup.escape="clientEditAddress = null; clientEditAddressId = null;"
+                            :ref="'client-' + client.id + '-address'"
+                            class="rounded border-2 dark:bg-neutral-700 border-gray-100 dark:border-neutral-600 focus:border-gray-200 dark:focus:border-neutral-500 outline-none w-20 text-black dark:text-neutral-300 dark:placeholder:text-neutral-500" />
+                          <span v-show="clientEditAddressId !== client.id"
+                            class="inline-block ">{{client.address}}</span>
+
+                          <!-- Edit -->
+                          <span v-show="clientEditAddressId !== client.id"
+                            @click="clientEditAddress = client.address; clientEditAddressId = client.id; setTimeout(() => $refs['client-' + client.id + '-address'][0].select(), 1);"
+                            class="cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg xmlns="http://www.w3.org/2000/svg"
+                              class="h-4 w-4 inline align-middle opacity-25 hover:opacity-100" fill="none"
+                              viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </span>
+                        </span>
+                        <!-- Inline Transfer TX -->
+                        <span v-if="!uiTrafficStats && client.transferTx" class="whitespace-nowrap" :title="$t('totalDownload') + bytes(client.transferTx)">
+                          ·
+                          <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                              d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z"
+                              clip-rule="evenodd" />
+                          </svg>
+                          {{client.transferTxCurrent | bytes}}/s
+                        </span>
+
+                        <!-- Inline Transfer RX -->
+                        <span v-if="!uiTrafficStats && client.transferRx" class="whitespace-nowrap" :title="$t('totalUpload') + bytes(client.transferRx)">
+                          ·
+                          <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                              d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z"
+                              clip-rule="evenodd" />
+                          </svg>
+                          {{client.transferRxCurrent | bytes}}/s
+                        </span>
+                        <!-- Last seen -->
+                        <span class="text-gray-400 dark:text-neutral-500 whitespace-nowrap" v-if="client.latestHandshakeAt"
+                          :title="$t('lastSeen') + dateTime(new Date(client.latestHandshakeAt))">
+                          {{!uiTrafficStats ? " · " : ""}}{{new Date(client.latestHandshakeAt) | timeago}}
+                        </span>
+                        <!-- Public IP -->
+                        <span v-if="client.endpoint"
+                          class="text-gray-400 dark:text-neutral-500 whitespace-nowrap"
+                          :title="'Public IP: ' + peerPublicIP(client.endpoint)">
+                          · {{peerPublicIP(client.endpoint)}}
+                        </span>
+                      </div>
+                      <div v-if="enableOneTimeLinks && client.oneTimeLink !== null && client.oneTimeLink !== ''" :ref="'client-' + client.id + '-link'" class="text-gray-400 text-xs">
+                        <a :href="'./cnf/' + client.oneTimeLink + ''">{{document.location.protocol}}//{{document.location.host}}/cnf/{{client.oneTimeLink}}</a>
+                      </div>
+                      <!-- Expire Date -->
+                      <div v-show="enableExpireTime" class=" block md:inline-block pb-1 md:pb-0 text-gray-500 dark:text-neutral-400 text-xs">
+                        <span class="group">
+                          <!-- Show -->
+                          <input v-show="clientEditExpireDateId === client.id" v-model="clientEditExpireDate"
+                            v-on:keyup.enter="updateClientExpireDate(client, clientEditExpireDate); clientEditExpireDate = null; clientEditExpireDateId = null;"
+                            v-on:keyup.escape="clientEditExpireDate = null; clientEditExpireDateId = null;"
+                            :ref="'client-' + client.id + '-expire'"
+                            type="text"
+                            class="rounded border-2 dark:bg-neutral-700 border-gray-100 dark:border-neutral-600 focus:border-gray-200 dark:focus:border-neutral-500 outline-none w-70 text-black dark:text-neutral-300 dark:placeholder:text-neutral-500 text-xs p-0" />
+                          <span v-show="clientEditExpireDateId !== client.id"
+                            class="inline-block ">{{client.expiredAt  | expiredDateFormat}}</span>
+
+                          <!-- Edit -->
+                          <span v-show="clientEditExpireDateId !== client.id"
+                            @click="clientEditExpireDate = client.expiredAt ? client.expiredAt.toISOString().slice(0, 10) : 'yyyy-mm-dd'; clientEditExpireDateId = client.id; setTimeout(() => $refs['client-' + client.id + '-expire'][0].select(), 1);"
+                            class="cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg xmlns="http://www.w3.org/2000/svg"
+                              class="h-4 w-4 inline align-middle opacity-25 hover:opacity-100" fill="none"
+                              viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Info -->
+                    <div v-if="uiTrafficStats"
+                      class="flex gap-2 items-center shrink-0 text-gray-400 dark:text-neutral-400 text-xs mt-px justify-end">
+
+                      <!-- Transfer TX -->
+                      <div class="min-w-20 md:min-w-24" v-if="client.transferTx">
+                        <span class="flex gap-1" :title="$t('totalDownload') + bytes(client.transferTx)">
+                          <svg class="align-middle h-3 inline mt-0.5" xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                              d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z"
+                              clip-rule="evenodd" />
+                          </svg>
+                          <div>
+                            <span class="text-gray-700 dark:text-neutral-200">{{client.transferTxCurrent |
+                              bytes}}/s</span>
+                            <!-- Total TX -->
+                            <br><span class="font-regular" style="font-size:0.85em">{{bytes(client.transferTx)}}</span>
+                          </div>
+                        </span>
+
+                      </div>
+
+                      <!-- Transfer RX -->
+                      <div class="min-w-20 md:min-w-24" v-if="client.transferRx">
+                        <span class="flex gap-1" :title="$t('totalUpload') + bytes(client.transferRx)">
+
+                          <svg class="align-middle h-3 inline mt-0.5" xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                              d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z"
+                              clip-rule="evenodd" />
+                          </svg>
+                          <div>
+                            <span class="text-gray-700 dark:text-neutral-200">{{client.transferRxCurrent |
+                              bytes}}/s</span>
+                            <!-- Total RX -->
+                            <br><span class="font-regular" style="font-size:0.85em">{{bytes(client.transferRx)}}</span>
+                          </div>
+                        </span>
+                      </div>
+
+                    </div>
+                  </div>
+                  <!-- </div> --> <!-- <div class="flex flex-grow items-center"> -->
+                </div>
+
+                <div class="flex items-center justify-end">
+                  <div class="text-gray-400 dark:text-neutral-400 flex gap-1 items-center justify-between">
+
+                    <!-- Enable/Disable -->
+                    <div @click="disableClient(client)" v-if="client.enabled === true" :title="$t('disableClient')"
+                      class="inline-block align-middle rounded-full w-10 h-6 mr-1 cursor-pointer transition-all" style="background:#16a34a;">
+                      <div class="rounded-full w-4 h-4 m-1 ml-5 bg-white"></div>
+                    </div>
+
+                    <div @click="enableClient(client)" v-if="client.enabled === false" :title="$t('enableClient')"
+                      class="inline-block align-middle rounded-full w-10 h-6 mr-1 bg-gray-200 dark:bg-neutral-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-neutral-500 transition-all">
+
+                      <div class="rounded-full w-4 h-4 m-1 bg-white"></div>
+                    </div>
+
+                    <!-- Show QR-->
+
+                    <button :disabled="!client.downloadableConfig"
+                      class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
+                      :class="{
+                        'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white': client.downloadableConfig,
+                        'is-disabled': !client.downloadableConfig
+                      }"
+                      :title="!client.downloadableConfig ? $t('noPrivKey') : $t('showQR')"
+                      @click="qrcode = `./api/wireguard/client/${client.id}/qrcode.svg`">
+                      <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                      </svg>
+                    </button>
+
+                    <!-- Download Config -->
+                    <a :disabled="!client.downloadableConfig"
+                      :href="'./api/wireguard/client/' + client.id + '/configuration'"
+                      :download="client.downloadableConfig ? 'configuration' : null"
+                      class="align-middle inline-block bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
+                      :class="{
+                        'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white': client.downloadableConfig,
+                        'is-disabled': !client.downloadableConfig
+                      }"
+                      :title="!client.downloadableConfig ? $t('noPrivKey') : $t('downloadConfig')"
+                      @click="if(!client.downloadableConfig) { $event.preventDefault(); }">
+                      <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </a>
+
+                    <!-- Short OneTime Link -->
+                    <button v-if="enableOneTimeLinks" :disabled="!client.downloadableConfig"
+                      class="align-middle inline-block bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 p-2 rounded transition"
+                      :class="{
+                        'hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white': client.downloadableConfig,
+                        'is-disabled': !client.downloadableConfig
+                      }"
+                      :title="!client.downloadableConfig ? $t('noPrivKey') : $t('OneTimeLink')"
+                      @click="if(client.downloadableConfig) { showOneTimeLink(client); }">
+                      <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M13.213 9.787a3.391 3.391 0 0 0-4.795 0l-3.425 3.426a3.39 3.39 0 0 0 4.795 4.794l.321-.304m-.321-4.49a3.39 3.39 0 0 0 4.795 0l3.424-3.426a3.39 3.39 0 0 0-4.794-4.795l-1.028.961"/>
+                      </svg>
+                    </button>
+
+                    <!-- Delete -->
+
+                    <button
+                      class="align-middle bg-gray-100 dark:bg-neutral-600 dark:text-neutral-300 hover:bg-red-800 dark:hover:bg-red-800 hover:text-white dark:hover:text-white p-2 rounded transition"
+                      :title="$t('deleteClient')" @click="clientDelete = client">
+                      <svg class="w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                          clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+            <div v-if="clients && clients.length === 0">
+              <p class="text-center m-10 text-gray-400 dark:text-neutral-400 text-sm">
+                {{$t("noClients")}}<br /><br />
+                <button @click="clientCreate = true; clientCreateName = ''; clientExpiredDate = '';"
+                  class="bg-red-800 hover:bg-red-700 text-white border-2 border-none py-2 px-4 rounded inline-flex items-center transition">
+                  <svg class="w-4 mr-2" inline xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span class="text-sm">{{$t("newClient")}}</span>
+                </button>
+              </p>
+            </div>
+            <div v-if="clients === null" class="text-gray-200 dark:text-red-300 p-5">
+              <svg class="w-5 animate-spin mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                fill="currentColor">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                </path>
+              </svg>
+            </div>
+          </div>
+        </div>
+        </div><!-- /activePage === 'administration' -->
+
+        <!-- QR Code-->
+        <div v-if="qrcode">
+          <div class="bg-black bg-opacity-50 fixed top-0 right-0 left-0 bottom-0 flex items-center justify-center z-20">
+            <div class="bg-white rounded-md shadow-lg relative p-8">
+              <button @click="qrcode = null"
+                class="absolute right-4 top-4 text-gray-600 dark:text-neutral-500 hover:text-gray-800 dark:hover:text-neutral-700">
+                <svg class="w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <img :src="qrcode" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Create Dialog -->
+        <div v-if="clientCreate" class="fixed z-10 inset-0 overflow-y-auto">
+          <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!--
+        Background overlay, show/hide based on modal state.
+
+        Entering: "ease-out duration-300"
+          From: "opacity-0"
+          To: "opacity-100"
+        Leaving: "ease-in duration-200"
+          From: "opacity-100"
+          To: "opacity-0"
+      -->
+            <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div class="absolute inset-0 bg-gray-500 dark:bg-black opacity-75 dark:opacity-50"></div>
+            </div>
+
+            <!-- This element is to trick the browser into centering the modal contents. -->
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <!--
+        Modal panel, show/hide based on modal state.
+
+        Entering: "ease-out duration-300"
+          From: "opacity-0 tranneutral-y-4 sm:tranneutral-y-0 sm:scale-95"
+          To: "opacity-100 tranneutral-y-0 sm:scale-100"
+        Leaving: "ease-in duration-200"
+          From: "opacity-100 tranneutral-y-0 sm:scale-100"
+          To: "opacity-0 tranneutral-y-4 sm:tranneutral-y-0 sm:scale-95"
+      -->
+            <div
+              class="inline-block align-bottom bg-white dark:bg-neutral-700 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full"
+              role="dialog" aria-modal="true" aria-labelledby="modal-headline">
+              <div class="bg-white dark:bg-neutral-700 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                  <div
+                    class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-800 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg class="h-6 w-6 text-white" inline xmlns="http://www.w3.org/2000/svg"
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                  <div class="flex-grow mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-neutral-200" id="modal-headline">
+                      {{$t("newClient")}}
+                    </h3>
+                    <div class="mt-2">
+                      <p class="text-sm text-gray-500">
+                        <input
+                          class="rounded p-2 border-2 dark:bg-neutral-700 dark:text-neutral-200 border-gray-100 dark:border-neutral-600 focus:border-gray-200 focus:dark:border-neutral-500 dark:placeholder:text-neutral-400 outline-none w-full"
+                          type="text" v-model.trim="clientCreateName" :placeholder="$t('name')" />
+                      </p>
+                    </div>
+                    <div class="mt-2" v-show="enableExpireTime">
+                      <p class="text-sm text-gray-500">
+                        <label class="block text-gray-900 dark:text-neutral-200 text-sm font-bold mb-2" for="expireDate">
+                            {{$t("ExpireDate")}}
+                        </label>
+                        <span class="flex gap-2">
+                          <input
+                            class="rounded p-2 border-2 dark:bg-neutral-700 dark:text-neutral-200 border-gray-100 dark:border-neutral-600 focus:border-gray-200 focus:dark:border-neutral-500 dark:placeholder:text-neutral-400 outline-none flex-1"
+                            type="date" v-model.trim="clientExpiredDate" :placeholder="$t('expireDate')" name="expireDate"/>
+                          <button v-if="clientExpiredDate" type="button" @click="clientExpiredDate = ''"
+                            class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">Clear</button>
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-gray-50 dark:bg-neutral-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button v-if="clientCreateName.length" type="button" @click="createClient(); clientCreate = null"
+                  class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-800 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                  {{$t("create")}}
+                </button>
+                <button v-else type="button"
+                  class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-gray-200 dark:bg-neutral-400 text-base font-medium text-white dark:text-neutral-300 sm:ml-3 sm:w-auto sm:text-sm cursor-not-allowed">
+                  {{$t("create")}}
+                </button>
+                <button type="button" @click="clientCreate = null"
+                  class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-neutral-500 shadow-sm px-4 py-2 bg-white dark:bg-neutral-500 text-base font-medium text-gray-700 dark:text-neutral-50 hover:bg-gray-50 dark:hover:bg-neutral-600 dark:hover:border-neutral-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                  {{$t("cancel")}}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+[[ end ]]

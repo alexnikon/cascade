@@ -6,10 +6,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata" // embed timezone database so TZ env var works without system tzdata
@@ -43,6 +45,40 @@ type Config struct {
 	WGPort   int    // --wg-port / WG_PORT   (UDP, WireGuard default)
 	Host     string // --host / WG_HOST      (required)
 	Debug    bool   // --debug / DEBUG
+}
+
+func serveFrontendIndex(c *fiber.Ctx) error {
+	page, err := frontend.RenderIndex()
+	if err != nil {
+		return fmt.Errorf("render frontend index: %w", err)
+	}
+	c.Set(fiber.HeaderContentType, "text/html; charset=utf-8")
+	return c.Send(page)
+}
+
+func serveFrontendAsset(c *fiber.Ctx, path, contentType string) error {
+	file, err := frontend.FS().Open(path)
+	if err != nil {
+		return fmt.Errorf("open frontend asset %s: %w", path, err)
+	}
+	defer file.Close()
+
+	body, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("read frontend asset %s: %w", path, err)
+	}
+	c.Set(fiber.HeaderContentType, contentType)
+	c.Set("Cache-Control", "no-cache, must-revalidate")
+	return c.Send(body)
+}
+
+func isFrontendStaticPath(path string) bool {
+	return path == "/manifest.json" ||
+		path == "/sw.js" ||
+		strings.HasPrefix(path, "/js/") ||
+		strings.HasPrefix(path, "/css/") ||
+		strings.HasPrefix(path, "/img/") ||
+		strings.HasPrefix(path, "/docs/")
 }
 
 func main() {
@@ -192,27 +228,49 @@ func main() {
 	// Legacy shims that require auth (old wireguard/client list → empty array).
 	api.RegisterCompatAuth(apiGroup)
 
-	// ── Static files (embed.FS) ───────────────────────────────────────────────
-	// Registered AFTER all /api/* routes so the SPA fallback (index.html) does
-	// not intercept API requests.
-	// Frontend is embedded into the binary at compile time — no disk files needed.
+	// ── Frontend (embedded templates and static assets) ────────────────────────
+	// Registered AFTER all /api/* routes so the SPA fallback does not intercept
+	// API requests. The index is rendered from server-side templates; only the
+	// public asset tree is exposed through the static filesystem.
+	app.Use("/", func(c *fiber.Ctx) error {
+		if (c.Method() == fiber.MethodGet || c.Method() == fiber.MethodHead) && !isFrontendStaticPath(c.Path()) {
+			return serveFrontendIndex(c)
+		}
+		return c.Next()
+	})
+
 	//
 	// Cache-Control: no-cache for JS/CSS so the browser always revalidates after
 	// a server rebuild. Without this, browsers use heuristic caching and may serve
 	// a stale app.js for hours even after docker compose down && up.
 	app.Use("/js/", func(c *fiber.Ctx) error {
+		err := c.Next()
+		c.Set(fiber.HeaderContentType, "application/javascript; charset=utf-8")
 		c.Set("Cache-Control", "no-cache, must-revalidate")
-		return c.Next()
+		return err
 	})
 	app.Use("/css/", func(c *fiber.Ctx) error {
+		err := c.Next()
 		c.Set("Cache-Control", "no-cache, must-revalidate")
-		return c.Next()
+		return err
+	})
+	app.Use("/manifest.json", func(c *fiber.Ctx) error {
+		if c.Method() != fiber.MethodGet && c.Method() != fiber.MethodHead {
+			return c.Next()
+		}
+		return serveFrontendAsset(c, "/manifest.json", "application/manifest+json; charset=utf-8")
+	})
+	app.Use("/sw.js", func(c *fiber.Ctx) error {
+		if c.Method() != fiber.MethodGet && c.Method() != fiber.MethodHead {
+			return c.Next()
+		}
+		return serveFrontendAsset(c, "/sw.js", "application/javascript; charset=utf-8")
 	})
 	app.Use("/", filesystem.New(filesystem.Config{
 		Root:         frontend.FS(),
 		Index:        "index.html",
 		Browse:       false,
-		NotFoundFile: "index.html", // unknown paths → SPA, Vue handles routing
+		NotFoundFile: "",
 	}))
 
 	// ── Manager initialisation (FIX-13: strict order) ─────────────────────────

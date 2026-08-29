@@ -4,23 +4,237 @@ import (
 	"bytes"
 	"encoding/json"
 	"image/png"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 func readEmbedded(t *testing.T, name string) string {
 	t.Helper()
-	content, err := assets.ReadFile(name)
+	if name == "www/js/app.js" {
+		return readFrontendJavaScript(t)
+	}
+	var (
+		content []byte
+		err     error
+	)
+	if name == "www/index.html" {
+		content, err = RenderIndex()
+	} else {
+		content, err = assets.ReadFile(name)
+	}
 	if err != nil {
 		t.Fatalf("read %s: %v", name, err)
 	}
 	return string(content)
 }
 
+func readFrontendJavaScript(t *testing.T) string {
+	t.Helper()
+	paths := []string{
+		"www/js/app.js",
+		"www/js/utils.js",
+		"www/js/notifications.js",
+		"www/js/auth.js",
+		"www/js/clients.js",
+		"www/js/navigation.js",
+		"www/js/interfaces.js",
+		"www/js/gateways.js",
+		"www/js/routing.js",
+		"www/js/nat.js",
+		"www/js/dashboard.js",
+		"www/js/diagnostics.js",
+		"www/js/aliases.js",
+		"www/js/backup.js",
+		"www/js/firewall.js",
+		"www/js/peers.js",
+		"www/js/poller.js",
+		"www/js/settings.js",
+		"www/js/wizards.js",
+	}
+	var combined strings.Builder
+	for _, path := range paths {
+		content, err := assets.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		combined.Write(content)
+		combined.WriteByte('\n')
+	}
+	return combined.String()
+}
+
+func renderedIndex(t *testing.T) ([]byte, error) {
+	t.Helper()
+	return RenderIndex()
+}
+
+func TestFrontendTemplatesParseAndRender(t *testing.T) {
+	parsed, err := parseTemplates(assets)
+	if err != nil {
+		t.Fatalf("parse frontend templates: %v", err)
+	}
+	var rendered bytes.Buffer
+	if err := parsed.ExecuteTemplate(&rendered, "base", nil); err != nil {
+		t.Fatalf("render frontend templates: %v", err)
+	}
+	if rendered.Len() == 0 {
+		t.Fatal("rendered frontend is empty")
+	}
+	if strings.Contains(rendered.String(), "[[ template") {
+		t.Fatal("rendered frontend contains an unresolved template action")
+	}
+}
+
+func TestFrontendRenderedPagePreservesCriticalDOMContracts(t *testing.T) {
+	content, err := RenderIndex()
+	if err != nil {
+		t.Fatalf("render frontend index: %v", err)
+	}
+	index := string(content)
+	for _, expected := range []string{
+		`id="app-navigation"`,
+		`key="page-dashboard"`,
+		`id="dashboard-grid"`,
+		`key="page-interfaces"`,
+		`v-if="activePage === 'settings'"`,
+		`v-if="activePage === 'gateways'"`,
+		`v-if="showQuickPeerCreate"`,
+		`v-if="showInterfaceCreate"`,
+		`v-if="showTOTPSetupModal"`,
+		`v-if="showNewTokenModal"`,
+		`src="./js/pwa.js"`,
+		`<script type="module" src="./js/app.js"></script>`,
+	} {
+		if !strings.Contains(index, expected) {
+			t.Errorf("rendered frontend does not contain %q", expected)
+		}
+	}
+	if pwa := strings.Index(index, `src="./js/pwa.js"`); pwa < 0 {
+		t.Fatal("rendered frontend does not contain the PWA helper")
+	} else if app := strings.Index(index, `<script type="module" src="./js/app.js"></script>`); app < pwa {
+		t.Fatal("application module is loaded before the PWA helper")
+	}
+}
+
+func TestFrontendAppUsesNativeModules(t *testing.T) {
+	app := readEmbedded(t, "www/js/app.js")
+	for _, expected := range []string{
+		"import { API } from './api.js';",
+		"import { i18n } from './i18n.js';",
+		"    bytes,",
+		"...interfaceMethods,",
+		"...pollerMethods,",
+	} {
+		if !strings.Contains(app, expected) {
+			t.Errorf("app.js does not contain module coordinator contract %q", expected)
+		}
+	}
+	for _, path := range []string{
+		"www/js/api.js",
+		"www/js/i18n.js",
+		"www/js/interfaces.js",
+		"www/js/poller.js",
+	} {
+		if _, err := assets.ReadFile(path); err != nil {
+			t.Fatalf("read imported frontend module %s: %v", path, err)
+		}
+	}
+	settings, err := assets.ReadFile("www/js/settings.js")
+	if err != nil {
+		t.Fatalf("read settings module: %v", err)
+	}
+	if !strings.Contains(string(settings), "import { i18n } from './i18n.js';") {
+		t.Fatal("settings module does not import the shared i18n instance")
+	}
+}
+
+func TestFrontendRefreshPathsHaveRuntimeGuards(t *testing.T) {
+	app := readFrontendJavaScript(t)
+	for _, expected := range []string{
+		"this.refreshPeersPromiseKey === interfaceId",
+		"this.refreshAllPeersPromiseKey === remoteKey",
+		"this.peerRefreshSeq",
+		"this.allPeerRefreshSeq",
+		"interfaceId !== this.activeInterfaceId",
+		"remoteKey !== (this.activeRemoteId || 'local')",
+		"this.selectedPeersLoading = true",
+		"this.allPeersLoading = true",
+		"this.gatewaysRefreshPromise",
+		"this.metricsTickPromise",
+		"this.peerMutationInFlight",
+	} {
+		if !strings.Contains(app, expected) {
+			t.Errorf("frontend refresh coordinator does not contain %q", expected)
+		}
+	}
+
+	index, err := RenderIndex()
+	if err != nil {
+		t.Fatalf("render frontend index: %v", err)
+	}
+	for _, expected := range []string{
+		"interfacesLoading && !interfacesLoaded",
+		"interfacesError && !interfacesLoaded",
+		"allPeersLoading && !allPeersLoaded",
+		"selectedPeersLoading && !selectedPeersLoaded",
+		"gatewaysLoading && !gatewaysLoaded",
+	} {
+		if !strings.Contains(string(index), expected) {
+			t.Errorf("rendered frontend does not distinguish loading state with %q", expected)
+		}
+	}
+}
+
+func TestFrontendStaticAssetsExcludeTemplateSources(t *testing.T) {
+	for _, path := range []string{"/js/app.js", "/css/app.css"} {
+		file, err := FS().Open(path)
+		if err != nil {
+			t.Fatalf("open %s: %v", path, err)
+		}
+		body, readErr := io.ReadAll(file)
+		file.Close()
+		if readErr != nil {
+			t.Fatalf("read %s: %v", path, readErr)
+		}
+		if len(body) == 0 {
+			t.Fatalf("read %s: empty body", path)
+		}
+	}
+
+	if file, err := FS().Open("/templates/base.html"); err == nil {
+		file.Close()
+		t.Fatal("template source is exposed through the public asset filesystem")
+	}
+	if file, err := FS().Open("/index.html"); err == nil {
+		file.Close()
+		t.Fatal("the removed monolithic index is still exposed through the public asset filesystem")
+	}
+}
+
+func TestFrontendTemplateParseFailsForMalformedOrMissingTemplates(t *testing.T) {
+	files := func(base string) fstest.MapFS {
+		return fstest.MapFS{
+			"templates/base.html":            &fstest.MapFile{Data: []byte(base)},
+			"templates/components/stub.html": &fstest.MapFile{Data: []byte(`[[ define "stub" ]][[ end ]]`)},
+			"templates/views/stub.html":      &fstest.MapFile{Data: []byte(`[[ define "view" ]][[ end ]]`)},
+			"templates/modals/stub.html":     &fstest.MapFile{Data: []byte(`[[ define "modal" ]][[ end ]]`)},
+		}
+	}
+
+	if _, err := parseTemplates(files(`[[ define "base" ]]`)); err == nil {
+		t.Fatal("malformed template parsed successfully")
+	}
+	if _, err := parseTemplates(files(`[[ define "base" ]][[ template "missing" . ]][[ end ]]`)); err == nil {
+		t.Fatal("template with missing partial parsed successfully")
+	}
+}
+
 func TestFrontendDefinesEveryDarkTextUtility(t *testing.T) {
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -60,7 +274,7 @@ func TestEmbeddedAPIGuideUsesCanonicalEnglishDocument(t *testing.T) {
 	if _, err := assets.ReadFile("www/docs/API.md"); err != nil {
 		t.Fatalf("read canonical embedded API.md: %v", err)
 	}
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -70,7 +284,7 @@ func TestEmbeddedAPIGuideUsesCanonicalEnglishDocument(t *testing.T) {
 }
 
 func TestSafariChromeThemeUsesSingleRuntimeMeta(t *testing.T) {
-	content, err := assets.ReadFile("www/index.html")
+	content, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -91,7 +305,7 @@ func TestSafariChromeThemeUsesSingleRuntimeMeta(t *testing.T) {
 }
 
 func TestFrontendDarkThemeHasReadableTextDefaults(t *testing.T) {
-	content, err := assets.ReadFile("www/index.html")
+	content, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -113,11 +327,7 @@ func TestFrontendDarkThemeHasReadableTextDefaults(t *testing.T) {
 }
 
 func TestFrontendNavigationThemeAndDashboardDefaults(t *testing.T) {
-	appContent, err := assets.ReadFile("www/js/app.js")
-	if err != nil {
-		t.Fatalf("read app.js: %v", err)
-	}
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -125,7 +335,7 @@ func TestFrontendNavigationThemeAndDashboardDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read i18n.js: %v", err)
 	}
-	app, index, translations := string(appContent), string(indexContent), string(i18nContent)
+	app, index, translations := readFrontendJavaScript(t), string(indexContent), string(i18nContent)
 
 	for _, expected := range []string{
 		`const themes = ['light', 'dark', 'auto'];`,
@@ -200,17 +410,13 @@ func TestFrontendNavigationThemeAndDashboardDefaults(t *testing.T) {
 }
 
 func TestFrontendLoadsDashboardPeersImmediatelyAfterLogin(t *testing.T) {
-	appContent, err := assets.ReadFile("www/js/app.js")
-	if err != nil {
-		t.Fatalf("read app.js: %v", err)
-	}
-	app := string(appContent)
+	app := readFrontendJavaScript(t)
 
 	loginStart := strings.Index(app, "async _onLoginSuccess() {")
 	if loginStart == -1 {
 		t.Fatal("app.js does not define _onLoginSuccess")
 	}
-	loginEnd := strings.Index(app[loginStart:], "\n    logout(e) {")
+	loginEnd := strings.Index(app[loginStart:], "\nlogout(e) {")
 	if loginEnd == -1 {
 		t.Fatal("app.js does not delimit _onLoginSuccess")
 	}
@@ -242,7 +448,7 @@ func TestFrontendUsesConsistentButtonRadius(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read app.css: %v", err)
 	}
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -293,7 +499,7 @@ func TestFrontendUserBadgesAndMobileInterfaceActions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read app.css: %v", err)
 	}
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -334,7 +540,7 @@ func TestFrontendUserBadgesAndMobileInterfaceActions(t *testing.T) {
 	if actionStart < 0 {
 		t.Fatal("Interfaces peer action group not found")
 	}
-	actionEnd := strings.Index(index[actionStart:], "<!-- Peer cards")
+	actionEnd := strings.Index(index[actionStart:], `<div v-for="peer in selectedInterfacePeers"`)
 	if actionEnd < 0 {
 		t.Fatal("Interfaces peer action group end not found")
 	}
@@ -347,7 +553,7 @@ func TestFrontendUserBadgesAndMobileInterfaceActions(t *testing.T) {
 }
 
 func TestFrontendClientCardsDoNotRenderAvatars(t *testing.T) {
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -378,7 +584,7 @@ func TestFrontendClientCardsDoNotRenderAvatars(t *testing.T) {
 }
 
 func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -388,7 +594,7 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 	}
 	index := string(indexContent)
 	css := string(cssContent)
-	interfacesStart := strings.Index(index, `<!-- Interfaces Page`)
+	interfacesStart := strings.Index(index, `key="page-interfaces"`)
 	if interfacesStart == -1 {
 		t.Fatal("Interfaces page marker not found")
 	}
@@ -448,7 +654,7 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 }
 
 func TestFrontendCreatedAPITokenModalContainsLongCredentials(t *testing.T) {
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -461,7 +667,7 @@ func TestFrontendCreatedAPITokenModalContainsLongCredentials(t *testing.T) {
 	if modalStart < 0 {
 		t.Fatal("created API token modal not found")
 	}
-	modalEnd := strings.Index(index[modalStart:], `<!-- ==================== Alias Hover Tooltip`)
+	modalEnd := strings.Index(index[modalStart:], `v-if="aliasTooltip"`)
 	if modalEnd < 0 {
 		t.Fatal("created API token modal end not found")
 	}
@@ -491,7 +697,7 @@ func TestFrontendCreatedAPITokenModalContainsLongCredentials(t *testing.T) {
 }
 
 func TestFrontendBackupModalDimsLaterSettingsPanels(t *testing.T) {
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -524,9 +730,9 @@ func TestFrontendBackupModalDimsLaterSettingsPanels(t *testing.T) {
 
 func TestFrontendMetricsSettingsCardAndBindings(t *testing.T) {
 	index := readEmbedded(t, "www/index.html")
-	users := strings.Index(index, "<!-- Users Management -->")
-	metrics := strings.Index(index, "<!-- Metrics Settings -->")
-	backup := strings.Index(index, "<!-- System Backup -->")
+	users := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">Users</p>`)
+	metrics := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">Metrics</p>`)
+	backup := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">System Backup</p>`)
 	if users < 0 || metrics < 0 || backup < 0 || !(users < metrics && metrics < backup) {
 		t.Fatalf("Metrics card must be located after Users and before System Backup")
 	}
@@ -565,7 +771,7 @@ func TestFrontendDiagnosticsUtilitiesMobileLayout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read app.css: %v", err)
 	}
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -607,11 +813,7 @@ func TestFrontendDiagnosticsUtilitiesMobileLayout(t *testing.T) {
 }
 
 func TestFrontendUsesSharedVisibilityAwarePoller(t *testing.T) {
-	content, err := assets.ReadFile("www/js/app.js")
-	if err != nil {
-		t.Fatalf("read app.js: %v", err)
-	}
-	app := string(content)
+	app := readFrontendJavaScript(t)
 	for _, expected := range []string{
 		"startResourcePoller()",
 		"document.addEventListener('visibilitychange'",
@@ -640,7 +842,7 @@ func TestFrontendAPIExposesAggregatePeers(t *testing.T) {
 }
 
 func TestFrontendUsesManifestReleaseLinks(t *testing.T) {
-	content, err := assets.ReadFile("www/index.html")
+	content, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
@@ -654,15 +856,11 @@ func TestFrontendUsesManifestReleaseLinks(t *testing.T) {
 }
 
 func TestFrontendContainsUIIssueRegressions(t *testing.T) {
-	appContent, err := assets.ReadFile("www/js/app.js")
-	if err != nil {
-		t.Fatalf("read app.js: %v", err)
-	}
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
-	app := string(appContent)
+	app := readFrontendJavaScript(t)
 	index := string(indexContent)
 
 	for _, expected := range []string{
@@ -697,15 +895,11 @@ func TestFrontendContainsUIIssueRegressions(t *testing.T) {
 }
 
 func TestFrontendClientExpiryUsesLocalDateTime(t *testing.T) {
-	appContent, err := assets.ReadFile("www/js/app.js")
-	if err != nil {
-		t.Fatalf("read app.js: %v", err)
-	}
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
-	app := string(appContent)
+	app := readFrontendJavaScript(t)
 	index := string(indexContent)
 	section := func(startMarker, endMarker string) string {
 		start := strings.Index(index, startMarker)
@@ -718,8 +912,8 @@ func TestFrontendClientExpiryUsesLocalDateTime(t *testing.T) {
 		}
 		return index[start : start+end]
 	}
-	quickCreate := section("<!-- Quick Peer Create Dialog -->", "<!-- Peer Delete Confirmation Dialog -->")
-	peerEdit := section("<!-- Peer Edit Modal -->", "<!-- Delete Dialog -->")
+	quickCreate := section(`<div v-if="showQuickPeerCreate"`, `<div v-if="peerDelete"`)
+	peerEdit := section(`<div v-if="showPeerEditModal && peerEditForm._peer"`, `<div v-if="clientDelete"`)
 
 	for name, form := range map[string]string{
 		"New Client":  quickCreate,
@@ -754,15 +948,11 @@ func TestFrontendClientExpiryUsesLocalDateTime(t *testing.T) {
 }
 
 func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
-	appContent, err := assets.ReadFile("www/js/app.js")
-	if err != nil {
-		t.Fatalf("read app.js: %v", err)
-	}
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
-	app := string(appContent)
+	app := readFrontendJavaScript(t)
 	index := string(indexContent)
 	dashboardSection := func(startMarker, endMarker string) string {
 		start := strings.Index(index, startMarker)
@@ -775,8 +965,8 @@ func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
 		}
 		return index[start : start+end]
 	}
-	interfaces := dashboardSection("<!-- ── interfaces ── -->", "<!-- ── traffic ── -->")
-	peers := dashboardSection("<!-- ── peers (full list with filter + controls) ── -->", "<!-- ── monitoring ── -->")
+	interfaces := dashboardSection(`v-else-if="w.type === 'interfaces'"`, `v-else-if="w.type === 'traffic'"`)
+	peers := dashboardSection(`v-else-if="w.type === 'peers'"`, `v-else-if="w.type === 'monitoring'"`)
 
 	for _, obsolete := range []string{
 		"dashToggleInterface(iface)",
@@ -815,7 +1005,7 @@ func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
 		`class="dash-peers-toolbar"`,
 		`class="dash-peers-select"`,
 		`class="dash-peers-view-action"`,
-		`<!-- online status dot -->`,
+		`:title="iface.enabled ? 'Up' : 'Down'"`,
 	} {
 		if !strings.Contains(index, expected) {
 			t.Errorf("read-only dashboard does not contain %q", expected)
@@ -849,15 +1039,11 @@ func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
 }
 
 func TestFrontendExposesAllAmneziaTemplateVersions(t *testing.T) {
-	appContent, err := assets.ReadFile("www/js/app.js")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatal(err)
 	}
-	indexContent, err := assets.ReadFile("www/index.html")
-	if err != nil {
-		t.Fatal(err)
-	}
-	app, index := string(appContent), string(indexContent)
+	app, index := readFrontendJavaScript(t), string(indexContent)
 	for _, expected := range []string{"protocol: 'amneziawg-3.1'", "protocolVersion: '3.1'", "headerProtectionKey", "awg3Supported"} {
 		if !strings.Contains(app, expected) {
 			t.Errorf("app.js does not contain %q", expected)
@@ -876,15 +1062,11 @@ func TestFrontendExposesAllAmneziaTemplateVersions(t *testing.T) {
 }
 
 func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
-	appContent, err := assets.ReadFile("www/js/app.js")
-	if err != nil {
-		t.Fatalf("read app.js: %v", err)
-	}
-	indexContent, err := assets.ReadFile("www/index.html")
+	indexContent, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
-	app, index := string(appContent), string(indexContent)
+	app, index := readFrontendJavaScript(t), string(indexContent)
 
 	for _, expected := range []string{
 		`id="login-form"`,
@@ -1022,17 +1204,18 @@ func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
 }
 
 func TestFrontendFirstRunUsesLoginDesign(t *testing.T) {
-	content, err := assets.ReadFile("www/index.html")
+	content, err := renderedIndex(t)
 	if err != nil {
 		t.Fatalf("read index.html: %v", err)
 	}
 	index := string(content)
-	start := strings.Index(index, "<!-- ==================== First-Run Setup ==================== -->")
-	end := strings.Index(index, "<!-- ==================== /First-Run Setup ==================== -->")
-	if start < 0 || end <= start {
+	start := strings.Index(index, `class="auth-screen first-run-screen"`)
+	end := strings.Index(index[start:], `<div v-else-if="authenticated === true"`)
+	if start < 0 || end < 0 {
 		t.Fatal("first-run setup section not found")
 	}
-	firstRun := index[start:end]
+	firstRunEnd := start + end
+	firstRun := index[start:firstRunEnd]
 
 	for _, expected := range []string{
 		`class="auth-screen first-run-screen"`,
@@ -1063,9 +1246,9 @@ func TestFrontendFirstRunUsesLoginDesign(t *testing.T) {
 		}
 	}
 
-	sharedStart := strings.Index(index, "<!-- ==================== Shared System Restore Modals ==================== -->")
-	sharedEnd := strings.Index(index, "<!-- ==================== /Shared System Restore Modals ==================== -->")
-	if sharedStart < 0 || sharedEnd <= sharedStart || sharedStart <= end {
+	sharedStart := strings.Index(index, `v-if="showRestorePasswordModal"`)
+	sharedEnd := strings.Index(index, `v-if="showTOTPDisableModal"`)
+	if sharedStart < 0 || sharedEnd <= sharedStart || sharedStart <= firstRunEnd {
 		t.Fatal("shared restore modals are not rendered outside the first-run/main application branches")
 	}
 	shared := index[sharedStart:sharedEnd]
@@ -1080,8 +1263,8 @@ func TestFrontendFirstRunUsesLoginDesign(t *testing.T) {
 			t.Errorf("shared first-run restore flow does not contain %q", expected)
 		}
 	}
-	settingsStart := strings.Index(index, "<!-- Settings Page")
-	apiTokensStart := strings.Index(index, "<!-- API Tokens -->")
+	settingsStart := strings.Index(index, `key="page-settings"`)
+	apiTokensStart := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">API Tokens</p>`)
 	if settingsStart < 0 || apiTokensStart <= settingsStart {
 		t.Fatal("Settings section boundaries not found")
 	}
@@ -1094,11 +1277,7 @@ func TestFrontendFirstRunUsesLoginDesign(t *testing.T) {
 }
 
 func TestFrontendFirstRunRestoreKeepsEncryptedPasswordUntilApply(t *testing.T) {
-	content, err := assets.ReadFile("www/js/app.js")
-	if err != nil {
-		t.Fatalf("read app.js: %v", err)
-	}
-	app := string(content)
+	app := readFrontendJavaScript(t)
 	for _, expected := range []string{
 		`cancelRestoreFlow() {`,
 		`const previewReady = await this._startRestorePreview(this.restoreFile, this.restorePassword);`,
@@ -1127,6 +1306,7 @@ func TestPWAAssets(t *testing.T) {
 		ID              string `json:"id"`
 		Name            string `json:"name"`
 		ShortName       string `json:"short_name"`
+		Description     string `json:"description"`
 		StartURL        string `json:"start_url"`
 		Scope           string `json:"scope"`
 		Display         string `json:"display"`
@@ -1145,7 +1325,7 @@ func TestPWAAssets(t *testing.T) {
 	if manifest.ID != "." || manifest.StartURL != "." || manifest.Scope != "." {
 		t.Fatalf("manifest paths must remain relative to the hidden admin path: %+v", manifest)
 	}
-	if manifest.Name != "Cascade" || manifest.ShortName != "Cascade" || manifest.Display != "standalone" {
+	if manifest.Name != "Cascade" || manifest.ShortName != "Cascade" || manifest.Description == "" || manifest.Display != "standalone" {
 		t.Fatalf("unexpected PWA identity: %+v", manifest)
 	}
 	if manifest.BackgroundColor != "#0f172a" || manifest.ThemeColor != "#0f172a" {
@@ -1195,5 +1375,81 @@ func TestPWAAssets(t *testing.T) {
 	}
 	if touchConfig.Width != 180 || touchConfig.Height != 180 {
 		t.Fatalf("apple touch icon has dimensions %dx%d, want 180x180", touchConfig.Width, touchConfig.Height)
+	}
+}
+
+func TestFrontendPWAIntegration(t *testing.T) {
+	index, err := RenderIndex()
+	if err != nil {
+		t.Fatalf("render frontend index: %v", err)
+	}
+	for _, expected := range []string{
+		`<link rel="manifest" href="./manifest.json">`,
+		`<meta name="theme-color" content="#0f172a">`,
+		`<link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">`,
+		`<script src="./js/pwa.js"></script>`,
+	} {
+		if !strings.Contains(string(index), expected) {
+			t.Errorf("rendered frontend does not contain PWA integration %q", expected)
+		}
+	}
+
+	for _, assetPath := range []string{
+		"www/manifest.json",
+		"www/sw.js",
+		"www/js/pwa.js",
+		"www/img/pwa-icon-192.png",
+		"www/img/pwa-icon-512.png",
+		"www/img/apple-touch-icon.png",
+	} {
+		content, err := assets.ReadFile(assetPath)
+		if err != nil {
+			t.Fatalf("read embedded PWA asset %s: %v", assetPath, err)
+		}
+		if len(content) == 0 {
+			t.Errorf("embedded PWA asset %s is empty", assetPath)
+		}
+	}
+
+	fileSystem := FS()
+	for _, route := range []string{
+		"/manifest.json",
+		"/sw.js",
+		"/js/pwa.js",
+		"/img/pwa-icon-192.png",
+		"/img/pwa-icon-512.png",
+		"/img/apple-touch-icon.png",
+	} {
+		file, err := fileSystem.Open(route)
+		if err != nil {
+			t.Fatalf("open embedded PWA route %s: %v", route, err)
+		}
+		_ = file.Close()
+	}
+
+	sw, err := assets.ReadFile("www/sw.js")
+	if err != nil {
+		t.Fatalf("read sw.js: %v", err)
+	}
+	swSource := string(sw)
+	for _, expected := range []string{
+		"const CACHE_VERSION = 'cascade-static-v1';",
+		"request.mode === 'navigate'",
+		"isDynamicPath(url.pathname)",
+		"event.data.type === 'SKIP_WAITING'",
+		"caches.delete(key)",
+	} {
+		if !strings.Contains(swSource, expected) {
+			t.Errorf("Service Worker does not contain expected behavior %q", expected)
+		}
+	}
+	for _, forbidden := range []string{
+		"cache.put(event.request",
+		"cache.put(request) // API",
+		"caches.match(event.request) // API",
+	} {
+		if strings.Contains(swSource, forbidden) {
+			t.Errorf("Service Worker contains a potentially dynamic-cache pattern %q", forbidden)
+		}
 	}
 }

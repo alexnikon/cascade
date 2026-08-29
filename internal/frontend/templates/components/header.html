@@ -1,0 +1,19 @@
+[[ define "header" ]]
+        <!-- ==================== Content Area ==================== -->
+        <main class="flex-grow app-main" :class="{ 'mobile-nav-open': mobileNavOpen, 'dashboard-active': activePage === 'dashboard' }">
+          <header class="mobile-app-header">
+            <button ref="mobileMenuButton" type="button" class="mobile-menu-button"
+              aria-label="Open navigation" aria-controls="app-navigation"
+              :aria-expanded="String(mobileNavOpen)" @click="openMobileNav()">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+            <div style="min-width:0;">
+              <div class="text-xs text-gray-500 dark:text-neutral-400 truncate">{{ activeServerLabel }}</div>
+              <div class="font-semibold dark:text-neutral-100 truncate">{{ activePage === 'dashboard' ? 'Cascade' : activePageLabel }}</div>
+            </div>
+          </header>
+          <div class="app-main-content" :class="{ 'dashboard-main-content': activePage === 'dashboard' }">
+
+[[ end ]]

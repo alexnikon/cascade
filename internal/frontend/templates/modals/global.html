@@ -1,0 +1,317 @@
+[[ define "global-modals" ]]
+    <!-- ==================== TOTP Setup Modal ==================== -->
+    <div v-if="showTOTPSetupModal" class="modal-overlay">
+      <div class="modal-panel modal-panel-480 bg-white dark:bg-neutral-700">
+        <div class="modal-header">
+          <h3 class="text-lg font-semibold dark:text-neutral-100">Enable Two-Factor Authentication</h3>
+        </div>
+        <div class="modal-body">
+          <p class="text-sm text-gray-600 dark:text-neutral-300">
+            Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+          </p>
+          <div class="flex justify-center">
+            <img v-if="totpSetupQrPng" :src="totpSetupQrPng"
+              style="width:200px; height:200px; border-radius:8px; border:1px solid #e5e7eb;" />
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 dark:text-neutral-400 mb-1">Manual entry secret:</p>
+            <p class="font-mono text-sm dark:text-neutral-200 bg-gray-50 dark:bg-neutral-800 px-3 py-2 rounded"
+              style="word-break:break-all;">{{ totpSetupSecret }}</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
+              Enter the 6-digit code to confirm
+            </label>
+            <input v-model="totpSetupCode" type="text" inputmode="numeric" maxlength="6"
+              placeholder="000000"
+              class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-center text-lg tracking-widest"
+              @keyup.enter="confirmTOTPEnable()" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showTOTPSetupModal = false"
+            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
+            Cancel
+          </button>
+          <button @click="confirmTOTPEnable()"
+            :disabled="totpSetupSaving || !totpSetupCode"
+            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition"
+            :class="{ 'opacity-50 cursor-not-allowed': totpSetupSaving || !totpSetupCode }">
+            Enable 2FA
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Shared System Restore Modals ==================== -->
+    <div v-if="showRestorePasswordModal" class="modal-overlay" @click.self="cancelRestoreFlow()">
+      <div class="modal-panel modal-panel-sm bg-white dark:bg-neutral-700" role="dialog"
+        aria-modal="true" aria-labelledby="restore-password-title">
+        <div class="modal-header dark:border-neutral-600">
+          <p id="restore-password-title" class="text-lg font-semibold dark:text-neutral-100">Encrypted Backup</p>
+        </div>
+        <div class="modal-body">
+          <p class="text-sm text-gray-600 dark:text-neutral-400">
+            <strong class="break-all">{{ restoreFile && restoreFile.name }}</strong> is encrypted.
+            Enter the password that was used when creating this backup.
+          </p>
+          <div>
+            <label for="restore-backup-password" class="text-sm font-medium dark:text-neutral-300">Password</label>
+            <input id="restore-backup-password" v-model="restorePassword" type="password"
+              autocomplete="off" placeholder="Backup password"
+              class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1"
+              @keydown.enter.prevent="confirmRestoreWithPassword()" autofocus>
+          </div>
+        </div>
+        <div class="modal-footer dark:border-neutral-600">
+          <button type="button" @click="cancelRestoreFlow()"
+            class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+            Cancel
+          </button>
+          <button type="button" @click="confirmRestoreWithPassword()"
+            :disabled="!restorePassword || restorePreviewLoading"
+            class="rounded-lg font-medium text-sm btn text-white"
+            style="background:#2563eb;">
+            <span v-if="restorePreviewLoading">Analyzing…</span>
+            <span v-else>Continue</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showRestorePreviewModal" class="modal-overlay" @click.self="cancelRestoreFlow()">
+      <div class="modal-panel modal-panel-md bg-white dark:bg-neutral-700" role="dialog"
+        aria-modal="true" aria-labelledby="restore-preview-title">
+        <div class="modal-header dark:border-neutral-600">
+          <p id="restore-preview-title" class="text-lg font-semibold dark:text-neutral-100">Restore Backup</p>
+        </div>
+        <div class="modal-body">
+          <div v-if="restorePreview && !restorePreview.needsRemap">
+            <p class="text-sm text-gray-600 dark:text-neutral-400" style="margin-bottom:10px;">
+              Network interfaces match. Ready to restore.
+            </p>
+            <div class="restore-ready-box rounded-lg">
+              <p class="text-sm">
+                ✓ All NAT rules reference interfaces present on this server:
+                <strong>{{ (restorePreview.backupIfaces || []).join(', ') || 'none' }}</strong>
+              </p>
+            </div>
+          </div>
+          <div v-if="restorePreview && restorePreview.needsRemap">
+            <p class="text-sm text-gray-600 dark:text-neutral-400" style="margin-bottom:10px;">
+              The backup references network interfaces that differ from this server.
+              Map each backup interface to the correct interface on this server.
+            </p>
+            <div v-for="bi in (restorePreview.backupIfaces || [])" :key="bi"
+              class="restore-interface-map-row">
+              <span class="text-sm font-mono" :style="{ color: theme === 'dark' ? '#f87171' : '#dc2626' }">{{ bi }}</span>
+              <span class="text-sm dark:text-neutral-400">→</span>
+              <select v-model="restoreIfaceMap[bi]"
+                class="dark:bg-neutral-800 dark:text-neutral-200 dark:border-neutral-500">
+                <option v-for="si in (restorePreview.serverIfaces || [])" :key="si" :value="si">{{ si }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="restore-warning-box rounded-lg">
+            <p v-if="showFirstRunSetup" class="text-sm">
+              ⚠ This backup will completely replace the state of this new installation and restart Cascade.
+              Sign in with an administrator account from the backup after restart.
+            </p>
+            <p v-else class="text-sm">
+              ⚠ This will stop all interfaces, clear firewall rules and ipsets, replace the database,
+              and restart the server. A pre-restore backup will be saved automatically.
+            </p>
+          </div>
+        </div>
+        <div class="modal-footer dark:border-neutral-600">
+          <button type="button" @click="cancelRestoreFlow()"
+            class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+            Cancel
+          </button>
+          <button type="button" @click="confirmRestoreApply()" :disabled="systemRestoring"
+            class="rounded-lg font-medium text-sm btn text-white" style="background:#dc2626;">
+            <span v-if="systemRestoring">Restoring…</span>
+            <span v-else>⬆ Apply Restore</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- ==================== /Shared System Restore Modals ==================== -->
+
+    <!-- ==================== Disable TOTP Modal ==================== -->
+    <div v-if="showTOTPDisableModal" class="modal-overlay">
+      <div class="modal-panel modal-panel-sm bg-white dark:bg-neutral-700">
+        <div class="modal-header">
+          <h3 class="text-lg font-semibold dark:text-neutral-100">Disable Two-Factor Authentication</h3>
+        </div>
+        <div class="modal-body">
+          <p class="text-sm text-gray-600 dark:text-neutral-300">
+            Enter your current 6-digit authenticator code to confirm.
+          </p>
+          <input v-model="totpDisableCode" type="text" inputmode="numeric" maxlength="6"
+            placeholder="000000"
+            class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-center text-lg tracking-widest"
+            @keyup.enter="confirmTOTPDisable()" />
+        </div>
+        <div class="modal-footer">
+          <button @click="showTOTPDisableModal = false"
+            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
+            Cancel
+          </button>
+          <button @click="confirmTOTPDisable()"
+            :disabled="!totpDisableCode"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition"
+            :class="{ 'opacity-50 cursor-not-allowed': !totpDisableCode }">
+            Disable 2FA
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Add User Modal ==================== -->
+    <div v-if="showAddUserModal" class="modal-overlay">
+      <div class="modal-panel modal-panel-sm bg-white dark:bg-neutral-700">
+        <div class="modal-header">
+          <h3 class="text-lg font-semibold dark:text-neutral-100">Add User</h3>
+        </div>
+        <div class="modal-body">
+          <div>
+            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Username</label>
+            <input v-model="addUserForm.username" type="text" placeholder="username"
+              class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Password</label>
+            <input v-model="addUserForm.password" type="password" placeholder="Password"
+              class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Confirm Password</label>
+            <input v-model="addUserForm.passwordConfirm" type="password" placeholder="Confirm password"
+              class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm"
+              @keyup.enter="createUser()" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showAddUserModal = false"
+            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
+            Cancel
+          </button>
+          <button @click="createUser()"
+            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+            Create User
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Create API Token Modal ==================== -->
+    <div v-if="showCreateTokenModal" class="modal-overlay">
+      <div class="modal-panel modal-panel-sm bg-white dark:bg-neutral-700">
+        <div class="modal-header">
+          <h3 class="text-lg font-semibold dark:text-neutral-100">Create API Token</h3>
+        </div>
+        <div class="modal-body">
+          <div>
+            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Token name</label>
+            <input v-model="createTokenForm.name" type="text" placeholder="e.g. monitoring-script"
+              class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm"
+              @keyup.enter="createApiToken()" />
+          </div>
+          <p class="text-xs text-gray-500 dark:text-neutral-400">
+            The token will be shown once after creation. Store it securely — it cannot be retrieved later.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button @click="showCreateTokenModal = false"
+            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
+            Cancel
+          </button>
+          <button @click="createApiToken()"
+            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+            Create
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== New Token Value Modal ==================== -->
+    <div v-if="showNewTokenModal" class="modal-overlay">
+      <div class="modal-panel modal-panel-md api-token-created-modal bg-white dark:bg-neutral-700">
+        <div class="modal-header">
+          <h3 class="text-lg font-semibold dark:text-neutral-100">Token Created</h3>
+        </div>
+        <div class="modal-body">
+          <div class="api-token-warning bg-amber-50 dark:bg-amber-900 border border-amber-300 dark:border-amber-700 rounded p-3 text-xs text-amber-800 dark:text-amber-200">
+            ⚠ This is the only time the token will be shown. Copy it now — it cannot be retrieved later.
+          </div>
+          <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Your API token</label>
+          <div class="api-token-copy-row">
+            <code class="api-token-value bg-gray-100 dark:bg-neutral-600 dark:text-neutral-200 select-all">{{ newTokenValue }}</code>
+            <button @click="copyTokenToClipboard()"
+              class="api-token-copy-button px-3 py-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded transition whitespace-nowrap">
+              Copy
+            </button>
+          </div>
+          <div class="api-token-usage text-xs text-gray-500 dark:text-neutral-400">
+            <span>Usage</span>
+            <code class="font-mono bg-gray-100 dark:bg-neutral-600 dark:text-neutral-200 rounded">Authorization: Bearer {{ newTokenValue }}</code>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showNewTokenModal = false; newTokenValue = ''"
+            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== Alias Hover Tooltip ==================== -->
+    <div v-if="aliasTooltip" @mouseleave="hideAliasTooltip()"
+      class="bg-white dark:bg-neutral-800 rounded-lg shadow-xl text-sm dark:text-neutral-200"
+      style="position:fixed; z-index:9998; min-width:180px; max-width:320px; border:1px solid rgba(0,0,0,0.12); pointer-events:auto;"
+      :style="{ left: aliasTooltip.x + 'px', top: aliasTooltip.y + 'px' }">
+      <!-- Header -->
+      <div class="font-semibold" style="padding:8px 12px 6px; border-bottom:1px solid rgba(0,0,0,0.08); display:flex; align-items:center; gap:6px;">
+        <span class="rounded text-xs" style="padding:1px 6px; background:#ede9fe; color:#5b21b6; font-weight:700;">{{ aliasTooltip.alias.type }}</span>
+        {{ aliasTooltip.alias.name }}
+      </div>
+      <!-- Entries -->
+      <div style="padding:6px 12px 8px; max-height:200px; overflow-y:auto;">
+        <!-- host / network / port -->
+        <template v-if="aliasTooltip.alias.type !== 'ipset' && aliasTooltip.alias.type !== 'group' && aliasTooltip.alias.type !== 'port-group' && aliasTooltip.alias.type !== 'client-group'">
+          <div v-if="!aliasTooltip.alias.entries || !aliasTooltip.alias.entries.length"
+            class="text-gray-400 dark:text-neutral-500 text-xs italic">empty</div>
+          <div v-for="e in aliasTooltip.alias.entries" :key="e"
+            class="font-mono text-xs" style="padding:1px 0; color:#374151;">{{ e }}</div>
+        </template>
+        <!-- ipset / client-group -->
+        <template v-else-if="aliasTooltip.alias.type === 'ipset' || aliasTooltip.alias.type === 'client-group'">
+          <div v-if="aliasTooltip.ipsetLoading" class="text-xs text-gray-400 dark:text-neutral-500 italic">Loading…</div>
+          <template v-else-if="aliasTooltip.ipsetEntries && aliasTooltip.ipsetEntries.length">
+            <div v-for="e in aliasTooltip.ipsetEntries.slice(0, 20)" :key="e"
+              class="font-mono text-xs" style="padding:1px 0; color:#374151;">{{ e }}</div>
+            <div v-if="aliasTooltip.ipsetEntries.length > 20"
+              class="text-xs text-gray-400 dark:text-neutral-500 italic" style="padding-top:4px;">
+              … and {{ aliasTooltip.ipsetEntries.length - 20 }} more
+            </div>
+          </template>
+          <div v-else class="text-xs text-gray-400 dark:text-neutral-500 italic">
+            {{ aliasTooltip.alias.entryCount || 0 }} entries
+            <span v-if="aliasTooltip.alias.generatorOpts">(generated)</span>
+          </div>
+        </template>
+        <!-- group / port-group -->
+        <template v-else>
+          <div v-if="!aliasTooltip.alias.memberIds || !aliasTooltip.alias.memberIds.length"
+            class="text-gray-400 dark:text-neutral-500 text-xs italic">no members</div>
+          <div v-for="mid in aliasTooltip.alias.memberIds" :key="mid"
+            class="text-xs" style="padding:1px 0;">
+            {{ _aliasLabel(mid) }}
+          </div>
+        </template>
+      </div>
+    </div>
+
+[[ end ]]

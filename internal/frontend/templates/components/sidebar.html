@@ -1,0 +1,240 @@
+[[ define "sidebar" ]]
+        <!-- ==================== Sidebar ==================== -->
+        <nav id="app-navigation" ref="mobileNav" class="w-64 flex-shrink-0 flex flex-col app-nav"
+          :class="{ 'app-nav-open': mobileNavOpen }"
+          :aria-hidden="isCompactViewport ? String(!mobileNavOpen) : 'false'"
+          :inert="isCompactViewport && !mobileNavOpen"
+          @keydown="onMobileNavKeydown($event)">
+          <!-- Logo -->
+          <div style="padding: 20px 16px 14px; position:relative;">
+            <img :src="theme === 'dark' ? 'img/logo-dark.svg' : 'img/logo.svg'" style="width:216px; height:auto; display:block;" alt="Cascade" />
+            <button type="button" class="mobile-nav-close" aria-label="Close navigation"
+              @click="closeMobileNav()">
+              <svg class="mobile-nav-close-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                stroke-width="2" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+          <!-- Router identity -->
+          <div class="app-nav-divider" style="padding: 0 16px 14px;">
+            <div class="text-sm font-semibold truncate"
+                 :style="{ color: theme === 'dark' ? '#f5f5f5' : '#1f2937', lineHeight: '1.3' }"
+                 :title="globalSettings.routerName || globalSettings.hostname">
+              {{ globalSettings.routerName || globalSettings.hostname || 'Cascade Router' }}
+            </div>
+            <div class="flex items-center gap-1" style="margin-top:3px;">
+              <button type="button" @click="copyPublicIP()"
+                    :disabled="!globalSettings.resolvedPublicIP"
+                    title="Copy public IP"
+                    class="text-xs font-mono truncate"
+                    style="padding:0; border:0; background:none; cursor:pointer; text-align:left;"
+                    :style="{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280' }">
+                {{ globalSettings.resolvedPublicIP || '…' }}
+              </button>
+              <!-- Warning dot if private/unavailable IP -->
+              <span v-if="globalSettings.publicIPWarning"
+                    :title="globalSettings.publicIPWarning"
+                    style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#f59e0b; flex-shrink:0;">
+              </span>
+            </div>
+            <!-- AWG run mode + network mode badges -->
+            <div v-if="globalSettings.awgMode" style="margin-top:5px; display:flex; flex-wrap:wrap; gap:4px;">
+              <!-- WG implementation: KERNEL (green) | USERSPACE (blue) -->
+              <span v-if="globalSettings.awgMode === 'userspace'"
+                    title="Running amneziawg-go (userspace)"
+                    :style="{
+                      display:'inline-block', fontSize:'10px', fontWeight:'600',
+                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
+                      background: theme === 'dark' ? '#1e3a5f' : '#dbeafe',
+                      color:      theme === 'dark' ? '#93c5fd' : '#1d4ed8'
+                    }">
+                USERSPACE
+              </span>
+              <span v-else
+                    title="Running AmneziaWG kernel module"
+                    :style="{
+                      display:'inline-block', fontSize:'10px', fontWeight:'600',
+                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
+                      background: theme === 'dark' ? '#14532d' : '#d1fae5',
+                      color:      theme === 'dark' ? '#86efac' : '#065f46'
+                    }">
+                KERNEL
+              </span>
+              <!-- Docker network mode: HOST (gray) | BRIDGE (amber) | NONE (red) -->
+              <span v-if="globalSettings.networkMode === 'bridge'"
+                    title="Docker bridge network mode — ports are published via docker-compose"
+                    :style="{
+                      display:'inline-block', fontSize:'10px', fontWeight:'600',
+                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
+                      background: theme === 'dark' ? '#451a03' : '#fef3c7',
+                      color:      theme === 'dark' ? '#fcd34d' : '#92400e'
+                    }">
+                BRIDGE
+              </span>
+              <span v-else-if="globalSettings.networkMode === 'none'"
+                    title="Docker none network mode — no external network"
+                    :style="{
+                      display:'inline-block', fontSize:'10px', fontWeight:'600',
+                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
+                      background: theme === 'dark' ? '#3b0a0a' : '#fee2e2',
+                      color:      theme === 'dark' ? '#fca5a5' : '#991b1b'
+                    }">
+                NONE
+              </span>
+              <span v-else
+                    title="Docker host network mode — container shares host network namespace"
+                    :style="{
+                      display:'inline-block', fontSize:'10px', fontWeight:'600',
+                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
+                      background: theme === 'dark' ? '#1f2937' : '#f3f4f6',
+                      color:      theme === 'dark' ? '#9ca3af' : '#374151'
+                    }">
+                HOST
+              </span>
+            </div>
+          </div>
+          <!-- Server switcher (visible only when remotes exist) -->
+          <div v-if="remotes.length" class="app-nav-divider" style="padding: 8px 16px 12px;">
+            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-neutral-500" style="margin-bottom:6px;">Server</div>
+            <div style="position:relative;">
+              <select @change="$event.target.value === '__local__' ? switchToLocal() : switchToRemote(remotes.find(r => r.id === $event.target.value))"
+                class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
+                style="padding:5px 8px; appearance:none; cursor:pointer; width:100%;"
+                :value="activeRemoteId || '__local__'">
+                <option value="__local__">🏠 {{ localServerName || pageTitle || 'Local' }}</option>
+                <option v-for="r in remotes" :key="r.id" :value="r.id">🌐 {{ r.name }}</option>
+              </select>
+            </div>
+            <!-- Remote mode indicator -->
+            <div v-if="activeRemoteId"
+              style="margin-top:6px; padding:4px 8px; border-radius:6px; background:#fef9c3; border:1px solid #fde047;">
+              <span style="font-size:0.7rem; color:#854d0e; font-weight:600;">
+                ⚡ Managing remote server
+              </span>
+            </div>
+          </div>
+
+          <!-- Menu items -->
+          <div style="padding: 8px 8px 0;" class="app-nav-menu">
+            <template v-for="page in sidebarMenu" :key="page.id">
+              <!-- Section header -->
+              <div v-if="page.type === 'header'">
+                <!-- Wizards header — collapsible -->
+                <button v-if="page.id === '_header_wizards'"
+                  @click="wizardsExpanded = !wizardsExpanded"
+                  class="w-full text-left text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-neutral-500 cursor-pointer"
+                  style="padding: 12px 12px 4px; margin-top: 4px; background: none; border: none; display: flex; align-items: center; justify-content: space-between;">
+                  <span>{{ page.label }}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
+                       :style="{ transform: wizardsExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </button>
+                <!-- Regular non-clickable header -->
+                <div v-else
+                  class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-neutral-500"
+                  style="padding: 12px 12px 4px; margin-top: 4px;">
+                  {{ page.label }}
+                </div>
+              </div>
+              <!-- Wizard items — hidden unless expanded -->
+              <button v-else-if="page.id && page.id.startsWith('wizard-')"
+                @click="switchPage(page.id)"
+                @mouseenter="hoverPage = page.id"
+                @mouseleave="hoverPage = null"
+                :class="activePage === page.id ? 'bg-gray-200 dark:bg-neutral-600 text-gray-900 dark:text-white font-semibold' : 'text-gray-600 dark:text-neutral-400'"
+                :style="Object.assign({ display: wizardsExpanded ? 'block' : 'none', marginBottom: '2px', padding: '10px 12px' }, hoverPage === page.id && activePage !== page.id ? { backgroundColor: 'rgba(0,0,0,0.05)' } : {})"
+                class="w-full text-left text-sm cursor-pointer rounded transition">
+                {{ page.label }}
+              </button>
+              <!-- Regular menu item -->
+              <button v-else
+                @click="switchPage(page.id)"
+                @mouseenter="hoverPage = page.id"
+                @mouseleave="hoverPage = null"
+                :class="activePage === page.id ? 'bg-gray-200 dark:bg-neutral-600 text-gray-900 dark:text-white font-semibold' : 'text-gray-600 dark:text-neutral-400'"
+                :style="hoverPage === page.id && activePage !== page.id ? 'background-color: rgba(0,0,0,0.05);' : ''"
+                class="w-full text-left text-sm cursor-pointer rounded transition"
+                style="padding: 10px 12px; margin-bottom: 2px; display: block;">
+                {{ page.label }}
+              </button>
+            </template>
+          </div>
+          <!-- Bottom controls -->
+          <div class="app-nav-footer">
+            <div class="flex gap-2" style="align-items: center;">
+              <!-- Theme toggle -->
+              <button type="button" @click="toggleTheme"
+                class="flex items-center justify-center h-8 px-2 gap-1.5 rounded-full bg-gray-200 dark:bg-neutral-700 transition"
+                :title="$t(`theme.${uiTheme}`)"
+                :aria-label="$t(`theme.${uiTheme}`)">
+                <svg v-if="uiTheme === 'light'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+                </svg>
+                <svg v-else-if="uiTheme === 'dark'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-neutral-400">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-4 h-4 fill-gray-600 dark:fill-neutral-400">
+                  <path d="M12,2.2c-5.4,0-9.8,4.4-9.8,9.8s4.4,9.8,9.8,9.8s9.8-4.4,9.8-9.8S17.4,2.2,12,2.2z M3.8,12c0-4.5,3.7-8.2,8.2-8.2v16.5C7.5,20.2,3.8,16.5,3.8,12z" />
+                </svg>
+                <span class="font-semibold uppercase text-gray-600 dark:text-neutral-300"
+                  style="font-size:10px; letter-spacing:0.04em; line-height:1;">{{ uiTheme }}</span>
+              </button>
+              <div class="flex-grow"></div>
+              <!-- Logout -->
+              <span v-if="requiresPassword"
+                class="text-xs text-gray-400 dark:text-neutral-400 cursor-pointer"
+                @click="logout">
+                {{$t("logout")}}
+              </span>
+            </div>
+            <!-- Version row -->
+            <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span v-if="versionInfo"
+                class="text-xs font-mono"
+                :style="{ color: theme === 'dark' ? '#a3a3a3' : '#9ca3af' }"
+                :title="versionInfo.gitCommit ? 'commit ' + versionInfo.gitCommit : ''">
+                {{ versionInfo.version }}
+              </span>
+              <!-- API Guide link -->
+              <a href="./docs/api-viewer.html"
+                target="_blank"
+                :style="{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280' }"
+                style="display:inline-flex; align-items:center; gap:3px; font-size:11px; text-decoration:none;"
+                title="API Guide">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+                API Guide
+              </a>
+              <!-- Check for updates button (shown only when no update available) -->
+              <button v-if="versionInfo && !versionInfo.updateAvailable"
+                @click="checkForUpdates"
+                :disabled="updateChecking"
+                :title="updateChecking ? 'Checking...' : 'Check for updates'"
+                style="display:inline-flex; align-items:center; gap:3px; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:500; border:none; cursor:pointer; flex-shrink:0;"
+                :style="{ background: theme==='dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', color: theme==='dark' ? '#a3a3a3' : '#6b7280', opacity: updateChecking ? 0.6 : 1 }">
+                <span v-if="updateChecking">...</span>
+                <span v-else>↻</span>
+              </button>
+
+              <!-- Update available badge -->
+              <span v-if="versionInfo && versionInfo.updateAvailable && !updateBannerDismissed"
+                style="display:inline-flex; align-items:center; gap:3px; flex-shrink:0;">
+                <a v-if="versionInfo.releaseURL" :href="versionInfo.releaseURL"
+                  target="_blank"
+                  :title="'New version available: ' + versionInfo.latestVersion + '\nUpdate the image tag in docker-compose.yml, then run docker compose pull and docker compose up -d'"
+                  style="display:inline-flex; align-items:center; gap:3px; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:600; text-decoration:none; background:#f59e0b; color:#fff;">
+                  ↑ {{ versionInfo.latestVersion }}
+                </a>
+                <span v-else :title="versionInfo.changelog || ('New version available: ' + versionInfo.latestVersion)">
+                  ↑ {{ versionInfo.latestVersion }}
+                </span>
+                <button @click="updateBannerDismissed = true" title="Dismiss"
+                  style="display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; border:none; background:rgba(0,0,0,0.15); color:#9ca3af; font-size:10px; cursor:pointer; padding:0; line-height:1;">×</button>
+              </span>
+            </div>
+          </div>
+        </nav>
+[[ end ]]

@@ -1,0 +1,470 @@
+[[ define "firewall-aliases" ]]
+        <!-- Firewall Aliases Page                                          -->
+        <!-- ============================================================== -->
+        <div v-if="activePage === 'firewall-aliases'" key="page-firewall-aliases" style="display:flex; flex-direction:column; gap:24px;">
+          <!-- Header -->
+          <div class="flex items-center justify-between">
+            <h1 class="text-2xl font-bold dark:text-neutral-200">Firewall Aliases</h1>
+            <button @click="showAliasCreate = true; _resetAliasCreate()"
+              class="bg-blue-600 text-white rounded-lg font-medium text-sm transition btn">
+              + Add Alias
+            </button>
+          </div>
+          <p class="text-sm text-gray-500 dark:text-neutral-400">Named groups of IP addresses or CIDR networks. Can be referenced in Policy Rules and Firewall Rules.</p>
+
+          <!-- Loading -->
+          <div v-if="aliasesLoading" class="text-gray-500 dark:text-neutral-400 text-sm">Loading...</div>
+
+          <!-- Empty -->
+          <div v-else-if="!aliases.length" class="text-gray-500 dark:text-neutral-400 text-sm" style="padding:24px 0;">
+            No aliases yet. Create one to use in Policy Rules or Firewall Rules.
+          </div>
+
+          <!-- Table -->
+          <div v-else class="bg-white dark:bg-neutral-700 rounded-lg overflow-hidden" style="border:1px solid #e5e7eb;">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50 dark:bg-neutral-600 text-gray-500 dark:text-neutral-400 text-xs uppercase">
+                  <th class="text-left font-medium tc">Name</th>
+                  <th class="text-left font-medium tc">Type</th>
+                  <th class="text-left font-medium tc">Entries</th>
+                  <th class="text-left font-medium tc">Description</th>
+                  <th class="text-left font-medium tc">Updated</th>
+                  <th class="tc"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="alias in aliases" :key="alias.id"
+                  class="dark:border-neutral-600" style="border-top-width:1px;">
+                  <td class="dark:text-neutral-200 font-medium tc">
+                    {{ alias.name }}
+                    <span v-if="alias.type === 'client-group' && alias.name === 'default'" class="text-xs text-gray-400 dark:text-neutral-500 font-normal">(protected)</span>
+                  </td>
+                  <td class="tc">
+                    <span class="text-xs font-medium rounded-full px-2 py-1"
+                      :style="alias.type === 'ipset'      ? 'background:#f3e8ff;color:#7c3aed;' :
+                              alias.type === 'network'    ? 'background:#dbeafe;color:#1e40af;' :
+                              alias.type === 'group'      ? 'background:#ede9fe;color:#5b21b6;' :
+                              alias.type === 'port'       ? 'background:#fee2e2;color:#991b1b;' :
+                              alias.type === 'port-group' ? 'background:#fce7f3;color:#9d174d;' :
+                                                           'background:#f3f4f6;color:#374151;'">
+                      {{ alias.type }}
+                    </span>
+                  </td>
+                  <td class="text-gray-600 dark:text-neutral-400 font-mono text-xs tc">
+                    <span v-if="alias.type === 'ipset'">
+                      <span v-if="aliasGeneratingId === alias.id" class="text-blue-500">⟳ generating...</span>
+                      <span v-else-if="alias.entryCount > 0">{{ alias.entryCount }} prefixes</span>
+                      <span v-else class="text-gray-400 dark:text-neutral-500 italic">empty — upload or generate</span>
+                    </span>
+                    <span v-else-if="alias.type === 'group'">
+                      {{ (alias.memberIds || []).length }} members · {{ alias.entryCount }} entries total
+                    </span>
+                    <span v-else-if="alias.type === 'port-group'">
+                      {{ (alias.memberIds || []).length }} port aliases
+                    </span>
+                    <span v-else-if="alias.type === 'client-group'">{{ alias.entryCount }} peers</span>
+                    <span v-else>{{ (alias.entries || []).length }} entries</span>
+                  </td>
+                  <td class="text-gray-500 dark:text-neutral-400 text-xs tc">{{ alias.description || '—' }}</td>
+                  <td class="text-gray-400 dark:text-neutral-500 text-xs tc">
+                    {{ alias.lastUpdated ? new Date(alias.lastUpdated).toLocaleDateString() : '—' }}
+                  </td>
+                  <td class="tc">
+                    <div class="flex gap-2 justify-end">
+                      <button @click="openAliasEdit(alias)"
+                        class="text-xs bg-gray-100 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded px-2 py-1 transition">
+                        Edit
+                      </button>
+                      <button v-if="!(alias.type === 'client-group' && alias.name === 'default')"
+                        @click="deleteAlias(alias)"
+                        class="text-xs bg-red-100 text-red-600 rounded px-2 py-1 transition">
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Create Alias Modal ─────────────────────────────────────── -->
+        <div v-if="showAliasCreate && activePage === 'firewall-aliases'"
+          class="modal-overlay"
+         >
+          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-540">
+            <div class="modal-header dark:border-neutral-600">
+              <h2 class="text-xl font-medium dark:text-neutral-200">Create Alias</h2>
+            </div>
+            <div class="modal-body">
+              <!-- Name -->
+              <div>
+                <label class="text-sm font-medium dark:text-neutral-300">Name *</label>
+                <input v-model="aliasCreate.name" type="text" placeholder="e.g. russian_ips"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
+              </div>
+              <!-- Description -->
+              <div>
+                <label class="text-sm font-medium dark:text-neutral-300">Description</label>
+                <input v-model="aliasCreate.description" type="text" placeholder="Optional"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
+              </div>
+              <!-- Type -->
+              <div>
+                <label class="text-sm font-medium dark:text-neutral-300">Type</label>
+                <select v-model="aliasCreate.type"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                  <option value="host">Host — list of single IP addresses</option>
+                  <option value="network">Network — list of CIDR prefixes</option>
+                  <option value="ipset">ipset — large kernel set (upload file or generate)</option>
+                  <option value="client-group">Client Group — ipset auto-managed by peer membership</option>
+                  <option value="group">Group — combines multiple host/network aliases</option>
+                  <option value="port">Port — list of protocol:port entries</option>
+                  <option value="port-group">Port Group — combines multiple port aliases</option>
+                </select>
+              </div>
+              <!-- Rate limits (client-group) -->
+              <div v-if="aliasCreate.type === 'client-group'" style="display:flex; gap:12px;">
+                <div style="flex:1;">
+                  <label class="text-sm font-medium dark:text-neutral-300">Download limit <span class="text-gray-400 font-normal">(kbps, 0=unlimited)</span></label>
+                  <input v-model.number="aliasCreate.rateDown" type="number" min="0" placeholder="0"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                </div>
+                <div style="flex:1;">
+                  <label class="text-sm font-medium dark:text-neutral-300">Upload limit <span class="text-gray-400 font-normal">(kbps, 0=unlimited)</span></label>
+                  <input v-model.number="aliasCreate.rateUp" type="number" min="0" placeholder="0"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                </div>
+              </div>
+              <!-- Entries (host/network) -->
+              <div v-if="aliasCreate.type === 'host' || aliasCreate.type === 'network'">
+                <label class="text-sm font-medium dark:text-neutral-300">Entries (one per line)</label>
+                <textarea v-model="aliasCreate.entries" rows="5"
+                  :placeholder="aliasCreate.type === 'host' ? '192.168.1.1\n10.0.0.5' : '10.0.0.0/8\n192.168.0.0/16'"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
+              </div>
+              <!-- Port entries -->
+              <div v-if="aliasCreate.type === 'port'">
+                <label class="text-sm font-medium dark:text-neutral-300">Port Entries (one per line)</label>
+                <textarea v-model="aliasCreate.entries" rows="5"
+                  placeholder="tcp:443&#10;udp:53&#10;tcp:8080-8090&#10;any:80"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Format: <code>tcp:PORT</code>, <code>udp:PORT</code>, <code>any:PORT</code>, ranges like <code>tcp:8080-8090</code></p>
+              </div>
+              <!-- Group: member checklist -->
+              <div v-if="aliasCreate.type === 'group'">
+                <label class="text-sm font-medium dark:text-neutral-300">Members (host/network aliases)</label>
+                <div v-if="_aliasGroupCandidates().length === 0" class="text-sm text-gray-400 dark:text-neutral-500 mt-1">
+                  No host/network aliases yet. Create them first.
+                </div>
+                <div v-else class="mt-1 rounded" style="border:1px solid #d1d5db; max-height:180px; overflow-y:auto;">
+                  <label v-for="a in _aliasGroupCandidates()" :key="a.id"
+                    class="flex items-center gap-3 text-sm dark:text-neutral-300 cursor-pointer"
+                    style="padding:8px 12px; border-bottom:1px solid rgba(0,0,0,0.06);">
+                    <input type="checkbox" :value="a.id" v-model="aliasCreate.memberIds" />
+                    <span class="font-medium">{{ a.name }}</span>
+                    <span class="text-xs text-gray-400 dark:text-neutral-500">{{ a.type }} · {{ a.entryCount }} entries</span>
+                  </label>
+                </div>
+              </div>
+              <!-- Port-Group: member checklist -->
+              <div v-if="aliasCreate.type === 'port-group'">
+                <label class="text-sm font-medium dark:text-neutral-300">Members (port aliases)</label>
+                <div v-if="_portAliasCandidates().length === 0" class="text-sm text-gray-400 dark:text-neutral-500 mt-1">
+                  No port aliases yet. Create them first (type: Port).
+                </div>
+                <div v-else class="mt-1 rounded" style="border:1px solid #d1d5db; max-height:180px; overflow-y:auto;">
+                  <label v-for="a in _portAliasCandidates()" :key="a.id"
+                    class="flex items-center gap-3 text-sm dark:text-neutral-300 cursor-pointer"
+                    style="padding:8px 12px; border-bottom:1px solid rgba(0,0,0,0.06);">
+                    <input type="checkbox" :value="a.id" v-model="aliasCreate.memberIds" />
+                    <span class="font-medium">{{ a.name }}</span>
+                    <span class="text-xs text-gray-400 dark:text-neutral-500">{{ a.entryCount }} entries</span>
+                  </label>
+                </div>
+              </div>
+              <!-- ipset: manual CIDR entry (like network type) -->
+              <div v-if="aliasCreate.type === 'ipset'" class="bg-gray-50 dark:bg-neutral-600 rounded-lg" style="padding:12px; margin-bottom:8px;">
+                <p class="text-sm font-medium dark:text-neutral-300 mb-2">
+                  Enter CIDRs manually
+                  <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional — one per line)</span>
+                </p>
+                <textarea v-model="aliasCreate.ipsetEntries" rows="4"
+                  placeholder="10.0.0.0/8&#10;192.168.1.0/24&#10;172.16.0.0/12"
+                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono"></textarea>
+                <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
+                  Takes priority over file upload. Leave empty to use file or generate instead.
+                </p>
+              </div>
+
+              <!-- ipset: upload file -->
+              <div v-if="aliasCreate.type === 'ipset'" class="bg-gray-50 dark:bg-neutral-600 rounded-lg" style="padding:12px; margin-bottom:8px;">
+                <p class="text-sm font-medium dark:text-neutral-300 mb-2">Upload from file <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional — one CIDR per line)</span></p>
+                <label class="inline-flex items-center gap-2 bg-white dark:bg-neutral-500 border border-gray-300 dark:border-neutral-400 text-gray-700 dark:text-neutral-200 rounded px-3 py-2 text-sm cursor-pointer transition"
+                  style="width:100%;">
+                  <svg class="w-4 h-4 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                  </svg>
+                  <span v-if="!aliasCreate.file" class="text-gray-400 dark:text-neutral-400">Choose CIDR file (.txt, .lst…)</span>
+                  <span v-else class="truncate">{{ aliasCreate.file.name }}</span>
+                  <input type="file" class="hidden" accept=".txt,.cidr,.lst,.csv"
+                    @change="e => { aliasCreate.file = e.target.files[0] || null; }">
+                </label>
+                <button v-if="aliasCreate.file" @click="aliasCreate.file = null"
+                  class="text-xs text-gray-400 dark:text-neutral-500 mt-1"
+                  style="background:none;border:none;cursor:pointer;padding:0;">
+                  ✕ Remove
+                </button>
+              </div>
+
+              <!-- ipset: generate from internet -->
+              <div v-if="aliasCreate.type === 'ipset'" class="bg-gray-50 dark:bg-neutral-600 rounded-lg" style="padding:12px;">
+                <p class="text-sm font-medium dark:text-neutral-300 mb-2">Generate after creation (optional)</p>
+                <select v-model="aliasCreate.genSource"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mb-2">
+                  <option value="country">By Country</option>
+                  <option value="asn">By ASN</option>
+                  <option value="asn-list">By ASN List</option>
+                </select>
+                <div v-if="aliasCreate.genSource === 'country'" style="position:relative;">
+                  <input
+                    v-model="countrySearch"
+                    @focus="openCountryPicker('create')"
+                    @input="showCountryDrop = true; countryPickerForm = 'create'"
+                    @blur="onCountryBlur"
+                    type="text"
+                    placeholder="Search country…"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm"
+                    autocomplete="off">
+                  <div v-if="showCountryDrop && countryPickerForm === 'create'"
+                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:#404040;border:1px solid #525252;' : 'background:#fff;border:1px solid #d1d5db;')">
+                    <div v-if="filteredCountries.length === 0"
+                      style="padding:8px 12px;font-size:13px;color:#9ca3af;">No results</div>
+                    <div v-for="c in filteredCountries" :key="c.code"
+                      @mousedown.prevent="selectCountry(c)"
+                      :style="'padding:6px 12px;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;' + (theme==='dark' ? 'color:#e5e5e5;' : 'color:#111827;')">
+                      <span>{{ c.name }}</span>
+                      <span :style="'font-family:monospace;font-size:11px;margin-left:8px;' + (theme==='dark' ? 'color:#a3a3a3;' : 'color:#6b7280;')">{{ c.code }}</span>
+                    </div>
+                  </div>
+                </div>
+                <input v-if="aliasCreate.genSource === 'asn'" v-model="aliasCreate.genAsn"
+                  type="text" placeholder="AS12345"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono" />
+                <input v-if="aliasCreate.genSource === 'asn-list'" v-model="aliasCreate.genAsnList"
+                  type="text" placeholder="12345,20485,3216"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono" />
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Generation runs in background (~30-60s via RIPEstat API)</p>
+              </div>
+            </div>
+            <div class="modal-footer dark:border-neutral-600">
+              <button @click="showAliasCreate = false"
+                class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+                Cancel
+              </button>
+              <button @click="createAlias()"
+                class="bg-blue-600 text-white rounded-lg font-medium text-sm btn">
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Edit Alias Modal ───────────────────────────────────────── -->
+        <div v-if="showAliasEdit && activePage === 'firewall-aliases'"
+          class="modal-overlay"
+         >
+          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-540">
+            <div class="modal-header dark:border-neutral-600">
+              <h2 class="text-xl font-medium dark:text-neutral-200">Edit Alias</h2>
+            </div>
+            <div class="modal-body">
+              <!-- Name -->
+              <div>
+                <label class="text-sm font-medium dark:text-neutral-300">Name *</label>
+                <input v-model="aliasEdit.name" type="text"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
+              </div>
+              <!-- Description -->
+              <div>
+                <label class="text-sm font-medium dark:text-neutral-300">Description</label>
+                <input v-model="aliasEdit.description" type="text"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
+              </div>
+              <!-- Type (read-only badge) -->
+              <div>
+                <label class="text-sm font-medium dark:text-neutral-300">Type</label>
+                <div class="mt-1">
+                  <span class="text-xs font-semibold rounded px-2 py-1"
+                    :style="aliasEdit.type === 'host'       ? 'background:#dbeafe;color:#1e40af;' :
+                            aliasEdit.type === 'network'    ? 'background:#dcfce7;color:#166534;' :
+                            aliasEdit.type === 'ipset'      ? 'background:#fef9c3;color:#92400e;' :
+                            aliasEdit.type === 'port'       ? 'background:#fee2e2;color:#991b1b;' :
+                            aliasEdit.type === 'port-group' ? 'background:#fce7f3;color:#9d174d;' :
+                            'background:#ede9fe;color:#5b21b6;'">
+                    {{ aliasEdit.type }}
+                  </span>
+                  <span class="text-xs text-gray-400 dark:text-neutral-500 ml-2">Type cannot be changed after creation</span>
+                </div>
+              </div>
+              <!-- Rate limits (client-group) -->
+              <div v-if="aliasEdit.type === 'client-group'" style="display:flex; gap:12px;">
+                <div style="flex:1;">
+                  <label class="text-sm font-medium dark:text-neutral-300">Download limit <span class="text-gray-400 font-normal">(kbps, 0=unlimited)</span></label>
+                  <input v-model.number="aliasEdit.rateDown" type="number" min="0" placeholder="0"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                </div>
+                <div style="flex:1;">
+                  <label class="text-sm font-medium dark:text-neutral-300">Upload limit <span class="text-gray-400 font-normal">(kbps, 0=unlimited)</span></label>
+                  <input v-model.number="aliasEdit.rateUp" type="number" min="0" placeholder="0"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                </div>
+              </div>
+              <!-- Entries (host/network) -->
+              <div v-if="aliasEdit.type === 'host' || aliasEdit.type === 'network'">
+                <label class="text-sm font-medium dark:text-neutral-300">Entries (one per line)</label>
+                <textarea v-model="aliasEdit.entries" rows="6"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
+              </div>
+              <!-- Port entries -->
+              <div v-if="aliasEdit.type === 'port'">
+                <label class="text-sm font-medium dark:text-neutral-300">Port Entries (one per line)</label>
+                <textarea v-model="aliasEdit.entries" rows="6"
+                  placeholder="tcp:443&#10;udp:53&#10;tcp:8080-8090&#10;any:80"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Format: <code>tcp:PORT</code>, <code>udp:PORT</code>, <code>any:PORT</code>, ranges like <code>tcp:8080-8090</code></p>
+              </div>
+              <!-- Group: member checklist -->
+              <div v-if="aliasEdit.type === 'group'">
+                <label class="text-sm font-medium dark:text-neutral-300">Members (host/network aliases)</label>
+                <div v-if="_aliasGroupCandidates().length === 0" class="text-sm text-gray-400 dark:text-neutral-500 mt-1">
+                  No host/network aliases available.
+                </div>
+                <div v-else class="mt-1 rounded" style="border:1px solid #d1d5db; max-height:220px; overflow-y:auto;">
+                  <label v-for="a in _aliasGroupCandidates()" :key="a.id"
+                    class="flex items-center gap-3 text-sm dark:text-neutral-300 cursor-pointer"
+                    style="padding:8px 12px; border-bottom:1px solid rgba(0,0,0,0.06);">
+                    <input type="checkbox" :value="a.id" v-model="aliasEdit.memberIds" />
+                    <span class="font-medium">{{ a.name }}</span>
+                    <span class="text-xs text-gray-400 dark:text-neutral-500">{{ a.type }} · {{ a.entryCount }} entries</span>
+                  </label>
+                </div>
+              </div>
+              <!-- Port-Group: member checklist -->
+              <div v-if="aliasEdit.type === 'port-group'">
+                <label class="text-sm font-medium dark:text-neutral-300">Members (port aliases)</label>
+                <div v-if="_portAliasCandidates().length === 0" class="text-sm text-gray-400 dark:text-neutral-500 mt-1">
+                  No port aliases available.
+                </div>
+                <div v-else class="mt-1 rounded" style="border:1px solid #d1d5db; max-height:220px; overflow-y:auto;">
+                  <label v-for="a in _portAliasCandidates()" :key="a.id"
+                    class="flex items-center gap-3 text-sm dark:text-neutral-300 cursor-pointer"
+                    style="padding:8px 12px; border-bottom:1px solid rgba(0,0,0,0.06);">
+                    <input type="checkbox" :value="a.id" v-model="aliasEdit.memberIds" />
+                    <span class="font-medium">{{ a.name }}</span>
+                    <span class="text-xs text-gray-400 dark:text-neutral-500">{{ a.entryCount }} entries</span>
+                  </label>
+                </div>
+              </div>
+              <!-- ipset: regenerate section -->
+              <div v-if="aliasEdit.type === 'ipset'" class="bg-gray-50 dark:bg-neutral-600 rounded-lg" style="padding:12px;">
+                <p class="text-sm font-medium dark:text-neutral-300 mb-2">Regenerate prefixes</p>
+                <select v-model="aliasEdit.genSource"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mb-2">
+                  <option value="country">By Country</option>
+                  <option value="asn">By ASN</option>
+                  <option value="asn-list">By ASN List</option>
+                </select>
+                <div v-if="aliasEdit.genSource === 'country'" style="position:relative;" class="mb-2">
+                  <input
+                    v-model="countrySearch"
+                    @focus="openCountryPicker('edit')"
+                    @input="showCountryDrop = true; countryPickerForm = 'edit'"
+                    @blur="onCountryBlur"
+                    type="text"
+                    placeholder="Search country…"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm"
+                    autocomplete="off">
+                  <div v-if="showCountryDrop && countryPickerForm === 'edit'"
+                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:#404040;border:1px solid #525252;' : 'background:#fff;border:1px solid #d1d5db;')">
+                    <div v-if="filteredCountries.length === 0"
+                      style="padding:8px 12px;font-size:13px;color:#9ca3af;">No results</div>
+                    <div v-for="c in filteredCountries" :key="c.code"
+                      @mousedown.prevent="selectCountry(c)"
+                      :style="'padding:6px 12px;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;' + (theme==='dark' ? 'color:#e5e5e5;' : 'color:#111827;')">
+                      <span>{{ c.name }}</span>
+                      <span :style="'font-family:monospace;font-size:11px;margin-left:8px;' + (theme==='dark' ? 'color:#a3a3a3;' : 'color:#6b7280;')">{{ c.code }}</span>
+                    </div>
+                  </div>
+                </div>
+                <input v-if="aliasEdit.genSource === 'asn'" v-model="aliasEdit.genAsn"
+                  type="text" placeholder="AS12345"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono mb-2" />
+                <input v-if="aliasEdit.genSource === 'asn-list'" v-model="aliasEdit.genAsnList"
+                  type="text" placeholder="12345,20485,3216"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono mb-2" />
+                <button @click="startAliasGenerate(aliasEdit)"
+                  :disabled="aliasGeneratingId === aliasEdit.id"
+                  class="bg-purple-600 text-white rounded px-3 py-2 text-sm font-medium transition"
+                  :style="aliasGeneratingId === aliasEdit.id ? 'opacity:0.6;cursor:not-allowed;' : ''">
+                  {{ aliasGeneratingId === aliasEdit.id ? 'Generating...' : 'Generate Now' }}
+                </button>
+                <div v-if="aliasGeneratingId === aliasEdit.id && aliasGenerateJobStatus" class="text-xs text-gray-500 dark:text-neutral-400 mt-1">
+                  Status: {{ aliasGenerateJobStatus.status }}
+                  <span v-if="aliasGenerateJobStatus.entryCount"> — {{ aliasGenerateJobStatus.entryCount }} entries</span>
+                </div>
+                <!-- Manual CIDR entry or upload (depending on set size) -->
+                <div style="margin-top:12px; border-top:1px solid rgba(0,0,0,0.1); padding-top:12px;">
+
+                  <!-- Small set (≤200, no generatorOpts): show editable textarea -->
+                  <div v-if="!aliasEdit.generatorOpts && aliasEdit.entryCount <= 200">
+                    <p class="text-sm font-medium dark:text-neutral-300 mb-1">
+                      CIDRs
+                      <span class="text-gray-400 dark:text-neutral-500 font-normal">(edit and Save to apply)</span>
+                    </p>
+                    <div v-if="aliasEdit.ipsetEntriesLoading" class="text-xs text-gray-400 dark:text-neutral-500 py-2">Loading…</div>
+                    <textarea v-else v-model="aliasEdit.ipsetEntries" rows="6"
+                      placeholder="10.0.0.0/8&#10;192.168.1.0/24"
+                      class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono"></textarea>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
+                      One CIDR per line. Saving replaces the entire set.
+                    </p>
+                  </div>
+
+                  <!-- Large set or generated: show count + download + upload -->
+                  <div v-else>
+                    <p class="text-sm font-medium dark:text-neutral-300 mb-2">
+                      Contains <strong>{{ aliasEdit.entryCount }}</strong> entries
+                      <span v-if="aliasEdit.generatorOpts" class="text-gray-400 dark:text-neutral-500 font-normal">(generated)</span>
+                    </p>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                      <label class="inline-block bg-gray-200 dark:bg-neutral-500 text-gray-700 dark:text-neutral-200 rounded px-3 py-2 text-sm font-medium cursor-pointer transition">
+                        📂 Replace from file
+                        <input type="file" class="hidden" accept=".txt,.cidr,.lst,.csv"
+                          @change="e => { uploadAliasFile(aliasEdit.id, e.target.files[0]); e.target.value=''; }">
+                      </label>
+                    </div>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
+                      Upload a new file to replace all entries. One CIDR per line.
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer dark:border-neutral-600">
+              <button @click="showAliasEdit = false"
+                class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+                Cancel
+              </button>
+              <button @click="saveAliasEdit()"
+                class="bg-blue-600 text-white rounded-lg font-medium text-sm btn">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================== -->
+[[ end ]]

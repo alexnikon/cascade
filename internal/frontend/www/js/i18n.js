@@ -652,3 +652,9 @@ const messages = { // eslint-disable-line no-unused-vars
     donate: 'दान करें',
   },
 };
+
+export const i18n = new VueI18n({
+  locale: localStorage.getItem('lang') || 'en',
+  fallbackLocale: 'en',
+  messages,
+});

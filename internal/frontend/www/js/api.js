@@ -3,7 +3,7 @@
 
 'use strict';
 
-class API {
+export class API {
 
   constructor() {
     // When set, all calls are transparently proxied through the local server
@@ -55,15 +55,22 @@ class API {
       ? `/remotes/${this._remoteId}/proxy${path}`
       : path;
 
-    const res = await fetch(`${apiBase}${effectivePath}`, {
-      method: method.toUpperCase(), // Node.js 22 llhttp: HTTP method must be uppercase
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: body
-        ? JSON.stringify(body)
-        : undefined,
-    });
+    let res;
+    try {
+      res = await fetch(`${apiBase}${effectivePath}`, {
+        method: method.toUpperCase(), // Node.js 22 llhttp: HTTP method must be uppercase
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: body
+          ? JSON.stringify(body)
+          : undefined,
+      });
+    } catch (cause) {
+      const error = new Error('Unable to reach the Cascade server.');
+      error.cause = cause;
+      throw error;
+    }
 
     // If a proxy call fails with an unrecoverable status (401 or 5xx),
     // notify the app so it can switch back to local mode gracefully.
@@ -84,7 +91,7 @@ class API {
     try {
       json = await res.json();
     } catch (_) {
-      // Сервер вернул пустой или не-JSON body
+      // The server returned an empty or non-JSON response body.
       throw new Error(`Server error ${res.status}: ${res.statusText}`);
     }
 
@@ -362,15 +369,15 @@ class API {
   }
 
   /**
-   * generateTemplate — сгенерировать AWG 2.0 параметры (порт AmneziaWG-Architect).
+   * generateTemplate — generate AWG 2.0 parameters (AmneziaWG-Architect endpoint).
    * @param {object} opts
-   * @param {string} [opts.profile]    — профиль CPS ('random', 'quic_initial', 'tls_client_hello', ...)
-   * @param {string} [opts.intensity]  — интенсивность ('low', 'medium', 'high')
-   * @param {string} [opts.host]       — кастомный хост для SNI
+   * @param {string} [opts.profile]    — CPS profile ('random', 'quic_initial', 'tls_client_hello', ...)
+   * @param {string} [opts.intensity]  — intensity ('low', 'medium', 'high')
+   * @param {string} [opts.host]       — custom SNI host
    * @param {string} [opts.browser]    — Browser Fingerprint: chrome|firefox|safari|edge|yandex_desktop|yandex_mobile
-   * @param {number} [opts.iterCount]  — счётчик попыток
-   * @param {number} [opts.jc]         — базовое Jc
-   * @param {string} [opts.saveName]   — если задан, сохраняет как шаблон
+   * @param {number} [opts.iterCount]  — attempt counter
+   * @param {number} [opts.jc]         — base Jc value
+   * @param {string} [opts.saveName]   — save as a template when provided
    * @returns {{ params, profiles[, template] }}
    */
   async generateTemplate({ profile, intensity, host, browser, iterCount, jc, saveName } = {}) {
@@ -579,10 +586,10 @@ class API {
   }
 
   /**
-   * Экспортировать параметры Interconnect пира в JSON.
-   * Возвращает объект для передачи удалённой стороне (та импортирует через importPeerJSON).
-   * Доступен только для пиров с peerType === 'interconnect'.
-   * Поля: name, publicKey, presharedKey, endpoint, persistentKeepalive, allowedIPs, clientAllowedIPs.
+   * Export Interconnect peer parameters as JSON.
+   * Returns an object for transfer to the remote side, which imports it with importPeerJSON.
+   * Available only for peers with peerType === 'interconnect'.
+   * Fields: name, publicKey, presharedKey, endpoint, persistentKeepalive, allowedIPs, clientAllowedIPs.
    */
   async exportPeerJSON({ interfaceId, peerId }) {
     return this.call({
@@ -592,10 +599,10 @@ class API {
   }
 
   /**
-   * Создать Interconnect пир из JSON экспортированного другой стороной.
-   * peerData — объект полученный от exportPeerJSON() удалённой стороны.
-   * peerType автоматически устанавливается в 'interconnect'.
-   * Ключи не генерируются — они содержатся в импортируемом JSON.
+   * Create an Interconnect peer from JSON exported by the other side.
+   * peerData is the object returned by exportPeerJSON() on the other side.
+   * peerType is automatically set to 'interconnect'.
+   * Keys are not generated because they are included in the imported JSON.
    */
   async importPeerJSON({ interfaceId, ...peerData }) {
     return this.call({
@@ -606,9 +613,9 @@ class API {
   }
 
   /**
-   * Импортировать один или несколько клиентских .conf файлов, чтобы восстановить
-   * приватные ключи пиров (например, после импорта интерфейса с другого сервера).
-   * Возвращает { matched, unmatched: [filenames], peers: [...] }.
+   * Import one or more client .conf files to restore peer private keys,
+   * for example after importing an interface from another server.
+   * Returns { matched, unmatched: [filenames], peers: [...] }.
    * @param {{ interfaceId: string, files: File[] }}
    */
   async importClientConfigs({ interfaceId, files }) {
@@ -627,10 +634,10 @@ class API {
   }
 
   /**
-   * Экспортировать AWG2 параметры обфускации интерфейса.
-   * Возвращает объект с Jc, Jmin, Jmax, S1-S4, H1-H4, I1-I5.
-   * Формат совместим с createTemplate() — можно сохранить как профиль.
-   * Ошибка 400 если интерфейс не AWG2.
+   * Export AWG2 interface obfuscation parameters.
+   * Returns an object with Jc, Jmin, Jmax, S1-S4, H1-H4, and I1-I5.
+   * The format is compatible with createTemplate() and can be saved as a profile.
+   * Returns HTTP 400 when the interface is not AWG2.
    */
   async exportObfuscationParams({ interfaceId }) {
     return this.call({
@@ -640,9 +647,9 @@ class API {
   }
 
   /**
-   * Экспортировать параметры своего интерфейса для передачи удалённой стороне.
-   * Удалённая сторона импортирует JSON через importPeerJSON() → создаёт пир для нас.
-   * Возвращает: name, publicKey, endpoint, address, protocol, settings (AWG2 only).
+   * Export this interface's parameters for transfer to the remote side.
+   * The remote side imports the JSON through importPeerJSON() and creates a peer for us.
+   * Returns: name, publicKey, endpoint, address, protocol, settings (AWG2 only).
    */
   async exportInterfaceParams({ interfaceId }) {
     return this.call({
@@ -812,8 +819,8 @@ class API {
   // ============================================================
 
   /**
-   * Получить список сетевых интерфейсов хоста.
-   * Используется для выбора outbound-интерфейса при создании NAT правила.
+   * Get the host network interfaces.
+   * Used to select the outbound interface when creating a NAT rule.
    * @returns {{ interfaces: Array<{name: string}> }}
    */
   async getNatInterfaces() {
@@ -824,7 +831,7 @@ class API {
   }
 
   /**
-   * Получить список NAT правил.
+   * Get the NAT rules.
    * @returns {{ rules: Array<object> }}
    */
   async getNatRules() {
@@ -835,7 +842,7 @@ class API {
   }
 
   /**
-   * Создать новое NAT правило.
+   * Create a NAT rule.
    * @param {object} data - { name, source, outInterface, type, toSource, comment }
    * @returns {{ rule: object }}
    */
@@ -848,7 +855,7 @@ class API {
   }
 
   /**
-   * Обновить NAT правило (полное обновление полей).
+   * Update a NAT rule (replace all fields).
    * @param {{ ruleId: string, name, source, outInterface, type, toSource, comment }}
    * @returns {{ rule: object }}
    */
@@ -861,7 +868,7 @@ class API {
   }
 
   /**
-   * Включить / выключить NAT правило (toggle).
+   * Enable or disable a NAT rule.
    * @param {{ ruleId: string, enabled: boolean }}
    * @returns {{ rule: object }}
    */
@@ -874,7 +881,7 @@ class API {
   }
 
   /**
-   * Удалить NAT правило.
+   * Delete a NAT rule.
    * @param {{ ruleId: string }}
    */
   async deleteNatRule({ ruleId }) {
@@ -889,7 +896,7 @@ class API {
   // ============================================================
 
   /**
-   * Получить список всех алиасов.
+   * Get all aliases.
    * @returns {{ aliases: Array<object> }}
    */
   async getAliases() {
@@ -909,7 +916,7 @@ class API {
   }
 
   /**
-   * Создать новый алиас.
+   * Create an alias.
    * @param {{ name, type, entries?, description? }} data
    * @returns {{ alias: object }}
    */
@@ -918,7 +925,7 @@ class API {
   }
 
   /**
-   * Обновить алиас.
+   * Update an alias.
    * @param {{ id: string, name?, description?, entries? }}
    * @returns {{ alias: object }}
    */
@@ -927,7 +934,7 @@ class API {
   }
 
   /**
-   * Удалить алиас (для ipset — уничтожает kernel set).
+   * Delete an alias (for ipset, also destroy the kernel set).
    * @param {{ id: string }}
    */
   async deleteAlias({ id }) {
@@ -935,8 +942,8 @@ class API {
   }
 
   /**
-   * Загрузить префиксы из txt-файла в ipset-алиас.
-   * @param {{ id: string, text: string }}  — text — содержимое файла (один CIDR на строку)
+   * Upload prefixes from a text file into an ipset alias.
+   * @param {{ id: string, text: string }}  — text is one CIDR per line
    * @returns {{ alias: object }}
    */
   async uploadAliasFile({ id, text }) {
@@ -948,7 +955,7 @@ class API {
   }
 
   /**
-   * Запустить генерацию ipset через PrefixFetcher (async job).
+   * Start ipset generation through PrefixFetcher (async job).
    * @param {{ id: string, country?, asn?, asnList? }}
    * @returns {{ jobId: string }}
    */
@@ -961,7 +968,7 @@ class API {
   }
 
   /**
-   * Получить статус generation job.
+   * Get the generation job status.
    * @param {{ id: string, jobId: string }}
    * @returns {{ status: 'running'|'done'|'error', entryCount?, error? }}
    */
@@ -970,21 +977,21 @@ class API {
   }
 
   // ============================================================
-  // Firewall Rules API  (Firewall → Rules, поглощает PBR)
+  // Firewall Rules API (Firewall → Rules, replaces the former PBR section)
   // ============================================================
 
-  /** Список сетевых интерфейсов хоста (для дропдауна Interface). */
+  /** Host network interfaces for the Interface dropdown. */
   async getFirewallInterfaces() {
     return this.call({ method: 'get', path: '/firewall/interfaces' });
   }
 
-  /** Список всех firewall правил (sorted by order). */
+  /** All firewall rules, sorted by order. */
   async getFirewallRules() {
     return this.call({ method: 'get', path: '/firewall/rules' });
   }
 
   /**
-   * Создать firewall правило.
+   * Create a firewall rule.
    * @param {{ name, interface?, protocol?, source, destination, action, gatewayId?, gatewayGroupId?, log?, comment? }} data
    */
   async createFirewallRule(data) {
@@ -992,7 +999,7 @@ class API {
   }
 
   /**
-   * Обновить firewall правило (полные данные).
+   * Update a firewall rule (replace all fields).
    * @param {{ id: string, ...updates }}
    */
   async updateFirewallRule({ id, ...updates }) {
@@ -1000,7 +1007,7 @@ class API {
   }
 
   /**
-   * Включить / выключить firewall правило.
+   * Enable or disable a firewall rule.
    * @param {{ id: string, enabled: boolean }}
    */
   async toggleFirewallRule({ id, enabled }) {
@@ -1008,7 +1015,7 @@ class API {
   }
 
   /**
-   * Удалить firewall правило.
+   * Delete a firewall rule.
    * @param {{ id: string }}
    */
   async deleteFirewallRule({ id }) {
@@ -1016,7 +1023,7 @@ class API {
   }
 
   /**
-   * Переместить правило вверх или вниз.
+   * Move a rule up or down.
    * @param {{ id: string, direction: 'up'|'down' }}
    */
   async moveFirewallRule({ id, direction }) {

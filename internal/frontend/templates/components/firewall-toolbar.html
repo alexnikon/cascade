@@ -1,0 +1,40 @@
+[[ define "firewall-toolbar" ]]
+    <!-- ================================================================ -->
+    <!-- Firewall floating toolbar (bottom-right, visible only on firewall -->
+    <!-- page). Below toasts (which are top-right) — no overlap.          -->
+    <!-- ================================================================ -->
+    <div v-if="activePage === 'firewall'" class="firewall-toolbar"
+      style="position:fixed; bottom:max(24px, env(safe-area-inset-bottom)); right:max(24px, env(safe-area-inset-right)); z-index:50;
+             display:flex; align-items:center; gap:8px;
+             border-radius:12px; padding:8px 12px;
+             box-shadow:0 4px 24px rgba(0,0,0,0.18);"
+      :style="theme === 'dark' ? 'background:#262626; border:1px solid #404040;' : 'background:#fff; border:1px solid #e5e7eb;'">
+      <!-- Add buttons -->
+      <button @click="openAddSeparator()"
+        class="text-white rounded-lg font-medium text-sm btn"
+        style="background:#6b7280; padding:6px 12px;">
+        + Separator
+      </button>
+      <button @click="openFirewallCreate()"
+        class="text-white rounded-lg font-medium text-sm btn"
+        style="background:#2563eb; padding:6px 12px;">
+        + Add Rule
+      </button>
+      <!-- Divider -->
+      <div :style="theme === 'dark' ? 'background:#525252;' : 'background:#e5e7eb;'"
+        style="width:1px; height:24px; margin:0 4px;"></div>
+      <!-- Apply / Discard -->
+      <button @click="discardFirewallChanges()" v-if="firewallPending"
+        class="text-white rounded-lg font-medium text-sm btn"
+        style="background:#ef4444; padding:6px 12px;">
+        Discard
+      </button>
+      <button @click="applyFirewallRules()"
+        :disabled="!firewallPending || firewallApplying"
+        class="text-white rounded-lg font-medium text-sm btn"
+        :style="(firewallPending && !firewallApplying) ? 'background:#16a34a; padding:6px 14px;' : 'background:#9ca3af; cursor:not-allowed; padding:6px 14px;'">
+        {{ firewallApplying ? 'Applying…' : 'Apply ▶' }}
+      </button>
+    </div>
+
+[[ end ]]

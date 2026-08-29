@@ -1,0 +1,167 @@
+[[ define "first-run" ]]
+      <!-- ==================== First-Run Setup ==================== -->
+      <!-- Shown INSTEAD of the main app when no users exist (open mode).          -->
+      <!-- The main UI (sidebar + content) is NOT rendered — no DOM to reach via   -->
+      <!-- devtools, no background content accessible behind an overlay.           -->
+      <div v-if="authenticated === true && showFirstRunSetup" class="auth-screen first-run-screen">
+        <form id="first-run-form" name="first-run" @submit.prevent="createFirstUser()"
+          class="shadow-xl bg-white dark:bg-neutral-800 auth-card" aria-labelledby="setup-title">
+          <div class="auth-brand">
+            <img src="./img/cascade_favicon.svg" class="auth-brand-mark" alt="" aria-hidden="true" />
+            <div>
+              <h1 id="setup-title" class="auth-title">Welcome to Cascade</h1>
+              <p class="auth-subtitle">Create your administrator account to secure access to this panel.</p>
+            </div>
+          </div>
+
+          <div class="auth-field">
+            <label for="first-run-username">Username</label>
+            <input id="first-run-username" v-model="firstRunForm.username" type="text" name="username"
+              autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="admin"
+              :disabled="firstRunSaving || restorePreviewLoading || systemRestoring" required />
+          </div>
+
+          <div class="auth-field">
+            <label for="first-run-password">Password</label>
+            <input id="first-run-password" v-model="firstRunForm.password" type="password" name="password"
+              autocomplete="new-password" placeholder="Minimum 8 characters"
+              :disabled="firstRunSaving || restorePreviewLoading || systemRestoring" required />
+          </div>
+
+          <div class="auth-field">
+            <label for="first-run-password-confirm">Confirm Password</label>
+            <input id="first-run-password-confirm" v-model="firstRunForm.passwordConfirm" type="password"
+              name="password-confirm" autocomplete="new-password" placeholder="Repeat password"
+              :disabled="firstRunSaving || restorePreviewLoading || systemRestoring" required />
+          </div>
+
+          <button type="submit" :disabled="firstRunSaving || restorePreviewLoading || systemRestoring" class="auth-primary">
+            <span v-if="!firstRunSaving">Create Admin Account</span>
+            <svg v-else class="w-5 animate-spin mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+              fill="currentColor" aria-label="Creating account">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+
+          <div class="auth-divider" aria-hidden="true"><span>or</span></div>
+          <input ref="firstRunRestoreInput" type="file" class="hidden"
+            accept=".tar.gz,.gz,.enc"
+            :disabled="firstRunSaving || restorePreviewLoading || systemRestoring"
+            @change="e => { pickRestoreFile(e.target.files[0]); e.target.value=''; }" />
+          <button type="button" class="auth-secondary"
+            :disabled="firstRunSaving || restorePreviewLoading || systemRestoring"
+            @click="$refs.firstRunRestoreInput.click()">
+            <span v-if="restorePreviewLoading">Analyzing backup…</span>
+            <span v-else-if="systemRestoring">Restoring…</span>
+            <span v-else>Restore from Backup</span>
+          </button>
+
+          <p class="auth-subtitle text-center" style="margin-top:10px;">
+            Create a new administrator or restore an existing Cascade installation.
+          </p>
+        </form>
+      </div>
+      <!-- ==================== /First-Run Setup ==================== -->
+[[ end ]]
+[[ define "login" ]]
+      <div v-if="authenticated === false" class="auth-screen">
+        <!-- Step 1: username + password -->
+        <form v-if="!totpRequired" id="login-form" name="login" method="post" @submit.prevent="login"
+          class="shadow-xl bg-white dark:bg-neutral-800 auth-card">
+          <div class="auth-brand">
+            <img src="./img/cascade_favicon.svg" class="auth-brand-mark" alt="" aria-hidden="true" />
+            <div>
+              <h1 class="auth-title">Sign in to Cascade</h1>
+              <p class="auth-subtitle">Manage your VPN securely</p>
+            </div>
+          </div>
+
+          <!-- Username field -->
+          <div class="auth-field">
+            <label for="login-username">Username</label>
+            <input id="login-username" type="text" name="username" placeholder="Username" v-model="username"
+              autocomplete="username" autocapitalize="none" spellcheck="false" required />
+          </div>
+
+          <div class="auth-field">
+            <label for="login-password">Password</label>
+            <input id="login-password" type="password" name="password" :placeholder="$t('password')" v-model="password"
+              autocomplete="current-password" required />
+          </div>
+
+          <!-- Remember me -->
+          <label v-if="rememberMeEnabled"
+            class="inline-block mb-5 cursor-pointer whitespace-nowrap" :title="$t('titleRememberMe')">
+            <input type="checkbox" name="remember" class="sr-only" v-model="remember">
+
+            <div v-if="remember"
+              class="inline-block align-middle rounded-full w-10 h-6 mr-1 cursor-pointer transition-all" style="background:#16a34a;">
+              <div class="rounded-full w-4 h-4 m-1 ml-5 bg-white"></div>
+            </div>
+
+            <div v-if="!remember"
+              class="inline-block align-middle rounded-full w-10 h-6 mr-1 bg-gray-200 dark:bg-neutral-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-neutral-500 transition-all">
+              <div class="rounded-full w-4 h-4 m-1 bg-white"></div>
+            </div>
+
+            <span class="text-sm">{{$t("rememberMe")}}</span>
+          </label>
+
+          <button type="submit" :disabled="authenticating" class="auth-primary">
+            <span v-if="!authenticating">{{$t('signIn')}}</span>
+            <svg class="w-5 animate-spin mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+              fill="currentColor" v-else>
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+              </path>
+            </svg>
+          </button>
+        </form>
+
+        <!-- Step 2: TOTP code (shown when totpRequired = true) -->
+        <div v-if="totpRequired" id="totp-form"
+          class="shadow-xl bg-white dark:bg-neutral-800 auth-card">
+          <div class="auth-brand">
+            <img src="./img/cascade_favicon.svg" class="auth-brand-mark" alt="" aria-hidden="true" />
+            <div>
+              <h1 class="auth-title">Verification code</h1>
+              <p class="auth-subtitle">Use the code saved for this Cascade login</p>
+            </div>
+          </div>
+          <div class="auth-field">
+            <label for="totp-code">One-time code</label>
+            <input id="totp-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
+              v-model="totpCode" @keyup.enter="loginStep2"
+              class="text-center tracking-widest font-mono text-lg" />
+          </div>
+          <button type="button" @click="loginStep2" :disabled="authenticating" class="auth-primary">
+            <span v-if="!authenticating">Verify</span>
+            <svg v-else class="w-5 animate-spin mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+          <button type="button" @click="totpRequired = false; totpCode = ''"
+            class="w-full py-2 text-sm text-gray-500 dark:text-neutral-400 hover:text-gray-700 transition" style="margin-top:8px;">
+            ← Back
+          </button>
+        </div>
+      </div>
+
+      <div v-if="authenticated === null" class="text-gray-300 dark:text-red-300 pt-24 pb-12">
+
+        <svg class="w-5 animate-spin mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+          fill="currentColor">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+          </path>
+        </svg>
+
+      </div>
+
+
+[[ end ]]

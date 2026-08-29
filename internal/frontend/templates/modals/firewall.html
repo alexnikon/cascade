@@ -1,0 +1,408 @@
+[[ define "firewall-modals" ]]
+        <!-- ── Add Firewall Rule Modal ──────────────────────────────────── -->
+        <div v-if="showFirewallCreate && activePage === 'firewall'"
+          class="modal-overlay"
+         >
+          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-lg">
+            <div class="modal-header dark:border-neutral-600">
+              <h2 class="text-xl font-medium dark:text-neutral-200">Add Firewall Rule</h2>
+            </div>
+            <div class="modal-body">
+
+              <!-- Name -->
+              <div>
+                <label class="text-sm font-medium dark:text-neutral-300">Name</label>
+                <input v-model="firewallCreate.name" type="text" placeholder="e.g. Block RU traffic"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
+              </div>
+
+              <!-- Interface + Protocol -->
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <label class="text-sm font-medium dark:text-neutral-300">Interface</label>
+                  <select v-model="firewallCreate.interface"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                    <option value="any">any</option>
+                    <option v-for="iface in firewallInterfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}</option>
+                  </select>
+                </div>
+                <div class="flex-1">
+                  <label class="text-sm font-medium dark:text-neutral-300">Protocol</label>
+                  <select v-model="firewallCreate.protocol"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                    <option value="any">any</option>
+                    <option value="tcp">tcp</option>
+                    <option value="udp">udp</option>
+                    <option value="tcp/udp">tcp/udp</option>
+                    <option value="icmp">icmp</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Source -->
+              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+                <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Source</div>
+                <div class="flex gap-2">
+                  <select v-model="firewallCreate.source.type"
+                    class="border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="any">Any</option>
+                    <option value="alias">Alias</option>
+                    <option value="cidr">CIDR</option>
+                  </select>
+                  <select v-if="firewallCreate.source.type === 'alias'" v-model="firewallCreate.source.aliasId"
+                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="">— select alias —</option>
+                    <option v-for="a in aliases.filter(x => x.type !== 'port' && x.type !== 'port-group')" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                  <input v-if="firewallCreate.source.type === 'cidr'" v-model="firewallCreate.source.value"
+                    type="text" placeholder="10.0.0.0/8"
+                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
+                </div>
+                <label v-if="firewallCreate.source.type !== 'any'" class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400 mt-2">
+                  <input type="checkbox" v-model="firewallCreate.source.invert"> Invert (NOT)
+                </label>
+                <!-- Src Port -->
+                <div class="mt-2">
+                  <div class="flex items-center gap-1" style="margin-bottom:4px;">
+                    <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-right:4px;">Src port:</span>
+                    <button @click="firewallCreate.source.portMode = ''"
+                      :style="firewallCreate.source.portMode === '' ? 'background:#6b7280;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
+                    <button @click="firewallCreate.source.portMode = 'plain'"
+                      :style="firewallCreate.source.portMode === 'plain' ? 'background:#2563eb;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
+                    <button @click="firewallCreate.source.portMode = 'alias'"
+                      :style="firewallCreate.source.portMode === 'alias' ? 'background:#7c3aed;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
+                  </div>
+                  <input v-if="firewallCreate.source.portMode === 'plain'" v-model="firewallCreate.source.port"
+                    type="text" placeholder="e.g. 80, 443, or 8000-8090"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm" />
+                  <select v-if="firewallCreate.source.portMode === 'alias'" v-model="firewallCreate.source.portAliasId"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm">
+                    <option value="">— select port alias —</option>
+                    <option v-for="a in _portAliasOptions()" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Destination -->
+              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+                <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Destination</div>
+                <div class="flex gap-2">
+                  <select v-model="firewallCreate.destination.type"
+                    class="border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="any">Any</option>
+                    <option value="alias">Alias</option>
+                    <option value="cidr">CIDR</option>
+                  </select>
+                  <select v-if="firewallCreate.destination.type === 'alias'" v-model="firewallCreate.destination.aliasId"
+                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="">— select alias —</option>
+                    <option v-for="a in aliases.filter(x => x.type !== 'port' && x.type !== 'port-group')" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                  <input v-if="firewallCreate.destination.type === 'cidr'" v-model="firewallCreate.destination.value"
+                    type="text" placeholder="10.0.0.0/8"
+                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
+                </div>
+                <label v-if="firewallCreate.destination.type !== 'any'" class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400 mt-2">
+                  <input type="checkbox" v-model="firewallCreate.destination.invert"> Invert (NOT)
+                </label>
+                <!-- Dst Port -->
+                <div class="mt-2">
+                  <div class="flex items-center gap-1" style="margin-bottom:4px;">
+                    <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-right:4px;">Dst port:</span>
+                    <button @click="firewallCreate.destination.portMode = ''"
+                      :style="firewallCreate.destination.portMode === '' ? 'background:#6b7280;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
+                    <button @click="firewallCreate.destination.portMode = 'plain'"
+                      :style="firewallCreate.destination.portMode === 'plain' ? 'background:#2563eb;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
+                    <button @click="firewallCreate.destination.portMode = 'alias'"
+                      :style="firewallCreate.destination.portMode === 'alias' ? 'background:#7c3aed;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
+                  </div>
+                  <input v-if="firewallCreate.destination.portMode === 'plain'" v-model="firewallCreate.destination.port"
+                    type="text" placeholder="e.g. 443 or 8080-8090"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm" />
+                  <select v-if="firewallCreate.destination.portMode === 'alias'" v-model="firewallCreate.destination.portAliasId"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm">
+                    <option value="">— select port alias —</option>
+                    <option v-for="a in _portAliasOptions()" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Action -->
+              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+                <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Action</div>
+                <div class="flex gap-2 mb-3">
+                  <button @click="firewallCreate.action = 'accept'"
+                    :style="firewallCreate.action === 'accept' ? 'background:#16a34a;color:#fff;' : 'background:#dcfce7;color:#166534;'"
+                    class="text-sm font-semibold rounded" style="padding:6px 16px;">ACCEPT</button>
+                  <button @click="firewallCreate.action = 'drop'"
+                    :style="firewallCreate.action === 'drop' ? 'background:#dc2626;color:#fff;' : 'background:#fee2e2;color:#991b1b;'"
+                    class="text-sm font-semibold rounded" style="padding:6px 16px;">DROP</button>
+                  <button @click="firewallCreate.action = 'reject'"
+                    :style="firewallCreate.action === 'reject' ? 'background:#d97706;color:#fff;' : 'background:#fef3c7;color:#92400e;'"
+                    class="text-sm font-semibold rounded" style="padding:6px 16px;">REJECT</button>
+                </div>
+                <!-- Gateway (only for ACCEPT) -->
+                <div v-if="firewallCreate.action === 'accept'">
+                  <label class="text-sm font-medium dark:text-neutral-300">Gateway (optional — for PBR)</label>
+                  <label class="flex items-center gap-2 mt-1 mb-2 text-sm text-gray-600 dark:text-neutral-400">
+                    <input type="checkbox" v-model="firewallCreate.useGroup"> Use Gateway Group
+                  </label>
+                  <select v-if="!firewallCreate.useGroup" v-model="firewallCreate.gatewayId"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="">— none (plain ACCEPT) —</option>
+                    <option v-for="g in gateways" :key="g.id" :value="g.id">{{ g.name }} ({{ g.gatewayIP }})</option>
+                  </select>
+                  <select v-else v-model="firewallCreate.gatewayGroupId"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="">— none —</option>
+                    <option v-for="g in gatewayGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+                  </select>
+                  <!-- Fallback option — only when a gateway is selected -->
+                  <label v-if="firewallCreate.useGroup ? !!firewallCreate.gatewayGroupId : !!firewallCreate.gatewayId"
+                    class="flex items-center gap-2 mt-2 text-sm text-gray-600 dark:text-neutral-400">
+                    <input type="checkbox" v-model="firewallCreate.fallbackToDefault">
+                    <span>Fallback to default gateway when down</span>
+                  </label>
+                  <p v-if="firewallCreate.useGroup ? !!firewallCreate.gatewayGroupId : !!firewallCreate.gatewayId"
+                    class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    <span v-if="firewallCreate.fallbackToDefault">If gateway goes down, traffic will be routed via the system default gateway. Restored 30s after recovery.</span>
+                    <span v-else>If gateway goes down, traffic matching this rule will be blackholed (dropped).</span>
+                  </p>
+                </div>
+              </div>
+
+              <!-- Log + Comment -->
+              <div class="flex gap-3 items-start">
+                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400 mt-2 whitespace-nowrap">
+                  <input type="checkbox" v-model="firewallCreate.log"> Log
+                </label>
+                <div class="flex-1">
+                  <input v-model="firewallCreate.comment" type="text" placeholder="Comment (optional)"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+            </div>
+            <div class="modal-footer dark:border-neutral-600">
+              <button @click="showFirewallCreate = false"
+                class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+                Cancel
+              </button>
+              <button @click="createFirewallRule()"
+                class="bg-blue-600 text-white rounded-lg font-medium text-sm btn">
+                Create Rule
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Edit Firewall Rule Modal ─────────────────────────────────── -->
+        <div v-if="showFirewallEdit && activePage === 'firewall'"
+          class="modal-overlay"
+         >
+          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-lg">
+            <div class="modal-header dark:border-neutral-600">
+              <h2 class="text-xl font-medium dark:text-neutral-200">Edit Firewall Rule</h2>
+            </div>
+            <div class="modal-body">
+
+              <!-- Name -->
+              <div>
+                <label class="text-sm font-medium dark:text-neutral-300">Name</label>
+                <input v-model="firewallEdit.name" type="text"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
+              </div>
+
+              <!-- Interface + Protocol -->
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <label class="text-sm font-medium dark:text-neutral-300">Interface</label>
+                  <select v-model="firewallEdit.interface"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                    <option value="any">any</option>
+                    <option v-for="iface in firewallInterfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}</option>
+                  </select>
+                </div>
+                <div class="flex-1">
+                  <label class="text-sm font-medium dark:text-neutral-300">Protocol</label>
+                  <select v-model="firewallEdit.protocol"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
+                    <option value="any">any</option>
+                    <option value="tcp">tcp</option>
+                    <option value="udp">udp</option>
+                    <option value="tcp/udp">tcp/udp</option>
+                    <option value="icmp">icmp</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Source -->
+              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+                <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Source</div>
+                <div class="flex gap-2">
+                  <select v-model="firewallEdit.source.type"
+                    class="border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="any">Any</option>
+                    <option value="alias">Alias</option>
+                    <option value="cidr">CIDR</option>
+                  </select>
+                  <select v-if="firewallEdit.source.type === 'alias'" v-model="firewallEdit.source.aliasId"
+                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="">— select alias —</option>
+                    <option v-for="a in aliases.filter(x => x.type !== 'port' && x.type !== 'port-group')" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                  <input v-if="firewallEdit.source.type === 'cidr'" v-model="firewallEdit.source.value"
+                    type="text" placeholder="10.0.0.0/8"
+                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
+                </div>
+                <label v-if="firewallEdit.source.type !== 'any'" class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400 mt-2">
+                  <input type="checkbox" v-model="firewallEdit.source.invert"> Invert (NOT)
+                </label>
+                <!-- Src Port -->
+                <div class="mt-2">
+                  <div class="flex items-center gap-1" style="margin-bottom:4px;">
+                    <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-right:4px;">Src port:</span>
+                    <button @click="firewallEdit.source.portMode = ''"
+                      :style="firewallEdit.source.portMode === '' ? 'background:#6b7280;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
+                    <button @click="firewallEdit.source.portMode = 'plain'"
+                      :style="firewallEdit.source.portMode === 'plain' ? 'background:#2563eb;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
+                    <button @click="firewallEdit.source.portMode = 'alias'"
+                      :style="firewallEdit.source.portMode === 'alias' ? 'background:#7c3aed;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
+                  </div>
+                  <input v-if="firewallEdit.source.portMode === 'plain'" v-model="firewallEdit.source.port"
+                    type="text" placeholder="e.g. 80, 443, or 8000-8090"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm" />
+                  <select v-if="firewallEdit.source.portMode === 'alias'" v-model="firewallEdit.source.portAliasId"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm">
+                    <option value="">— select port alias —</option>
+                    <option v-for="a in _portAliasOptions()" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Destination -->
+              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+                <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Destination</div>
+                <div class="flex gap-2">
+                  <select v-model="firewallEdit.destination.type"
+                    class="border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="any">Any</option>
+                    <option value="alias">Alias</option>
+                    <option value="cidr">CIDR</option>
+                  </select>
+                  <select v-if="firewallEdit.destination.type === 'alias'" v-model="firewallEdit.destination.aliasId"
+                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="">— select alias —</option>
+                    <option v-for="a in aliases.filter(x => x.type !== 'port' && x.type !== 'port-group')" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                  <input v-if="firewallEdit.destination.type === 'cidr'" v-model="firewallEdit.destination.value"
+                    type="text" placeholder="10.0.0.0/8"
+                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
+                </div>
+                <label v-if="firewallEdit.destination.type !== 'any'" class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400 mt-2">
+                  <input type="checkbox" v-model="firewallEdit.destination.invert"> Invert (NOT)
+                </label>
+                <!-- Dst Port -->
+                <div class="mt-2">
+                  <div class="flex items-center gap-1" style="margin-bottom:4px;">
+                    <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-right:4px;">Dst port:</span>
+                    <button @click="firewallEdit.destination.portMode = ''"
+                      :style="firewallEdit.destination.portMode === '' ? 'background:#6b7280;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
+                    <button @click="firewallEdit.destination.portMode = 'plain'"
+                      :style="firewallEdit.destination.portMode === 'plain' ? 'background:#2563eb;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
+                    <button @click="firewallEdit.destination.portMode = 'alias'"
+                      :style="firewallEdit.destination.portMode === 'alias' ? 'background:#7c3aed;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
+                      class="text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
+                  </div>
+                  <input v-if="firewallEdit.destination.portMode === 'plain'" v-model="firewallEdit.destination.port"
+                    type="text" placeholder="e.g. 443 or 8080-8090"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm" />
+                  <select v-if="firewallEdit.destination.portMode === 'alias'" v-model="firewallEdit.destination.portAliasId"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm">
+                    <option value="">— select port alias —</option>
+                    <option v-for="a in _portAliasOptions()" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Action -->
+              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+                <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Action</div>
+                <div class="flex gap-2 mb-3">
+                  <button @click="firewallEdit.action = 'accept'"
+                    :style="firewallEdit.action === 'accept' ? 'background:#16a34a;color:#fff;' : 'background:#dcfce7;color:#166534;'"
+                    class="text-sm font-semibold rounded" style="padding:6px 16px;">ACCEPT</button>
+                  <button @click="firewallEdit.action = 'drop'"
+                    :style="firewallEdit.action === 'drop' ? 'background:#dc2626;color:#fff;' : 'background:#fee2e2;color:#991b1b;'"
+                    class="text-sm font-semibold rounded" style="padding:6px 16px;">DROP</button>
+                  <button @click="firewallEdit.action = 'reject'"
+                    :style="firewallEdit.action === 'reject' ? 'background:#d97706;color:#fff;' : 'background:#fef3c7;color:#92400e;'"
+                    class="text-sm font-semibold rounded" style="padding:6px 16px;">REJECT</button>
+                </div>
+                <!-- Gateway (only for ACCEPT) -->
+                <div v-if="firewallEdit.action === 'accept'">
+                  <label class="text-sm font-medium dark:text-neutral-300">Gateway (optional — for PBR)</label>
+                  <label class="flex items-center gap-2 mt-1 mb-2 text-sm text-gray-600 dark:text-neutral-400">
+                    <input type="checkbox" v-model="firewallEdit.useGroup"> Use Gateway Group
+                  </label>
+                  <select v-if="!firewallEdit.useGroup" v-model="firewallEdit.gatewayId"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="">— none (plain ACCEPT) —</option>
+                    <option v-for="g in gateways" :key="g.id" :value="g.id">{{ g.name }} ({{ g.gatewayIP }})</option>
+                  </select>
+                  <select v-else v-model="firewallEdit.gatewayGroupId"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option value="">— none —</option>
+                    <option v-for="g in gatewayGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
+                  </select>
+                  <!-- Fallback option — only when a gateway is selected -->
+                  <label v-if="firewallEdit.useGroup ? !!firewallEdit.gatewayGroupId : !!firewallEdit.gatewayId"
+                    class="flex items-center gap-2 mt-2 text-sm text-gray-600 dark:text-neutral-400">
+                    <input type="checkbox" v-model="firewallEdit.fallbackToDefault">
+                    <span>Fallback to default gateway when down</span>
+                  </label>
+                  <p v-if="firewallEdit.useGroup ? !!firewallEdit.gatewayGroupId : !!firewallEdit.gatewayId"
+                    class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    <span v-if="firewallEdit.fallbackToDefault">If gateway goes down, traffic will be routed via the system default gateway. Restored 30s after recovery.</span>
+                    <span v-else>If gateway goes down, traffic matching this rule will be blackholed (dropped).</span>
+                  </p>
+                </div>
+              </div>
+
+              <!-- Log + Comment -->
+              <div class="flex gap-3 items-start">
+                <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400 mt-2 whitespace-nowrap">
+                  <input type="checkbox" v-model="firewallEdit.log"> Log
+                </label>
+                <div class="flex-1">
+                  <input v-model="firewallEdit.comment" type="text" placeholder="Comment (optional)"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
+                </div>
+              </div>
+
+            </div>
+            <div class="modal-footer dark:border-neutral-600">
+              <button @click="showFirewallEdit = false"
+                class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+                Cancel
+              </button>
+              <button @click="saveFirewallEdit()"
+                class="bg-blue-600 text-white rounded-lg font-medium text-sm btn">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+
+[[ end ]]

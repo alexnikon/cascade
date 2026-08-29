@@ -1,0 +1,1102 @@
+[[ define "base" ]]
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Cascade</title>
+  <meta charset="utf-8"/>
+  <link href="./css/app.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10/dist/gridstack.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10/dist/gridstack-extra.min.css"/>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./img/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="application-name" content="Cascade">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Cascade">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const systemScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+      window.applyCascadeTheme = (theme, mediaQuery = systemScheme) => {
+        const selectedTheme = ['light', 'dark', 'auto'].includes(theme) ? theme : 'auto';
+        const dark = selectedTheme === 'dark'
+          || (selectedTheme === 'auto' && mediaQuery.matches);
+        const chromeColor = dark ? '#0f172a' : '#f8fafc';
+        root.classList.toggle('dark', dark);
+        root.style.colorScheme = dark ? 'dark' : 'light';
+        root.style.setProperty('--browser-chrome-color', chromeColor);
+
+        const themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) themeColor.setAttribute('content', chromeColor);
+        const statusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (statusBar) statusBar.setAttribute('content', dark ? 'black-translucent' : 'default');
+        return dark ? 'dark' : 'light';
+      };
+
+      const standalone = navigator.standalone === true
+        || window.matchMedia('(display-mode: standalone)').matches;
+      root.classList.toggle('pwa-standalone', standalone);
+
+      let selectedTheme = 'auto';
+      try {
+        selectedTheme = localStorage.getItem('theme') || 'auto';
+      } catch (_) {}
+      window.applyCascadeTheme(selectedTheme, systemScheme);
+    })();
+  </script>
+  <style>
+  [v-cloak] {
+    display: none;
+  }
+  .apexcharts-tooltip {
+    background: rgba(30, 30, 30, 0.52) !important;
+    border-color: rgba(80, 80, 80, 0.3) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .apexcharts-tooltip-title {
+    background: rgba(15, 15, 15, 0.3) !important;
+    border-bottom-color: rgba(80, 80, 80, 0.2) !important;
+  }
+  .apexcharts-tooltip.apexcharts-theme-light {
+    background: rgba(255, 255, 255, 0.52) !important;
+    border-color: rgba(200, 200, 200, 0.3) !important;
+  }
+  .apexcharts-tooltip.apexcharts-theme-light .apexcharts-tooltip-title {
+    background: rgba(240, 240, 240, 0.4) !important;
+    border-bottom-color: rgba(200, 200, 200, 0.2) !important;
+  }
+  /* Toast animations */
+  .toast-enter-active, .toast-leave-active {
+    transition: all 0.3s ease;
+  }
+  .toast-enter, .toast-leave-to {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+  /* Toast colors — !important to override any ancestor stacking-context bleed */
+  .toast-success {
+    background: rgba(21,128,61,0.92) !important;
+    color: #fff !important;
+  }
+  .toast-error {
+    background: rgba(185,28,28,0.92) !important;
+    color: #fff !important;
+  }
+
+  /* ── Reusable layout utilities ───────────────────────────────────── */
+
+  /* Modal overlay */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 50;
+    overflow-y: auto;
+    padding: 40px 24px;
+  }
+
+  /* Modal panel — use together with bg-white dark:bg-neutral-700 rounded-lg */
+  .modal-panel     { margin: 0 auto; border-radius: 0.5rem; }
+  .modal-panel-xs  { max-width: 400px; }
+  .modal-panel-sm  { max-width: 450px; }
+  .modal-panel-480 { max-width: 480px; }
+  .modal-panel-500 { max-width: 500px; }
+  .modal-panel-md  { max-width: 520px; }
+  .modal-panel-540 { max-width: 540px; }
+  .modal-panel-lg  { max-width: 560px; }
+
+  /* Modal sections */
+  .modal-header { padding: 24px 24px 16px; border-bottom: 1px solid #e5e7eb; }
+  .modal-body   { padding: 16px 24px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px; }
+
+  /* Dark mode borders for modal sections */
+  .dark .modal-header { border-bottom-color: rgba(255,255,255,0.08); }
+  .dark .modal-footer { border-top-color: rgba(255,255,255,0.08); }
+  .modal-section        { padding: 16px 24px 24px; border-top: 1px solid #e5e7eb; }
+  .dark .modal-section  { border-top-color: rgba(255,255,255,0.08); }
+  .modal-footer-compact { padding: 12px 24px 20px; border-top: 1px solid #e5e7eb; display: flex; gap: 8px; justify-content: flex-end; }
+  .dark .modal-footer-compact { border-top-color: rgba(255,255,255,0.08); }
+
+  /* Button base padding (combine with Tailwind color classes) */
+  .btn { padding: 8px 16px; }
+
+  /* Table cell padding */
+  .tc       { padding: 10px 12px; }
+  .tc-dense { padding: 6px 10px 6px 0; }
+
+  /* Alert boxes */
+  .alert-error { padding: 12px 16px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 8px; color: #991b1b; }
+  .alert-info  { padding: 10px 14px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; }
+
+  /* Empty state */
+  .empty-state { padding: 40px 24px; }
+
+  /* Missing compiled Tailwind utilities */
+  .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+  .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+
+  /* ── GridStack dashboard ── */
+  .grid-stack { background: transparent; }
+  .grid-stack-item-content {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .dark .grid-stack-item-content {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .grid-stack-placeholder > .placeholder-content {
+    border: 2px dashed #9ca3af;
+    border-radius: 12px;
+    background: rgba(156,163,175,0.08);
+  }
+  /* Widget card base */
+  .dash-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 12px;
+  }
+  .dark .dash-card {
+    background: rgba(15,23,42,0.82) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3) !important;
+  }
+  .dark .grid-stack-item-content {
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+  .dash-card-header {
+    padding: 12px 16px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #f3f4f6;
+    flex-shrink: 0;
+    cursor: move;
+    user-select: none;
+  }
+  .dark .dash-card-header {
+    color: #9ca3af;
+    border-bottom-color: rgba(255,255,255,0.07);
+  }
+  .dashboard-toolbar {
+    position: relative;
+    z-index: 29;
+    flex: 0 0 auto;
+    padding: 24px 32px 16px;
+    background: transparent;
+  }
+  .dashboard-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding: 0 32px 24px;
+  }
+  .dash-card-body {
+    padding: 12px 16px;
+    flex: 1;
+    overflow: auto;
+    user-select: text;
+  }
+  /* Sortable drag-and-drop */
+  .drag-handle:active { cursor: grabbing; }
+  .fw-drag-ghost { opacity: 0.4; background: #a5b4fc !important; }
+
+  /* ── Splash screen ── */
+  #app-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: linear-gradient(135deg, #14532d 0%, #0f172a 50%, #1e3a8a 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    transition: opacity 0.35s ease;
+  }
+  #app-splash.splash-hide {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .splash-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(37,99,235,0.25);
+    border-top-color: #22c55e;
+    border-radius: 50%;
+    animation: splash-spin 0.8s linear infinite;
+  }
+  @keyframes splash-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── Page background — light mode: soft tint of logo palette ── */
+  html, body, #app, .app-root, .app-shell {
+    background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 55%, #eff6ff 100%) !important;
+  }
+  html, body {
+    background-color: var(--browser-chrome-color, #f8fafc) !important;
+    background-attachment: fixed !important;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  #app, .app-root {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+  }
+  /* ── Page background — dark mode: deep logo-gradient ── */
+  html.dark, html.dark body, html.dark #app, html.dark .app-root, html.dark .app-shell {
+    background: linear-gradient(135deg, #14532d 0%, #0f172a 50%, #1e3a8a 100%) !important;
+  }
+  html.dark, html.dark body {
+    background-color: var(--browser-chrome-color, #0f172a) !important;
+  }
+
+  html.pwa-standalone,
+  html.pwa-standalone body {
+    width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+  html.pwa-standalone #app,
+  html.pwa-standalone .app-root {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+  }
+  html.pwa-standalone .app-shell {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+    max-height: 100vh;
+  }
+
+  /* ── Sidebar & main area — light mode ── */
+  .app-nav {
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(12px);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+  .app-nav-menu {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+  .app-nav-divider {
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  .dark .app-nav-divider {
+    border-bottom-color: rgba(255,255,255,0.08);
+  }
+  .app-nav-footer {
+    flex: 0 0 auto;
+    padding: 12px 16px;
+    border-top: 1px solid #e5e7eb;
+    background: rgba(255,255,255,0.68);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .dark .app-nav-footer {
+    border-top-color: #404040;
+    background: rgba(15,23,42,0.78);
+  }
+  .app-shell {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .app-main {
+    min-height: 0; /* allows overflow-y:auto to work correctly inside a flex row container */
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: rgba(255,255,255,0.45);
+    /* no backdrop-filter — it creates a stacking context that traps
+       position:fixed children (toasts), making their background invisible */
+  }
+  .app-main.dashboard-active {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .mobile-nav-backdrop,
+  .mobile-app-header,
+  .mobile-nav-close {
+    display: none;
+  }
+  .app-main-content {
+    min-width: 0;
+    padding: 24px 32px;
+  }
+  .dashboard-main-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .dashboard-page {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .dashboard-main-content > .firewall-pending-banner {
+    flex: 0 0 auto;
+    margin: 24px 32px 12px !important;
+  }
+  .responsive-table {
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .responsive-table > table {
+    min-width: 640px;
+  }
+  .mobile-dense-list {
+    width: 100%;
+  }
+  .wizard-stepper {
+    max-width: 100%;
+  }
+  .auth-screen,
+  .first-run-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+  .auth-screen {
+    display: flex;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 32px 20px;
+    align-items: center;
+    justify-content: center;
+  }
+  .auth-card {
+    width: min(100%, 360px);
+    padding: 28px;
+    border-radius: 18px;
+  }
+  .auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .auth-brand-mark {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+  }
+  .auth-title {
+    color: #111827;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .auth-subtitle {
+    margin-top: 3px;
+    color: #6b7280;
+    font-size: 0.8125rem;
+  }
+  .dark .auth-title { color: #f5f5f5; }
+  .dark .auth-subtitle { color: #a3a3a3; }
+  .auth-field { margin-bottom: 14px; }
+  .auth-field label {
+    display: block;
+    margin-bottom: 6px;
+    color: #374151;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .dark .auth-field label { color: #d4d4d4; }
+  .auth-field input {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.86);
+    color: #111827;
+    outline: none;
+  }
+  .auth-field input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.14);
+  }
+  .dark .auth-field input {
+    border-color: #525252;
+    background: rgba(38,38,38,0.9);
+    color: #f5f5f5;
+  }
+  .auth-primary {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 150ms ease, opacity 150ms ease;
+  }
+  .auth-primary:hover { background: #1d4ed8; }
+  .auth-primary:disabled { cursor: wait; opacity: 0.65; }
+  .auth-secondary {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 1px solid #2563eb;
+    border-radius: 10px;
+    background: transparent;
+    color: #1d4ed8;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+  }
+  .auth-secondary:hover { background: rgba(37,99,235,0.08); }
+  .auth-secondary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.14);
+  }
+  .auth-secondary:disabled { cursor: wait; opacity: 0.65; }
+  .dark .auth-secondary {
+    border-color: #60a5fa;
+    color: #bfdbfe;
+  }
+  .dark .auth-secondary:hover { background: rgba(96,165,250,0.12); }
+  .auth-divider {
+    align-items: center;
+    color: #9ca3af;
+    display: flex;
+    font-size: 0.75rem;
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .auth-divider::before,
+  .auth-divider::after {
+    background: #e5e7eb;
+    content: "";
+    flex: 1;
+    height: 1px;
+  }
+  .dark .auth-divider { color: #737373; }
+  .dark .auth-divider::before,
+  .dark .auth-divider::after { background: #404040; }
+  /* ── Sidebar & main area — dark mode ── */
+  .dark .app-nav {
+    background: rgba(15,23,42,0.72);
+    backdrop-filter: blur(12px);
+    border-right: 1px solid rgba(255,255,255,0.08);
+    color: #e5e7eb;
+  }
+  .dark .app-main {
+    background: rgba(15,23,42,0.78);
+    color: #e5e7eb;
+    /* no backdrop-filter — same reason as light mode */
+  }
+
+  .dark .app-main-content,
+  .dark .modal-panel,
+  .dark .shadow-md,
+  .dark .shadow-lg,
+  .dark .shadow-xl,
+  .dark .shadow-2xl {
+    color: #e5e7eb;
+  }
+
+  /* ── AmneziaWG profile generator ── */
+  .awg-generator-overlay {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px;
+  }
+  .awg-generator-panel {
+    width: min(680px, 100%);
+    max-width: none;
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .awg-generator-header {
+    padding: 20px 22px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+  }
+  .awg-generator-body {
+    padding: 18px 22px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .awg-generator-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+  }
+  .awg-generator-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    font-weight: 600;
+  }
+  .awg-generator-control {
+    width: 100%;
+    min-height: 40px;
+  }
+  .awg-generator-segmented {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: rgba(243,244,246,0.85);
+    overflow: hidden;
+  }
+  .awg-generator-segmented button {
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 0;
+    color: #4b5563;
+    background: transparent;
+    border-radius: 7px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+  }
+  .awg-generator-segmented button.is-active {
+    color: #fff;
+    background: #16a34a;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .awg-generator-segmented button.is-active.awg-intensity {
+    background: #eab308;
+  }
+  .awg-generator-preview {
+    padding: 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: rgba(249,250,251,0.9);
+  }
+  .awg-generator-footer {
+    padding: 14px 22px 18px;
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.72);
+  }
+  .awg-generator-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .dark .awg-generator-header,
+  .dark .awg-generator-footer,
+  .dark .awg-generator-preview { border-color: rgba(255,255,255,0.1); }
+  .dark .awg-generator-segmented { border-color: #525252; background: rgba(38,38,38,0.75); }
+  .dark .awg-generator-segmented button { color: #d4d4d4; }
+  .dark .awg-generator-segmented button.is-active {
+    color: #fff;
+    background: #15803d;
+    box-shadow: inset 0 0 0 1px #22c55e;
+  }
+  .dark .awg-generator-segmented button.is-active.awg-intensity {
+    background: #a16207;
+    box-shadow: inset 0 0 0 1px #eab308;
+  }
+  .dark .awg-generator-preview { background: rgba(23,23,23,0.68); }
+  .dark .awg-generator-footer { background: rgba(10,18,36,0.72); }
+  @media (max-width: 640px) {
+    .awg-generator-overlay { padding: 12px; }
+    .awg-generator-panel {
+      max-height: calc(100vh - 24px);
+      max-height: calc(100dvh - 24px);
+    }
+    .awg-generator-header { padding: 16px 16px 13px; }
+    .awg-generator-body { padding: 14px 16px; }
+    .awg-generator-footer { padding: 12px 16px 14px; }
+    .awg-generator-grid { grid-template-columns: 1fr; gap: 12px; }
+    .awg-generator-actions { grid-template-columns: 1fr; }
+  }
+
+  /* ── Compact layout: phones and portrait tablets ─────────────────── */
+  @media (max-width: 1023px) {
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+      background-attachment: scroll !important;
+    }
+    .app-shell {
+      position: relative;
+      width: 100%;
+    }
+    .app-nav {
+      position: fixed;
+      z-index: 42;
+      inset: 0 auto 0 0;
+      width: min(86vw, 288px) !important;
+      max-width: calc(100vw - 44px);
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: 0;
+      transform: translateX(-105%);
+      transition: transform 180ms ease-out, box-shadow 180ms ease-out;
+      will-change: transform;
+      scrollbar-gutter: auto;
+    }
+    .app-nav.app-nav-open {
+      transform: translateX(0);
+      box-shadow: 18px 0 48px rgba(0,0,0,0.28);
+    }
+    .mobile-nav-backdrop {
+      display: block;
+      position: fixed;
+      z-index: 41;
+      inset: 0;
+      border: 0;
+      padding: 0;
+      background: rgba(15,23,42,0.48);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      touch-action: none;
+    }
+    .mobile-nav-close {
+      display: inline-flex;
+      position: absolute;
+      top: calc(4px + env(safe-area-inset-top));
+      right: 4px;
+      width: 44px;
+      height: 44px;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+    .mobile-nav-close-icon {
+      width: 30px;
+      height: 30px;
+      padding: 7px;
+      border-radius: 8px;
+      background: rgba(107,114,128,0.12);
+    }
+    .mobile-app-header {
+      display: flex;
+      position: sticky;
+      z-index: 30;
+      top: 0;
+      min-height: calc(56px + env(safe-area-inset-top));
+      padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.9);
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .dark .mobile-app-header {
+      background: rgba(15,23,42,0.92);
+      border-bottom-color: rgba(255,255,255,0.08);
+    }
+    .mobile-menu-button {
+      display: inline-flex;
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 10px;
+      background: rgba(107,114,128,0.12);
+      color: inherit;
+      cursor: pointer;
+    }
+    .app-main {
+      width: 100%;
+      padding: 0 !important;
+      overflow-x: hidden;
+    }
+    .app-main.mobile-nav-open {
+      overflow: hidden;
+    }
+    .app-main-content {
+      padding: 16px max(14px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    }
+    .dashboard-main-content {
+      padding: 0;
+    }
+    .dashboard-active .mobile-app-header {
+      position: relative;
+      flex: 0 0 auto;
+    }
+    .dashboard-toolbar {
+      padding: 16px max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left));
+    }
+    .dashboard-scroll {
+      padding: 0 max(14px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+      scrollbar-gutter: auto;
+    }
+    .dashboard-main-content > .firewall-pending-banner {
+      margin: 16px max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left)) !important;
+    }
+    .app-nav-footer {
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+    .app-main-content > [key],
+    .app-main-content > div {
+      max-width: 100%;
+    }
+    .app-main .grid.grid-cols-3,
+    .app-main .grid.grid-cols-4,
+    .app-main .grid.grid-cols-5 {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+    .app-main input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+    .app-main select,
+    .app-main textarea,
+    .modal-panel input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+    .modal-panel select,
+    .modal-panel textarea,
+    .auth-screen input,
+    .first-run-screen input {
+      max-width: 100% !important;
+      font-size: 16px !important;
+    }
+    .app-main [style*="min-width:200px"],
+    .app-main [style*="min-width:180px"],
+    .app-main [style*="min-width:160px"],
+    .app-main [style*="min-width:140px"],
+    .app-main [style*="min-width:120px"] {
+      min-width: min(100%, 12rem) !important;
+    }
+    .app-main .flex.items-center.justify-between,
+    .app-main .flex.items-center.p-5,
+    .app-main .flex.items-center.p-4 {
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .app-main .flex.items-center.justify-between > .flex,
+    .app-main .flex.items-center.p-5 > .flex,
+    .app-main .flex.items-center.p-4 > .flex {
+      max-width: 100%;
+      flex-wrap: wrap;
+    }
+    .app-main .shadow-md:has(> table),
+    .app-main .shadow-sm:has(> table),
+    .app-main .rounded-lg:has(> table) {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    .app-main table {
+      min-width: 620px;
+    }
+    .mobile-dense-list {
+      overflow-x: auto !important;
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+    .mobile-dense-list > .flex {
+      min-width: 720px;
+    }
+    .wizard-stepper {
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x proximity;
+      padding-bottom: 8px;
+    }
+    .wizard-stepper > * {
+      flex: 0 0 auto;
+      scroll-snap-align: start;
+    }
+    .app-main pre,
+    .app-main code,
+    .modal-panel pre,
+    .modal-panel code {
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+    .grid-stack-item-content {
+      inset-inline: 0 !important;
+    }
+    .dash-card-header {
+      cursor: default;
+    }
+    .diag-grid + *,
+    #dashboard-grid + * {
+      max-width: 100%;
+    }
+    .modal-overlay,
+    .fixed.inset-0.bg-black.bg-opacity-50.z-50 {
+      padding: calc(10px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom)) !important;
+    }
+    .modal-panel,
+    .fixed.inset-0.bg-black.bg-opacity-50.z-50 > div {
+      width: 100% !important;
+      max-width: 100% !important;
+      max-height: calc(100vh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      max-height: calc(100dvh - 20px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .modal-header,
+    .modal-body,
+    .modal-section {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+    .modal-footer,
+    .modal-footer-compact {
+      position: sticky;
+      bottom: 0;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      flex-wrap: wrap;
+      background: rgba(255,255,255,0.96);
+    }
+    .dark .modal-footer,
+    .dark .modal-footer-compact {
+      background: rgba(10,18,36,0.96);
+    }
+    .modal-footer > button,
+    .modal-footer-compact > button {
+      min-height: 44px;
+      flex: 1 1 140px;
+    }
+    .toast-container {
+      top: calc(8px + env(safe-area-inset-top)) !important;
+      right: 8px !important;
+      left: 8px;
+      width: auto !important;
+      max-width: none !important;
+    }
+    .alias-tooltip,
+    [style*="position:fixed"][style*="max-width:320px"] {
+      max-width: calc(100vw - 24px) !important;
+    }
+    .auth-screen {
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: calc(20px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    }
+    .auth-card {
+      width: min(100%, 360px) !important;
+      padding: 24px;
+    }
+    .awg-generator-panel {
+      overflow: hidden;
+    }
+  }
+
+  @media (max-width: 479px) {
+    .app-main-content { padding-inline: 10px; }
+    .app-main-content.dashboard-main-content { padding-inline: 0; }
+    .modal-header { padding-top: 18px; }
+    .empty-state { padding: 28px 16px; }
+    .awg-generator-segmented { grid-auto-flow: row; grid-template-columns: 1fr; }
+  }
+
+  /* ── Light mode: subtle glass panels ── */
+  .shadow-md {
+    background: rgba(255,255,255,0.80) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(0,0,0,0.06) !important;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08) !important;
+  }
+  .shadow-lg {
+    background: rgba(255,255,255,0.88) !important;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0,0,0,0.07) !important;
+  }
+  .dash-card {
+    background: rgba(255,255,255,0.80) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  }
+
+  /* Light mode modals */
+  .modal-panel {
+    background: rgba(255,255,255,0.92) !important;
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+  .shadow-xl, .shadow-2xl {
+    background: rgba(255,255,255,0.92) !important;
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(0,0,0,0.08) !important;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.15) !important;
+  }
+
+  /* ── Dark mode: glassmorphism for all content panels ── */
+  /* Main content panels: peer tables, routing, firewall, NAT, etc. */
+  .dark .shadow-md {
+    background: rgba(15,23,42,0.85) !important;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.07) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+  }
+  /* Sub-panels: server info dropdowns, chart wrappers */
+  .dark .shadow-lg {
+    background: rgba(15,23,42,0.88) !important;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.09) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+  }
+  /* Modal dialogs */
+  .dark .modal-panel {
+    background: rgba(10,18,36,0.88) !important;
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+  /* First-run & delete confirm modals (shadow-2xl) */
+  .dark .shadow-2xl,
+  .dark .shadow-xl {
+    background: rgba(10,18,36,0.88) !important;
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.10) !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5) !important;
+  }
+  /* Table header rows inside panels */
+  .dark .shadow-md thead tr,
+  .dark .shadow-md .tc-header {
+    background: rgba(255,255,255,0.04) !important;
+  }
+  /* Alternate row hover */
+  .dark .shadow-md tr:hover {
+    background: rgba(255,255,255,0.04) !important;
+  }
+  /* Inner dividers */
+  .dark .shadow-md [class*="border-b"],
+  .dark .shadow-md [class*="border-t"] {
+    border-color: rgba(255,255,255,0.07) !important;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+</style>
+</head>
+
+<body>
+  <!-- Splash screen: hides raw {{ }} templates until Vue mounts -->
+  <div id="app-splash">
+    <img src="./img/logo.svg" alt="Cascade" style="width:240px; max-width:80vw; opacity:0.95;">
+    <div class="splash-spinner"></div>
+  </div>
+  <div id="app">
+    <div v-cloak class="app-root">
+[[ template "first-run" . ]]
+
+      <!-- ==================== Main App ==================== -->
+      <div v-else-if="authenticated === true" class="flex app-shell">
+
+        <button v-if="mobileNavOpen" type="button" class="mobile-nav-backdrop"
+          aria-label="Close navigation" @click="closeMobileNav()"></button>
+
+[[ template "sidebar" . ]]
+        <!-- ==================== Content Area ==================== -->
+        <main class="flex-grow app-main" :class="{ 'mobile-nav-open': mobileNavOpen, 'dashboard-active': activePage === 'dashboard' }">
+          <header class="mobile-app-header">
+            <button ref="mobileMenuButton" type="button" class="mobile-menu-button"
+              aria-label="Open navigation" aria-controls="app-navigation"
+              :aria-expanded="String(mobileNavOpen)" @click="openMobileNav()">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button>
+            <div style="min-width:0;">
+              <div class="text-xs text-gray-500 dark:text-neutral-400 truncate">{{ activeServerLabel }}</div>
+              <div class="font-semibold dark:text-neutral-100 truncate">{{ activePage === 'dashboard' ? 'Cascade' : activePageLabel }}</div>
+            </div>
+          </header>
+          <div class="app-main-content" :class="{ 'dashboard-main-content': activePage === 'dashboard' }">
+
+[[ template "firewall-banner" . ]]
+[[ template "dashboard" . ]]
+[[ template "diagnostics" . ]]
+[[ template "administration" . ]]
+[[ template "interfaces" . ]]
+[[ template "settings" . ]]
+[[ template "gateways" . ]]
+[[ template "remotes" . ]]
+[[ template "routing" . ]]
+[[ template "nat" . ]]
+[[ template "firewall-aliases" . ]]
+[[ template "firewall" . ]]
+[[ template "firewall-modals" . ]]
+[[ template "peer-modals" . ]]
+[[ template "wizards" . ]]
+        </div><!-- /app-main-content -->
+        </main><!-- /Content Area -->
+      </div><!-- /authenticated === true && !showFirstRunSetup (flex h-screen) -->
+[[ template "login" . ]]
+[[ template "global-modals" . ]]
+[[ template "monitoring-modal" . ]]
+[[ template "notifications" . ]]
+[[ template "firewall-toolbar" . ]]
+[[ template "separator-modal" . ]]
+
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gridstack@10/dist/gridstack-all.js"></script>
+  <script src="./js/vendor/sortable.min.js"></script>
+  <script src="./js/vendor/vue.min.js"></script>
+  <script src="./js/vendor/vue-i18n.min.js"></script>
+  <script src="./js/vendor/apexcharts.min.js"></script>
+  <script src="./js/vendor/vue-apexcharts.min.js"></script>
+  <script src="./js/vendor/sha256.min.js"></script>
+  <script src="./js/vendor/timeago.full.min.js"></script>
+  <script src="./js/pwa.js"></script>
+  <script type="module" src="./js/app.js"></script>
+</body>
+
+</html>
+[[ end ]]
