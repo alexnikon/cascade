@@ -20,6 +20,7 @@ import (
 
 	"github.com/alexnikon/cascade/internal/aliases"
 	"github.com/alexnikon/cascade/internal/api"
+	"github.com/alexnikon/cascade/internal/awgcap"
 	"github.com/alexnikon/cascade/internal/db"
 	"github.com/alexnikon/cascade/internal/firewall"
 	"github.com/alexnikon/cascade/internal/frontend"
@@ -52,6 +53,7 @@ func main() {
 	}
 
 	log.Printf("Cascade %s (%s)", version.Version, version.GitCommit)
+	awgcap.LogVersionCompatibility()
 
 	// Start the optional platform-neutral release manifest checker every 24 h.
 	// Runs in a goroutine; first check happens after a 10 s delay so the

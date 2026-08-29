@@ -41,7 +41,7 @@ uname -r
 
 ```bash
 add-apt-repository ppa:amnezia/ppa
-apt install -y amneziawg
+apt install -y amneziawg amneziawg-dkms
 ```
 
 Load the module immediately and register it for autoload on boot:
@@ -306,12 +306,31 @@ All Cascade state is stored in `~/cascade/data/`:
 
 ```
 data/
-  wireguard.db          ← SQLite: interfaces, peers, routes, NAT, firewall rules, etc.
+  cascade.db            ← SQLite: interfaces, peers, routes, NAT, firewall rules, etc.
+  metrics.db            ← optional traffic history database
   *.save                ← ipset snapshots (auto-restored on startup)
   /etc/amnezia/amneziawg/wg10.conf   ← generated WireGuard configs (inside container)
 ```
 
 The data directory is mounted into the container via `docker-compose.yml`.
+
+### Production backup
+
+Run the deployment backup before changing the image tag or switching runtime mode:
+
+```bash
+cd /opt/cascade
+bash deploy/backup.sh
+```
+
+The script creates a restrictive `cascade-backup-YYYY-MM-DD_HHMMSS.tar.gz` archive
+containing the configuration database, ipset `*.save` files, `.env`, Compose files,
+and the Cascade/Caddy deployment manifests. It uses SQLite's online backup while
+the container is running and does not copy transient WAL/SHM files, caches, or
+container state. Add `--include-metrics` only when dashboard history is required.
+
+TLS certificates and ACME state are outside the deployment root and must be backed
+up separately if the server is being moved to another host.
 
 ---
 

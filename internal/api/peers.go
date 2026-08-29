@@ -200,6 +200,11 @@ func createPeer(c *fiber.Ctx) error {
 	if err := c.BodyParser(&inp); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
 	}
+	if inp.PeerType == "interconnect" {
+		// Manual S2S creation is Cascade-authored and has a real export/import
+		// path for the generated PSK. Third-party .conf imports do not set this.
+		inp.AutoGeneratePSK = true
+	}
 
 	// Apply global defaults from settings when not explicitly set.
 	d := peerDefaults()
@@ -244,7 +249,8 @@ func importPeerJSON(c *fiber.Ctx) error {
 	// Build PeerInput from the exported interface params.
 	// The remote side exports its public key + endpoint; we create a peer pointing at it.
 	inp := peer.PeerInput{
-		PeerType: "interconnect",
+		PeerType:        "interconnect",
+		AutoGeneratePSK: true,
 	}
 	if v, ok := body["name"].(string); ok {
 		inp.Name = strings.TrimSpace(v)
@@ -279,8 +285,8 @@ func importPeerJSON(c *fiber.Ctx) error {
 		}
 	}
 
-	// PSK is generated automatically in AddPeer when inp.PresharedKey == ""
-	// (interconnect peer without PSK → AddPeer calls peer.GeneratePSK).
+	// AddPeer generates a PSK only for this Cascade↔Cascade S2S path when the
+	// exported data did not already contain one.
 
 	p, err := mgr().AddPeer(ifaceID, inp)
 	if err != nil {

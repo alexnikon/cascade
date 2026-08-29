@@ -108,6 +108,10 @@ type PeerInput struct {
 	GenerateKeys   bool   `json:"generateKeys"`   // server generates wg key pair + PSK
 	AutoAllocateIP bool   `json:"autoAllocateIP"` // caller sets AllowedIPs before passing here
 	CreatedAt      string `json:"createdAt"`      // if non-empty, overrides the auto-generated timestamp (e.g. backup import)
+	// AutoGeneratePSK opts a Cascade-authored S2S peer into PSK generation when
+	// PresharedKey is empty. It is intentionally server-internal: third-party
+	// WireGuard .conf imports must preserve an absent PSK.
+	AutoGeneratePSK bool `json:"-"`
 }
 
 // PeerUpdate contains the fields that can be changed via PATCH.

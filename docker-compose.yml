@@ -31,6 +31,7 @@ services:
 
     volumes:
       - ./data:/etc/wireguard/data
+      - /lib/modules:/lib/modules:ro
       # Mount host /etc/hostname read-only so the app can display the real
       # server hostname (os.Hostname() inside Docker returns a container hash).
       - /etc/hostname:/host_hostname:ro

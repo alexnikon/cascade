@@ -1548,7 +1548,7 @@
 
                           <!-- protocol badge -->
                           <span style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
-                            :style="iface.protocol === 'wireguard'
+                            :style="iface.protocol === 'wireguard-1.0' || iface.protocol === 'wireguard'
                               ? (theme==='dark' ? 'background:rgba(156,163,175,0.15); color:#d1d5db;' : 'background:rgba(107,114,128,0.1); color:#6b7280;')
                               : (theme==='dark' ? 'background:rgba(99,102,241,0.2); color:#a5b4fc;' : 'background:rgba(99,102,241,0.12); color:#6366f1;')">
                             {{ dashProtoLabel(iface.protocol) }}

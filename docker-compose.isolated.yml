@@ -72,6 +72,7 @@ services:
 
     volumes:
       - ./data:/etc/wireguard/data
+      - /lib/modules:/lib/modules:ro
 
     # No ports: — container gets a real IP from OVS; no NAT hairpin needed.
     # Access the Web UI via the IP assigned by ovs-docker/macvlan (PORT in deploy/.env).

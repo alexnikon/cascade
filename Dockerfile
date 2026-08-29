@@ -68,6 +68,7 @@ RUN apk add --no-cache \
     iproute2 \
     ipset \
     sqlite \
+    kmod \
     conntrack-tools \
     iperf3 \
     iputils-ping \

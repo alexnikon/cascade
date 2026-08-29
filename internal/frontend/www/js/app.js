@@ -4128,7 +4128,7 @@ new Vue({
 
     // Human-readable protocol label for dashboard badges
     dashProtoLabel(protocol) {
-      if (protocol === 'wireguard') return 'WG1.0';
+      if (protocol === 'wireguard-1.0' || protocol === 'wireguard') return 'WG1.0';
       if (protocol === 'amneziawg-2.0') return 'AWG2.0';
 	  if (protocol === 'amneziawg-3.1') return 'AWG3.1';
       if (protocol === 'amneziawg') return 'AWG';

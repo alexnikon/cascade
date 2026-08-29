@@ -141,32 +141,37 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 					c.MTU = n
 				}
 			case "jc":
+				hasAWG = true
 				if n, err := strconv.Atoi(val); err == nil {
 					awg.Jc = n
-					hasAWG = true
 				}
 			case "jmin":
+				hasAWG = true
 				if n, err := strconv.Atoi(val); err == nil {
 					awg.Jmin = n
 				}
 			case "jmax":
+				hasAWG = true
 				if n, err := strconv.Atoi(val); err == nil {
 					awg.Jmax = n
 				}
 			case "s1":
+				hasAWG = true
 				if n, err := strconv.Atoi(val); err == nil {
 					awg.S1 = n
-					hasAWG = true
 				}
 			case "s2":
+				hasAWG = true
 				if n, err := strconv.Atoi(val); err == nil {
 					awg.S2 = n
 				}
 			case "s3":
+				hasAWG = true
 				if n, err := strconv.Atoi(val); err == nil {
 					awg.S3 = n
 				}
 			case "s4":
+				hasAWG = true
 				if n, err := strconv.Atoi(val); err == nil {
 					awg.S4 = n
 				}
@@ -175,21 +180,28 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 				hasAWG = true
 			case "h2":
 				awg.H2 = val
+				hasAWG = true
 			case "h3":
 				awg.H3 = val
+				hasAWG = true
 			case "h4":
 				awg.H4 = val
+				hasAWG = true
 			case "i1":
 				awg.I1 = val
 				hasAWG = true
 			case "i2":
 				awg.I2 = val
+				hasAWG = true
 			case "i3":
 				awg.I3 = val
+				hasAWG = true
 			case "i4":
 				awg.I4 = val
+				hasAWG = true
 			case "i5":
 				awg.I5 = val
+				hasAWG = true
 			case "headerprotectionkey":
 				awg.HeaderProtectionKey = val
 				hasAWG, hasAWG3 = true, true

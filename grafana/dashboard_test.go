@@ -3,80 +3,163 @@ package grafana
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 )
 
-type dashboardFile struct {
-	Version int `json:"version"`
-	Panels  []struct {
-		ID       int                      `json:"id"`
-		Title    string                   `json:"title"`
-		Type     string                   `json:"type"`
-		TimeFrom string                   `json:"timeFrom"`
-		GridPos  struct{ H, W, X, Y int } `json:"gridPos"`
-		Targets  []struct {
-			Expr string `json:"expr"`
-		} `json:"targets"`
-	} `json:"panels"`
-}
-
-func TestDashboardOutboundCalendarTrafficPanels(t *testing.T) {
+func loadDashboard(t *testing.T) map[string]any {
+	t.Helper()
 	content, err := os.ReadFile("cascade-dashboard.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var dashboard dashboardFile
+	var dashboard map[string]any
 	if err := json.Unmarshal(content, &dashboard); err != nil {
 		t.Fatal(err)
 	}
-	if dashboard.Version < 2 {
-		t.Fatalf("dashboard version=%d, want at least 2", dashboard.Version)
+	return dashboard
+}
+
+func object(t *testing.T, value any, path string) map[string]any {
+	t.Helper()
+	result, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("%s is not an object", path)
 	}
-	want := map[int]struct{ title, timeFrom string }{
-		35: {"Outbound Traffic Today", "now/d"},
-		36: {"Outbound Traffic This Month", "now/M"},
+	return result
+}
+
+func stringAt(t *testing.T, value any, path string) string {
+	t.Helper()
+	result, ok := value.(string)
+	if !ok {
+		t.Fatalf("%s is not a string", path)
 	}
-	for _, panel := range dashboard.Panels {
-		expected, ok := want[panel.ID]
+	return result
+}
+
+func queries(t *testing.T, dashboard map[string]any, panelID string) []map[string]any {
+	t.Helper()
+	spec := object(t, dashboard["spec"], "spec")
+	elements := object(t, spec["elements"], "spec.elements")
+	element := object(t, elements["panel-"+panelID], "panel-"+panelID)
+	panelSpec := object(t, element["spec"], "panel spec")
+	data := object(t, panelSpec["data"], "panel data")
+	dataSpec := object(t, data["spec"], "query group")
+	rawQueries, ok := dataSpec["queries"].([]any)
+	if !ok {
+		t.Fatalf("panel %s queries are not an array", panelID)
+	}
+	result := make([]map[string]any, 0, len(rawQueries))
+	for _, raw := range rawQueries {
+		result = append(result, object(t, raw, "query"))
+	}
+	return result
+}
+
+func querySpec(t *testing.T, query map[string]any) map[string]any {
+	t.Helper()
+	spec := object(t, query["spec"], "panel query spec")
+	inner := object(t, spec["query"], "data query")
+	return object(t, inner["spec"], "data query spec")
+}
+
+func queryExpr(t *testing.T, query map[string]any) string {
+	return stringAt(t, querySpec(t, query)["expr"], "query expr")
+}
+
+func panelOptions(t *testing.T, dashboard map[string]any, panelID string) map[string]any {
+	t.Helper()
+	spec := object(t, dashboard["spec"], "spec")
+	elements := object(t, spec["elements"], "spec.elements")
+	element := object(t, elements["panel-"+panelID], "panel")
+	panelSpec := object(t, element["spec"], "panel spec")
+	viz := object(t, panelSpec["vizConfig"], "viz config")
+	return object(t, viz["spec"], "viz spec")["options"].(map[string]any)
+}
+
+func TestDashboardPeerVariableUsesNames(t *testing.T) {
+	dashboard := loadDashboard(t)
+	spec := object(t, dashboard["spec"], "spec")
+	rawVariables, ok := spec["variables"].([]any)
+	if !ok {
+		t.Fatal("variables are not an array")
+	}
+	var peer map[string]any
+	for _, raw := range rawVariables {
+		candidate := object(t, raw, "variable")
+		candidateSpec := object(t, candidate["spec"], "variable spec")
+		switch candidateSpec["name"] {
+		case "peer":
+			peer = candidateSpec
+		case "peer_id":
+			t.Fatal("legacy peer_id variable is still present")
+		}
+	}
+	if peer == nil || peer["label"] != "Peer" {
+		t.Fatalf("peer variable=%v, want label Peer", peer)
+	}
+	definition := stringAt(t, peer["definition"], "peer definition")
+	if !strings.HasSuffix(definition, ", name)") {
+		t.Fatalf("peer definition=%q does not select name label", definition)
+	}
+}
+
+func TestDashboardDatabaseStatus(t *testing.T) {
+	dashboard := loadDashboard(t)
+	panelQueries := queries(t, dashboard, "81")
+	if len(panelQueries) != 1 {
+		t.Fatalf("database status queries=%d, want 1", len(panelQueries))
+	}
+	if got := queryExpr(t, panelQueries[0]); got != `max by (instance) (cascade_database_up{instance=~"$instance"})` {
+		t.Fatalf("database query=%q", got)
+	}
+	if got := panelOptions(t, dashboard, "81")["textMode"]; got != "value" {
+		t.Fatalf("database textMode=%v, want value", got)
+	}
+}
+
+func TestDashboardGatewayStatus(t *testing.T) {
+	dashboard := loadDashboard(t)
+	panelQueries := queries(t, dashboard, "61")
+	if len(panelQueries) != 1 {
+		t.Fatalf("gateway status queries=%d, want 1", len(panelQueries))
+	}
+	if got := queryExpr(t, panelQueries[0]); got != `max by (instance, gateway) (cascade_gateway_status{instance=~"$instance",gateway=~"$gateway"})` {
+		t.Fatalf("gateway query=%q", got)
+	}
+	if got := querySpec(t, panelQueries[0])["legendFormat"]; got != "{{gateway}}" {
+		t.Fatalf("gateway legend=%v, want {{gateway}}", got)
+	}
+	if got := panelOptions(t, dashboard, "61")["textMode"]; got != "value_and_name" {
+		t.Fatalf("gateway textMode=%v, want value_and_name", got)
+	}
+}
+
+func TestDashboardPeerQueriesUseNameFilter(t *testing.T) {
+	dashboard := loadDashboard(t)
+	spec := object(t, dashboard["spec"], "spec")
+	elements := object(t, spec["elements"], "elements")
+	for panelID, raw := range elements {
+		element := object(t, raw, panelID)
+		panelSpec := object(t, element["spec"], panelID+" spec")
+		data, ok := panelSpec["data"].(map[string]any)
 		if !ok {
 			continue
 		}
-		if panel.Title != expected.title || panel.Type != "stat" || panel.TimeFrom != expected.timeFrom {
-			t.Fatalf("unexpected panel %d: %+v", panel.ID, panel)
+		dataSpec, ok := data["spec"].(map[string]any)
+		if !ok {
+			continue
 		}
-		if len(panel.Targets) != 1 || panel.Targets[0].Expr != `sum(increase(cascade_interface_sent_bytes_total{instance=~"$instance",interface=~"$interface"}[$__range]))` {
-			t.Fatalf("unexpected query for panel %d: %+v", panel.ID, panel.Targets)
+		rawQueries, ok := dataSpec["queries"].([]any)
+		if !ok {
+			continue
 		}
-		delete(want, panel.ID)
-	}
-	if len(want) != 0 {
-		t.Fatalf("missing traffic panels: %v", want)
-	}
-}
-
-func TestDashboardPanelsDoNotOverlap(t *testing.T) {
-	content, err := os.ReadFile("cascade-dashboard.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var dashboard dashboardFile
-	if err := json.Unmarshal(content, &dashboard); err != nil {
-		t.Fatal(err)
-	}
-	seen := map[int]bool{}
-	for i, panel := range dashboard.Panels {
-		if seen[panel.ID] {
-			t.Fatalf("duplicate panel ID %d", panel.ID)
-		}
-		seen[panel.ID] = true
-		for _, other := range dashboard.Panels[i+1:] {
-			if rectanglesOverlap(panel.GridPos.X, panel.GridPos.Y, panel.GridPos.W, panel.GridPos.H, other.GridPos.X, other.GridPos.Y, other.GridPos.W, other.GridPos.H) {
-				t.Fatalf("panels %d and %d overlap", panel.ID, other.ID)
+		for _, rawQuery := range rawQueries {
+			expr := queryExpr(t, object(t, rawQuery, panelID+" query"))
+			if strings.Contains(expr, "$peer") && strings.Contains(expr, "peer_id=~") {
+				t.Fatalf("panel %s still filters peer_id with $peer: %s", panelID, expr)
 			}
 		}
 	}
-}
-
-func rectanglesOverlap(ax, ay, aw, ah, bx, by, bw, bh int) bool {
-	return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by
 }

@@ -53,6 +53,26 @@ func TestSyncBin_UnknownProtocolDefaultsToWg(t *testing.T) {
 	}
 }
 
+func TestShouldAutoGeneratePSK(t *testing.T) {
+	tests := []struct {
+		name  string
+		input peer.PeerInput
+		want  bool
+	}{
+		{name: "third-party uplink", input: peer.PeerInput{PeerType: "interconnect"}, want: false},
+		{name: "Cascade S2S", input: peer.PeerInput{PeerType: "interconnect", AutoGeneratePSK: true}, want: true},
+		{name: "provided PSK", input: peer.PeerInput{PeerType: "interconnect", PresharedKey: "provided", AutoGeneratePSK: true}, want: false},
+		{name: "client", input: peer.PeerInput{PeerType: "client", AutoGeneratePSK: true}, want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := shouldAutoGeneratePSK(test.input); got != test.want {
+				t.Fatalf("shouldAutoGeneratePSK(%+v) = %t, want %t", test.input, got, test.want)
+			}
+		})
+	}
+}
+
 // ── generateWgConfig ──────────────────────────────────────────────────────────
 
 func newTestIface() *TunnelInterface {

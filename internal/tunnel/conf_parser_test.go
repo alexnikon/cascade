@@ -293,6 +293,40 @@ AllowedIPs = 0.0.0.0/0
 	}
 }
 
+func TestParseWGConfDetectsAWGFromEveryParameterFamily(t *testing.T) {
+	parameters := map[string]string{
+		"Jmin": "10", "Jmax": "20", "S2": "12", "S3": "13", "S4": "14",
+		"H2": "3-4", "H3": "5-6", "H4": "7-8", "I2": "", "I3": "", "I4": "", "I5": "",
+	}
+	for key, value := range parameters {
+		t.Run(key, func(t *testing.T) {
+			conf := "[Interface]\nPrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\nAddress = 10.9.0.5/24\n" + key + " = " + value + "\n"
+			parsed, err := ParseWGConf(conf)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if parsed.Protocol != "amneziawg-2.0" || parsed.AWG2 == nil {
+				t.Fatalf("%s was not recognized as AWG2: %+v", key, parsed)
+			}
+		})
+	}
+}
+
+func TestParseWGConfMarksMalformedAWGParameterAsAWG(t *testing.T) {
+	conf := `[Interface]
+PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+Address = 10.8.0.1/24
+Jmin = not-a-number
+`
+	parsed, err := ParseWGConf(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Protocol != "amneziawg-2.0" {
+		t.Fatalf("protocol = %q, want amneziawg-2.0", parsed.Protocol)
+	}
+}
+
 func TestParseWGConf_CommentsAndBlankLines(t *testing.T) {
 	conf := `# This is a comment
 ; This is also a comment

@@ -47,6 +47,14 @@ resolve_compose() {
 }
 COMPOSE_CMD="docker compose"  # default, overridden by resolve_compose after Step 3
 
+compose_files() {
+  local compose_file="$1"
+  COMPOSE_ARGS=(-f "$compose_file")
+  if [[ -f "$RUNTIME_DIR/docker-compose.override.yml" ]]; then
+    COMPOSE_ARGS+=(-f "$RUNTIME_DIR/docker-compose.override.yml")
+  fi
+}
+
 ok()   { echo -e "${G}  [✓]${N} $*"; }
 info() { echo -e "${B}  [→]${N} $*"; }
 warn() { echo -e "${Y}  [!]${N} $*"; }
@@ -271,27 +279,67 @@ apply_kernel_mode() {
       fi
     fi
   fi
+  [[ -e "/lib/modules/$(uname -r)/build" ]] || \
+    fail "Could not find kernel headers for $(uname -r) — DKMS build for amneziawg would fail. Install matching headers and re-run setup.sh."
 
   # Remove blacklist (if switching from userspace)
   rm -f /etc/modprobe.d/amneziawg-blacklist.conf
-  if lsmod | grep -q amneziawg; then
-    ok "amneziawg already loaded"
-  elif dpkg -l amneziawg &>/dev/null 2>&1; then
-    # Package installed but not loaded — just modprobe
-    info "Loading amneziawg kernel module..."
-    modprobe amneziawg
-    echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
-    ok "amneziawg loaded"
-  else
-    # Not installed at all — full PPA install
+  if ! dpkg-query -W -f='${db:Status-Status}' amneziawg 2>/dev/null | grep -qx installed || \
+     ! dpkg-query -W -f='${db:Status-Status}' amneziawg-dkms 2>/dev/null | grep -qx installed; then
     info "Installing AmneziaWG kernel module (ppa:amnezia/ppa)..."
     add-apt-repository -y ppa:amnezia/ppa > /dev/null 2>&1
     apt-get update -qq
-    apt-get install -y amneziawg
-    modprobe amneziawg
-    echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
-    ok "amneziawg installed and loaded"
+    apt-get install -y amneziawg amneziawg-dkms
+  else
+    info "AmneziaWG and DKMS packages are installed"
   fi
+
+  module_loaded() {
+    lsmod | grep -q '^amneziawg[[:space:]]' 2>/dev/null
+  }
+  module_version() {
+    if [[ -r /sys/module/amneziawg/version ]]; then
+      tr -d '[:space:]' < /sys/module/amneziawg/version
+    else
+      modinfo -F version amneziawg 2>/dev/null | head -n 1 | tr -d '[:space:]'
+    fi
+  }
+  installed_module_version() {
+    modinfo -F version amneziawg 2>/dev/null | head -n 1 | tr -d '[:space:]'
+  }
+  version_line() {
+    sed -nE 's/.*v?([0-9]+\.[0-9]+).*/\1/p' | head -n 1
+  }
+
+  installed_version="$(installed_module_version | version_line)"
+  [[ -n "$installed_version" ]] || \
+    fail "Cannot determine installed amneziawg module version; verify /lib/modules and kmod"
+
+  loaded_version=""
+  if module_loaded; then
+    loaded_version="$(module_version | version_line)"
+  fi
+
+  if module_loaded && [[ -n "$loaded_version" && "$loaded_version" == "$installed_version" ]]; then
+    echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
+    ok "amneziawg already loaded and synchronized (${installed_version})"
+    return
+  fi
+
+  if module_loaded; then
+    info "Synchronizing loaded module (${loaded_version:-unknown} → ${installed_version})..."
+    modprobe -r amneziawg || fail "Could not unload the old amneziawg module; Cascade was not restarted"
+  else
+    info "Loading amneziawg kernel module (${installed_version})..."
+  fi
+
+  modprobe amneziawg || fail "Could not load amneziawg ${installed_version}; Cascade was not restarted"
+  echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
+  loaded_version="$(module_version | version_line)"
+  if ! module_loaded || [[ -z "$loaded_version" || "$loaded_version" != "$installed_version" ]]; then
+    fail "Loaded amneziawg module version ${loaded_version:-unknown} does not match installed ${installed_version}; Cascade was not restarted"
+  fi
+  ok "amneziawg synchronized and loaded (${loaded_version})"
 }
 
 # Load saved mode from .env if present, otherwise ask
@@ -555,7 +603,8 @@ echo -e "${B}── Step 5: Cascade image${N}"
 cd "$RUNTIME_DIR"
 
 info "Pulling the Cascade image configured in docker-compose.yml..."
-if $COMPOSE_CMD -f "$RUNTIME_DIR/docker-compose.yml" pull cascade; then
+compose_files "$RUNTIME_DIR/docker-compose.yml"
+if $COMPOSE_CMD "${COMPOSE_ARGS[@]}" pull cascade; then
   ok "Cascade image pulled"
 else
   fail "Could not pull the Cascade image configured in docker-compose.yml"
@@ -616,8 +665,9 @@ else
 fi
 
 info "Starting Cascade ($NETWORK_MODE mode)..."
-$COMPOSE_CMD -f "$COMPOSE_FILE" down 2>/dev/null || true
-$COMPOSE_CMD -f "$COMPOSE_FILE" up -d
+compose_files "$COMPOSE_FILE"
+$COMPOSE_CMD "${COMPOSE_ARGS[@]}" down 2>/dev/null || true
+$COMPOSE_CMD "${COMPOSE_ARGS[@]}" up -d
 
 # Wait for health
 info "Waiting for health check..."

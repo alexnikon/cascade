@@ -571,11 +571,10 @@ func (t *TunnelInterface) AddPeer(inp peer.PeerInput) (*peer.Peer, error) {
 		inp.GenerateKeys = false
 	}
 
-	// Interconnect peers always need a PSK for mutual authentication.
-	// If none was provided (first importer in S2S workflow), generate one now.
-	// The importer exports their params with this PSK so the remote side can
-	// import it and the two ends end up with a matching PSK.
-	if inp.PeerType == "interconnect" && inp.PresharedKey == "" {
+	// Cascade-authored S2S interconnect peers need a PSK for mutual
+	// authentication. Third-party .conf uplinks must not receive an invented
+	// PSK because the remote endpoint never learns it.
+	if shouldAutoGeneratePSK(inp) {
 		psk, err := peer.GeneratePSK(t.syncBin())
 		if err != nil {
 			return nil, fmt.Errorf("generate PSK for interconnect peer: %w", err)
@@ -672,6 +671,10 @@ func (t *TunnelInterface) AddPeer(inp peer.PeerInput) (*peer.Peer, error) {
 		}
 	}
 	return p, nil
+}
+
+func shouldAutoGeneratePSK(inp peer.PeerInput) bool {
+	return inp.PeerType == "interconnect" && inp.PresharedKey == "" && inp.AutoGeneratePSK
 }
 
 // UpdatePeer applies upd to the peer in SQLite and in-memory cache.

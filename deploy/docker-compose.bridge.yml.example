@@ -38,6 +38,7 @@ services:
 
     volumes:
       - ./data:/etc/wireguard/data
+      - /lib/modules:/lib/modules:ro
       - /etc/hostname:/host_hostname:ro
 
     ports:

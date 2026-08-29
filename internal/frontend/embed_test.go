@@ -139,6 +139,9 @@ func TestFrontendNavigationThemeAndDashboardDefaults(t *testing.T) {
 		`{ id: 'w-peers',         type: 'peers',          x: 6, y: 4, w: 6, h: 9 }`,
 		`{ id: 'w-peers-summary', type: 'peers-summary',  x: 0, y: 9, w: 3, h: 4 }`,
 		`{ id: 'w-traffic',       type: 'traffic',        x: 3, y: 9, w: 3, h: 4 }`,
+		`protocol === 'wireguard-1.0' || protocol === 'wireguard'`,
+		`if (protocol === 'amneziawg-2.0') return 'AWG2.0';`,
+		`if (protocol === 'amneziawg-3.1') return 'AWG3.1';`,
 	} {
 		if !strings.Contains(app, expected) {
 			t.Errorf("app.js does not contain %q", expected)

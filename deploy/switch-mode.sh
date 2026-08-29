@@ -49,6 +49,11 @@ else
   fail "docker compose not found"
 fi
 
+COMPOSE_ARGS=(-f "$COMPOSE_FILE")
+if [[ -f "$RUNTIME_DIR/docker-compose.override.yml" ]]; then
+  COMPOSE_ARGS+=(-f "$RUNTIME_DIR/docker-compose.override.yml")
+fi
+
 # ── Mode helpers ──────────────────────────────────────────────────────────────
 apply_userspace() {
   info "Switching to userspace mode (amneziawg-go)..."
@@ -63,22 +68,75 @@ apply_userspace() {
 
 apply_kernel() {
   info "Switching to kernel module mode..."
+
+  if [[ ! -e "/lib/modules/$(uname -r)/build" ]]; then
+    info "Installing kernel headers for $(uname -r) (required for DKMS)..."
+    if ! apt-get install -y "linux-headers-$(uname -r)" 2>/dev/null; then
+      apt-get update -qq
+      apt-get install -y "linux-headers-$(uname -r)" || \
+        fail "Could not install kernel headers for $(uname -r); install matching headers and retry"
+    fi
+  fi
+
   rm -f /etc/modprobe.d/amneziawg-blacklist.conf
-  if lsmod | grep -q amneziawg 2>/dev/null; then
-    ok "amneziawg already loaded"
-  elif dpkg -l amneziawg &>/dev/null 2>&1; then
-    modprobe amneziawg
-    echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
-    ok "amneziawg loaded"
-  else
+
+  if ! dpkg-query -W -f='${db:Status-Status}' amneziawg-dkms 2>/dev/null | grep -qx installed; then
     info "Installing amneziawg kernel module (ppa:amnezia/ppa)..."
     add-apt-repository -y ppa:amnezia/ppa > /dev/null 2>&1
     apt-get update -qq
-    apt-get install -y amneziawg
-    modprobe amneziawg
-    echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
-    ok "amneziawg installed and loaded"
+  else
+    info "Checking for AmneziaWG DKMS updates (ppa:amnezia/ppa)..."
+    apt-get update -qq
   fi
+
+  apt-get install -y amneziawg amneziawg-dkms
+
+  module_loaded() {
+    lsmod | grep -q '^amneziawg[[:space:]]' 2>/dev/null
+  }
+  module_version() {
+    if [[ -r /sys/module/amneziawg/version ]]; then
+      tr -d '[:space:]' < /sys/module/amneziawg/version
+    else
+      modinfo -F version amneziawg 2>/dev/null | head -n 1 | tr -d '[:space:]'
+    fi
+  }
+  installed_module_version() {
+    modinfo -F version amneziawg 2>/dev/null | head -n 1 | tr -d '[:space:]'
+  }
+  version_line() {
+    sed -nE 's/.*v?([0-9]+\.[0-9]+).*/\1/p' | head -n 1
+  }
+
+  installed_version="$(installed_module_version | version_line)"
+  [[ -n "$installed_version" ]] || fail "Cannot determine installed amneziawg module version; verify /lib/modules and kmod"
+
+  loaded_version=""
+  if module_loaded; then
+    loaded_version="$(module_version | version_line)"
+  fi
+
+  if module_loaded && [[ -n "$loaded_version" && "$loaded_version" == "$installed_version" ]]; then
+    echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
+    ok "amneziawg already loaded and synchronized (${installed_version})"
+    return
+  fi
+
+  if module_loaded; then
+    info "Synchronizing loaded module (${loaded_version:-unknown} → ${installed_version})..."
+    modprobe -r amneziawg || fail "Could not unload the old amneziawg module; Cascade was not restarted"
+  else
+    info "Loading amneziawg kernel module (${installed_version})..."
+  fi
+
+  modprobe amneziawg || fail "Could not load amneziawg ${installed_version}; Cascade was not restarted"
+  echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
+
+  loaded_version="$(module_version | version_line)"
+  if ! module_loaded || [[ -z "$loaded_version" || "$loaded_version" != "$installed_version" ]]; then
+    fail "Loaded amneziawg module version ${loaded_version:-unknown} does not match installed ${installed_version}; Cascade was not restarted"
+  fi
+  ok "amneziawg synchronized and loaded (${loaded_version})"
 }
 
 # ── Update .env ───────────────────────────────────────────────────────────────
@@ -121,10 +179,10 @@ fi
 update_env
 
 # Restart container if running
-if $COMPOSE_CMD -f "$COMPOSE_FILE" ps --quiet 2>/dev/null | grep -q .; then
+if $COMPOSE_CMD "${COMPOSE_ARGS[@]}" ps --quiet 2>/dev/null | grep -q .; then
   info "Restarting Cascade container..."
-  $COMPOSE_CMD -f "$COMPOSE_FILE" down
-  $COMPOSE_CMD -f "$COMPOSE_FILE" up -d
+  $COMPOSE_CMD "${COMPOSE_ARGS[@]}" down
+  $COMPOSE_CMD "${COMPOSE_ARGS[@]}" up -d
   ok "Container restarted"
 
   sleep 2

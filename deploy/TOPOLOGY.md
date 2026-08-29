@@ -125,9 +125,8 @@ docker run --rm -v /opt/cascade/data:/data alpine sh -c "apk add sqlite && sqlit
 
 ### Manual backup
 ```bash
-# WAL checkpoint first — otherwise the .db file may be inconsistent
-docker exec cascade sh -c "sqlite3 /etc/wireguard/data/cascade.db 'PRAGMA wal_checkpoint(FULL);'"
-cp /opt/cascade/data/cascade.db /root/cascade-backup-$(date +%Y%m%d-%H%M%S).db
+# Use SQLite's online backup and include the deployment configuration.
+bash /opt/cascade/deploy/backup.sh
 ```
 
 ### Restore from backup tar.gz
