@@ -255,27 +255,36 @@ func (t *TunnelInterface) Update(upd InterfaceUpdate) error {
 		}
 		t.AWG2 = upd.AWG2
 	}
-	if err := t.save(); err != nil {
-		return err
-	}
-	if err := t.RegenerateConfig(); err != nil {
-		return err
-	}
 	if t.Enabled {
 		needsRestart := addressChanged || listenPortChanged || natDisabledChanged ||
 			mtuChanged || mssChanged || disableRoutesChanged
 		if needsRestart {
 			// Full wg-quick down → up required to apply kernel-level changes.
+			// Stop must read the old on-disk config before the new settings are saved;
+			// otherwise PostDown cannot remove old MSS/NAT rules.
 			// reloadMu must be held: concurrent awg syncconf + awg-quick up = deadlock (FIX-8/9).
 			go func() {
 				t.reloadMu.Lock()
 				defer t.reloadMu.Unlock()
-				if err := t.Restart(); err != nil {
+				if err := t.restartWithNewSettings(); err != nil {
 					log.Printf("tunnel: Update %s: restart failed: %v", t.ID, err)
 				}
 			}()
 		} else {
+			if err := t.save(); err != nil {
+				return err
+			}
+			if err := t.RegenerateConfig(); err != nil {
+				return err
+			}
 			t.Reload() // hot-reload via syncconf — safe for Name, PublicHost, AWG2 params
+		}
+	} else {
+		if err := t.save(); err != nil {
+			return err
+		}
+		if err := t.RegenerateConfig(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -975,6 +984,33 @@ func (t *TunnelInterface) Restart() error {
 		return err
 	}
 	return t.Start()
+}
+
+// restartWithNewSettings applies an already-mutated interface update without
+// allowing the new configuration to replace the old PostDown commands first.
+func (t *TunnelInterface) restartWithNewSettings() error {
+	return restartWithNewSettingsSteps(t.Stop, t.save, t.RegenerateConfig, t.Start)
+}
+
+// restartWithNewSettingsSteps is the lifecycle orchestration used by
+// restartWithNewSettings. Keeping the steps injectable makes the ordering
+// regression-testable without requiring a live WireGuard interface.
+func restartWithNewSettingsSteps(
+	stop func() error,
+	save func() error,
+	regenerate func() error,
+	start func() error,
+) error {
+	if err := stop(); err != nil {
+		return err
+	}
+	if err := save(); err != nil {
+		return err
+	}
+	if err := regenerate(); err != nil {
+		return err
+	}
+	return start()
 }
 
 // Reload enqueues a hot-reload (awg/wg syncconf) in a background goroutine.

@@ -45,7 +45,7 @@ const minProbes = 3 // minimum window probes before committing to a non-unknown 
 type probe struct {
 	ts      int64 // Unix milliseconds
 	success bool
-	latency *int  // ms; nil if probe failed
+	latency *int // ms; nil if probe failed
 }
 
 // windowStats summarises a slice of probes.
@@ -65,6 +65,7 @@ type monitorState struct {
 	status     MonitorStatus
 	adminDown  bool // if true, GetStatus returns "admin_down" regardless of probe results
 	stopCh     chan struct{}
+	wg         sync.WaitGroup
 }
 
 // StatusChangeFunc is invoked when a gateway's combined status changes.
@@ -121,7 +122,9 @@ func (m *Monitor) Start(gw Gateway) {
 	if icmpInterval < time.Second {
 		icmpInterval = 5 * time.Second
 	}
+	state.wg.Add(1)
 	go func() {
+		defer state.wg.Done()
 		m.probeICMP(gw, state)
 		ticker := time.NewTicker(icmpInterval)
 		defer ticker.Stop()
@@ -142,7 +145,9 @@ func (m *Monitor) Start(gw Gateway) {
 		if httpInterval < time.Second {
 			httpInterval = 10 * time.Second
 		}
+		state.wg.Add(1)
 		go func() {
+			defer state.wg.Done()
 			m.probeHTTP(gw, state)
 			ticker := time.NewTicker(httpInterval)
 			defer ticker.Stop()
@@ -171,6 +176,7 @@ func (m *Monitor) Stop(gatewayID string) {
 	m.mu.Unlock()
 
 	if ok {
+		state.wg.Wait()
 		log.Printf("gateway-monitor: %s: stopped", gatewayID)
 	}
 }

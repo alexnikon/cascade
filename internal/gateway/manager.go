@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -288,6 +289,61 @@ func (m *Manager) GetGroup(id string) (*GatewayGroup, error) {
 		return nil, nil
 	}
 	return grp, err
+}
+
+// GroupContainsGateway reports whether gatewayID is a member of groupID.
+func (m *Manager) GroupContainsGateway(groupID, gatewayID string) (bool, error) {
+	grp, err := m.GetGroup(groupID)
+	if err != nil {
+		return false, err
+	}
+	if grp == nil {
+		return false, nil
+	}
+	for _, member := range grp.Gateways {
+		if member.GatewayID == gatewayID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ResolveGroupGateway returns the highest-priority healthy gateway in groupID.
+// Gateway statuses down and admin_down are unavailable; unknown is treated as
+// available until the monitor has enough probe data. If every member is down,
+// the first tier gateway is returned as the existing last-resort selection.
+func (m *Manager) ResolveGroupGateway(groupID string) (*Gateway, error) {
+	grp, err := m.GetGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+	if grp == nil || len(grp.Gateways) == 0 {
+		return nil, fmt.Errorf("gateway group %s not found or empty", groupID)
+	}
+
+	members := append([]GatewayGroupMember(nil), grp.Gateways...)
+	sort.SliceStable(members, func(i, j int) bool {
+		return members[i].Tier < members[j].Tier
+	})
+
+	var fallback *Gateway
+	for _, member := range members {
+		gw, err := m.GetGateway(member.GatewayID)
+		if err != nil || gw == nil {
+			continue
+		}
+		if fallback == nil {
+			fallback = gw
+		}
+		status := m.monitor.GetStatus(member.GatewayID).Status
+		if status != "down" && status != "admin_down" {
+			return gw, nil
+		}
+	}
+	if fallback != nil {
+		return fallback, nil
+	}
+	return nil, fmt.Errorf("no valid gateway found in group %s", groupID)
 }
 
 // GatewayGroupInput is the create/update request payload.

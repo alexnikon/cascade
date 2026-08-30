@@ -19,10 +19,14 @@ CERT_DIR="/etc/ssl/cascade"
 REBOOT_FLAG="/var/lib/.cascade-needs-reboot"
 LOG_FILE="/var/log/cascade-setup.log"
 DEPENDENCY_HELPERS="$SCRIPT_DIR/lib/install-dependencies.sh"
+KERNEL_MODULE_HELPERS="$SCRIPT_DIR/lib/kernel-module.sh"
 
 [[ -f "$DEPENDENCY_HELPERS" ]] || { echo "Missing dependency helpers: $DEPENDENCY_HELPERS" >&2; exit 1; }
 # shellcheck source=deploy/lib/install-dependencies.sh
 source "$DEPENDENCY_HELPERS"
+[[ -f "$KERNEL_MODULE_HELPERS" ]] || { echo "Missing kernel module helpers: $KERNEL_MODULE_HELPERS" >&2; exit 1; }
+# shellcheck source=deploy/lib/kernel-module.sh
+source "$KERNEL_MODULE_HELPERS"
 
 # ── Logging to file ──────────────────────────────────────────────────────────
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -255,6 +259,8 @@ apply_userspace_mode() {
 }
 
 apply_kernel_mode() {
+  local dkms_version_before dkms_version_after
+  dkms_version_before="$(dpkg-query -W -f='${Version}' amneziawg-dkms 2>/dev/null || true)"
   # DKMS needs headers matching the RUNNING kernel to build amneziawg.ko —
   # without this, the dkms build step silently skips ("kernel headers for
   # this kernel do not seem to be installed") and modprobe fails afterward.
@@ -291,43 +297,41 @@ apply_kernel_mode() {
     apt-get update -qq
     apt-get install -y amneziawg amneziawg-dkms
   else
-    info "AmneziaWG and DKMS packages are installed"
+    info "Checking for AmneziaWG DKMS updates (ppa:amnezia/ppa)..."
+    apt-get update -qq
+    apt-get install -y amneziawg amneziawg-dkms
   fi
 
   module_loaded() {
     lsmod | grep -q '^amneziawg[[:space:]]' 2>/dev/null
   }
   module_version() {
-    if [[ -r /sys/module/amneziawg/version ]]; then
-      tr -d '[:space:]' < /sys/module/amneziawg/version
-    else
-      modinfo -F version amneziawg 2>/dev/null | head -n 1 | tr -d '[:space:]'
-    fi
+    [[ -r /sys/module/amneziawg/version ]] || return 0
+    tr -d '[:space:]' < /sys/module/amneziawg/version
   }
   installed_module_version() {
     modinfo -F version amneziawg 2>/dev/null | head -n 1 | tr -d '[:space:]'
   }
-  version_line() {
-    sed -nE 's/.*v?([0-9]+\.[0-9]+).*/\1/p' | head -n 1
-  }
-
-  installed_version="$(installed_module_version | version_line)"
+  dkms_version_after="$(dpkg-query -W -f='${Version}' amneziawg-dkms 2>/dev/null || true)"
+  installed_version="$(installed_module_version)"
   [[ -n "$installed_version" ]] || \
     fail "Cannot determine installed amneziawg module version; verify /lib/modules and kmod"
 
   loaded_version=""
+  loaded_state="absent"
   if module_loaded; then
-    loaded_version="$(module_version | version_line)"
+    loaded_state="loaded"
+    loaded_version="$(module_version)"
   fi
 
-  if module_loaded && [[ -n "$loaded_version" && "$loaded_version" == "$installed_version" ]]; then
+  if ! cascade_kernel_module_reload_required "$loaded_version" "$installed_version" "$dkms_version_before" "$dkms_version_after" "$loaded_state"; then
     echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
-    ok "amneziawg already loaded and synchronized (${installed_version})"
+    ok "amneziawg already loaded and synchronized (${installed_version}); DKMS ${dkms_version_after}"
     return
   fi
 
   if module_loaded; then
-    info "Synchronizing loaded module (${loaded_version:-unknown} → ${installed_version})..."
+    info "Synchronizing loaded module (${loaded_version:-unknown} → ${installed_version}); DKMS ${dkms_version_before:-unknown} → ${dkms_version_after}..."
     modprobe -r amneziawg || fail "Could not unload the old amneziawg module; Cascade was not restarted"
   else
     info "Loading amneziawg kernel module (${installed_version})..."
@@ -335,8 +339,8 @@ apply_kernel_mode() {
 
   modprobe amneziawg || fail "Could not load amneziawg ${installed_version}; Cascade was not restarted"
   echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
-  loaded_version="$(module_version | version_line)"
-  if ! module_loaded || [[ -z "$loaded_version" || "$loaded_version" != "$installed_version" ]]; then
+  loaded_version="$(module_version)"
+  if ! module_loaded || ! cascade_kernel_module_versions_match "$loaded_version" "$installed_version"; then
     fail "Loaded amneziawg module version ${loaded_version:-unknown} does not match installed ${installed_version}; Cascade was not restarted"
   fi
   ok "amneziawg synchronized and loaded (${loaded_version})"
