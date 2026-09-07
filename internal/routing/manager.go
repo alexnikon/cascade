@@ -1131,6 +1131,9 @@ func sortInts(s []int) {
 
 var instance *Manager
 
+// TryGet returns the routing manager, or nil before initialization.
+func TryGet() *Manager { return instance }
+
 // SetInstance stores the initialized Manager for package-level access.
 // Must be called from main() before serving requests.
 func SetInstance(m *Manager) { instance = m }

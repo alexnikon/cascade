@@ -18,11 +18,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	_ "modernc.org/sqlite" // register "sqlite" driver
 )
 
-var instance *sql.DB
+var instance atomic.Pointer[sql.DB]
 var metricsInstance *sql.DB
 
 // migrateDBName renames wireguard.db → cascade.db (and WAL/SHM siblings) when
@@ -82,7 +83,7 @@ func Init(dataDir string) error {
 		}
 	}
 
-	instance = db
+	instance.Store(db)
 
 	if err := runMigrations(db); err != nil {
 		return fmt.Errorf("migrations: %w", err)
@@ -101,11 +102,24 @@ func Init(dataDir string) error {
 // DB returns the main config database handle.
 // Panics if Init() has not been called.
 func DB() *sql.DB {
-	if instance == nil {
+	d := instance.Load()
+	if d == nil {
 		panic("db.Init() must be called before db.DB()")
 	}
-	return instance
+	return d
 }
+
+// TryDB returns the main config database handle, or nil if Init() has not
+// been called (or Close() already has). Prefer this over DB() in code that
+// can legitimately run before Init()/after Close() — in particular a
+// background goroutine that isn't tied to a single request's lifecycle, such
+// as gateway.Monitor's probe loop, which already falls back to hardcoded
+// defaults on any GetSettings() error (see globalThresholds) but only if
+// that error is actually returned instead of turning into a panic here.
+// Confirmed in the wild: a probe goroutine's very first (immediate, fired
+// synchronously on Monitor.Start) call raced a unit test's db.Close(),
+// panicking the whole test binary instead of gracefully falling back.
+func TryDB() *sql.DB { return instance.Load() }
 
 // MetricsDB returns the metrics-only database handle (metrics.db).
 // Panics if Init() has not been called.
@@ -122,9 +136,8 @@ func Close() {
 		metricsInstance.Close()
 		metricsInstance = nil
 	}
-	if instance != nil {
-		instance.Close()
-		instance = nil
+	if d := instance.Swap(nil); d != nil {
+		d.Close()
 	}
 }
 

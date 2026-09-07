@@ -33,8 +33,10 @@ import (
 	"github.com/alexnikon/cascade/internal/aliases"
 	"github.com/alexnikon/cascade/internal/awgparams"
 	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/firewall"
 	"github.com/alexnikon/cascade/internal/metrics"
 	"github.com/alexnikon/cascade/internal/peer"
+	"github.com/alexnikon/cascade/internal/routing"
 	"github.com/alexnikon/cascade/internal/tc"
 	"github.com/alexnikon/cascade/internal/util"
 	"github.com/alexnikon/cascade/internal/validate"
@@ -983,13 +985,38 @@ func (t *TunnelInterface) Restart() error {
 	if err := t.Stop(); err != nil {
 		return err
 	}
-	return t.Start()
+	return t.startAndReapplyDependents()
 }
 
 // restartWithNewSettings applies an already-mutated interface update without
 // allowing the new configuration to replace the old PostDown commands first.
 func (t *TunnelInterface) restartWithNewSettings() error {
-	return restartWithNewSettingsSteps(t.Stop, t.save, t.RegenerateConfig, t.Start)
+	return restartWithNewSettingsSteps(t.Stop, t.save, t.RegenerateConfig, t.startAndReapplyDependents)
+}
+
+// startAndReapplyDependents restores routes and firewall state lost on down.
+func (t *TunnelInterface) startAndReapplyDependents() error {
+	return startAndReapplySteps(t.Start, t.reapplyDependents)
+}
+
+func startAndReapplySteps(start func() error, reapply func()) error {
+	if err := start(); err != nil {
+		return err
+	}
+	reapply()
+	return nil
+}
+
+// reapplyDependents tolerates managers not yet initialized during startup.
+func (t *TunnelInterface) reapplyDependents() {
+	if fw := firewall.TryGet(); fw != nil {
+		if err := fw.RebuildChains(); err != nil {
+			log.Printf("tunnel: %s: rebuild firewall after restart: %v", t.ID, err)
+		}
+	}
+	if rt := routing.TryGet(); rt != nil {
+		rt.ReapplyForDevice(t.ID)
+	}
 }
 
 // restartWithNewSettingsSteps is the lifecycle orchestration used by

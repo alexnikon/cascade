@@ -157,7 +157,14 @@ var defaults = GlobalSettings{
 
 // GetSettings returns current global settings, falling back to defaults.
 func GetSettings() (*GlobalSettings, error) {
-	d := db.DB()
+	return GetSettingsFromDB(db.DB())
+}
+
+// GetSettingsFromDB reads from a captured handle, returning errors after close.
+func GetSettingsFromDB(d *sql.DB) (*GlobalSettings, error) {
+	if d == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
 	s := defaults // copy defaults
 
 	rows, err := d.Query(`SELECT key, value FROM settings`)

@@ -520,14 +520,7 @@ func restartInterface(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
-	// wg-quick down removes all routes from the interface including custom-table
-	// routes used by PBR (e.g. "default via X dev wgY table 1000").
-	// Rebuild firewall chains so those routes are re-added (FIX-GO-9).
-	if err := firewall.Get().RebuildChains(); err != nil {
-		log.Printf("firewall rebuildChains after restart %s: %v", c.Params("id"), err)
-	}
-	// Restore static routes that use this interface — wg-quick down removes them.
-	routing.Get().ReapplyForDevice(c.Params("id"))
+	// Restart restores firewall and static routes inside the tunnel lifecycle.
 	return c.JSON(fiber.Map{"interface": ifaceJSON(t, false)})
 }
 
