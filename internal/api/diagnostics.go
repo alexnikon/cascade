@@ -11,6 +11,7 @@ package api
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -22,13 +23,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alexnikon/cascade/internal/validate"
 	"github.com/gofiber/fiber/v2"
 )
 
 // tcpdumpCapture tracks an active or completed PCAP save session.
 type tcpdumpCapture struct {
-	path    string       // absolute path to the .pcap file
-	process *os.Process  // nil until tcpdump starts
+	path    string        // absolute path to the .pcap file
+	process *os.Process   // nil until tcpdump starts
 	done    chan struct{} // closed when tcpdump exits and file is finalized
 }
 
@@ -48,8 +50,9 @@ func RegisterDiagnostics(api fiber.Router) {
 }
 
 type PingRequest struct {
-	Host  string `json:"host"`
-	Count int    `json:"count"`
+	Host      string `json:"host"`
+	Count     int    `json:"count"`
+	Interface string `json:"interface"`
 }
 
 type PingResult struct {
@@ -84,7 +87,20 @@ func diagnosticsPing(c *fiber.Ctx) error {
 		count = 3
 	}
 
-	cmd := exec.Command("ping", "-c", strconv.Itoa(count), "-W", "2", host)
+	if strings.HasPrefix(host, "-") {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid host")
+	}
+	args := []string{"-c", strconv.Itoa(count), "-W", "2"}
+	if req.Interface != "" {
+		if err := validate.IfaceName(req.Interface); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		args = append(args, "-I", req.Interface)
+	}
+	args = append(args, host)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(count*3+2)*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "ping", args...)
 	out, _ := cmd.Output() // ignore exit code — non-zero on packet loss
 
 	result := parsePingOutput(string(out))
@@ -92,13 +108,7 @@ func diagnosticsPing(c *fiber.Ctx) error {
 		result.Reachable = false
 	}
 
-	// Timeout guard.
-	timeout := time.Duration(count*3) * time.Second
-	done := make(chan struct{}, 1)
-	go func() { done <- struct{}{} }()
-	select {
-	case <-done:
-	case <-time.After(timeout):
+	if ctx.Err() != nil {
 		return c.JSON(&PingResult{Reachable: false, PacketLoss: 100})
 	}
 
@@ -256,7 +266,7 @@ func diagnosticsTracerouteStream(c *fiber.Ctx) error {
 		args = append(args, "-I")
 	case "tcp":
 		args = append(args, "-T")
-	// udp is default — no flag needed
+		// udp is default — no flag needed
 	}
 
 	if src := c.Query("source"); src != "" {

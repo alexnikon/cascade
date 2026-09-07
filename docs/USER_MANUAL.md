@@ -1194,7 +1194,28 @@ Interconnects two Cascade routers over a WireGuard or AWG site-to-site tunnel an
    - Allocates a `/30` subnet from `10.255.255.0/24` for the S2S link
    - Creates a local S2S interface and a remote S2S interface (via API)
    - Exchanges public keys and PSK between both sides (correct PSK sync order)
-   - Creates source alias, destination alias, gateway, PBR firewall rule, and NAT on the local server
+   - Creates source alias, destination alias, gateway and PBR firewall rule on the local server
    - Creates a return route and NAT on the remote server
 
 > **PSK sync:** the wizard first imports local params into the remote (which generates the PSK), then re-exports remote params (PSK now included) and imports into local — both sides end up with the same PSK.
+
+The gateway monitors the remote transit IP by default. This checks tunnel peer
+reachability, not internet access. Changing Monitor IP to a public address makes
+the probe originate from the local transit address. Remote client-subnet NAT
+does not cover that address. Configure forwarding and a narrow egress MASQUERADE
+rule for that source (for example `10.255.255.5/32` on the remote public uplink),
+then verify the probe through the tunnel. Do not enable broad NAT on S2S links.
+
+Select **Internet through remote gateway** in the S2S wizard to enter a monitor
+IPv4 address and explicitly select the remote internet interface. The wizard
+creates a separate MASQUERADE rule for the local transit address `/32`, in addition
+to client NAT. It then pings the monitor address bound to the local S2S interface.
+Failure to create the rule or receive a reply produces an incomplete result.
+This mode applies to new connections; existing gateways need separate configuration.
+
+In tunnel-peer mode, completion confirms configuration requests, not connectivity. Warnings
+produce an incomplete result with the affected steps. Created objects remain;
+inspect them before retrying to avoid duplicate configuration. Remote NAT always
+uses an explicit client-subnet alias, including when the local alias option is off.
+Administrative gateway toggles update only `adminDown`. Monitor target changes
+are logged separately; an empty target means the gateway IP.

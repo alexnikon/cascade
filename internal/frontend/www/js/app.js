@@ -518,6 +518,7 @@ new Vue({
 
     // ── Wizard: Cascade ↔ Cascade S2S ────────────────────────────────────────
     wizardS2S: {
+      monitorMode: 'tunnel', monitorIP: '1.1.1.1', remoteEgress: '', remoteEgressInterfaces: [],
       step: 1,           // 1=remote, 2=source, 3=destination, 4=options, 5=apply
       // step 1 — remote
       remotes: [],

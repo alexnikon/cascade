@@ -254,6 +254,7 @@
                     <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IP <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
                     <input v-model="gatewayCreate.monitorAddress" type="text" :placeholder="gatewayCreate.gatewayIP || 'same as Gateway IP'"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p v-if="gatewayCreate.monitorAddress && gatewayCreate.monitorAddress !== gatewayCreate.gatewayIP && /^(wg|awg)/.test(gatewayCreate.interface)" class="text-xs text-amber-600 mt-1">This target is checked through the tunnel. Internet targets require remote forwarding and egress NAT for this tunnel's source address; client-subnet NAT may not cover it.</p>
                     <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Ping target; blank = Gateway IP</p>
                   </div>
                 </div>
@@ -406,6 +407,7 @@
                     <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IP <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
                     <input v-model="gatewayEdit.monitorAddress" type="text" :placeholder="gatewayEdit.gatewayIP || 'same as Gateway IP'"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p v-if="gatewayEdit.monitorAddress && gatewayEdit.monitorAddress !== gatewayEdit.gatewayIP && /^(wg|awg)/.test(gatewayEdit.interface)" class="text-xs text-amber-600 mt-1">This target is checked through the tunnel. Internet targets require remote forwarding and egress NAT for this tunnel's source address; client-subnet NAT may not cover it.</p>
                     <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Ping target; blank = Gateway IP</p>
                   </div>
                 </div>

@@ -16,6 +16,7 @@
 package api
 
 import (
+	"encoding/json"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
@@ -90,6 +91,21 @@ func createGateway(c *fiber.Ctx) error {
 
 // PATCH /api/gateways/:id
 func updateGateway(c *fiber.Ctx) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(c.Body(), &fields); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
+	}
+	if raw, ok := fields["adminDown"]; ok && len(fields) == 1 {
+		var down bool
+		if string(raw) == "null" || json.Unmarshal(raw, &down) != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "adminDown must be a boolean")
+		}
+		gw, err := gateway.Get().SetAdminDown(c.Params("id"), down)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		return c.JSON(gw)
+	}
 	var inp gateway.GatewayInput
 	if err := c.BodyParser(&inp); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")

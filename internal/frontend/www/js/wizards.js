@@ -471,6 +471,7 @@ async wizardUplinkApply() {
 
 async wizardS2SInit() {
       const w = this.wizardS2S;
+      w.monitorMode = 'tunnel'; w.monitorIP = '1.1.1.1'; w.remoteEgress = ''; w.remoteEgressInterfaces = [];
       w.step = 1;
       w.remoteId = ''; w.showAddRemote = false;
       w.addRemoteName = ''; w.addRemoteURL = ''; w.addRemoteMode = 'password';
@@ -503,8 +504,20 @@ wizardS2SOnNameChange() {
       if (!w.fwRuleName || w.fwRuleName === 'pbr-' + base) w.fwRuleName = 'pbr-' + base;
     },
 
+async wizardS2SLoadEgress() {
+      const w = this.wizardS2S;
+      const rid = w.remoteId;
+      w.remoteEgress = ''; w.remoteEgressInterfaces = [];
+      try {
+        const result = await this.api.remoteCall({ remoteId: rid, method: 'get', path: '/system/interfaces' });
+        if (rid !== w.remoteId) return;
+        w.remoteEgressInterfaces = (result.interfaces || []).filter(i => i.name !== 'lo' && !/^(wg|awg|docker|veth|br-)/.test(i.name));
+      } catch (e) { this.showToast('Cannot load remote interfaces: ' + e.message, 'error'); }
+    },
+
 wizardS2SAutoNames() {
       const w = this.wizardS2S;
+      w.remoteEgress = ''; w.remoteEgressInterfaces = [];
       const remote = w.remotes.find(r => r.id === w.remoteId);
       const base = (remote ? remote.name.toLowerCase().replace(/[^a-z0-9]/g, '-') : 'cascade') + '-s2s';
       if (!w.localIfaceName) w.localIfaceName = base;
@@ -600,8 +613,22 @@ wizardS2SStepSet(idx, status, detail) {
 
 async wizardS2SApply() {
       const w = this.wizardS2S;
+      if (w.applying) return;
       w.applying = true; w.steps = []; w.done = false; w.fatalError = '';
       const rid = w.remoteId;
+      if (w.monitorMode === 'internet') {
+        const ip = (w.monitorIP || '').trim();
+        const octets = ip.split('.').map(Number);
+        if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip) || octets.some(n => n > 255) || !w.remoteEgress) {
+          w.fatalError = 'Enter an IPv4 monitor address and select the remote internet interface.';
+          w.applying = false; return;
+        }
+        w.monitorIP = ip;
+        try {
+          const res = await this.api.remoteCall({ remoteId: rid, method: 'get', path: '/system/interfaces' });
+          if (!(res.interfaces || []).some(i => i.name === w.remoteEgress && i.name !== 'lo')) throw new Error('Selected remote interface is unavailable');
+        } catch (e) { w.fatalError = e.message; w.applying = false; return; }
+      }
 
       // Step 0: Pre-flight — verify source subnets are not already routed/NATed on remote.
       // Prevents partial execution when two servers share the same client subnets
@@ -791,7 +818,7 @@ async wizardS2SApply() {
           name: w.gatewayName,
           interface: localIfaceId,
           gatewayIP: subnet.remoteIP,
-          monitorAddress: subnet.remoteIP,
+          monitorAddress: w.monitorMode === 'internet' ? w.monitorIP : subnet.remoteIP,
           monitor: true,
           monitorInterval: 5,
           latencyThreshold: 500,
@@ -847,7 +874,7 @@ async wizardS2SApply() {
           this.wizardS2SStepSet(s9, 'warn', 'No subnets selected — skipped');
         }
       } catch (e) {
-        this.wizardS2SStepSet(s9, 'warn', e.message + ' — continuing');
+        this.wizardS2SStepSet(s9, 'error', e.message);
       }
 
       // Step 11: Remote NAT MASQUERADE on system interface
@@ -856,26 +883,52 @@ async wizardS2SApply() {
       try {
         const ifacesRes = await this.api.remoteCall({ remoteId: rid, method: 'get', path: '/system/interfaces' });
         const ifaces = ifacesRes.interfaces || [];
-        const sysIface = ifaces.find(i => !i.name.startsWith('wg') && !i.name.startsWith('awg') && i.name !== 'lo');
+        const sysIface = w.monitorMode === 'internet'
+          ? ifaces.find(i => i.name === w.remoteEgress)
+          : ifaces.find(i => !i.name.startsWith('wg') && !i.name.startsWith('awg') && i.name !== 'lo');
         if (!sysIface) throw new Error('No system interface found on remote');
+        const srcSubnets = this.wizardS2SSelectedSubnets();
+        if (!srcSubnets.length) throw new Error('No client subnets selected; remote NAT was not created');
         const natBody = { name: 'nat-' + w.remoteIfaceName, outInterface: sysIface.name, type: 'MASQUERADE' };
-        if (w.createdSrcAliasId) {
+        {
           // Create matching alias on remote too
-          const srcSubnets = this.wizardS2SSelectedSubnets();
           const remoteAlias = await this.api.remoteCall({ remoteId: rid, method: 'post', path: '/aliases', body: {
             name: w.srcAliasName + '-remote', type: 'network', entries: srcSubnets,
           }});
           const remoteAliasId = (remoteAlias.alias || remoteAlias).id || '';
-          if (remoteAliasId) natBody.sourceAliasId = remoteAliasId;
+          if (!remoteAliasId) throw new Error('Remote source alias was not created');
+          natBody.sourceAliasId = remoteAliasId;
         }
         await this.api.remoteCall({ remoteId: rid, method: 'post', path: '/nat/rules', body: natBody });
         this.wizardS2SStepSet(s10, 'ok', sysIface.name);
       } catch (e) {
-        this.wizardS2SStepSet(s10, 'warn', e.message + ' — continuing');
+        this.wizardS2SStepSet(s10, 'error', e.message);
       }
 
+      if (w.monitorMode === 'internet' && !w.steps.some(step => step.status === 'error')) {
+        const monitorStep = this.wizardS2SStepAdd('Preparing internet monitor NAT');
+        this.wizardS2SStepSet(monitorStep, 'running');
+        try {
+          await this.api.remoteCall({ remoteId: rid, method: 'post', path: '/nat/rules', body: {
+            name: 'monitor-' + w.remoteIfaceName, source: subnet.localIP + '/32',
+            outInterface: w.remoteEgress, type: 'MASQUERADE',
+          }});
+          this.wizardS2SStepSet(monitorStep, 'ok', subnet.localIP + '/32 via ' + w.remoteEgress);
+          const probeStep = this.wizardS2SStepAdd('Checking internet through S2S');
+          this.wizardS2SStepSet(probeStep, 'running', w.monitorIP);
+          try {
+            const result = await this.api.call({ method: 'post', path: '/diagnostics/ping', body: { host: w.monitorIP, interface: localIfaceId, count: 3 } });
+            if (!result.reachable) throw new Error('Monitor IP did not reply through the tunnel. Check peer connectivity, remote forwarding, egress NAT and ICMP filtering.');
+            this.wizardS2SStepSet(probeStep, 'ok', w.monitorIP + ' replied through ' + localIfaceId);
+          } catch (e) { this.wizardS2SStepSet(probeStep, 'error', e.message); }
+        } catch (e) { this.wizardS2SStepSet(monitorStep, 'error', e.message); }
+      }
       w.applying = false;
-      w.done = true;
+      const incomplete = w.steps.filter(step => step.status !== 'ok');
+      w.done = incomplete.length === 0;
+      if (!w.done) {
+        w.fatalError = 'Setup incomplete. Created objects remain in place. Review these steps before retrying: ' + incomplete.map(step => step.label + ': ' + step.detail).join('; ');
+      }
     },
 
 };

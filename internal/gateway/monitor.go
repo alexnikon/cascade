@@ -310,6 +310,13 @@ func (m *Monitor) probeICMP(gw Gateway, state *monitorState) {
 	// While admin_down: suppress probe-driven status change events so that
 	// routing/firewall don't see spurious "healthy" transitions.
 	if !isAdminDown && newStatus != prevStatus {
+		if newStatus == "down" {
+			kind := "gateway IP"
+			if target != gw.GatewayIP {
+				kind = "custom monitor target (peer reachability not tested separately)"
+			}
+			log.Printf("gateway-monitor: %s: %s %s unreachable via %s; check routing, peer AllowedIPs and remote forwarding/egress NAT", gw.ID, kind, target, gw.Interface)
+		}
 		m.emitChange(gw.ID, newStatus, prevStatus)
 	}
 }

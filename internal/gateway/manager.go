@@ -162,6 +162,23 @@ func ensureHostRoute(ip, dev string) {
 	}
 }
 
+// SetAdminDown updates only administrative state, preserving concurrent edits.
+func (m *Manager) SetAdminDown(id string, down bool) (*Gateway, error) {
+	result, err := db.DB().Exec(`UPDATE gateways SET admin_down = ? WHERE id = ?`, boolInt(down), id)
+	if err != nil {
+		return nil, err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return nil, fmt.Errorf("gateway not found")
+	}
+	m.monitor.SetAdminDown(id, down)
+	return m.GetGateway(id)
+}
+
 // UpdateGateway replaces gateway fields, persists, and restarts its monitor.
 func (m *Manager) UpdateGateway(id string, inp GatewayInput) (*Gateway, error) {
 	existing, err := m.GetGateway(id)
@@ -181,6 +198,9 @@ func (m *Manager) UpdateGateway(id string, inp GatewayInput) (*Gateway, error) {
 
 	if err := updateGateway(gw); err != nil {
 		return nil, err
+	}
+	if gw.MonitorAddress != existing.MonitorAddress {
+		log.Printf("gateway-manager: %s: monitor target changed from %q to %q (empty uses gateway IP)", id, existing.MonitorAddress, gw.MonitorAddress)
 	}
 
 	// If only AdminDown changed, update the flag without resetting probe windows.

@@ -134,7 +134,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -220,7 +220,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -358,7 +358,7 @@
                 }
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -495,7 +495,7 @@
                 }
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -593,7 +593,7 @@
                 "valueMode": "color"
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -690,7 +690,7 @@
                 "valueMode": "color"
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -733,7 +733,7 @@
           "description": "Outbound traffic observed since the start of the current calendar day. The value is limited by available Prometheus samples.",
           "id": 35,
           "links": [],
-          "title": "Outbound Traffic Today",
+          "title": "Traffic Today",
           "vizConfig": {
             "group": "stat",
             "kind": "VizConfig",
@@ -774,7 +774,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -817,7 +817,7 @@
           "description": "Outbound traffic observed since the start of the current calendar month. The value is limited by available Prometheus samples and retention.",
           "id": 36,
           "links": [],
-          "title": "Outbound Traffic This Month",
+          "title": "Traffic Month",
           "vizConfig": {
             "group": "stat",
             "kind": "VizConfig",
@@ -858,7 +858,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -940,7 +940,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -1058,7 +1058,7 @@
                 }
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -1147,7 +1147,7 @@
                 "valueMode": "color"
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -1233,7 +1233,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -1324,7 +1324,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -1406,7 +1406,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -1549,7 +1549,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -1666,7 +1666,7 @@
                 }
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -1793,7 +1793,7 @@
                 }
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -1875,7 +1875,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -2156,7 +2156,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -2264,7 +2264,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -2367,7 +2367,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -2449,7 +2449,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -2535,7 +2535,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -2625,7 +2625,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.0"
+            "version": "13.2.1"
           }
         }
       },
@@ -3532,11 +3532,9 @@
           "allowCustomValue": true,
           "current": {
             "text": "All",
-            "value": [
-              "$__all"
-            ]
+            "value": "$__all"
           },
-          "definition": "label_values(cascade_interface_up{instance=~\"$instance\"}, interface)",
+          "definition": "query_result(label_join(cascade_interface_info{instance=~\"$instance\"}, \"selector\", \" | \", \"interface\", \"name\"))",
           "hide": "dontHide",
           "includeAll": true,
           "label": "Interface",
@@ -3550,13 +3548,13 @@
             "group": "prometheus",
             "kind": "DataQuery",
             "spec": {
-              "query": "label_values(cascade_interface_up{instance=~\"$instance\"}, interface)",
+              "query": "query_result(label_join(cascade_interface_info{instance=~\"$instance\"}, \"selector\", \" | \", \"interface\", \"name\"))",
               "refId": "PrometheusVariableQueryEditor-Interface"
             },
             "version": "v0"
           },
           "refresh": "onDashboardLoad",
-          "regex": "",
+          "regex": "/selector=\"(?<value>[^\"]+) \\| (?<text>[^\"]+)\"/",
           "regexApplyTo": "value",
           "skipUrlSync": false,
           "sort": "alphabeticalAsc"

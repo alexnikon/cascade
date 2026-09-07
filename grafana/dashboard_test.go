@@ -105,6 +105,34 @@ func TestDashboardPeerVariableUsesNames(t *testing.T) {
 	}
 }
 
+func TestDashboardInterfaceVariableUsesIDAndName(t *testing.T) {
+	dashboard := loadDashboard(t)
+	spec := object(t, dashboard["spec"], "spec")
+	rawVariables, ok := spec["variables"].([]any)
+	if !ok {
+		t.Fatal("variables are not an array")
+	}
+
+	for _, raw := range rawVariables {
+		variable := object(t, raw, "variable")
+		variableSpec := object(t, variable["spec"], "variable spec")
+		if variableSpec["name"] != "interface" {
+			continue
+		}
+
+		wantQuery := `query_result(label_join(cascade_interface_info{instance=~"$instance"}, "selector", " | ", "interface", "name"))`
+		if got := stringAt(t, variableSpec["definition"], "interface definition"); got != wantQuery {
+			t.Fatalf("interface definition=%q, want %q", got, wantQuery)
+		}
+		if got := stringAt(t, variableSpec["regex"], "interface regex"); got != `/selector="(?<value>[^"]+) \| (?<text>[^"]+)"/` {
+			t.Fatalf("interface regex=%q", got)
+		}
+		return
+	}
+
+	t.Fatal("interface variable not found")
+}
+
 func TestDashboardDatabaseStatus(t *testing.T) {
 	dashboard := loadDashboard(t)
 	panelQueries := queries(t, dashboard, "81")

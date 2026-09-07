@@ -185,17 +185,6 @@ async toggleGatewayAdminDown(gw) {
       try {
         await this.api.updateGateway({
           gatewayId:        gw.id,
-          name:             gw.name,
-          interface:        gw.interface,
-          gatewayIP:        gw.gatewayIP,
-          monitorAddress:   gw.monitorAddress || '',
-          monitor:          gw.monitor,
-          monitorInterval:  gw.monitorInterval,
-          windowSeconds:    gw.windowSeconds ?? null,
-          latencyThreshold: gw.latencyThreshold || 500,
-          monitorHttp:      gw.monitorHttp || {},
-          monitorRule:      gw.monitorRule || 'icmp_only',
-          description:      gw.description || '',
           adminDown:        newVal,
         });
         // Next polling cycle will bring fresh realStatus from server
