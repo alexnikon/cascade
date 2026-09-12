@@ -41,6 +41,7 @@ CONTENTS=$(tar -tzf "$ARCHIVE")
 grep -q '^cascade/docker-compose.yml$' <<< "$CONTENTS"
 grep -q '^cascade/deploy/setup.sh$' <<< "$CONTENTS"
 grep -q '^cascade/deploy/lib/install-dependencies.sh$' <<< "$CONTENTS"
+grep -q '^cascade/deploy/lib/kernel-module.sh$' <<< "$CONTENTS"
 grep -q '^cascade/deploy/caddy/Caddyfile$' <<< "$CONTENTS"
 tar -xOf "$ARCHIVE" cascade/docker-compose.yml | grep -q 'image: ghcr.io/alexnikon/cascade:1.2.3'
 tar -xOf "$ARCHIVE" cascade/deploy/docker-compose.bridge.yml.example | grep -q 'image: ghcr.io/alexnikon/cascade:1.2.3'
