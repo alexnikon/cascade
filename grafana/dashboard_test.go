@@ -164,6 +164,36 @@ func TestDashboardGatewayStatus(t *testing.T) {
 	}
 }
 
+func TestDashboardTrafficPanelsUsePeerCounters(t *testing.T) {
+	dashboard := loadDashboard(t)
+	wantExpr := `sum(increase(cascade_peer_sent_bytes_total{instance=~"$instance",interface=~"$interface"}[$__range]))`
+	wantTimeFrom := map[string]string{
+		"35": "now/d",
+		"36": "now/M",
+	}
+
+	for panelID, wantFrom := range wantTimeFrom {
+		panelQueries := queries(t, dashboard, panelID)
+		if len(panelQueries) != 1 {
+			t.Fatalf("traffic panel %s queries=%d, want 1", panelID, len(panelQueries))
+		}
+		if got := queryExpr(t, panelQueries[0]); got != wantExpr {
+			t.Fatalf("traffic panel %s query=%q, want %q", panelID, got, wantExpr)
+		}
+
+		spec := object(t, dashboard["spec"], "spec")
+		elements := object(t, spec["elements"], "spec.elements")
+		element := object(t, elements["panel-"+panelID], "panel-"+panelID)
+		panelSpec := object(t, element["spec"], "panel spec")
+		data := object(t, panelSpec["data"], "panel data")
+		dataSpec := object(t, data["spec"], "query group")
+		queryOptions := object(t, dataSpec["queryOptions"], "query options")
+		if got := stringAt(t, queryOptions["timeFrom"], "timeFrom"); got != wantFrom {
+			t.Fatalf("traffic panel %s timeFrom=%q, want %q", panelID, got, wantFrom)
+		}
+	}
+}
+
 func TestDashboardPeerQueriesUseNameFilter(t *testing.T) {
 	dashboard := loadDashboard(t)
 	spec := object(t, dashboard["spec"], "spec")

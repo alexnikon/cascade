@@ -713,7 +713,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(increase(cascade_interface_sent_bytes_total{instance=~\"$instance\",interface=~\"$interface\"}[$__range]))",
+                        "expr": "sum(increase(cascade_peer_sent_bytes_total{instance=~\"$instance\",interface=~\"$interface\"}[$__range]))",
                         "instant": true,
                         "legendFormat": "Outbound",
                         "range": false
@@ -797,7 +797,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(increase(cascade_interface_sent_bytes_total{instance=~\"$instance\",interface=~\"$interface\"}[$__range]))",
+                        "expr": "sum(increase(cascade_peer_sent_bytes_total{instance=~\"$instance\",interface=~\"$interface\"}[$__range]))",
                         "instant": true,
                         "legendFormat": "Outbound",
                         "range": false
