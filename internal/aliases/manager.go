@@ -1,14 +1,17 @@
 // Package aliases manages named address/port sets used as Firewall Aliases.
 // Port of AliasManager.js.
 //
-// Six alias types:
+// Alias types:
 //
-//	host       — one or more IPv4 addresses ("1.2.3.4")
-//	network    — one or more CIDR prefixes ("192.168.0.0/16")
-//	ipset      — kernel ipset (hash:net), large sets; data lives in ipsets/*.save
-//	group      — merges entries from multiple host/network aliases (deduplicated)
-//	port       — L4 ports: "tcp:443", "udp:53", "any:80", "tcp:8080-8090"
-//	port-group — merges entries from multiple port aliases
+//	host         — one or more IPv4 addresses ("1.2.3.4")
+//	network      — one or more CIDR prefixes ("192.168.0.0/16")
+//	ipset        — kernel ipset (hash:net), large sets; data lives in ipsets/*.save
+//	client-group — kernel ipset rebuilt from the peers assigned to the group
+//	group        — merges entries from multiple host/network aliases (deduplicated)
+//	port         — L4 ports: "tcp:443", "udp:53", "any:80", "tcp:8080-8090"
+//	port-group   — merges entries from multiple port aliases
+//	domain       — DNS names; internal/dnsalias keeps two timeout ipsets
+//	               (_v4/_v6) in sync with what they resolve to — see domain.go
 //
 // Persistence: SQLite `aliases` table (see internal/db migration v2).
 // Ipset kernel objects are managed via internal/ipset.Manager.
@@ -38,9 +41,9 @@ type Alias struct {
 	Name          string         `json:"name"`
 	Description   string         `json:"description"`
 	Type          string         `json:"type"`           // host/network/ipset/group/port/port-group
-	Entries       []string       `json:"entries"`        // for host/network/port
+	Entries       []string       `json:"entries"`        // for host/network/port; domains for domain
 	MemberIDs     []string       `json:"memberIds"`      // for group/port-group
-	IPSetName     string         `json:"ipsetName,omitempty"` // for ipset
+	IPSetName     string         `json:"ipsetName,omitempty"` // for ipset; _v4 set for domain
 	EntryCount    int            `json:"entryCount"`
 	GeneratorOpts *GeneratorOpts `json:"generatorOpts"` // null unless generated via RIPEstat
 	LastUpdated   string         `json:"lastUpdated,omitempty"`
@@ -48,6 +51,8 @@ type Alias struct {
 	// Rate limits for client-group type (kbps; 0 = unlimited).
 	RateDown      int            `json:"rateDown"`
 	RateUp        int            `json:"rateUp"`
+	// Resolver runtime state for domain type; attached on read, never stored.
+	DomainStatus  *DomainStatus  `json:"domainStatus,omitempty"`
 }
 
 // GeneratorOpts stores the source parameters used to generate an ipset alias.
@@ -147,7 +152,8 @@ func (m *Manager) Create(data Alias) (*Alias, error) {
 	isClientGroup := data.Type == "client-group"
 	isPort := data.Type == "port"
 	isPortGroup := data.Type == "port-group"
-	isPlain := !isGroup && !isIPSet && !isClientGroup && !isPort && !isPortGroup
+	isDomain := data.Type == "domain"
+	isPlain := !isGroup && !isIPSet && !isClientGroup && !isPort && !isPortGroup && !isDomain
 
 	// client-group: validate name is not "default" (reserved, created at startup)
 	if isClientGroup && strings.EqualFold(strings.TrimSpace(data.Name), DefaultGroupName) {
@@ -178,6 +184,12 @@ func (m *Manager) Create(data Alias) (*Alias, error) {
 			return nil, err
 		}
 	}
+	if isDomain {
+		entries, err = normalizeDomainEntries(data.Entries)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	a := Alias{
@@ -197,7 +209,19 @@ func (m *Manager) Create(data Alias) (*Alias, error) {
 	if isIPSet || isClientGroup {
 		a.IPSetName = ipsetNameFromAlias(a.Name)
 	}
-	if isPlain || isPort {
+	if isDomain {
+		// Derived from the ID, not the display name, so a rename never orphans
+		// the kernel sets. The resolver owns their creation and contents.
+		a.IPSetName = DomainSetV4(a.ID)
+		inUse, err := m.domainSetPrefixInUse(a.IPSetName)
+		if err != nil {
+			return nil, err
+		}
+		if inUse {
+			return nil, fmt.Errorf("ipset name collision for alias id %s — retry", a.ID)
+		}
+	}
+	if isPlain || isPort || isDomain {
 		a.EntryCount = len(a.Entries)
 		if a.EntryCount > 0 {
 			a.LastUpdated = now
@@ -287,6 +311,17 @@ func (m *Manager) Update(id string, data Alias) (*Alias, error) {
 			a.EntryCount = m.groupEntryCount(a.MemberIDs)
 			a.LastUpdated = now
 		}
+	case "domain":
+		// IPSetName is intentionally left alone: it is derived from the ID, so a
+		// rename must not disturb the kernel sets or the rules matching them.
+		if data.Entries != nil {
+			a.Entries, err = normalizeDomainEntries(data.Entries)
+			if err != nil {
+				return nil, err
+			}
+			a.EntryCount = len(a.Entries)
+			a.LastUpdated = now
+		}
 	case "client-group":
 		a.RateDown = data.RateDown
 		a.RateUp = data.RateUp
@@ -339,6 +374,15 @@ func (m *Manager) Delete(id string) error {
 		}
 	}
 
+	// Domain aliases own one set per address family.
+	if a.Type == "domain" {
+		for _, set := range []string{DomainSetV4(a.ID), DomainSetV6(a.ID)} {
+			if err := m.ipsetMgr.DestroySet(set); err != nil {
+				log.Printf("aliases: destroySet %s on delete: %v", set, err)
+			}
+		}
+	}
+
 	if _, err := db.DB().Exec(`DELETE FROM aliases WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete alias: %w", err)
 	}
@@ -351,10 +395,17 @@ func (m *Manager) Delete(id string) error {
 
 // GetIPSetEntries returns the current CIDR entries in the kernel ipset for this alias.
 // Only valid for type=ipset. Returns nil if the alias is not ipset type or set is empty.
+//
+// For domain aliases it returns the currently resolved addresses of both
+// families, with the kernel's trailing "timeout <n>" stripped.
 func (m *Manager) GetIPSetEntries(id string) ([]string, error) {
 	a, err := m.getOrNotFound(id)
 	if err != nil {
 		return nil, err
+	}
+	if a.Type == "domain" {
+		entries := m.ipsetMgr.ListTimeoutEntries(DomainSetV4(a.ID))
+		return append(entries, m.ipsetMgr.ListTimeoutEntries(DomainSetV6(a.ID))...), nil
 	}
 	if a.Type != "ipset" && a.Type != "client-group" {
 		return nil, fmt.Errorf("alias %s is not of type ipset", id)
@@ -469,6 +520,11 @@ func (m *Manager) GetMatchSpec(id string) (*MatchSpec, error) {
 	switch a.Type {
 	case "ipset", "client-group":
 		return &MatchSpec{Type: "ipset", Name: a.IPSetName}, nil
+
+	case "domain":
+		// The v4 set only: Cascade has no IPv6 firewall or PBR path to consume
+		// the v6 set (see DomainSetV6 and internal/dnsalias).
+		return &MatchSpec{Type: "ipset", Name: DomainSetV4(a.ID)}, nil
 
 	case "group":
 		all, err := m.GetAll()
@@ -779,10 +835,10 @@ func validateName(name string) error {
 
 func validateType(t string) error {
 	switch t {
-	case "host", "network", "ipset", "group", "port", "port-group", "client-group":
+	case "host", "network", "ipset", "group", "port", "port-group", "client-group", "domain":
 		return nil
 	}
-	return fmt.Errorf("alias type must be host, network, ipset, group, port, port-group, or client-group (got %q)", t)
+	return fmt.Errorf("alias type must be host, network, ipset, group, port, port-group, client-group, or domain (got %q)", t)
 }
 
 func normalizeEntries(entries []string) []string {

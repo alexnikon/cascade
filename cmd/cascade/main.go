@@ -24,6 +24,7 @@ import (
 	"github.com/alexnikon/cascade/internal/api"
 	"github.com/alexnikon/cascade/internal/awgcap"
 	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/dnsalias"
 	"github.com/alexnikon/cascade/internal/firewall"
 	"github.com/alexnikon/cascade/internal/frontend"
 	"github.com/alexnikon/cascade/internal/gateway"
@@ -371,6 +372,14 @@ func main() {
 	natMgr.RestoreAll()
 	nat.SetInstance(natMgr)
 
+	// 7b. Domain alias resolver — recreates the per-alias ipsets, resolves every
+	//     configured domain immediately and then refreshes them on their TTLs.
+	//     Runs after the alias and firewall managers exist so the sets are ready
+	//     for the rules that match them.
+	dnsResolver := dnsalias.New(aliasMgr, ipsetMgr)
+	dnsalias.SetInstance(dnsResolver)
+	dnsResolver.Start()
+
 	// 8. Peer expiry checker — disables peers whose expiredAt has passed.
 	//    Runs every 60 s; first check at 30 s after startup.
 	{
@@ -407,6 +416,8 @@ func main() {
 	if mgr := tunnel.Get(); mgr != nil {
 		mgr.Stop()
 	}
+	// Retire the DNS refresh goroutines before the DB closes under them.
+	dnsResolver.Stop()
 	if err := metricsServer.Shutdown(); err != nil {
 		log.Printf("metrics shutdown error: %v", err)
 	}

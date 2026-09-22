@@ -516,6 +516,7 @@ func (m *Manager) resolveSrcParts(rule *NatRule) ([]string, error) {
 //	ipset        → ["-m set --match-set <name> src"]
 //	group        → recursive expansion of member aliases
 //	port*        → not applicable for L3 NAT, treated as any source
+//	domain       → destination-oriented by nature; likewise treated as any source
 func (m *Manager) resolveAliasSrcParts(aliasID string) ([]string, error) {
 	if m.am == nil {
 		return []string{""}, nil
@@ -563,7 +564,7 @@ func (m *Manager) resolveAliasSrcParts(aliasID string) ([]string, error) {
 		return parts, nil
 
 	default:
-		// port / port-group — not applicable for L3 NAT source matching.
+		// port / port-group / domain — not applicable for L3 NAT source matching.
 		log.Printf("nat: alias %s type %q not applicable for NAT source, ignoring", aliasID, alias.Type)
 		return []string{""}, nil
 	}
