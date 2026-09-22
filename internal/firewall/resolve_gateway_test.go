@@ -55,6 +55,12 @@ func TestPBRGatewayGroupStateMachine(t *testing.T) {
 	oldExec := pbrRouteExec
 	oldRuleExec := pbrRuleExec
 	pbrRouteExec = func(cmd string, timeout time.Duration, logCommand bool) (string, error) {
+		// Reads are not routing decisions — recording them would make the
+		// "last command" assertions below depend on whichever family was
+		// reconciled last rather than on the route actually chosen.
+		if strings.Contains(cmd, "route show") {
+			return "", nil
+		}
 		commandsMu.Lock()
 		commands = append(commands, cmd)
 		commandsMu.Unlock()
@@ -122,7 +128,7 @@ func TestPBRGatewayGroupStateMachine(t *testing.T) {
 	if !strings.Contains(lastCommand(), "via 198.51.100.2 dev eth2") {
 		t.Fatalf("failover command = %q, want secondary gateway", lastCommand())
 	}
-	if allDown, err := m.isGroupAllDown(group.ID); err != nil || allDown {
+	if allDown, err := m.isGroupAllDown(group.ID, famV4); err != nil || allDown {
 		t.Fatalf("group status after primary failure = allDown:%t err:%v, want overall UP", allDown, err)
 	}
 
@@ -184,6 +190,13 @@ func TestPBRGatewayGroupCallbacksSerializeSameRule(t *testing.T) {
 	var mu sync.Mutex
 	commands := 0
 	pbrRouteExec = func(cmd string, timeout time.Duration, logCommand bool) (string, error) {
+		// Only writes are of interest here. Reconciliation also reads the
+		// routing tables (to see what is already installed, and to check
+		// whether the other address family has anything to release), and those
+		// reads say nothing about whether callbacks were serialised.
+		if strings.Contains(cmd, "route show") {
+			return "", nil
+		}
 		mu.Lock()
 		commands++
 		mu.Unlock()
@@ -220,22 +233,16 @@ func TestPBRGatewayGroupCallbacksSerializeSameRule(t *testing.T) {
 	}
 }
 
-func TestReplacePBRRoute_PreservesAWGDeviceRoute(t *testing.T) {
-	m := New(nil, nil)
-	fwmark := 1001
-	rule := &Rule{ID: "awg-route", Fwmark: &fwmark}
-	oldExec := pbrRouteExec
-	var command string
-	pbrRouteExec = func(cmd string, timeout time.Duration, logCommand bool) (string, error) {
-		command = cmd
-		return "", nil
-	}
-	t.Cleanup(func() { pbrRouteExec = oldExec })
-
-	if err := m.replacePBRRoute(rule, resolvedGW{gatewayIP: "192.0.2.1", iface: "awg0"}); err != nil {
-		t.Fatalf("replacePBRRoute: %v", err)
-	}
-	if strings.Contains(command, " via ") || !strings.Contains(command, "default dev awg0") {
-		t.Fatalf("AWG route command = %q, want device-only route", command)
+func TestRouteCommand_PreservesAWGDeviceRoute(t *testing.T) {
+	// AmneziaWG and WireGuard interfaces take a device-only route: they have no
+	// on-link next hop to send "via" at.
+	for _, f := range families() {
+		cmd := routeCommand(pbrDesired{
+			kind: pbrGateway,
+			gw:   resolvedGW{gatewayIP: "192.0.2.1", iface: "awg0"},
+		}, 1001, f)
+		if strings.Contains(cmd, " via ") || !strings.Contains(cmd, "default dev awg0") {
+			t.Errorf("%s route command = %q, want device-only route", f.tag, cmd)
+		}
 	}
 }

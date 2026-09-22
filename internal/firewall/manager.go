@@ -154,12 +154,12 @@ type Manager struct {
 	rebuildMu     sync.Mutex // serialises rebuildChains calls
 	ruleApplyMu   sync.Map   // rule ID → *sync.Mutex; serialises route updates per rule
 	routeStateMu  sync.Mutex
-	activeGateway map[string]resolvedGW // rule ID → last successfully applied gateway
-	appliedState  map[string]pbrDesired // rule ID → last desired state written to the kernel
+	activeGateway map[stateKey]resolvedGW // rule+family → last successfully applied gateway
+	appliedState  map[stateKey]pbrDesired // rule+family → last desired state written to the kernel
 	restoreDelay  time.Duration
 
 	fallbackMu     sync.Mutex
-	fallbackActive map[string]bool        // rule ID → currently in fallback/blackhole
+	fallbackActive map[stateKey]bool      // rule+family → currently in fallback/blackhole
 	restoreTimers  map[string]*time.Timer // rule ID → 30 s anti-flap restore timer
 	restoreWG      sync.WaitGroup         // in-flight restore callbacks
 }
@@ -169,10 +169,10 @@ func New(am *aliases.Manager, gm *gateway.Manager) *Manager {
 	return &Manager{
 		am:             am,
 		gm:             gm,
-		activeGateway:  make(map[string]resolvedGW),
-		appliedState:   make(map[string]pbrDesired),
+		activeGateway:  make(map[stateKey]resolvedGW),
+		appliedState:   make(map[stateKey]pbrDesired),
 		restoreDelay:   30 * time.Second,
-		fallbackActive: make(map[string]bool),
+		fallbackActive: make(map[stateKey]bool),
 		restoreTimers:  make(map[string]*time.Timer),
 	}
 }
@@ -989,19 +989,24 @@ const localMangleChain = "FIREWALL_MANGLE_OUT"
 //     would encapsulate the tunnel inside itself — the classic PBR routing loop.
 //     They are identified by source port, which is the listen port of one of our
 //     own interfaces, and returned unmarked.
-func (m *Manager) installLocalGuards() {
-	for _, cmd := range localGuardCommands(wireGuardListenPorts()) {
-		util.Exec(cmd, 5*time.Second, true) //nolint
+func (m *Manager) installLocalGuards(f fam) {
+	for _, cmd := range localGuardCommands(f, wireGuardListenPorts()) {
+		fwExec(cmd, 5*time.Second, true) //nolint
 	}
 }
 
 // localGuardCommands builds the guard prologue for the given WireGuard listen ports.
-func localGuardCommands(ports []int) []string {
+//
+// The same ports guard both families. A WireGuard interface has one listen port
+// and speaks it over whichever transport its endpoint uses, so the IPv6 guard
+// reads the same source of truth rather than duplicating a port list that could
+// drift out of step with the IPv4 one.
+func localGuardCommands(f fam, ports []int) []string {
 	cmds := []string{
-		fmt.Sprintf("iptables-nft -t mangle -A %s -m mark ! --mark 0 -j RETURN", localMangleChain),
+		fmt.Sprintf("%s -t mangle -A %s -m mark ! --mark 0 -j RETURN", f.ipt, localMangleChain),
 	}
 	for _, port := range ports {
-		cmds = append(cmds, fmt.Sprintf("iptables-nft -t mangle -A %s -p udp --sport %d -j RETURN", localMangleChain, port))
+		cmds = append(cmds, fmt.Sprintf("%s -t mangle -A %s -p udp --sport %d -j RETURN", f.ipt, localMangleChain, port))
 	}
 	return cmds
 }
@@ -1041,35 +1046,35 @@ func localFlags(rule *Rule, flags string) (string, bool) {
 // markLocal appends a MARK for a PBR rule to FIREWALL_MANGLE_OUT. Same fwmark,
 // same ip rule and same routing table as the PREROUTING path — the only
 // difference is the hook.
-func (m *Manager) markLocal(rule *Rule, flags string) {
-	f, ok := localFlags(rule, flags)
+func (m *Manager) markLocal(rule *Rule, f fam, flags string) {
+	lf, ok := localFlags(rule, flags)
 	if !ok {
 		log.Printf("firewall: rule %q: applyToLocal ignored — rules bound to interface %q match inbound traffic only",
 			rule.Name, rule.Interface)
 		return
 	}
-	cmd := fmt.Sprintf("iptables-nft -t mangle -A %s%s -j MARK --set-mark %d", localMangleChain, f, *rule.Fwmark)
-	if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
-		log.Printf("firewall: local mangle MARK %q: %v", rule.Name, err)
+	cmd := fmt.Sprintf("%s -t mangle -A %s%s -j MARK --set-mark %d", f.ipt, localMangleChain, lf, *rule.Fwmark)
+	if _, err := fwExec(cmd, 10*time.Second, true); err != nil {
+		log.Printf("firewall: %s local mangle MARK %q: %v", f.tag, rule.Name, err)
 	}
 }
 
 // jumpLocal is the subchain equivalent of markLocal: the address/ipset match goes
 // in FIREWALL_MANGLE_OUT, the port match stays in the per-rule FM<id> subchain.
-func (m *Manager) jumpLocal(rule *Rule, addrFlags, mangleChain string) {
-	f, ok := localFlags(rule, addrFlags)
+func (m *Manager) jumpLocal(rule *Rule, f fam, addrFlags, mangleChain string) {
+	lf, ok := localFlags(rule, addrFlags)
 	if !ok {
 		log.Printf("firewall: rule %q: applyToLocal ignored — rules bound to interface %q match inbound traffic only",
 			rule.Name, rule.Interface)
 		return
 	}
-	cmd := fmt.Sprintf("iptables-nft -t mangle -A %s%s -j %s", localMangleChain, f, mangleChain)
-	util.Exec(cmd, 10*time.Second, true) //nolint
+	cmd := fmt.Sprintf("%s -t mangle -A %s%s -j %s", f.ipt, localMangleChain, lf, mangleChain)
+	fwExec(cmd, 10*time.Second, true) //nolint
 }
 
 // endLocalRule mirrors the PREROUTING first-match terminator in the OUT chain.
-func (m *Manager) endLocalRule() {
-	util.Exec(fmt.Sprintf("iptables-nft -t mangle -A %s -m mark ! --mark 0 -j RETURN", localMangleChain),
+func (m *Manager) endLocalRule(f fam) {
+	fwExec(fmt.Sprintf("%s -t mangle -A %s -m mark ! --mark 0 -j RETURN", f.ipt, localMangleChain),
 		10*time.Second, true) //nolint
 }
 
@@ -1079,18 +1084,23 @@ func (m *Manager) endLocalRule() {
 // and hooks them at position 1 in their respective base chains (idempotent).
 func (m *Manager) initChains() error {
 	cmds := []string{
-		// filter: FIREWALL_FORWARD
+		// filter: FIREWALL_FORWARD — IPv4 only, see applyRuleKernelFamily.
 		"iptables-nft -t filter -N FIREWALL_FORWARD 2>/dev/null || true",
 		"iptables-nft -t filter -C FORWARD -j FIREWALL_FORWARD 2>/dev/null || iptables-nft -t filter -I FORWARD 1 -j FIREWALL_FORWARD",
-		// mangle: FIREWALL_MANGLE
-		"iptables-nft -t mangle -N FIREWALL_MANGLE 2>/dev/null || true",
-		"iptables-nft -t mangle -C PREROUTING -j FIREWALL_MANGLE 2>/dev/null || iptables-nft -t mangle -I PREROUTING 1 -j FIREWALL_MANGLE",
-		// mangle: FIREWALL_MANGLE_OUT — locally generated traffic (applyToLocal rules only).
-		"iptables-nft -t mangle -N " + localMangleChain + " 2>/dev/null || true",
-		"iptables-nft -t mangle -C OUTPUT -j " + localMangleChain + " 2>/dev/null || iptables-nft -t mangle -I OUTPUT 1 -j " + localMangleChain,
+	}
+	// mangle chains exist in both families and carry the same names — the
+	// binary already distinguishes them.
+	for _, f := range families() {
+		cmds = append(cmds,
+			f.ipt+" -t mangle -N FIREWALL_MANGLE 2>/dev/null || true",
+			f.ipt+" -t mangle -C PREROUTING -j FIREWALL_MANGLE 2>/dev/null || "+f.ipt+" -t mangle -I PREROUTING 1 -j FIREWALL_MANGLE",
+			// FIREWALL_MANGLE_OUT — locally generated traffic (applyToLocal rules only).
+			f.ipt+" -t mangle -N "+localMangleChain+" 2>/dev/null || true",
+			f.ipt+" -t mangle -C OUTPUT -j "+localMangleChain+" 2>/dev/null || "+f.ipt+" -t mangle -I OUTPUT 1 -j "+localMangleChain,
+		)
 	}
 	for _, cmd := range cmds {
-		if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
+		if _, err := fwExec(cmd, 10*time.Second, true); err != nil {
 			log.Printf("firewall: initChains: %s: %v", cmd, err)
 		}
 	}
@@ -1112,15 +1122,19 @@ func (m *Manager) FlushAll() {
 		"iptables-nft -t filter -F FIREWALL_FORWARD 2>/dev/null || true",
 		"iptables-nft -t filter -D FORWARD -j FIREWALL_FORWARD 2>/dev/null || true",
 		"iptables-nft -t filter -X FIREWALL_FORWARD 2>/dev/null || true",
-		"iptables-nft -t mangle -F FIREWALL_MANGLE 2>/dev/null || true",
-		"iptables-nft -t mangle -D PREROUTING -j FIREWALL_MANGLE 2>/dev/null || true",
-		"iptables-nft -t mangle -X FIREWALL_MANGLE 2>/dev/null || true",
-		"iptables-nft -t mangle -F " + localMangleChain + " 2>/dev/null || true",
-		"iptables-nft -t mangle -D OUTPUT -j " + localMangleChain + " 2>/dev/null || true",
-		"iptables-nft -t mangle -X " + localMangleChain + " 2>/dev/null || true",
+	}
+	for _, f := range families() {
+		cmds = append(cmds,
+			f.ipt+" -t mangle -F FIREWALL_MANGLE 2>/dev/null || true",
+			f.ipt+" -t mangle -D PREROUTING -j FIREWALL_MANGLE 2>/dev/null || true",
+			f.ipt+" -t mangle -X FIREWALL_MANGLE 2>/dev/null || true",
+			f.ipt+" -t mangle -F "+localMangleChain+" 2>/dev/null || true",
+			f.ipt+" -t mangle -D OUTPUT -j "+localMangleChain+" 2>/dev/null || true",
+			f.ipt+" -t mangle -X "+localMangleChain+" 2>/dev/null || true",
+		)
 	}
 	for _, cmd := range cmds {
-		util.Exec(cmd, 5*time.Second, true) //nolint:errcheck
+		fwExec(cmd, 5*time.Second, true) //nolint:errcheck
 	}
 	log.Printf("firewall: FlushAll: Cascade chains removed")
 }
@@ -1136,29 +1150,31 @@ func (m *Manager) rebuildChains() error {
 	// rebuilt rather than carried over.
 	m.StopPendingRouteRestores()
 	m.fallbackMu.Lock()
-	m.fallbackActive = make(map[string]bool)
+	m.fallbackActive = make(map[stateKey]bool)
 	m.fallbackMu.Unlock()
 	m.routeStateMu.Lock()
-	m.activeGateway = make(map[string]resolvedGW)
+	m.activeGateway = make(map[stateKey]resolvedGW)
 	// Forcing appliedState empty makes the reconciliation below write every
 	// route rather than short-circuit on a stale "already applied" record.
-	m.appliedState = make(map[string]pbrDesired)
+	m.appliedState = make(map[stateKey]pbrDesired)
 	m.routeStateMu.Unlock()
 
-	// Flush custom chains.
-	util.Exec("iptables-nft -t filter -F FIREWALL_FORWARD", 5*time.Second, true)  //nolint
-	util.Exec("iptables-nft -t mangle -F FIREWALL_MANGLE", 5*time.Second, true)   //nolint
-	util.Exec("iptables-nft -t mangle -F "+localMangleChain, 5*time.Second, true) //nolint
+	// Flush custom chains, both families.
+	fwExec("iptables-nft -t filter -F FIREWALL_FORWARD", 5*time.Second, true) //nolint
+	for _, f := range families() {
+		fwExec(f.ipt+" -t mangle -F FIREWALL_MANGLE", 5*time.Second, true)   //nolint
+		fwExec(f.ipt+" -t mangle -F "+localMangleChain, 5*time.Second, true) //nolint
 
-	// Guard rules at the top of the local (OUTPUT) chain — see installLocalGuards.
-	m.installLocalGuards()
+		// Guard rules at the top of the local (OUTPUT) chain — see installLocalGuards.
+		m.installLocalGuards(f)
+	}
 
 	// Remove per-rule subchains from previous run (FW*/FM* created by applyRuleKernelSubchain).
 	m.cleanupSubchains()
 
 	// Always allow ESTABLISHED/RELATED traffic first — return packets from the internet
 	// to VPN clients must pass even when default policy is DROP.
-	util.Exec("iptables-nft -t filter -A FIREWALL_FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT", 5*time.Second, true) //nolint
+	fwExec("iptables-nft -t filter -A FIREWALL_FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT", 5*time.Second, true) //nolint
 
 	// Clean up PBR routing rules from a previous run.
 	if err := m.cleanupRoutingRules(); err != nil {
@@ -1181,7 +1197,12 @@ func (m *Manager) rebuildChains() error {
 			continue
 		}
 		if err := m.applyRuleKernel(&rule); err != nil {
-			log.Printf("firewall: applyRuleKernel %q: %v", rule.Name, err)
+			if errors.Is(err, errAliasMissing) {
+				log.Printf("firewall: rule %q references a deleted alias — rule not installed "+
+					"(installing it without the match would widen it to every address)", rule.Name)
+			} else {
+				log.Printf("firewall: applyRuleKernel %q: %v", rule.Name, err)
+			}
 			ruleErrors++
 		}
 		count++
@@ -1200,7 +1221,7 @@ func (m *Manager) rebuildChains() error {
 		if ruleErrors > 0 {
 			log.Printf("firewall: WARNING: default policy is DROP but %d rule(s) failed to install — some expected ACCEPT rules may be missing; verify connectivity", ruleErrors)
 		}
-		util.Exec("iptables-nft -t filter -A FIREWALL_FORWARD -j DROP", 5*time.Second, true) //nolint
+		fwExec("iptables-nft -t filter -A FIREWALL_FORWARD -j DROP", 5*time.Second, true) //nolint
 		log.Printf("firewall: default policy DROP appended to FIREWALL_FORWARD")
 	}
 
@@ -1262,63 +1283,119 @@ func (m *Manager) cleanupRoutingRules() error {
 // matching stays in FIREWALL_FORWARD (xt_compat only), port matching moves to a
 // per-rule subchain (native nft only).
 func (m *Manager) applyRuleKernel(rule *Rule) error {
-	srcParts, err := m.buildMatchParts("src", &rule.Source)
-	if err != nil {
-		return err
-	}
-	dstParts, err := m.buildMatchParts("dst", &rule.Destination)
-	if err != nil {
-		return err
-	}
 	combos, err := m.buildPortCombinations(rule)
 	if err != nil {
 		return err
 	}
 
-	// Set up PBR routing once per rule (outside the cartesian product loop).
-	if rule.Action == "accept" && (rule.GatewayID != "" || rule.GatewayGroupID != "") {
+	// A rule pointing at a deleted alias is not installed at all — in either
+	// family, and without routing state. Checked before anything is written so
+	// a broken rule cannot leave half of itself in the kernel.
+	if err := m.checkEndpointAliases(rule); err != nil {
+		return err
+	}
+
+	// Set up PBR routing once per rule, for both families (outside the
+	// cartesian product loop).
+	if isPBRRule(rule) {
 		if err := m.applyRoutingForRule(rule); err != nil {
 			log.Printf("firewall: applyRoutingForRule %q: %v", rule.Name, err)
 		}
 	}
 
+	// One pass per address family. A family the rule cannot validly match in is
+	// skipped entirely — no chain entries and, in the PBR case, no policy rule
+	// or routing table either (see desiredRoutingState).
+	for _, f := range families() {
+		if err := m.applyRuleKernelFamily(rule, f, combos); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkEndpointAliases reports an error when either endpoint names an alias that
+// no longer exists.
+func (m *Manager) checkEndpointAliases(rule *Rule) error {
+	for _, ep := range []*Endpoint{&rule.Source, &rule.Destination} {
+		if ep.Type != "alias" || ep.AliasID == "" {
+			continue
+		}
+		if spec, err := m.am.GetMatchSpec(ep.AliasID); err != nil || spec == nil {
+			return fmt.Errorf("%w: %s", errAliasMissing, ep.AliasID)
+		}
+	}
+	return nil
+}
+
+// isPBRRule reports whether a rule policy-routes its matches through a gateway.
+func isPBRRule(rule *Rule) bool {
+	return rule.Action == "accept" && (rule.GatewayID != "" || rule.GatewayGroupID != "")
+}
+
+// applyRuleKernelFamily installs one rule's kernel entries for one address family.
+//
+// Packet filtering stays IPv4-only. Cascade has never emitted ip6tables rules,
+// so building a FIREWALL_FORWARD chain in the v6 filter table — complete with
+// the terminal DROP that the default policy appends — would start blocking IPv6
+// traffic that flows freely today. Stage 4 is about policy routing, so the v6
+// pass populates the mangle chains only.
+func (m *Manager) applyRuleKernelFamily(rule *Rule, f fam, combos []portCombo) error {
+	srcParts, srcOK, err := m.buildMatchParts("src", &rule.Source, f)
+	if err != nil {
+		return err
+	}
+	dstParts, dstOK, err := m.buildMatchParts("dst", &rule.Destination, f)
+	if err != nil {
+		return err
+	}
+	if !srcOK || !dstOK {
+		return nil // rule has no valid expression in this family
+	}
+	combos = combosFor(combos, f)
+	if len(combos) == 0 {
+		return nil
+	}
+
 	// Use subchain approach when mixing port matches (native nft) with ipset matches
 	// (xt_compat) to avoid silent ipset-match loss.
 	if anyComboHasPort(combos) && (anyPartIsIpset(srcParts) || anyPartIsIpset(dstParts)) {
-		return m.applyRuleKernelSubchain(rule, combos, srcParts, dstParts)
+		return m.applyRuleKernelSubchain(rule, f, combos, srcParts, dstParts)
 	}
 
-	isPBR := rule.Action == "accept" && (rule.GatewayID != "" || rule.GatewayGroupID != "")
+	isPBR := isPBRRule(rule)
 	for _, combo := range combos {
 		for _, srcPart := range srcParts {
 			for _, dstPart := range dstParts {
 				flags := buildMatchFlags(rule, combo, srcPart, dstPart)
 
-				// Optional LOG target.
-				if rule.Log {
-					cmd := fmt.Sprintf(`iptables-nft -t filter -A FIREWALL_FORWARD%s -j LOG --log-prefix "FW: "`, flags)
-					util.Exec(cmd, 10*time.Second, true) //nolint
+				// Optional LOG target (IPv4 filter only).
+				if rule.Log && !f.v6 {
+					cmd := fmt.Sprintf(`%s -t filter -A FIREWALL_FORWARD%s -j LOG --log-prefix "FW: "`, f.ipt, flags)
+					fwExec(cmd, 10*time.Second, true) //nolint
 				}
 
 				// Mangle MARK (PBR) or RETURN (non-PBR) — in PREROUTING/FIREWALL_MANGLE.
 				if isPBR {
-					cmd := fmt.Sprintf("iptables-nft -t mangle -A FIREWALL_MANGLE%s -j MARK --set-mark %d", flags, *rule.Fwmark)
-					if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
-						log.Printf("firewall: mangle MARK %q: %v", rule.Name, err)
+					cmd := fmt.Sprintf("%s -t mangle -A FIREWALL_MANGLE%s -j MARK --set-mark %d", f.ipt, flags, *rule.Fwmark)
+					if _, err := fwExec(cmd, 10*time.Second, true); err != nil {
+						log.Printf("firewall: %s mangle MARK %q: %v", f.tag, rule.Name, err)
 					}
 					if rule.ApplyToLocal {
-						m.markLocal(rule, flags)
+						m.markLocal(rule, f, flags)
 					}
 				} else {
 					// RETURN prevents downstream PBR rules from marking this traffic.
-					cmd := fmt.Sprintf("iptables-nft -t mangle -A FIREWALL_MANGLE%s -j RETURN", flags)
-					util.Exec(cmd, 10*time.Second, true) //nolint
+					cmd := fmt.Sprintf("%s -t mangle -A FIREWALL_MANGLE%s -j RETURN", f.ipt, flags)
+					fwExec(cmd, 10*time.Second, true) //nolint
 				}
 
-				// Filter action.
-				cmd := fmt.Sprintf("iptables-nft -t filter -A FIREWALL_FORWARD%s -j %s", flags, ruleTarget(rule))
-				if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
-					log.Printf("firewall: filter %q: %v", rule.Name, err)
+				// Filter action (IPv4 only — see applyRuleKernelFamily).
+				if !f.v6 {
+					cmd := fmt.Sprintf("%s -t filter -A FIREWALL_FORWARD%s -j %s", f.ipt, flags, ruleTarget(rule))
+					if _, err := fwExec(cmd, 10*time.Second, true); err != nil {
+						log.Printf("firewall: filter %q: %v", rule.Name, err)
+					}
 				}
 			}
 		}
@@ -1326,12 +1403,27 @@ func (m *Manager) applyRuleKernel(rule *Rule) error {
 	// PBR first-match semantics: once a mark is set, stop processing so that
 	// subsequent (more general) PBR rules cannot override it.
 	if isPBR {
-		util.Exec("iptables-nft -t mangle -A FIREWALL_MANGLE -m mark ! --mark 0 -j RETURN", 10*time.Second, true) //nolint
+		fwExec(f.ipt+" -t mangle -A FIREWALL_MANGLE -m mark ! --mark 0 -j RETURN", 10*time.Second, true) //nolint
 		if rule.ApplyToLocal {
-			m.endLocalRule()
+			m.endLocalRule(f)
 		}
 	}
 	return nil
+}
+
+// combosFor adapts port/protocol combinations to one address family, dropping
+// any that cannot be expressed there.
+func combosFor(combos []portCombo, f fam) []portCombo {
+	out := make([]portCombo, 0, len(combos))
+	for _, c := range combos {
+		proto, ok := f.protocolFor(c.proto)
+		if !ok {
+			continue
+		}
+		c.proto = proto
+		out = append(out, c)
+	}
+	return out
 }
 
 // applyRuleKernelSubchain handles rules that combine ipset address matching with
@@ -1342,47 +1434,57 @@ func (m *Manager) applyRuleKernel(rule *Rule) error {
 //	FIREWALL_FORWARD: -m set --match-set <ipset> src  →  JUMP FW<id8>   (xt_compat only)
 //	FW<id8>:          -p udp --dport 53               →  ACCEPT          (native nft only)
 //	FW<id8>:          (no match)                      →  RETURN
-func (m *Manager) applyRuleKernelSubchain(rule *Rule, combos []portCombo, srcParts, dstParts []string) error {
+func (m *Manager) applyRuleKernelSubchain(rule *Rule, f fam, combos []portCombo, srcParts, dstParts []string) error {
 	// Subchain name: "FW"/"FM" + first 8 hex chars of rule UUID (length = 10).
+	// The same names are reused in the v6 tables — a different binary means a
+	// different namespace, so there is nothing to disambiguate.
 	shortID := strings.ReplaceAll(rule.ID, "-", "")[:8]
 	filterChain := "FW" + shortID
 	mangleChain := "FM" + shortID
-	isPBR := rule.Action == "accept" && (rule.GatewayID != "" || rule.GatewayGroupID != "")
+	isPBR := isPBRRule(rule)
 
-	// Create and flush subchains (idempotent).
-	for _, tc := range []struct{ table, chain string }{{"filter", filterChain}, {"mangle", mangleChain}} {
-		util.Exec(fmt.Sprintf("iptables-nft -t %s -N %s 2>/dev/null || true", tc.table, tc.chain), 5*time.Second, true)
-		util.Exec(fmt.Sprintf("iptables-nft -t %s -F %s", tc.table, tc.chain), 5*time.Second, true)
+	// Create and flush subchains (idempotent). The filter subchain is IPv4 only.
+	subchains := []struct{ table, chain string }{{"mangle", mangleChain}}
+	if !f.v6 {
+		subchains = append(subchains, struct{ table, chain string }{"filter", filterChain})
+	}
+	for _, tc := range subchains {
+		fwExec(fmt.Sprintf("%s -t %s -N %s 2>/dev/null || true", f.ipt, tc.table, tc.chain), 5*time.Second, true)
+		fwExec(fmt.Sprintf("%s -t %s -F %s", f.ipt, tc.table, tc.chain), 5*time.Second, true)
 	}
 
 	// Populate subchains with port-only rules (no address/ipset — avoids mixing).
 	for _, combo := range combos {
 		portFlags := buildPortFlags(combo)
 
-		// Filter subchain: optional LOG + action.
-		if rule.Log {
-			cmd := fmt.Sprintf(`iptables-nft -t filter -A %s%s -j LOG --log-prefix "FW: "`, filterChain, portFlags)
-			util.Exec(cmd, 10*time.Second, true) //nolint
-		}
-		cmd := fmt.Sprintf("iptables-nft -t filter -A %s%s -j %s", filterChain, portFlags, ruleTarget(rule))
-		if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
-			log.Printf("firewall: subchain filter %q: %v", rule.Name, err)
+		// Filter subchain: optional LOG + action (IPv4 only).
+		if !f.v6 {
+			if rule.Log {
+				cmd := fmt.Sprintf(`%s -t filter -A %s%s -j LOG --log-prefix "FW: "`, f.ipt, filterChain, portFlags)
+				fwExec(cmd, 10*time.Second, true) //nolint
+			}
+			cmd := fmt.Sprintf("%s -t filter -A %s%s -j %s", f.ipt, filterChain, portFlags, ruleTarget(rule))
+			if _, err := fwExec(cmd, 10*time.Second, true); err != nil {
+				log.Printf("firewall: subchain filter %q: %v", rule.Name, err)
+			}
 		}
 
 		// Mangle subchain: MARK (PBR) or RETURN.
 		if isPBR {
-			cmd = fmt.Sprintf("iptables-nft -t mangle -A %s%s -j MARK --set-mark %d", mangleChain, portFlags, *rule.Fwmark)
-			if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
+			cmd := fmt.Sprintf("%s -t mangle -A %s%s -j MARK --set-mark %d", f.ipt, mangleChain, portFlags, *rule.Fwmark)
+			if _, err := fwExec(cmd, 10*time.Second, true); err != nil {
 				log.Printf("firewall: subchain mangle MARK %q: %v", rule.Name, err)
 			}
 		} else {
-			cmd = fmt.Sprintf("iptables-nft -t mangle -A %s%s -j RETURN", mangleChain, portFlags)
-			util.Exec(cmd, 10*time.Second, true) //nolint
+			cmd := fmt.Sprintf("%s -t mangle -A %s%s -j RETURN", f.ipt, mangleChain, portFlags)
+			fwExec(cmd, 10*time.Second, true) //nolint
 		}
 	}
 	// Terminal RETURN: port not matched → fall through to next rule in FIREWALL_FORWARD.
-	util.Exec(fmt.Sprintf("iptables-nft -t filter -A %s -j RETURN", filterChain), 5*time.Second, true)
-	util.Exec(fmt.Sprintf("iptables-nft -t mangle -A %s -j RETURN", mangleChain), 5*time.Second, true)
+	if !f.v6 {
+		fwExec(fmt.Sprintf("%s -t filter -A %s -j RETURN", f.ipt, filterChain), 5*time.Second, true)
+	}
+	fwExec(fmt.Sprintf("%s -t mangle -A %s -j RETURN", f.ipt, mangleChain), 5*time.Second, true)
 
 	// FIREWALL_FORWARD / FIREWALL_MANGLE: address-only matches → jump to subchains.
 	// No port/proto here — xt_compat (ipset) remains isolated from native nft (port).
@@ -1390,23 +1492,25 @@ func (m *Manager) applyRuleKernelSubchain(rule *Rule, combos []portCombo, srcPar
 		for _, dstPart := range dstParts {
 			addrFlags := buildAddrFlags(rule, srcPart, dstPart)
 
-			cmd := fmt.Sprintf("iptables-nft -t filter -A FIREWALL_FORWARD%s -j %s", addrFlags, filterChain)
-			if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
-				log.Printf("firewall: subchain jump filter %q: %v", rule.Name, err)
+			if !f.v6 {
+				cmd := fmt.Sprintf("%s -t filter -A FIREWALL_FORWARD%s -j %s", f.ipt, addrFlags, filterChain)
+				if _, err := fwExec(cmd, 10*time.Second, true); err != nil {
+					log.Printf("firewall: subchain jump filter %q: %v", rule.Name, err)
+				}
 			}
-			cmd = fmt.Sprintf("iptables-nft -t mangle -A FIREWALL_MANGLE%s -j %s", addrFlags, mangleChain)
-			util.Exec(cmd, 10*time.Second, true) //nolint
+			cmd := fmt.Sprintf("%s -t mangle -A FIREWALL_MANGLE%s -j %s", f.ipt, addrFlags, mangleChain)
+			fwExec(cmd, 10*time.Second, true) //nolint
 			if isPBR && rule.ApplyToLocal {
-				m.jumpLocal(rule, addrFlags, mangleChain)
+				m.jumpLocal(rule, f, addrFlags, mangleChain)
 			}
 		}
 	}
 	// PBR first-match semantics: once a mark is set, stop processing so that
 	// subsequent (more general) PBR rules cannot override it.
 	if isPBR {
-		util.Exec("iptables-nft -t mangle -A FIREWALL_MANGLE -m mark ! --mark 0 -j RETURN", 10*time.Second, true) //nolint
+		fwExec(f.ipt+" -t mangle -A FIREWALL_MANGLE -m mark ! --mark 0 -j RETURN", 10*time.Second, true) //nolint
 		if rule.ApplyToLocal {
-			m.endLocalRule()
+			m.endLocalRule(f)
 		}
 	}
 	return nil
@@ -1415,8 +1519,17 @@ func (m *Manager) applyRuleKernelSubchain(rule *Rule, combos []portCombo, srcPar
 // cleanupSubchains removes all FW*/FM* per-rule subchains left from a previous run.
 // Called at the start of rebuildChains before re-applying rules.
 func (m *Manager) cleanupSubchains() {
-	for _, tc := range []struct{ table, prefix string }{{"filter", "FW"}, {"mangle", "FM"}} {
-		out, err := util.Exec(fmt.Sprintf("iptables-nft -t %s -S", tc.table), 5*time.Second, false)
+	type target struct {
+		f             fam
+		table, prefix string
+	}
+	targets := []target{
+		{famV4, "filter", "FW"},
+		{famV4, "mangle", "FM"},
+		{famV6, "mangle", "FM"},
+	}
+	for _, tc := range targets {
+		out, err := fwExec(fmt.Sprintf("%s -t %s -S", tc.f.ipt, tc.table), 5*time.Second, false)
 		if err != nil {
 			continue
 		}
@@ -1426,8 +1539,8 @@ func (m *Manager) cleanupSubchains() {
 			if len(parts) >= 2 && parts[0] == "-N" &&
 				strings.HasPrefix(parts[1], tc.prefix) && len(parts[1]) == 10 {
 				chain := parts[1]
-				util.Exec(fmt.Sprintf("iptables-nft -t %s -F %s 2>/dev/null || true", tc.table, chain), 5*time.Second, true)
-				util.Exec(fmt.Sprintf("iptables-nft -t %s -X %s 2>/dev/null || true", tc.table, chain), 5*time.Second, true)
+				fwExec(fmt.Sprintf("%s -t %s -F %s 2>/dev/null || true", tc.f.ipt, tc.table, chain), 5*time.Second, true)
+				fwExec(fmt.Sprintf("%s -t %s -X %s 2>/dev/null || true", tc.f.ipt, tc.table, chain), 5*time.Second, true)
 			}
 		}
 	}
@@ -1450,34 +1563,40 @@ func (m *Manager) withRuleApply(ruleID string, fn func() error) error {
 	return fn()
 }
 
-// replacePBRRoute applies a resolved PBR gateway and records it only after the
-// kernel command succeeds. WireGuard interfaces require a device-only route;
-// regular interfaces use an explicit on-link next hop.
-func (m *Manager) replacePBRRoute(rule *Rule, gw resolvedGW) error {
-	fwmark := *rule.Fwmark
-	isWG := strings.HasPrefix(gw.iface, "wg") || strings.HasPrefix(gw.iface, "awg")
-	var cmd string
-	if isWG || gw.gatewayIP == "" {
-		cmd = fmt.Sprintf("ip route replace default dev %s table %d", gw.iface, fwmark)
-	} else {
-		cmd = fmt.Sprintf("ip route replace default via %s dev %s onlink table %d", gw.gatewayIP, gw.iface, fwmark)
-	}
-	if _, err := pbrRouteExec(cmd, 10*time.Second, true); err != nil {
-		return fmt.Errorf("ip route replace: %w", err)
-	}
-
-	m.routeStateMu.Lock()
-	m.activeGateway[rule.ID] = gw
-	m.routeStateMu.Unlock()
-	return nil
-}
-
+// activeGatewayForRule returns the gateway a rule is currently routed through.
+// Used for gateway-group change detection, which is family-independent — the
+// group picks one gateway for the rule — so the IPv4 record answers, falling
+// back to the IPv6 one for a rule that only routes IPv6.
 func (m *Manager) activeGatewayForRule(ruleID string) (resolvedGW, bool) {
 	m.routeStateMu.Lock()
-	gw, ok := m.activeGateway[ruleID]
-	m.routeStateMu.Unlock()
+	defer m.routeStateMu.Unlock()
+	if gw, ok := m.activeGateway[stateKey{ruleID: ruleID}]; ok {
+		return gw, true
+	}
+	gw, ok := m.activeGateway[stateKey{ruleID: ruleID, v6: true}]
 	return gw, ok
 }
+
+// ruleInFallback reports whether a rule is on its fallback or blackhole route in
+// either family. Either one is a reason to re-resolve on recovery.
+func (m *Manager) ruleInFallback(ruleID string) bool {
+	m.fallbackMu.Lock()
+	defer m.fallbackMu.Unlock()
+	for _, f := range families() {
+		if m.fallbackActive[keyFor(ruleID, f)] {
+			return true
+		}
+	}
+	return false
+}
+
+// fwExec runs the iptables/ip6tables commands that build Cascade's chains.
+//
+// A package variable for the same reason as the routing seams below: it is the
+// one place every chain command passes through, so a test can point the whole
+// firewall at a network namespace and exercise the real binaries against a real
+// kernel without touching the host.
+var fwExec = util.Exec
 
 var pbrRouteExec = util.Exec
 
@@ -1697,56 +1816,89 @@ func expandProtocol(protocol string) []string {
 	return []string{protocol}
 }
 
-// buildMatchParts returns iptables source/destination match fragments for an endpoint.
-// Returns [""] for "any" (no -s/-d flag), ["-s CIDR"] for cidr, or expanded alias entries.
-func (m *Manager) buildMatchParts(dir string, ep *Endpoint) ([]string, error) {
+// errAliasMissing marks a rule that points at an alias which no longer exists.
+//
+// The compiler refuses such a rule outright instead of emitting it without the
+// match. Dropping the match would silently widen the rule to every address —
+// a PBR rule for one service would start policy-routing the whole internet —
+// which is far worse than the rule being absent.
+var errAliasMissing = errors.New("alias not found")
+
+// buildMatchParts returns iptables source/destination match fragments for an
+// endpoint in one address family.
+//
+// The bool reports whether the endpoint can be expressed in this family at all.
+// False means the rule must not be emitted here: an IPv4 CIDR has no meaning to
+// ip6tables, and an IPv4-only ipset produces a rule the kernel rejects. Only
+// data that can validly match is compiled.
+//
+// Returns [""] for "any" (no -s/-d flag), ["-s CIDR"] for cidr, or expanded
+// alias entries.
+func (m *Manager) buildMatchParts(dir string, ep *Endpoint, f fam) ([]string, bool, error) {
 	flag := "-s"
 	matchDir := "src"
 	if dir == "dst" {
 		flag = "-d"
 		matchDir = "dst"
 	}
+
+	if ep == nil || ep.Type == "" || ep.Type == "any" {
+		return []string{""}, true, nil
+	}
+
 	invert := ""
 	if ep.Invert {
 		invert = "! "
 	}
 
-	if ep == nil || ep.Type == "" || ep.Type == "any" {
-		return []string{""}, nil
-	}
-
 	if ep.Type == "cidr" {
 		if err := validateCIDROrIP(ep.Value); err != nil {
-			return nil, fmt.Errorf("buildMatchParts cidr: %w", err)
+			return nil, false, fmt.Errorf("buildMatchParts cidr: %w", err)
 		}
-		return []string{fmt.Sprintf("%s%s %s", invert, flag, ep.Value)}, nil
+		if !f.matchesFamily(ep.Value) {
+			return nil, false, nil
+		}
+		return []string{fmt.Sprintf("%s%s %s", invert, flag, ep.Value)}, true, nil
 	}
 
 	if ep.Type == "alias" {
 		spec, err := m.am.GetMatchSpec(ep.AliasID)
 		if err != nil || spec == nil {
-			log.Printf("firewall: alias %s not found, skipping match", ep.AliasID)
-			return []string{""}, nil
+			return nil, false, fmt.Errorf("%w: %s", errAliasMissing, ep.AliasID)
 		}
 		if spec.Type == "ipset" {
-			inv := ""
-			if ep.Invert {
-				inv = "! "
+			// One set per family. An alias with no set for this family (a plain
+			// ipset or client-group alias, both hash:net family inet) simply
+			// does not exist here.
+			set := spec.Name
+			if f.v6 {
+				set = spec.NameV6
 			}
-			return []string{fmt.Sprintf("-m set %s--match-set %s %s", inv, spec.Name, matchDir)}, nil
+			if set == "" {
+				return nil, false, nil
+			}
+			return []string{fmt.Sprintf("-m set %s--match-set %s %s", invert, set, matchDir)}, true, nil
 		}
-		// CIDR-based alias: one fragment per entry.
+		// CIDR-based alias: one fragment per entry, filtered to this family.
+		// An alias with no entries at all keeps its existing "no constraint"
+		// meaning; one whose entries are all of the other family does not apply
+		// here and the rule is skipped.
 		if len(spec.Entries) == 0 {
-			return []string{""}, nil
+			return []string{""}, true, nil
 		}
-		parts := make([]string, len(spec.Entries))
-		for i, cidr := range spec.Entries {
-			parts[i] = fmt.Sprintf("%s%s %s", invert, flag, cidr)
+		var parts []string
+		for _, cidr := range spec.Entries {
+			if f.matchesFamily(cidr) {
+				parts = append(parts, fmt.Sprintf("%s%s %s", invert, flag, cidr))
+			}
 		}
-		return parts, nil
+		if len(parts) == 0 {
+			return nil, false, nil
+		}
+		return parts, true, nil
 	}
 
-	return []string{""}, nil
+	return []string{""}, true, nil
 }
 
 // ── Private: gateway resolution ───────────────────────────────────────────────
@@ -1756,32 +1908,41 @@ type resolvedGW struct {
 	iface     string
 }
 
-// resolveGateway finds the active gateway for a PBR rule.
+// resolveGateway finds the active gateway for a PBR rule, as an IPv4 next hop.
 // Gateway groups use the shared health-aware tier resolver.
 func (m *Manager) resolveGateway(rule *Rule) (resolvedGW, error) {
+	gw, err := m.resolveGatewayObj(rule)
+	if err != nil {
+		return resolvedGW{}, err
+	}
+	return resolvedGW{gatewayIP: gw.GatewayIP, iface: gw.Interface}, nil
+}
+
+// resolveGatewayObj returns the gateway a rule currently routes through.
+//
+// Family-specific next hops are derived from it by gatewayRouteFor, which needs
+// the whole object — the IPv6 next hop and the interface both live on it, and
+// an IPv4-shaped resolvedGW cannot carry them.
+func (m *Manager) resolveGatewayObj(rule *Rule) (*gateway.Gateway, error) {
 	if rule.GatewayID != "" {
 		gw, err := m.gm.GetGateway(rule.GatewayID)
 		if err != nil || gw == nil {
-			return resolvedGW{}, fmt.Errorf("gateway %s not found", rule.GatewayID)
+			return nil, fmt.Errorf("gateway %s not found", rule.GatewayID)
 		}
-		return resolvedGW{gatewayIP: gw.GatewayIP, iface: gw.Interface}, nil
+		return gw, nil
 	}
 
 	if rule.GatewayGroupID != "" {
-		gw, err := m.gm.ResolveGroupGateway(rule.GatewayGroupID)
-		if err != nil {
-			return resolvedGW{}, err
-		}
-		return resolvedGW{gatewayIP: gw.GatewayIP, iface: gw.Interface}, nil
+		return m.gm.ResolveGroupGateway(rule.GatewayGroupID)
 	}
 
-	return resolvedGW{}, fmt.Errorf("rule has no gateway or gateway group")
+	return nil, fmt.Errorf("rule has no gateway or gateway group")
 }
 
 // ipRuleExists checks whether an ip rule for fwmark already exists.
 // Parses "ip rule show" text output (FIX-11).
-func (m *Manager) ipRuleExists(fwmark int) bool {
-	out, err := pbrRuleExec("ip rule show", 5*time.Second, false)
+func (m *Manager) ipRuleExists(fwmark int, f fam) bool {
+	out, err := pbrRuleExec(f.ipr+" rule show", 5*time.Second, false)
 	if err != nil {
 		return false
 	}
@@ -1832,7 +1993,7 @@ func (m *Manager) onGatewayDown(gatewayID string) error {
 				continue
 			}
 			m.cancelRestoreTimer(rule.ID)
-			allDown, err := m.isGroupAllDown(rule.GatewayGroupID)
+			allDown, err := m.isGroupAllDown(rule.GatewayGroupID, famV4)
 			if err != nil {
 				return err
 			}
@@ -1864,7 +2025,7 @@ func (m *Manager) onGatewayUp(gatewayID string) error {
 				return err
 			}
 			if contains {
-				allDown, err := m.isGroupAllDown(rule.GatewayGroupID)
+				allDown, err := m.isGroupAllDown(rule.GatewayGroupID, famV4)
 				if err != nil {
 					return err
 				}
@@ -1876,10 +2037,7 @@ func (m *Manager) onGatewayUp(gatewayID string) error {
 		}
 
 		if rule.GatewayID == gatewayID {
-			m.fallbackMu.Lock()
-			inFallback := m.fallbackActive[rule.ID]
-			m.fallbackMu.Unlock()
-			if !inFallback {
+			if !m.ruleInFallback(rule.ID) {
 				continue
 			}
 		}
@@ -1889,10 +2047,7 @@ func (m *Manager) onGatewayUp(gatewayID string) error {
 				return err
 			}
 			current, ok := m.activeGatewayForRule(rule.ID)
-			m.fallbackMu.Lock()
-			inFallback := m.fallbackActive[rule.ID]
-			m.fallbackMu.Unlock()
-			if ok && current == desired && !inFallback {
+			if ok && current == desired && !m.ruleInFallback(rule.ID) {
 				continue
 			}
 		}
@@ -2004,8 +2159,12 @@ func (m *Manager) getSystemDefaultGateway() (resolvedGW, error) {
 	return resolvedGW{}, fmt.Errorf("system default gateway not found in: %q", out)
 }
 
-// isGroupAllDown returns true when every member of a gateway group has status "down" or "admin_down".
-func (m *Manager) isGroupAllDown(groupID string) (bool, error) {
+// isGroupAllDown returns true when every member of a gateway group has status
+// "down" or "admin_down" in the given address family.
+//
+// Judged per family: a group whose members answer IPv4 but have lost IPv6 is
+// down for IPv6 routing and up for IPv4, and each family falls back on its own.
+func (m *Manager) isGroupAllDown(groupID string, f fam) (bool, error) {
 	grp, err := m.gm.GetGroup(groupID)
 	if err != nil {
 		return true, err
@@ -2014,8 +2173,7 @@ func (m *Manager) isGroupAllDown(groupID string) (bool, error) {
 		return true, nil
 	}
 	for _, member := range grp.Gateways {
-		st := m.gm.Monitor().GetStatus(member.GatewayID)
-		if st.Status != "down" && st.Status != "admin_down" {
+		if !isDownStatus(m.gatewayFamilyStatus(member.GatewayID, f)) {
 			return false, nil
 		}
 	}
@@ -2077,7 +2235,7 @@ func (m *Manager) ipsetTest(setName, ip string) bool {
 	if err := validate.IP(ip); err != nil {
 		return false
 	}
-	_, err := util.Exec(fmt.Sprintf("ipset test %s %s", setName, ip), 3*time.Second, false)
+	_, err := fwExec(fmt.Sprintf("ipset test %s %s", setName, ip), 3*time.Second, false)
 	return err == nil
 }
 

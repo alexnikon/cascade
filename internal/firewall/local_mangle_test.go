@@ -49,22 +49,26 @@ func TestWireGuardListenPorts_ReadsConfiguredInterfaces(t *testing.T) {
 }
 
 // The guard prologue is what keeps a PBR rule from routing the tunnel's own
-// transport packets back into the tunnel.
+// transport packets back into the tunnel. Both families need it, and both read
+// the same listen ports — a WireGuard interface has one port whichever
+// transport its endpoint uses.
 func TestLocalGuardCommands_CoverMarkedAndTunnelTraffic(t *testing.T) {
-	joined := strings.Join(localGuardCommands([]int{51832, 51830}), "\n")
+	for _, f := range families() {
+		joined := strings.Join(localGuardCommands(f, []int{51832, 51830}), "\n")
 
-	if !strings.Contains(joined, "-A "+localMangleChain+" -m mark ! --mark 0 -j RETURN") {
-		t.Errorf("missing already-marked guard in:\n%s", joined)
-	}
-	for _, port := range []string{"51832", "51830"} {
-		if !strings.Contains(joined, "-A "+localMangleChain+" -p udp --sport "+port+" -j RETURN") {
-			t.Errorf("missing WireGuard transport guard for port %s in:\n%s", port, joined)
+		if !strings.Contains(joined, "-A "+localMangleChain+" -m mark ! --mark 0 -j RETURN") {
+			t.Errorf("%s: missing already-marked guard in:\n%s", f.tag, joined)
 		}
-	}
-	// The mark guard must come first, or a socket that already chose its routing
-	// table could be overridden by a rule below it.
-	if !strings.HasPrefix(joined, "iptables-nft -t mangle -A "+localMangleChain+" -m mark") {
-		t.Errorf("the already-marked guard must be the first command, got:\n%s", joined)
+		for _, port := range []string{"51832", "51830"} {
+			if !strings.Contains(joined, "-A "+localMangleChain+" -p udp --sport "+port+" -j RETURN") {
+				t.Errorf("%s: missing WireGuard transport guard for port %s in:\n%s", f.tag, port, joined)
+			}
+		}
+		// The mark guard must come first, or a socket that already chose its routing
+		// table could be overridden by a rule below it.
+		if !strings.HasPrefix(joined, f.ipt+" -t mangle -A "+localMangleChain+" -m mark") {
+			t.Errorf("%s: the already-marked guard must be the first command, got:\n%s", f.tag, joined)
+		}
 	}
 }
 

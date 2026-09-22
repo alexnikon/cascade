@@ -66,6 +66,7 @@ func (m *Manager) Init() error {
 func (m *Manager) GetGateways() ([]Gateway, error) {
 	rows, err := db.DB().Query(`
 		SELECT id, name, interface, gateway_ip, monitor_address,
+		       gateway_ipv6, monitor_address_v6,
 		       enabled, monitor, monitor_interval, window_seconds,
 		       latency_threshold, monitor_http, monitor_rule,
 		       description, admin_down, created_at
@@ -91,6 +92,7 @@ func (m *Manager) GetGateways() ([]Gateway, error) {
 func (m *Manager) GetGateway(id string) (*Gateway, error) {
 	row := db.DB().QueryRow(`
 		SELECT id, name, interface, gateway_ip, monitor_address,
+		       gateway_ipv6, monitor_address_v6,
 		       enabled, monitor, monitor_interval, window_seconds,
 		       latency_threshold, monitor_http, monitor_rule,
 		       description, admin_down, created_at
@@ -109,6 +111,8 @@ type GatewayInput struct {
 	Interface        string            `json:"interface"`
 	GatewayIP        string            `json:"gatewayIP"`
 	MonitorAddress   string            `json:"monitorAddress"`
+	GatewayIPv6      string            `json:"gatewayIPv6"`      // optional IPv6 next hop
+	MonitorAddressV6 string            `json:"monitorAddressV6"` // optional ICMPv6 probe target
 	Enabled          *bool             `json:"enabled"`
 	Monitor          *bool             `json:"monitor"`
 	MonitorInterval  int               `json:"monitorInterval"`
@@ -686,6 +690,7 @@ func scanGatewayRow(s gatewayScanner) (*Gateway, error) {
 
 	err := s.Scan(
 		&gw.ID, &gw.Name, &gw.Interface, &gw.GatewayIP, &gw.MonitorAddress,
+		&gw.GatewayIPv6, &gw.MonitorAddressV6,
 		&enabled, &monitor, &gw.MonitorInterval, &gw.WindowSeconds,
 		&gw.LatencyThreshold, &monitorHttpJSON, &gw.MonitorRule,
 		&gw.Description, &adminDown, &gw.CreatedAt,
@@ -730,12 +735,14 @@ func insertGateway(gw Gateway) error {
 	_, err := db.DB().Exec(`
 		INSERT INTO gateways
 		    (id, name, interface, gateway_ip, monitor_address,
+		     gateway_ipv6, monitor_address_v6,
 		     enabled, monitor, monitor_interval, window_seconds,
 		     latency_threshold, monitor_http, monitor_rule,
 		     description, admin_down, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		gw.ID, gw.Name, gw.Interface, gw.GatewayIP, gw.MonitorAddress,
+		gw.GatewayIPv6, gw.MonitorAddressV6,
 		boolInt(gw.Enabled), boolInt(gw.Monitor), gw.MonitorInterval, gw.WindowSeconds,
 		gw.LatencyThreshold, string(httpJSON), gw.MonitorRule,
 		gw.Description, boolInt(gw.AdminDown), gw.CreatedAt,
@@ -748,12 +755,14 @@ func updateGateway(gw Gateway) error {
 	_, err := db.DB().Exec(`
 		UPDATE gateways
 		SET name = ?, interface = ?, gateway_ip = ?, monitor_address = ?,
+		    gateway_ipv6 = ?, monitor_address_v6 = ?,
 		    enabled = ?, monitor = ?, monitor_interval = ?, window_seconds = ?,
 		    latency_threshold = ?, monitor_http = ?, monitor_rule = ?,
 		    description = ?, admin_down = ?
 		WHERE id = ?
 	`,
 		gw.Name, gw.Interface, gw.GatewayIP, gw.MonitorAddress,
+		gw.GatewayIPv6, gw.MonitorAddressV6,
 		boolInt(gw.Enabled), boolInt(gw.Monitor), gw.MonitorInterval, gw.WindowSeconds,
 		gw.LatencyThreshold, string(httpJSON), gw.MonitorRule,
 		gw.Description, boolInt(gw.AdminDown), gw.ID,
@@ -841,6 +850,8 @@ func gatewayFromInput(inp GatewayInput) Gateway {
 		Interface:        strings.TrimSpace(inp.Interface),
 		GatewayIP:        strings.TrimSpace(inp.GatewayIP),
 		MonitorAddress:   strings.TrimSpace(inp.MonitorAddress),
+		GatewayIPv6:      strings.TrimSpace(inp.GatewayIPv6),
+		MonitorAddressV6: strings.TrimSpace(inp.MonitorAddressV6),
 		Enabled:          enabled,
 		Monitor:          monitor,
 		MonitorInterval:  interval,
@@ -871,6 +882,23 @@ func validateGatewayInput(inp GatewayInput) error {
 	}
 	if err := validate.HostOrIP(strings.TrimSpace(inp.MonitorAddress)); err != nil {
 		return fmt.Errorf("invalid monitorAddress: %w", err)
+	}
+	// IPv6 fields are optional; when present they must be IPv6, not IPv4.
+	if v6 := strings.TrimSpace(inp.GatewayIPv6); v6 != "" {
+		if err := validate.IP(v6); err != nil {
+			return fmt.Errorf("invalid gatewayIPv6: %w", err)
+		}
+		if !isIPv6(v6) {
+			return fmt.Errorf("gatewayIPv6 must be an IPv6 address")
+		}
+	}
+	if v6 := strings.TrimSpace(inp.MonitorAddressV6); v6 != "" {
+		if err := validate.HostOrIP(v6); err != nil {
+			return fmt.Errorf("invalid monitorAddressV6: %w", err)
+		}
+		if !isHostname(v6) && !isIPv6(v6) {
+			return fmt.Errorf("monitorAddressV6 must be an IPv6 address")
+		}
 	}
 	rule := inp.MonitorRule
 	if rule != "" && rule != "icmp_only" && rule != "http_only" && rule != "all" && rule != "any" {

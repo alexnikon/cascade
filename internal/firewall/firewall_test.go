@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
+	aliasespkg "github.com/alexnikon/cascade/internal/aliases"
 	"github.com/alexnikon/cascade/internal/db"
 	"github.com/alexnikon/cascade/internal/gateway"
 	"github.com/alexnikon/cascade/internal/ipset"
-	aliasespkg "github.com/alexnikon/cascade/internal/aliases"
 )
 
 func initTestDB(t *testing.T) (*Manager, *aliasespkg.Manager) {
@@ -103,18 +103,18 @@ func TestIpInCIDR_IPv6(t *testing.T) {
 func TestRule_JSONRoundTrip(t *testing.T) {
 	fwmark := 100
 	rule := Rule{
-		ID:        "rule-1",
-		Name:      "Block KZ",
-		Enabled:   true,
-		Order:     1,
-		Interface: "any",
-		Protocol:  "any",
-		Source:    Endpoint{Type: "cidr", Value: "10.0.0.0/8"},
+		ID:          "rule-1",
+		Name:        "Block KZ",
+		Enabled:     true,
+		Order:       1,
+		Interface:   "any",
+		Protocol:    "any",
+		Source:      Endpoint{Type: "cidr", Value: "10.0.0.0/8"},
 		Destination: Endpoint{Type: "any"},
-		Action:    "accept",
-		GatewayID: "gw-1",
-		Fwmark:    &fwmark,
-		CreatedAt: "2026-01-01T00:00:00Z",
+		Action:      "accept",
+		GatewayID:   "gw-1",
+		Fwmark:      &fwmark,
+		CreatedAt:   "2026-01-01T00:00:00Z",
 	}
 
 	data, err := json.Marshal(rule)
@@ -263,8 +263,8 @@ func TestSimulateTrace_InvertedCIDRSource(t *testing.T) {
 		Interface: "any", Protocol: "any",
 		Source:      Endpoint{Type: "cidr", Value: "10.0.0.0/8", Invert: true},
 		Destination: Endpoint{Type: "any"},
-		Action: "drop",
-		CreatedAt: "2026-01-01T00:00:00Z",
+		Action:      "drop",
+		CreatedAt:   "2026-01-01T00:00:00Z",
 	}
 	insertRule(rule)
 

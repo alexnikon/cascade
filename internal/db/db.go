@@ -852,6 +852,23 @@ ALTER TABLE firewall_rules         ADD COLUMN apply_to_local INTEGER NOT NULL DE
 ALTER TABLE firewall_rules_applied ADD COLUMN apply_to_local INTEGER NOT NULL DEFAULT 0;
 `,
 	},
+	{
+		version: 43,
+		sql: `
+-- Dual-stack gateways. Both columns are optional and default to empty, so every
+-- existing gateway keeps working unchanged and old API clients need send neither.
+--
+-- gateway_ipv6      explicit IPv6 next hop. Empty means "derive from the
+--                   interface": a gateway whose interface carries a global IPv6
+--                   address gets a device route, which is the usual shape for a
+--                   WireGuard tunnel.
+-- monitor_address_v6 ICMPv6 probe target. Empty means no independent IPv6
+--                   health evidence exists and IPv6 health is reported as
+--                   inherited from the IPv4 probe.
+ALTER TABLE gateways ADD COLUMN gateway_ipv6       TEXT NOT NULL DEFAULT '';
+ALTER TABLE gateways ADD COLUMN monitor_address_v6 TEXT NOT NULL DEFAULT '';
+`,
+	},
 }
 
 func runMigrations(db *sql.DB) error {

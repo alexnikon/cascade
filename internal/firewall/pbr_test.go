@@ -14,33 +14,47 @@ import (
 // "ip rule show" from the policy rules it has seen, so the whole PBR lifecycle
 // can be exercised through the existing exec seams without privileges.
 type pbrRecorder struct {
-	mu       sync.Mutex
-	routes   []string
-	rules    []string
-	ipRules  map[int]int // fwmark → number of installed policy rules
-	sysGW    string
-	tables   map[int]string // table ID → the route currently installed
+	mu      sync.Mutex
+	routes  []string
+	rules   []string
+	ipRules map[famObj]int    // fwmark+family → number of installed policy rules
+	tables  map[famObj]string // table ID+family → the route currently installed
+	// sysGW is the host default route per family. The IPv6 entry is empty by
+	// default, which is the common real shape: a host with IPv6 only through a
+	// tunnel has no IPv6 default route of its own.
+	sysGW    map[bool]string
+	v6Ifaces map[string]bool // interfaces that carry a global IPv6 address
 	failNext error
+}
+
+// famObj identifies a kernel object that exists once per address family.
+type famObj struct {
+	id int
+	v6 bool
 }
 
 func newPBRRecorder(t *testing.T) *pbrRecorder {
 	t.Helper()
 	r := &pbrRecorder{
-		ipRules: map[int]int{},
-		tables:  map[int]string{},
-		sysGW:   "default via 192.0.2.254 dev eth0",
+		ipRules:  map[famObj]int{},
+		tables:   map[famObj]string{},
+		sysGW:    map[bool]string{false: "default via 192.0.2.254 dev eth0"},
+		v6Ifaces: map[string]bool{},
 	}
 
 	oldRoute, oldRule, oldSys := pbrRouteExec, pbrRuleExec, sysRouteExec
 	pbrRouteExec = func(cmd string, _ time.Duration, _ bool) (string, error) {
 		r.mu.Lock()
 		defer r.mu.Unlock()
+		v6 := isV6Command(cmd)
+		body := stripFamily(cmd)
 		table, hasTable := tableFromCommand(cmd)
+		key := famObj{id: table, v6: v6}
 
 		// Reads are answered from the recorded tables and are not writes.
-		if strings.HasPrefix(cmd, "ip route show") {
+		if strings.HasPrefix(body, "route show") {
 			if hasTable {
-				return r.tables[table], nil
+				return r.tables[key], nil
 			}
 			return "", nil
 		}
@@ -51,10 +65,10 @@ func newPBRRecorder(t *testing.T) *pbrRecorder {
 		}
 		r.routes = append(r.routes, cmd)
 		if hasTable {
-			if strings.HasPrefix(cmd, "ip route flush") {
-				delete(r.tables, table)
+			if strings.HasPrefix(body, "route flush") {
+				delete(r.tables, key)
 			} else {
-				r.tables[table] = cmd
+				r.tables[key] = cmd
 			}
 		}
 		return "", nil
@@ -62,29 +76,35 @@ func newPBRRecorder(t *testing.T) *pbrRecorder {
 	pbrRuleExec = func(cmd string, _ time.Duration, _ bool) (string, error) {
 		r.mu.Lock()
 		defer r.mu.Unlock()
+		v6 := isV6Command(cmd)
+		body := stripFamily(cmd)
 		switch {
-		case cmd == "ip rule show":
+		case body == "rule show":
 			var sb strings.Builder
-			for mark, n := range r.ipRules {
+			for key, n := range r.ipRules {
+				if key.v6 != v6 {
+					continue
+				}
 				for i := 0; i < n; i++ {
-					fmt.Fprintf(&sb, "1010:\tfrom all fwmark 0x%x lookup %d\n", mark, mark)
+					fmt.Fprintf(&sb, "1010:\tfrom all fwmark 0x%x lookup %d\n", key.id, key.id)
 				}
 			}
 			return sb.String(), nil
-		case strings.HasPrefix(cmd, "ip rule add"):
+		case strings.HasPrefix(body, "rule add"):
 			r.rules = append(r.rules, cmd)
 			if mark, ok := fwmarkFromCommand(cmd); ok {
-				r.ipRules[mark]++
+				r.ipRules[famObj{id: mark, v6: v6}]++
 			}
-		case strings.HasPrefix(cmd, "ip rule del"):
+		case strings.HasPrefix(body, "rule del"):
 			r.rules = append(r.rules, cmd)
 			mark, ok := fwmarkFromCommand(cmd)
-			if !ok || r.ipRules[mark] == 0 {
+			key := famObj{id: mark, v6: v6}
+			if !ok || r.ipRules[key] == 0 {
 				return "", fmt.Errorf("RTNETLINK answers: No such file or directory")
 			}
-			r.ipRules[mark]--
-			if r.ipRules[mark] == 0 {
-				delete(r.ipRules, mark)
+			r.ipRules[key]--
+			if r.ipRules[key] == 0 {
+				delete(r.ipRules, key)
 			}
 		}
 		return "", nil
@@ -92,25 +112,65 @@ func newPBRRecorder(t *testing.T) *pbrRecorder {
 	sysRouteExec = func(cmd string, _ time.Duration, _ bool) (string, error) {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		return r.sysGW, nil
+		// "ip -6 addr show dev X scope global" — IPv6 capability of an interface.
+		if strings.Contains(cmd, "addr show dev ") {
+			iface := fieldAfter(cmd, "dev")
+			if r.v6Ifaces[iface] {
+				return "    inet6 2001:db8::1/64 scope global", nil
+			}
+			return "", nil
+		}
+		return r.sysGW[isV6Command(cmd)], nil
 	}
 	t.Cleanup(func() { pbrRouteExec, pbrRuleExec, sysRouteExec = oldRoute, oldRule, oldSys })
 	return r
 }
 
-// flushTable mirrors what "ip route flush table N" does to the recorder. It is
-// driven from releasePBRState via util.Exec, which no-ops off Linux, so the
-// recorder observes the flush through this helper instead.
-func (r *pbrRecorder) policyRuleCount(fwmark int) int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.ipRules[fwmark]
+// isV6Command reports whether a kernel command targets the IPv6 family.
+func isV6Command(cmd string) bool { return strings.HasPrefix(cmd, "ip -6 ") }
+
+// stripFamily removes the "ip"/"ip -6" prefix so the rest can be matched once.
+func stripFamily(cmd string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(cmd, "ip -6 "), "ip ")
 }
 
-func (r *pbrRecorder) tableRoute(fwmark int) string {
+func fieldAfter(cmd, keyword string) string {
+	fields := strings.Fields(cmd)
+	for i, f := range fields {
+		if f == keyword && i+1 < len(fields) {
+			return fields[i+1]
+		}
+	}
+	return ""
+}
+
+func (r *pbrRecorder) policyRuleCount(fwmark int) int { return r.policyRuleCountFam(fwmark, famV4) }
+
+func (r *pbrRecorder) policyRuleCountFam(fwmark int, f fam) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return r.tables[fwmark]
+	return r.ipRules[famObj{id: fwmark, v6: f.v6}]
+}
+
+func (r *pbrRecorder) tableRoute(fwmark int) string { return r.tableRouteFam(fwmark, famV4) }
+
+func (r *pbrRecorder) tableRouteFam(fwmark int, f fam) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.tables[famObj{id: fwmark, v6: f.v6}]
+}
+
+// markIPv6Capable makes an interface look like it carries a global IPv6 address.
+func (r *pbrRecorder) markIPv6Capable(iface string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.v6Ifaces[iface] = true
+}
+
+func (r *pbrRecorder) setSysGW6(route string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.sysGW[true] = route
 }
 
 func (r *pbrRecorder) routeCount() int {
@@ -276,11 +336,11 @@ func TestReconcile_RebuildWhileGatewayDownIsImmediatelyCorrect(t *testing.T) {
 	// rebuilt from the applied snapshot, no monitor transition delivered.
 	m.gm.Monitor().SetAdminDown(gw.ID, true)
 	m.routeStateMu.Lock()
-	m.activeGateway = map[string]resolvedGW{}
-	m.appliedState = map[string]pbrDesired{}
+	m.activeGateway = map[stateKey]resolvedGW{}
+	m.appliedState = map[stateKey]pbrDesired{}
 	m.routeStateMu.Unlock()
 	m.fallbackMu.Lock()
-	m.fallbackActive = map[string]bool{}
+	m.fallbackActive = map[stateKey]bool{}
 	m.fallbackMu.Unlock()
 
 	if err := m.rebuildChains(); err != nil {
@@ -535,7 +595,7 @@ func TestDesiredRoutingState_Table(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m.gm.Monitor().SetAdminDown(gw.ID, tc.down)
-			got, err := m.desiredRoutingState(base(tc.fallback))
+			got, err := m.desiredRoutingState(base(tc.fallback), famV4)
 			if err != nil {
 				t.Fatalf("desiredRoutingState: %v", err)
 			}
@@ -561,7 +621,7 @@ func TestRouteCommand_Shapes(t *testing.T) {
 			"ip route replace default via 192.0.2.254 dev eth0 onlink table 1001"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := routeCommand(tc.desired, 1001); got != tc.want {
+			if got := routeCommand(tc.desired, 1001, famV4); got != tc.want {
 				t.Errorf("routeCommand = %q, want %q", got, tc.want)
 			}
 		})
@@ -670,19 +730,26 @@ func TestCleanupRoutingRules_KeepsActiveRulesAndReleasesTheRest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddRule(disabled): %v", err)
 	}
-	if _, err := m.ToggleRule(disabled.ID, false); err != nil {
-		t.Fatalf("ToggleRule: %v", err)
-	}
+	// Apply it while it is still enabled, so its table really holds a route and
+	// the cleanup below has something to release rather than a table that was
+	// never populated.
 	if err := m.ApplyRules(); err != nil {
 		t.Fatalf("ApplyRules: %v", err)
+	}
+	if rec.tableRoute(*disabled.Fwmark) == "" {
+		t.Fatalf("setup: the rule being disabled should have a route installed first")
+	}
+	if _, err := m.ToggleRule(disabled.ID, false); err != nil {
+		t.Fatalf("ToggleRule: %v", err)
 	}
 
 	rec.mu.Lock()
 	rec.routes = nil
 	rec.mu.Unlock()
 
-	if err := m.cleanupRoutingRules(); err != nil {
-		t.Fatalf("cleanupRoutingRules: %v", err)
+	// The rebuild inside ApplyRules is what runs cleanupRoutingRules.
+	if err := m.ApplyRules(); err != nil {
+		t.Fatalf("ApplyRules: %v", err)
 	}
 
 	rec.mu.Lock()
@@ -701,6 +768,14 @@ func TestCleanupRoutingRules_KeepsActiveRulesAndReleasesTheRest(t *testing.T) {
 	}
 	if contains(flushed, dontFlush) {
 		t.Errorf("flushes = %v, must not empty the active rule's table", flushed)
+	}
+
+	// The kernel state is the point: one table emptied, the other still routing.
+	if got := rec.tableRoute(*disabled.Fwmark); got != "" {
+		t.Errorf("disabled rule's table = %q, want it empty", got)
+	}
+	if got := rec.tableRoute(*active.Fwmark); !strings.Contains(got, "eth24") {
+		t.Errorf("active rule's table = %q, want it still routing via the gateway", got)
 	}
 }
 
@@ -741,7 +816,7 @@ func TestRebuild_FailedRouteWriteDoesNotEmptyTheTable(t *testing.T) {
 	rec.failNext = fmt.Errorf(`exit status 1: Cannot find device "eth25"`)
 	rec.mu.Unlock()
 	m.routeStateMu.Lock()
-	m.appliedState = map[string]pbrDesired{}
+	m.appliedState = map[stateKey]pbrDesired{}
 	m.routeStateMu.Unlock()
 
 	if err := m.rebuildChains(); err != nil {
@@ -777,7 +852,7 @@ func TestReconcile_UnknownHealthKeepsExistingTableContents(t *testing.T) {
 
 	// Restart: in-memory state is gone and the monitor has not reported yet.
 	m.routeStateMu.Lock()
-	m.appliedState = map[string]pbrDesired{}
+	m.appliedState = map[stateKey]pbrDesired{}
 	m.routeStateMu.Unlock()
 	m.gm.Monitor().Stop(gw.ID)
 

@@ -60,13 +60,14 @@ type windowStats struct {
 // monitorState holds mutable per-gateway monitoring data.
 // Protected by its own mu to allow concurrent reads from GetStatus.
 type monitorState struct {
-	mu         sync.Mutex
-	icmpProbes []probe
-	httpProbes []probe
-	status     MonitorStatus
-	adminDown  bool // if true, GetStatus returns "admin_down" regardless of probe results
-	stopCh     chan struct{}
-	wg         sync.WaitGroup
+	mu          sync.Mutex
+	icmpProbes  []probe
+	icmp6Probes []probe // ICMPv6 window; used only when MonitorAddressV6 is set
+	httpProbes  []probe
+	status      MonitorStatus
+	adminDown   bool // if true, GetStatus returns "admin_down" regardless of probe results
+	stopCh      chan struct{}
+	wg          sync.WaitGroup
 }
 
 // StatusChangeFunc is invoked when a gateway's combined status changes.
@@ -139,6 +140,27 @@ func (m *Monitor) Start(gw Gateway) {
 		}
 	}()
 
+	// ICMPv6 goroutine: started only when an IPv6 probe target is configured.
+	// Without one there is no independent IPv6 evidence and IPv6 health is
+	// reported as inherited from the IPv4 result (see GetStatus).
+	if gw.MonitorAddressV6 != "" {
+		state.wg.Add(1)
+		go func() {
+			defer state.wg.Done()
+			m.probeICMPv6(gw, state)
+			ticker := time.NewTicker(icmpInterval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-state.stopCh:
+					return
+				case <-ticker.C:
+					m.probeICMPv6(gw, state)
+				}
+			}
+		}()
+	}
+
 	// HTTP goroutine: started only when monitorRule requires HTTP and URL is set.
 	httpNeeded := gw.MonitorRule != "icmp_only"
 	if httpNeeded && gw.MonitorHttp.URL != "" {
@@ -200,6 +222,15 @@ func (m *Monitor) GetStatus(gatewayID string) MonitorStatus {
 	st := state.status
 	if state.adminDown {
 		st.Status = "admin_down"
+		st.IPv6Status = "admin_down"
+	}
+	if st.IPv6Source == "" {
+		// No ICMPv6 probe is configured: the IPv4 result is the only evidence
+		// available. Inheriting it is a deliberate choice — reporting IPv6 as
+		// permanently "unknown" would stop IPv6 rules from ever falling back or
+		// blackholing — but it is labelled so nothing mistakes it for proof.
+		st.IPv6Source = "inherited"
+		st.IPv6Status = st.Status
 	}
 	return st
 }
@@ -615,4 +646,76 @@ func reFind(s, pattern string, group int) string {
 		return strings.TrimSpace(m[group])
 	}
 	return ""
+}
+
+// ── ICMPv6 probe ──────────────────────────────────────────────────────────────
+
+// probeICMPv6 measures IPv6 reachability of a gateway against its
+// MonitorAddressV6, in its own sliding window and with its own status.
+//
+// It exists because the IPv4 probe proves nothing about IPv6: a WireGuard
+// tunnel whose peer stops announcing a working IPv6 path still answers ICMPv4
+// perfectly. Only a gateway with MonitorAddressV6 configured gets this probe;
+// everything else reports IPv6 health as inherited (see GetStatus).
+//
+// Status transitions are emitted through the same handlers as the IPv4 probe.
+// That is deliberate rather than lazy: the firewall's handler reconciles the
+// affected rules against live per-family health, so one event is enough to put
+// both families right — and a v6-only change can never be missed.
+func (m *Monitor) probeICMPv6(gw Gateway, state *monitorState) {
+	if err := validate.IfaceName(gw.Interface); err != nil {
+		log.Printf("gateway-monitor: %s: skipping ICMPv6 probe — unsafe interface %q: %v", gw.ID, gw.Interface, err)
+		return
+	}
+	if err := validate.HostOrIP(gw.MonitorAddressV6); err != nil {
+		log.Printf("gateway-monitor: %s: skipping ICMPv6 probe — unsafe target %q: %v",
+			gw.ID, gw.MonitorAddressV6, err)
+		return
+	}
+
+	var success bool
+	var latency *int
+
+	out, err := util.Exec(
+		fmt.Sprintf("ping -6 -c 1 -W 1 -I %s %s", gw.Interface, gw.MonitorAddressV6), 5*time.Second, false)
+	if err == nil {
+		loss := 100
+		if lossStr := reFind(out, `(\d+)% packet loss`, 1); lossStr != "" {
+			if n, e := strconv.Atoi(lossStr); e == nil {
+				loss = n
+			}
+		}
+		success = loss < 100
+		if success {
+			if avgStr := reFind(out, `(?:rtt|round-trip)[^\n]+=\s*[\d.]+/([\d.]+)/`, 1); avgStr != "" {
+				var f float64
+				fmt.Sscanf(avgStr, "%f", &f)
+				v := int(math.Round(f))
+				latency = &v
+			}
+		}
+	}
+
+	windowSec, thHealthy, thDegraded := globalThresholds(gw.WindowSeconds)
+
+	state.mu.Lock()
+	addToWindow(&state.icmp6Probes, probe{ts: nowMs(), success: success, latency: latency}, windowSec)
+	stats := calcWindowStats(state.icmp6Probes)
+	prev := state.status.IPv6Status
+	// Same thresholds and same "not enough probes yet → unknown" rule as IPv4.
+	next := statusFromRate(stats.total, stats.successRate, thHealthy, thDegraded)
+	state.status.IPv6Status = next
+	state.status.IPv6Source = "probe"
+	state.status.IPv6Latency = stats.avgLatency
+	state.status.IPv6PacketLoss = stats.packetLoss
+	isAdminDown := state.adminDown
+	state.mu.Unlock()
+
+	if !isAdminDown && next != prev {
+		if next == "down" {
+			log.Printf("gateway-monitor: %s: IPv6 target %s unreachable via %s",
+				gw.ID, gw.MonitorAddressV6, gw.Interface)
+		}
+		m.emitChange(gw.ID, next, prev)
+	}
 }
