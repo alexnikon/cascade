@@ -65,7 +65,8 @@ type GeneratorOpts struct {
 // MatchSpec is returned by GetMatchSpec for use in FirewallManager iptables rules.
 type MatchSpec struct {
 	Type    string   `json:"type"`              // "ipset" or "cidr"
-	Name    string   `json:"name,omitempty"`    // set when Type == "ipset"
+	Name    string   `json:"name,omitempty"`    // IPv4 set, when Type == "ipset"
+	NameV6  string   `json:"nameV6,omitempty"`  // IPv6 set, when the alias has one
 	Entries []string `json:"entries,omitempty"` // set when Type == "cidr"
 }
 
@@ -79,7 +80,22 @@ type PortMatchSpec struct {
 // Manager manages alias CRUD and integrates with IpsetManager for ipset aliases.
 type Manager struct {
 	ipsetMgr *ipset.Manager
+
+	// dropKernelRefs re-emits the kernel firewall rules from the current alias
+	// configuration. Set by main.go to firewall.RebuildChains; nil in tests and
+	// on platforms without a firewall manager.
+	dropKernelRefs func() error
 }
+
+// SetKernelRefsRebuilder registers the callback that re-emits kernel firewall
+// rules from the current configuration.
+//
+// Alias deletion needs it: the kernel refuses to destroy an ipset while an
+// iptables rule still matches on it, so the referencing rules have to be
+// re-emitted (without the deleted alias) before the sets can go. Wired to
+// firewall.RebuildChains in main.go — the aliases package cannot import the
+// firewall package, which already imports this one.
+func (m *Manager) SetKernelRefsRebuilder(fn func() error) { m.dropKernelRefs = fn }
 
 var aliasNameRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,62}$`)
 
@@ -336,8 +352,24 @@ func (m *Manager) Update(id string, data Alias) (*Alias, error) {
 }
 
 // Delete removes an alias.
+//
+// Deletion is permitted even when firewall rules still reference the alias, which
+// matches how the rest of Cascade behaves (deleting a gateway prunes it out of
+// groups and widgets rather than being refused). Rules left pointing at a missing
+// alias are skipped by the firewall compiler rather than silently widened — see
+// firewall.buildMatchParts.
+//
+// Ordering matters and is deterministic:
+//
+//	1. remove the DB row, so nothing can compile a match on the alias any more
+//	2. rebuild the kernel firewall rules, which drops every reference to its sets
+//	3. destroy the sets, which the kernel now allows
+//
+// Doing 3 before 2 is what used to fail: "ipset destroy" is refused while a
+// kernel component still references the set, leaving it orphaned until the next
+// restart swept it up.
+//
 // For client-group aliases, moves peers to default and then deletes.
-// For ipset aliases, destroys the kernel set and .save file.
 // Returns an error if the alias is referenced by a group.
 func (m *Manager) Delete(id string) error {
 	a, err := m.getOrNotFound(id)
@@ -367,27 +399,41 @@ func (m *Manager) Delete(id string) error {
 		}
 	}
 
-	// Destroy kernel ipset if applicable.
-	if a.Type == "ipset" && a.IPSetName != "" {
-		if err := m.ipsetMgr.DestroySet(a.IPSetName); err != nil {
-			log.Printf("aliases: destroySet %s on delete: %v", a.IPSetName, err)
-		}
-	}
+	// Kernel sets this alias owns. Destroying them is the last step, because the
+	// kernel refuses while an iptables rule still references them.
+	sets := ownedSets(a)
 
-	// Domain aliases own one set per address family.
-	if a.Type == "domain" {
-		for _, set := range []string{DomainSetV4(a.ID), DomainSetV6(a.ID)} {
-			if err := m.ipsetMgr.DestroySet(set); err != nil {
-				log.Printf("aliases: destroySet %s on delete: %v", set, err)
-			}
-		}
-	}
-
+	// The row goes first: it is the source of truth the firewall compiles from,
+	// so once it is gone the rebuild below cannot re-emit a match on these sets.
 	if _, err := db.DB().Exec(`DELETE FROM aliases WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("delete alias: %w", err)
 	}
 
+	// Then the kernel rules that still point at the sets, then the sets.
+	if len(sets) > 0 && m.dropKernelRefs != nil {
+		if err := m.dropKernelRefs(); err != nil {
+			log.Printf("aliases: rebuild firewall rules after deleting %s: %v", id, err)
+		}
+	}
+	for _, set := range sets {
+		if err := m.ipsetMgr.DestroySet(set); err != nil {
+			log.Printf("aliases: destroySet %s on delete: %v", set, err)
+		}
+	}
+
 	log.Printf("aliases: deleted %s (%s)", id, a.Name)
+	return nil
+}
+
+// ownedSets returns the kernel ipsets whose lifetime is tied to this alias.
+func ownedSets(a *Alias) []string {
+	switch {
+	case a.Type == "ipset" && a.IPSetName != "":
+		return []string{a.IPSetName}
+	case a.Type == "domain":
+		// One set per address family, both derived from the alias ID.
+		return []string{DomainSetV4(a.ID), DomainSetV6(a.ID)}
+	}
 	return nil
 }
 
@@ -522,9 +568,9 @@ func (m *Manager) GetMatchSpec(id string) (*MatchSpec, error) {
 		return &MatchSpec{Type: "ipset", Name: a.IPSetName}, nil
 
 	case "domain":
-		// The v4 set only: Cascade has no IPv6 firewall or PBR path to consume
-		// the v6 set (see DomainSetV6 and internal/dnsalias).
-		return &MatchSpec{Type: "ipset", Name: DomainSetV4(a.ID)}, nil
+		// One logical alias, one set per address family. The firewall compiler
+		// picks the set matching the family it is emitting into.
+		return &MatchSpec{Type: "ipset", Name: DomainSetV4(a.ID), NameV6: DomainSetV6(a.ID)}, nil
 
 	case "group":
 		all, err := m.GetAll()

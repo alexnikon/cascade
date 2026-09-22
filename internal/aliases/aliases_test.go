@@ -17,7 +17,9 @@ func requireIPSet(t *testing.T) {
 	}
 }
 
-func initTestDB(t *testing.T) *Manager {
+func initTestDB(t *testing.T) *Manager { m, _ := initTestDBWithDir(t); return m }
+
+func initTestDBWithDir(t *testing.T) (*Manager, string) {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "cascade-aliases-test-*")
 	if err != nil {
@@ -34,7 +36,7 @@ func initTestDB(t *testing.T) *Manager {
 		db.Close()
 		os.RemoveAll(dir)
 	})
-	return New(im)
+	return New(im), dir
 }
 
 // ── validateName ──────────────────────────────────────────────────────────────

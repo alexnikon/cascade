@@ -105,14 +105,33 @@ func (m *Manager) DestroyAll() {
 }
 
 // DestroySet destroys the named ipset and removes its save file.
-// Errors from the kernel (e.g. set does not exist) are silently ignored.
+//
+// A set that is already absent is success. A set that is still present after the
+// attempt is a real failure and is reported: the kernel refuses to destroy a set
+// that an iptables rule still references, and swallowing that error is what used
+// to leave a domain alias's sets orphaned until the next restart. Callers that
+// destroy a set must first make sure nothing in the kernel points at it.
 func (m *Manager) DestroySet(name string) error {
 	if err := m.validateName(name); err != nil {
 		return err
 	}
-	util.ExecSilent(fmt.Sprintf("ipset destroy %s", name)) //nolint:errcheck
-	os.Remove(filepath.Join(m.dataDir, name+".save"))      //nolint:errcheck
+	os.Remove(filepath.Join(m.dataDir, name+".save")) //nolint:errcheck
+
+	if _, err := util.ExecSilent(fmt.Sprintf("ipset destroy %s", name)); err != nil {
+		if m.SetExists(name) {
+			return fmt.Errorf("destroy ipset %s: still in use by a kernel component: %w", name, err)
+		}
+	}
 	return nil
+}
+
+// SetExists reports whether a set of this name is currently present in the kernel.
+func (m *Manager) SetExists(name string) bool {
+	if err := m.validateName(name); err != nil {
+		return false
+	}
+	_, err := util.ExecSilentFast(fmt.Sprintf("ipset list -n %s", name))
+	return err == nil
 }
 
 // LoadFromFile loads CIDRs from a plain-text file (one per line, # comments ignored)

@@ -141,3 +141,31 @@ func TestListSetNames_IncludesCreatedSet(t *testing.T) {
 		t.Errorf("ListSetNames did not include %q", setName)
 	}
 }
+
+// DestroySet used to swallow every kernel error, which is how a set that was
+// still referenced by an iptables rule could appear to have been destroyed.
+func TestDestroySet_ReportsASetThatSurvives(t *testing.T) {
+	requireIPSet(t)
+	m := &Manager{dataDir: t.TempDir()}
+
+	// A set that does not exist is not an error — deletion is idempotent.
+	if err := m.DestroySet("csc_dom_test_absent_v4"); err != nil {
+		t.Errorf("destroying an absent set = %v, want nil", err)
+	}
+
+	const setName = "csc_dom_test_destroy_v4"
+	if err := m.CreateTimeoutSet(setName, false, 3600); err != nil {
+		t.Fatalf("CreateTimeoutSet: %v", err)
+	}
+	t.Cleanup(func() { m.DestroySet(setName) }) //nolint:errcheck
+
+	if !m.SetExists(setName) {
+		t.Fatal("SetExists should see a set that was just created")
+	}
+	if err := m.DestroySet(setName); err != nil {
+		t.Fatalf("DestroySet: %v", err)
+	}
+	if m.SetExists(setName) {
+		t.Error("the set survived DestroySet")
+	}
+}

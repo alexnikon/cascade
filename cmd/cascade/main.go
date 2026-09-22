@@ -331,6 +331,12 @@ func main() {
 	}
 	firewall.SetInstance(fwMgr)
 
+	// Deleting an alias has to strip the kernel rules that reference its ipsets
+	// before those sets can be destroyed. The aliases package cannot reach the
+	// firewall manager on its own — the dependency runs the other way — so the
+	// rebuild is handed to it here.
+	aliasMgr.SetKernelRefsRebuilder(fwMgr.RebuildChains)
+
 	// 5. InterfaceManager — brings up all wg/awg interfaces synchronously.
 	//    Must complete before RestoreAll() calls below.
 	if _, err := tunnel.Init(cfg.Host); err != nil {
