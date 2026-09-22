@@ -714,6 +714,8 @@ new Vue({
     aliasGenerateJobId: null,
     aliasGenerateJobStatus: null,
     aliasTooltip: null,         // { id, alias, x, y } — hover tooltip state
+    aliasDomainOpenId: '',      // domain alias whose runtime details row is expanded
+    aliasRefreshingId: '',      // domain alias whose manual DNS refresh is in flight
     systemRestoring: false,     // true while restore request is in flight
     showBackupModal: false,     // password prompt for backup download
     backupPassword: '',

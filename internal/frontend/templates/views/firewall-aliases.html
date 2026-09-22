@@ -10,7 +10,7 @@
               + Add Alias
             </button>
           </div>
-          <p class="text-sm text-gray-500 dark:text-neutral-400">Named groups of IP addresses or CIDR networks. Can be referenced in Policy Rules and Firewall Rules.</p>
+          <p class="text-sm text-gray-500 dark:text-neutral-400">Named groups of IP addresses, CIDR networks or DNS domains. Can be referenced in Policy Rules and Firewall Rules.</p>
 
           <!-- Loading -->
           <div v-if="aliasesLoading" class="text-gray-500 dark:text-neutral-400 text-sm">Loading...</div>
@@ -34,7 +34,8 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="alias in aliases" :key="alias.id"
+                <template v-for="alias in aliases">
+                <tr :key="alias.id"
                   class="dark:border-neutral-600" style="border-top-width:1px;">
                   <td class="dark:text-neutral-200 font-medium tc">
                     {{ alias.name }}
@@ -47,6 +48,7 @@
                               alias.type === 'group'      ? 'background:#ede9fe;color:#5b21b6;' :
                               alias.type === 'port'       ? 'background:#fee2e2;color:#991b1b;' :
                               alias.type === 'port-group' ? 'background:#fce7f3;color:#9d174d;' :
+                              alias.type === 'domain'     ? 'background:#ccfbf1;color:#0f766e;' :
                                                            'background:#f3f4f6;color:#374151;'">
                       {{ alias.type }}
                     </span>
@@ -64,6 +66,18 @@
                       {{ (alias.memberIds || []).length }} port aliases
                     </span>
                     <span v-else-if="alias.type === 'client-group'">{{ alias.entryCount }} peers</span>
+                    <span v-else-if="alias.type === 'domain'">
+                      {{ (alias.entries || []).length }} domains ·
+                      <span :class="_domainStatusLabel(alias).tone === 'error' ? 'text-red-500' :
+                                    _domainStatusLabel(alias).tone === 'ok'    ? 'text-green-600' : 'text-gray-400'">
+                        {{ _domainStatusLabel(alias).text }}
+                      </span>
+                      <button @click="toggleDomainDetails(alias)"
+                        class="text-xs text-blue-500 ml-1"
+                        style="background:none;border:none;cursor:pointer;padding:0;">
+                        {{ aliasDomainOpenId === alias.id ? '▾ hide' : '▸ details' }}
+                      </button>
+                    </span>
                     <span v-else>{{ (alias.entries || []).length }} entries</span>
                   </td>
                   <td class="text-gray-500 dark:text-neutral-400 text-xs tc">{{ alias.description || '—' }}</td>
@@ -84,6 +98,41 @@
                     </div>
                   </td>
                 </tr>
+                <!-- Domain alias runtime details (in-memory resolver state) -->
+                <tr v-if="alias.type === 'domain' && aliasDomainOpenId === alias.id" :key="alias.id + '-domain'"
+                  class="bg-gray-50 dark:bg-neutral-600">
+                  <td colspan="6" class="tc text-xs">
+                    <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;">
+                      <div class="dark:text-neutral-300">
+                        <div class="text-gray-400 dark:text-neutral-500 uppercase" style="font-size:10px;">Resolved</div>
+                        IPv4: <strong>{{ (alias.domainStatus || {}).ipv4Count || 0 }}</strong> ·
+                        IPv6: <strong>{{ (alias.domainStatus || {}).ipv6Count || 0 }}</strong>
+                      </div>
+                      <div class="dark:text-neutral-300">
+                        <div class="text-gray-400 dark:text-neutral-500 uppercase" style="font-size:10px;">Last update</div>
+                        {{ _domainTime((alias.domainStatus || {}).lastUpdate) }}
+                      </div>
+                      <div class="dark:text-neutral-300">
+                        <div class="text-gray-400 dark:text-neutral-500 uppercase" style="font-size:10px;">Next update</div>
+                        {{ _domainTime((alias.domainStatus || {}).nextUpdate) }}
+                      </div>
+                      <div style="flex:1; min-width:180px;">
+                        <div class="text-gray-400 dark:text-neutral-500 uppercase" style="font-size:10px;">Domains</div>
+                        <span class="font-mono dark:text-neutral-300">{{ (alias.entries || []).join(', ') }}</span>
+                      </div>
+                      <button @click="refreshDomainAlias(alias)"
+                        :disabled="aliasRefreshingId === alias.id"
+                        class="bg-blue-600 text-white rounded px-2 py-1 text-xs font-medium transition"
+                        :style="aliasRefreshingId === alias.id ? 'opacity:0.6;cursor:not-allowed;' : ''">
+                        {{ aliasRefreshingId === alias.id ? 'Refreshing…' : '⟳ Refresh now' }}
+                      </button>
+                    </div>
+                    <p v-if="(alias.domainStatus || {}).lastError" class="text-red-500 mt-1 font-mono">
+                      {{ alias.domainStatus.lastError }}
+                    </p>
+                  </td>
+                </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -117,6 +166,7 @@
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                   <option value="host">Host — list of single IP addresses</option>
                   <option value="network">Network — list of CIDR prefixes</option>
+                  <option value="domain">Domain — DNS names resolved into a live ipset</option>
                   <option value="ipset">ipset — large kernel set (upload file or generate)</option>
                   <option value="client-group">Client Group — ipset auto-managed by peer membership</option>
                   <option value="group">Group — combines multiple host/network aliases</option>
@@ -151,6 +201,18 @@
                   placeholder="tcp:443&#10;udp:53&#10;tcp:8080-8090&#10;any:80"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Format: <code>tcp:PORT</code>, <code>udp:PORT</code>, <code>any:PORT</code>, ranges like <code>tcp:8080-8090</code></p>
+              </div>
+              <!-- Domain entries -->
+              <div v-if="aliasCreate.type === 'domain'">
+                <label class="text-sm font-medium dark:text-neutral-300">Domains (one per line)</label>
+                <textarea v-model="aliasCreate.entries" rows="6"
+                  placeholder="youtube.com&#10;www.youtube.com&#10;googlevideo.com&#10;i.ytimg.com"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                  Each name is resolved in the background (A + AAAA) into a kernel ipset that firewall rules match on.
+                  Entries carry the DNS TTL and expire on their own. Wildcards such as <code>*.example.com</code> are not supported —
+                  list each name explicitly.
+                </p>
               </div>
               <!-- Group: member checklist -->
               <div v-if="aliasCreate.type === 'group'">
@@ -302,6 +364,7 @@
                             aliasEdit.type === 'ipset'      ? 'background:#fef9c3;color:#92400e;' :
                             aliasEdit.type === 'port'       ? 'background:#fee2e2;color:#991b1b;' :
                             aliasEdit.type === 'port-group' ? 'background:#fce7f3;color:#9d174d;' :
+                            aliasEdit.type === 'domain'     ? 'background:#ccfbf1;color:#0f766e;' :
                             'background:#ede9fe;color:#5b21b6;'">
                     {{ aliasEdit.type }}
                   </span>
@@ -334,6 +397,17 @@
                   placeholder="tcp:443&#10;udp:53&#10;tcp:8080-8090&#10;any:80"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Format: <code>tcp:PORT</code>, <code>udp:PORT</code>, <code>any:PORT</code>, ranges like <code>tcp:8080-8090</code></p>
+              </div>
+              <!-- Domain entries -->
+              <div v-if="aliasEdit.type === 'domain'">
+                <label class="text-sm font-medium dark:text-neutral-300">Domains (one per line)</label>
+                <textarea v-model="aliasEdit.entries" rows="6"
+                  placeholder="youtube.com&#10;www.youtube.com"
+                  class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                  Saving re-resolves immediately. The kernel ipset keeps its name, so firewall rules referencing this alias are unaffected.
+                  Wildcards are not supported.
+                </p>
               </div>
               <!-- Group: member checklist -->
               <div v-if="aliasEdit.type === 'group'">

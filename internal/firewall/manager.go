@@ -4,7 +4,14 @@
 // Architecture (mirrors FirewallManager.js):
 //
 //	FIREWALL_FORWARD (filter table) — ACCEPT/DROP/REJECT for every rule
-//	FIREWALL_MANGLE  (mangle table) — MARK (PBR rules) or RETURN (non-PBR rules)
+//	FIREWALL_MANGLE  (mangle table, PREROUTING) — MARK (PBR rules) or RETURN
+//	FIREWALL_MANGLE_OUT (mangle table, OUTPUT)  — MARK for rules with ApplyToLocal
+//
+// FIREWALL_MANGLE marks forwarded traffic. Rules that opt in via ApplyToLocal get
+// the same MARK installed in FIREWALL_MANGLE_OUT as well, so traffic generated on
+// this host uses the same fwmark, ip rule and routing table. That chain opens with
+// guards for already-marked packets and for WireGuard transport (see
+// installLocalGuards), which is what keeps a tunnel from being routed into itself.
 //
 // Rules are processed in order; the first match wins.
 // PBR rules: packets get fwmark → ip rule lookup table N → table N has
@@ -75,6 +82,7 @@ type Rule struct {
 	GatewayGroupID    string   `json:"gatewayGroupId"`    // PBR: gateway group
 	Fwmark            *int     `json:"fwmark"`            // auto-assigned for PBR rules
 	FallbackToDefault bool     `json:"fallbackToDefault"` // fallback to default gw (vs blackhole)
+	ApplyToLocal      bool     `json:"applyToLocal"`      // PBR also applies to traffic originating on this host
 	Log               bool     `json:"log"`
 	Comment           string   `json:"comment"`
 	SeparatorColor    string   `json:"separatorColor"` // separator tint: ""=gray | red|orange|yellow|green|cyan|blue|purple
@@ -93,6 +101,7 @@ type RuleInput struct {
 	GatewayGroupID    string   `json:"gatewayGroupId"`
 	Fwmark            *int     `json:"fwmark"`
 	FallbackToDefault bool     `json:"fallbackToDefault"`
+	ApplyToLocal      bool     `json:"applyToLocal"`
 	Log               bool     `json:"log"`
 	Comment           string   `json:"comment"`
 }
@@ -202,7 +211,7 @@ func (m *Manager) GetRules() ([]Rule, error) {
 		SELECT id, rule_type, name, enabled, order_idx, interface, protocol,
 		       source, destination, action,
 		       gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		       log, comment, separator_color, created_at
+		       apply_to_local, log, comment, separator_color, created_at
 		FROM firewall_rules ORDER BY order_idx
 	`)
 	if err != nil {
@@ -227,7 +236,7 @@ func (m *Manager) GetRule(id string) (*Rule, error) {
 		SELECT id, rule_type, name, enabled, order_idx, interface, protocol,
 		       source, destination, action,
 		       gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		       log, comment, separator_color, created_at
+		       apply_to_local, log, comment, separator_color, created_at
 		FROM firewall_rules WHERE id = ?
 	`, id)
 	r, err := scanRuleRow(row)
@@ -245,7 +254,7 @@ func (m *Manager) getAppliedRules() ([]Rule, error) {
 		SELECT id, rule_type, name, enabled, order_idx, interface, protocol,
 		       source, destination, action,
 		       gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		       log, comment, separator_color, created_at
+		       apply_to_local, log, comment, separator_color, created_at
 		FROM firewall_rules_applied ORDER BY order_idx
 	`)
 	if err != nil {
@@ -280,10 +289,10 @@ func (m *Manager) ensureAppliedSnapshot() error {
 		INSERT INTO firewall_rules_applied
 		    (id, rule_type, name, interface, protocol, source, destination, src_port, dst_port,
 		     action, gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		     enabled, log, comment, separator_color, order_idx, created_at)
+		     apply_to_local, enabled, log, comment, separator_color, order_idx, created_at)
 		SELECT id, rule_type, name, interface, protocol, source, destination, src_port, dst_port,
 		       action, gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		       enabled, log, comment, separator_color, order_idx, created_at
+		       apply_to_local, enabled, log, comment, separator_color, order_idx, created_at
 		FROM firewall_rules
 	`)
 	if err != nil {
@@ -308,10 +317,10 @@ func (m *Manager) ApplyRules() error {
 		INSERT INTO firewall_rules_applied
 		    (id, rule_type, name, interface, protocol, source, destination, src_port, dst_port,
 		     action, gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		     enabled, log, comment, separator_color, order_idx, created_at)
+		     apply_to_local, enabled, log, comment, separator_color, order_idx, created_at)
 		SELECT id, rule_type, name, interface, protocol, source, destination, src_port, dst_port,
 		       action, gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		       enabled, log, comment, separator_color, order_idx, created_at
+		       apply_to_local, enabled, log, comment, separator_color, order_idx, created_at
 		FROM firewall_rules
 	`); err != nil {
 		tx.Rollback()
@@ -339,10 +348,10 @@ func (m *Manager) DiscardChanges() error {
 		INSERT INTO firewall_rules
 		    (id, rule_type, name, interface, protocol, source, destination, src_port, dst_port,
 		     action, gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		     enabled, log, comment, separator_color, order_idx, created_at)
+		     apply_to_local, enabled, log, comment, separator_color, order_idx, created_at)
 		SELECT id, rule_type, name, interface, protocol, source, destination, src_port, dst_port,
 		       action, gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		       enabled, log, comment, separator_color, order_idx, created_at
+		       apply_to_local, enabled, log, comment, separator_color, order_idx, created_at
 		FROM firewall_rules_applied
 	`); err != nil {
 		tx.Rollback()
@@ -366,13 +375,13 @@ func (m *Manager) HasPendingChanges() (bool, error) {
 			SELECT * FROM (
 				SELECT id, rule_type, name, enabled, order_idx, interface, protocol,
 				       source, destination, action, gateway_id, gateway_group_id,
-				       fwmark, fallback_to_default, log, comment, separator_color
+				       fwmark, fallback_to_default, apply_to_local, log, comment, separator_color
 				FROM firewall_rules
 				WHERE rule_type != 'separator'
 				EXCEPT
 				SELECT id, rule_type, name, enabled, order_idx, interface, protocol,
 				       source, destination, action, gateway_id, gateway_group_id,
-				       fwmark, fallback_to_default, log, comment, separator_color
+				       fwmark, fallback_to_default, apply_to_local, log, comment, separator_color
 				FROM firewall_rules_applied
 				WHERE rule_type != 'separator'
 			) AS draft_minus_applied
@@ -380,13 +389,13 @@ func (m *Manager) HasPendingChanges() (bool, error) {
 			SELECT * FROM (
 				SELECT id, rule_type, name, enabled, order_idx, interface, protocol,
 				       source, destination, action, gateway_id, gateway_group_id,
-				       fwmark, fallback_to_default, log, comment, separator_color
+				       fwmark, fallback_to_default, apply_to_local, log, comment, separator_color
 				FROM firewall_rules_applied
 				WHERE rule_type != 'separator'
 				EXCEPT
 				SELECT id, rule_type, name, enabled, order_idx, interface, protocol,
 				       source, destination, action, gateway_id, gateway_group_id,
-				       fwmark, fallback_to_default, log, comment, separator_color
+				       fwmark, fallback_to_default, apply_to_local, log, comment, separator_color
 				FROM firewall_rules
 				WHERE rule_type != 'separator'
 			) AS applied_minus_draft
@@ -436,6 +445,7 @@ func (m *Manager) AddRule(inp RuleInput) (*Rule, error) {
 		GatewayGroupID:    inp.GatewayGroupID,
 		Fwmark:            fwmark,
 		FallbackToDefault: hasPBR && inp.FallbackToDefault,
+		ApplyToLocal:      hasPBR && inp.ApplyToLocal,
 		Log:               inp.Log,
 		Comment:           strings.TrimSpace(inp.Comment),
 		CreatedAt:         time.Now().UTC().Format(time.RFC3339),
@@ -605,6 +615,7 @@ func (m *Manager) UpdateRule(id string, inp RuleInput) (*Rule, error) {
 		GatewayGroupID:    inp.GatewayGroupID,
 		Fwmark:            fwmark,
 		FallbackToDefault: hasPBR && inp.FallbackToDefault,
+		ApplyToLocal:      hasPBR && inp.ApplyToLocal,
 		Log:               inp.Log,
 		Comment:           strings.TrimSpace(inp.Comment),
 		CreatedAt:         old.CreatedAt,
@@ -942,6 +953,108 @@ func (m *Manager) GetNetworkInterfaces() ([]HostInterface, error) {
 	return ifaces, nil
 }
 
+// localMangleChain is the mangle-OUTPUT counterpart of FIREWALL_MANGLE. Only PBR
+// rules with ApplyToLocal set are installed here, so existing rules keep their
+// PREROUTING-only (forwarded-traffic) semantics.
+const localMangleChain = "FIREWALL_MANGLE_OUT"
+
+// installLocalGuards writes the fixed prologue of FIREWALL_MANGLE_OUT. It runs on
+// every rebuild, immediately after the chain is flushed and before any rule is
+// appended, so the guards are always evaluated first.
+//
+// Two classes of packet must never be re-routed by a local PBR rule:
+//
+//  1. Packets that already carry a mark. A socket that set SO_MARK itself (and
+//     wg-quick's fwmark convention) has already chosen its routing table.
+//  2. WireGuard/AmneziaWG transport packets. These are UDP datagrams sent from an
+//     interface's listen port to the peer's endpoint. Routing them into a tunnel
+//     would encapsulate the tunnel inside itself — the classic PBR routing loop.
+//     They are identified by source port, which is the listen port of one of our
+//     own interfaces, and returned unmarked.
+func (m *Manager) installLocalGuards() {
+	for _, cmd := range localGuardCommands(wireGuardListenPorts()) {
+		util.Exec(cmd, 5*time.Second, true) //nolint
+	}
+}
+
+// localGuardCommands builds the guard prologue for the given WireGuard listen ports.
+func localGuardCommands(ports []int) []string {
+	cmds := []string{
+		fmt.Sprintf("iptables-nft -t mangle -A %s -m mark ! --mark 0 -j RETURN", localMangleChain),
+	}
+	for _, port := range ports {
+		cmds = append(cmds, fmt.Sprintf("iptables-nft -t mangle -A %s -p udp --sport %d -j RETURN", localMangleChain, port))
+	}
+	return cmds
+}
+
+// wireGuardListenPorts returns the UDP listen ports of all configured tunnel
+// interfaces. Read straight from SQLite rather than through internal/tunnel,
+// which imports this package.
+func wireGuardListenPorts() []int {
+	rows, err := db.DB().Query(`SELECT DISTINCT listen_port FROM interfaces WHERE listen_port > 0 AND listen_port < 65536`)
+	if err != nil {
+		log.Printf("firewall: wireGuardListenPorts: %v", err)
+		return nil
+	}
+	defer rows.Close()
+
+	var ports []int
+	for rows.Next() {
+		var p int
+		if err := rows.Scan(&p); err != nil {
+			continue
+		}
+		ports = append(ports, p)
+	}
+	return ports
+}
+
+// localFlags adapts match flags built for PREROUTING to the OUTPUT hook, where
+// there is no input interface. A rule pinned to a specific inbound interface has
+// no meaning for locally generated traffic, so it is dropped from the OUT chain.
+func localFlags(rule *Rule, flags string) (string, bool) {
+	if rule.Interface != "" && rule.Interface != "any" {
+		return "", false
+	}
+	return flags, true
+}
+
+// markLocal appends a MARK for a PBR rule to FIREWALL_MANGLE_OUT. Same fwmark,
+// same ip rule and same routing table as the PREROUTING path — the only
+// difference is the hook.
+func (m *Manager) markLocal(rule *Rule, flags string) {
+	f, ok := localFlags(rule, flags)
+	if !ok {
+		log.Printf("firewall: rule %q: applyToLocal ignored — rules bound to interface %q match inbound traffic only",
+			rule.Name, rule.Interface)
+		return
+	}
+	cmd := fmt.Sprintf("iptables-nft -t mangle -A %s%s -j MARK --set-mark %d", localMangleChain, f, *rule.Fwmark)
+	if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
+		log.Printf("firewall: local mangle MARK %q: %v", rule.Name, err)
+	}
+}
+
+// jumpLocal is the subchain equivalent of markLocal: the address/ipset match goes
+// in FIREWALL_MANGLE_OUT, the port match stays in the per-rule FM<id> subchain.
+func (m *Manager) jumpLocal(rule *Rule, addrFlags, mangleChain string) {
+	f, ok := localFlags(rule, addrFlags)
+	if !ok {
+		log.Printf("firewall: rule %q: applyToLocal ignored — rules bound to interface %q match inbound traffic only",
+			rule.Name, rule.Interface)
+		return
+	}
+	cmd := fmt.Sprintf("iptables-nft -t mangle -A %s%s -j %s", localMangleChain, f, mangleChain)
+	util.Exec(cmd, 10*time.Second, true) //nolint
+}
+
+// endLocalRule mirrors the PREROUTING first-match terminator in the OUT chain.
+func (m *Manager) endLocalRule() {
+	util.Exec(fmt.Sprintf("iptables-nft -t mangle -A %s -m mark ! --mark 0 -j RETURN", localMangleChain),
+		10*time.Second, true) //nolint
+}
+
 // ── Private: chain management ─────────────────────────────────────────────────
 
 // initChains creates FIREWALL_FORWARD (filter) and FIREWALL_MANGLE (mangle)
@@ -954,6 +1067,9 @@ func (m *Manager) initChains() error {
 		// mangle: FIREWALL_MANGLE
 		"iptables-nft -t mangle -N FIREWALL_MANGLE 2>/dev/null || true",
 		"iptables-nft -t mangle -C PREROUTING -j FIREWALL_MANGLE 2>/dev/null || iptables-nft -t mangle -I PREROUTING 1 -j FIREWALL_MANGLE",
+		// mangle: FIREWALL_MANGLE_OUT — locally generated traffic (applyToLocal rules only).
+		"iptables-nft -t mangle -N " + localMangleChain + " 2>/dev/null || true",
+		"iptables-nft -t mangle -C OUTPUT -j " + localMangleChain + " 2>/dev/null || iptables-nft -t mangle -I OUTPUT 1 -j " + localMangleChain,
 	}
 	for _, cmd := range cmds {
 		if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
@@ -981,6 +1097,9 @@ func (m *Manager) FlushAll() {
 		"iptables-nft -t mangle -F FIREWALL_MANGLE 2>/dev/null || true",
 		"iptables-nft -t mangle -D PREROUTING -j FIREWALL_MANGLE 2>/dev/null || true",
 		"iptables-nft -t mangle -X FIREWALL_MANGLE 2>/dev/null || true",
+		"iptables-nft -t mangle -F " + localMangleChain + " 2>/dev/null || true",
+		"iptables-nft -t mangle -D OUTPUT -j " + localMangleChain + " 2>/dev/null || true",
+		"iptables-nft -t mangle -X " + localMangleChain + " 2>/dev/null || true",
 	}
 	for _, cmd := range cmds {
 		util.Exec(cmd, 5*time.Second, true) //nolint:errcheck
@@ -1007,8 +1126,12 @@ func (m *Manager) rebuildChains() error {
 	m.routeStateMu.Unlock()
 
 	// Flush custom chains.
-	util.Exec("iptables-nft -t filter -F FIREWALL_FORWARD", 5*time.Second, true) //nolint
-	util.Exec("iptables-nft -t mangle -F FIREWALL_MANGLE", 5*time.Second, true)  //nolint
+	util.Exec("iptables-nft -t filter -F FIREWALL_FORWARD", 5*time.Second, true)  //nolint
+	util.Exec("iptables-nft -t mangle -F FIREWALL_MANGLE", 5*time.Second, true)   //nolint
+	util.Exec("iptables-nft -t mangle -F "+localMangleChain, 5*time.Second, true) //nolint
+
+	// Guard rules at the top of the local (OUTPUT) chain — see installLocalGuards.
+	m.installLocalGuards()
 
 	// Remove per-rule subchains from previous run (FW*/FM* created by applyRuleKernelSubchain).
 	m.cleanupSubchains()
@@ -1138,6 +1261,9 @@ func (m *Manager) applyRuleKernel(rule *Rule) error {
 					if _, err := util.Exec(cmd, 10*time.Second, true); err != nil {
 						log.Printf("firewall: mangle MARK %q: %v", rule.Name, err)
 					}
+					if rule.ApplyToLocal {
+						m.markLocal(rule, flags)
+					}
 				} else {
 					// RETURN prevents downstream PBR rules from marking this traffic.
 					cmd := fmt.Sprintf("iptables-nft -t mangle -A FIREWALL_MANGLE%s -j RETURN", flags)
@@ -1156,6 +1282,9 @@ func (m *Manager) applyRuleKernel(rule *Rule) error {
 	// subsequent (more general) PBR rules cannot override it.
 	if isPBR {
 		util.Exec("iptables-nft -t mangle -A FIREWALL_MANGLE -m mark ! --mark 0 -j RETURN", 10*time.Second, true) //nolint
+		if rule.ApplyToLocal {
+			m.endLocalRule()
+		}
 	}
 	return nil
 }
@@ -1222,12 +1351,18 @@ func (m *Manager) applyRuleKernelSubchain(rule *Rule, combos []portCombo, srcPar
 			}
 			cmd = fmt.Sprintf("iptables-nft -t mangle -A FIREWALL_MANGLE%s -j %s", addrFlags, mangleChain)
 			util.Exec(cmd, 10*time.Second, true) //nolint
+			if isPBR && rule.ApplyToLocal {
+				m.jumpLocal(rule, addrFlags, mangleChain)
+			}
 		}
 	}
 	// PBR first-match semantics: once a mark is set, stop processing so that
 	// subsequent (more general) PBR rules cannot override it.
 	if isPBR {
 		util.Exec("iptables-nft -t mangle -A FIREWALL_MANGLE -m mark ! --mark 0 -j RETURN", 10*time.Second, true) //nolint
+		if rule.ApplyToLocal {
+			m.endLocalRule()
+		}
 	}
 	return nil
 }
@@ -1993,7 +2128,7 @@ func scanRule(rows *sql.Rows) (Rule, error) {
 
 func scanRuleRow(s ruleScanner) (*Rule, error) {
 	var r Rule
-	var enabled, fallback, logVal int
+	var enabled, fallback, applyLocal, logVal int
 	var srcJSON, dstJSON string
 	var fwmark sql.NullInt64
 
@@ -2001,7 +2136,7 @@ func scanRuleRow(s ruleScanner) (*Rule, error) {
 		&r.ID, &r.RuleType, &r.Name, &enabled, &r.Order, &r.Interface, &r.Protocol,
 		&srcJSON, &dstJSON, &r.Action,
 		&r.GatewayID, &r.GatewayGroupID, &fwmark, &fallback,
-		&logVal, &r.Comment, &r.SeparatorColor, &r.CreatedAt,
+		&applyLocal, &logVal, &r.Comment, &r.SeparatorColor, &r.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -2009,6 +2144,7 @@ func scanRuleRow(s ruleScanner) (*Rule, error) {
 
 	r.Enabled = enabled != 0
 	r.FallbackToDefault = fallback != 0
+	r.ApplyToLocal = applyLocal != 0
 	r.Log = logVal != 0
 
 	if fwmark.Valid {
@@ -2055,13 +2191,13 @@ func insertRule(r Rule) error {
 		    (id, rule_type, name, enabled, order_idx, interface, protocol,
 		     source, destination, action,
 		     gateway_id, gateway_group_id, fwmark, fallback_to_default,
-		     log, comment, separator_color, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		     apply_to_local, log, comment, separator_color, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		r.ID, ruleType, r.Name, boolInt(r.Enabled), r.Order, r.Interface, r.Protocol,
 		string(srcJSON), string(dstJSON), r.Action,
 		r.GatewayID, r.GatewayGroupID, fwmark, boolInt(r.FallbackToDefault),
-		boolInt(r.Log), r.Comment, r.SeparatorColor, r.CreatedAt,
+		boolInt(r.ApplyToLocal), boolInt(r.Log), r.Comment, r.SeparatorColor, r.CreatedAt,
 	)
 	return err
 }
@@ -2080,13 +2216,13 @@ func updateRule(r Rule) error {
 		SET name = ?, enabled = ?, interface = ?, protocol = ?,
 		    source = ?, destination = ?, action = ?,
 		    gateway_id = ?, gateway_group_id = ?, fwmark = ?,
-		    fallback_to_default = ?, log = ?, comment = ?
+		    fallback_to_default = ?, apply_to_local = ?, log = ?, comment = ?
 		WHERE id = ?
 	`,
 		r.Name, boolInt(r.Enabled), r.Interface, r.Protocol,
 		string(srcJSON), string(dstJSON), r.Action,
 		r.GatewayID, r.GatewayGroupID, fwmark,
-		boolInt(r.FallbackToDefault), boolInt(r.Log), r.Comment,
+		boolInt(r.FallbackToDefault), boolInt(r.ApplyToLocal), boolInt(r.Log), r.Comment,
 		r.ID,
 	)
 	return err

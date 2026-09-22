@@ -106,6 +106,7 @@ _resetFirewallCreate() {
         action: 'accept',
         gatewayId: '', gatewayGroupId: '', useGroup: false,
         fallbackToDefault: false,
+        applyToLocal: false,
         log: false, comment: '',
       };
     },
@@ -137,6 +138,7 @@ _buildFirewallPayload(form) {
         gatewayId:         form.useGroup ? null : (form.gatewayId || null),
         gatewayGroupId:    form.useGroup ? (form.gatewayGroupId || null) : null,
         fallbackToDefault: Boolean(form.fallbackToDefault),
+        applyToLocal:      Boolean(form.applyToLocal),
         log:               Boolean(form.log),
         comment:           form.comment || '',
       };
@@ -188,6 +190,7 @@ openFirewallEdit(rule) {
         gatewayGroupId: rule.gatewayGroupId || '',
         useGroup:          !!rule.gatewayGroupId,
         fallbackToDefault: Boolean(rule.fallbackToDefault),
+        applyToLocal:      Boolean(rule.applyToLocal),
         log:               Boolean(rule.log),
         comment:           rule.comment || '',
       };
