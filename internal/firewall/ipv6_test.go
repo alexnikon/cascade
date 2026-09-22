@@ -552,3 +552,64 @@ func mustPBRRule(t *testing.T, m *Manager, name, gatewayID string, fallback bool
 	}
 	return r
 }
+
+// Routing state is installed only where the rule can actually mark traffic. A
+// rule whose endpoints are IPv4-only never marks an IPv6 packet, so an IPv6
+// policy rule and table for it would sit there inert.
+func TestReconcile_IPv4OnlyRuleGetsNoIPv6RoutingState(t *testing.T) {
+	m, _ := initTestDB(t)
+	rec := newPBRRecorder(t)
+	gw := dualStackGateway(t, m, rec, "v4rule", "198.51.100.42", "wg42")
+	scriptHealth(t, "healthy", "healthy")
+
+	rule, err := m.AddRule(RuleInput{
+		Name: "TEST-v4rule", Action: "accept", GatewayID: gw.ID,
+		Source: Endpoint{Type: "cidr", Value: "10.99.0.0/24"},
+	})
+	if err != nil {
+		t.Fatalf("AddRule: %v", err)
+	}
+	if err := m.applyRoutingForRule(rule); err != nil {
+		t.Fatalf("applyRoutingForRule: %v", err)
+	}
+
+	if got := rec.tableRouteFam(*rule.Fwmark, famV4); !strings.Contains(got, "dev wg42") {
+		t.Errorf("IPv4 table = %q, want the gateway route", got)
+	}
+	if got := rec.tableRouteFam(*rule.Fwmark, famV6); got != "" {
+		t.Errorf("IPv6 table = %q, want nothing — the rule cannot match IPv6", got)
+	}
+	if n := rec.policyRuleCountFam(*rule.Fwmark, famV6); n != 0 {
+		t.Errorf("IPv6 policy rules = %d, want none", n)
+	}
+}
+
+// The mirror image: a rule whose endpoints are IPv6-only routes IPv6 and leaves
+// IPv4 alone.
+func TestReconcile_IPv6OnlyRuleGetsNoIPv4RoutingState(t *testing.T) {
+	m, _ := initTestDB(t)
+	rec := newPBRRecorder(t)
+	gw := dualStackGateway(t, m, rec, "v6rule", "198.51.100.43", "wg43")
+	scriptHealth(t, "healthy", "healthy")
+
+	rule, err := m.AddRule(RuleInput{
+		Name: "TEST-v6rule", Action: "accept", GatewayID: gw.ID,
+		Destination: Endpoint{Type: "cidr", Value: "2001:db8:1::/48"},
+	})
+	if err != nil {
+		t.Fatalf("AddRule: %v", err)
+	}
+	if err := m.applyRoutingForRule(rule); err != nil {
+		t.Fatalf("applyRoutingForRule: %v", err)
+	}
+
+	if got := rec.tableRouteFam(*rule.Fwmark, famV6); !strings.Contains(got, "dev wg43") {
+		t.Errorf("IPv6 table = %q, want the gateway route", got)
+	}
+	if got := rec.tableRouteFam(*rule.Fwmark, famV4); got != "" {
+		t.Errorf("IPv4 table = %q, want nothing — the rule cannot match IPv4", got)
+	}
+	if n := rec.policyRuleCountFam(*rule.Fwmark, famV4); n != 0 {
+		t.Errorf("IPv4 policy rules = %d, want none", n)
+	}
+}

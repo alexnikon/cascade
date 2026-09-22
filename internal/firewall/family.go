@@ -143,3 +143,20 @@ func (m *Manager) getSystemDefaultGatewayFor(f fam) (resolvedGW, bool, error) {
 	}
 	return resolvedGW{}, false, nil
 }
+
+// ruleMatchesFamily reports whether a rule compiles into any match in one
+// address family — the same question applyRuleKernelFamily asks before emitting
+// chain entries, asked again so routing state is installed only where traffic
+// can actually be marked.
+//
+// A rule that cannot be compiled at all (a deleted alias) matches nothing
+// anywhere, which is the safe answer: it is not installed either.
+func (m *Manager) ruleMatchesFamily(rule *Rule, f fam) bool {
+	for dir, ep := range map[string]*Endpoint{"src": &rule.Source, "dst": &rule.Destination} {
+		_, ok, err := m.buildMatchParts(dir, ep, f)
+		if err != nil || !ok {
+			return false
+		}
+	}
+	return true
+}

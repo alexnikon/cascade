@@ -177,8 +177,16 @@ func (m *Manager) desiredRoutingState(rule *Rule, f fam) (pbrDesired, error) {
 		return pbrDesired{kind: pbrFallback, gw: gw}, nil
 	}
 
-	// Capability first: an unhealthy gateway that could never carry this family
-	// has nothing to fall back from.
+	// Applicability first, on two counts, because an unhealthy gateway that
+	// could never carry this family has nothing to fall back from:
+	//
+	//   - the rule must be able to match in this family at all. A rule whose
+	//     endpoints are IPv4-only marks no IPv6 packet, so an IPv6 policy rule
+	//     and table for it would be inert state that only confuses the picture.
+	//   - the gateway must have a usable route in this family.
+	if !m.ruleMatchesFamily(rule, f) {
+		return pbrDesired{kind: pbrUnsupported}, nil
+	}
 	gw, err := m.resolveGatewayObj(rule)
 	if err != nil {
 		return pbrDesired{}, err
