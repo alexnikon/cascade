@@ -1046,6 +1046,14 @@ func localFlags(rule *Rule, flags string) (string, bool) {
 // markLocal appends a MARK for a PBR rule to FIREWALL_MANGLE_OUT. Same fwmark,
 // same ip rule and same routing table as the PREROUTING path — the only
 // difference is the hook.
+//
+// One kernel property limits this for IPv6, and it is not something Cascade can
+// work around: locally generated traffic is routed once before OUTPUT mangle
+// runs and re-routed afterwards with the new mark. If that first lookup fails,
+// connect() returns ENETUNREACH and no packet is ever produced, so the mark is
+// never set. On a host with no IPv6 default route at all, an applyToLocal rule
+// therefore cannot rescue a destination the main table cannot reach — forwarded
+// traffic, marked in PREROUTING, is unaffected.
 func (m *Manager) markLocal(rule *Rule, f fam, flags string) {
 	lf, ok := localFlags(rule, flags)
 	if !ok {
