@@ -84,37 +84,59 @@ func (f fam) protocolFor(proto string) (string, bool) {
 // Step 2 is what makes existing configurations dual-stack with no migration: a
 // WARP or S2S tunnel that already holds a global IPv6 address is usable
 // immediately, and one that does not is never given a bogus IPv6 route.
-func (m *Manager) gatewayRouteFor(gw *gateway.Gateway, f fam) (resolvedGW, bool) {
+func (m *Manager) gatewayRouteFor(gw *gateway.Gateway, f fam) (resolvedGW, capability) {
 	if gw == nil {
-		return resolvedGW{}, false
+		return resolvedGW{}, capNo
 	}
 	if !f.v6 {
-		return resolvedGW{gatewayIP: gw.GatewayIP, iface: gw.Interface}, true
+		return resolvedGW{gatewayIP: gw.GatewayIP, iface: gw.Interface}, capYes
 	}
 	if gw.GatewayIPv6 != "" {
-		return resolvedGW{gatewayIP: gw.GatewayIPv6, iface: gw.Interface}, true
+		return resolvedGW{gatewayIP: gw.GatewayIPv6, iface: gw.Interface}, capYes
 	}
-	if m.ifaceHasGlobalIPv6(gw.Interface) {
-		return resolvedGW{iface: gw.Interface}, true
+	switch hasV6, known := m.ifaceGlobalIPv6(gw.Interface); {
+	case !known:
+		return resolvedGW{}, capUnknown
+	case hasV6:
+		return resolvedGW{iface: gw.Interface}, capYes
 	}
-	return resolvedGW{}, false
+	return resolvedGW{}, capNo
 }
 
-// ifaceHasGlobalIPv6 reports whether an interface currently holds a global
-// (non-link-local) IPv6 address.
+// capability is the answer to "can this gateway carry this address family".
+type capability int
+
+const (
+	capNo capability = iota
+	capYes
+	// capUnknown: the question cannot be answered right now, because the
+	// gateway's interface does not currently exist. A tunnel is torn down and
+	// recreated on restart, and treating that window as "no IPv6" would release
+	// the rule's IPv6 state — emptying a live table, exactly the leak Stage 3
+	// removed for IPv4.
+	capUnknown
+)
+
+// ifaceGlobalIPv6 reports whether an interface currently holds a global
+// (non-link-local) IPv6 address, and whether that could be determined at all.
 //
 // Read live rather than cached: an interface that comes up, or a tunnel that
 // gains an address, changes the answer, and reconciliation must see the change
 // on its next pass instead of on the next restart.
-func (m *Manager) ifaceHasGlobalIPv6(iface string) bool {
+//
+// The second return value is the important one. A query that fails means the
+// device is not there — during a restart every tunnel is briefly gone — which
+// is not the same as a device that exists and has no IPv6 address. Only the
+// latter is grounds for tearing the rule's IPv6 routing down.
+func (m *Manager) ifaceGlobalIPv6(iface string) (hasV6, known bool) {
 	if iface == "" {
-		return false
+		return false, true
 	}
 	out, err := sysRouteExec(fmt.Sprintf("ip -6 addr show dev %s scope global", iface), 5*time.Second, false)
 	if err != nil {
-		return false
+		return false, false
 	}
-	return strings.Contains(out, "inet6")
+	return strings.Contains(out, "inet6"), true
 }
 
 // getSystemDefaultGatewayFor parses the host's default route for one family.

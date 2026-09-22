@@ -202,26 +202,32 @@ func TestGatewayRouteFor_Capability(t *testing.T) {
 	rec.markIPv6Capable("wg11")
 
 	v4Only := &gateway.Gateway{Interface: "eth0", GatewayIP: "192.0.2.1"}
-	if _, ok := m.gatewayRouteFor(v4Only, famV4); !ok {
+	if _, c := m.gatewayRouteFor(v4Only, famV4); c != capYes {
 		t.Error("every gateway must be IPv4-capable")
 	}
-	if got, ok := m.gatewayRouteFor(v4Only, famV6); ok {
-		t.Errorf("IPv4-only gateway reported IPv6-capable as %+v", got)
+	if got, c := m.gatewayRouteFor(v4Only, famV6); c != capNo {
+		t.Errorf("IPv4-only gateway reported capability %v (%+v), want capNo", c, got)
 	}
 
 	tunnel := &gateway.Gateway{Interface: "wg11"}
-	got, ok := m.gatewayRouteFor(tunnel, famV6)
-	if !ok {
-		t.Fatal("an interface with a global IPv6 address makes the gateway IPv6-capable")
+	got, c := m.gatewayRouteFor(tunnel, famV6)
+	if c != capYes {
+		t.Fatalf("capability = %v, want capYes: a global IPv6 address makes the gateway IPv6-capable", c)
 	}
 	if got.iface != "wg11" || got.gatewayIP != "" {
 		t.Errorf("route = %+v, want a device route on wg11", got)
 	}
 
 	explicit := &gateway.Gateway{Interface: "eth0", GatewayIP: "192.0.2.1", GatewayIPv6: "2001:db8::1"}
-	got, ok = m.gatewayRouteFor(explicit, famV6)
-	if !ok || got.gatewayIP != "2001:db8::1" {
-		t.Errorf("route = %+v ok=%v, want the configured IPv6 next hop", got, ok)
+	got, c = m.gatewayRouteFor(explicit, famV6)
+	if c != capYes || got.gatewayIP != "2001:db8::1" {
+		t.Errorf("route = %+v cap=%v, want the configured IPv6 next hop", got, c)
+	}
+
+	// An interface that is not there right now is unknowable, not "no IPv6".
+	rec.failIfaceQuery("wg11")
+	if _, c := m.gatewayRouteFor(tunnel, famV6); c != capUnknown {
+		t.Errorf("capability = %v while the interface is missing, want capUnknown", c)
 	}
 }
 

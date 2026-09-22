@@ -22,9 +22,10 @@ type pbrRecorder struct {
 	// sysGW is the host default route per family. The IPv6 entry is empty by
 	// default, which is the common real shape: a host with IPv6 only through a
 	// tunnel has no IPv6 default route of its own.
-	sysGW    map[bool]string
-	v6Ifaces map[string]bool // interfaces that carry a global IPv6 address
-	failNext error
+	sysGW      map[bool]string
+	v6Ifaces   map[string]bool // interfaces that carry a global IPv6 address
+	failIfaces map[string]bool // interfaces whose address query fails (device gone)
+	failNext   error
 }
 
 // famObj identifies a kernel object that exists once per address family.
@@ -36,10 +37,11 @@ type famObj struct {
 func newPBRRecorder(t *testing.T) *pbrRecorder {
 	t.Helper()
 	r := &pbrRecorder{
-		ipRules:  map[famObj]int{},
-		tables:   map[famObj]string{},
-		sysGW:    map[bool]string{false: "default via 192.0.2.254 dev eth0"},
-		v6Ifaces: map[string]bool{},
+		ipRules:    map[famObj]int{},
+		tables:     map[famObj]string{},
+		sysGW:      map[bool]string{false: "default via 192.0.2.254 dev eth0"},
+		v6Ifaces:   map[string]bool{},
+		failIfaces: map[string]bool{},
 	}
 
 	oldRoute, oldRule, oldSys := pbrRouteExec, pbrRuleExec, sysRouteExec
@@ -115,6 +117,9 @@ func newPBRRecorder(t *testing.T) *pbrRecorder {
 		// "ip -6 addr show dev X scope global" — IPv6 capability of an interface.
 		if strings.Contains(cmd, "addr show dev ") {
 			iface := fieldAfter(cmd, "dev")
+			if r.failIfaces[iface] {
+				return "", fmt.Errorf(`Device "%s" does not exist.`, iface)
+			}
 			if r.v6Ifaces[iface] {
 				return "    inet6 2001:db8::1/64 scope global", nil
 			}
@@ -158,6 +163,13 @@ func (r *pbrRecorder) tableRouteFam(fwmark int, f fam) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.tables[famObj{id: fwmark, v6: f.v6}]
+}
+
+// failIfaceQuery makes an interface look absent, as it is mid-restart.
+func (r *pbrRecorder) failIfaceQuery(iface string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.failIfaces[iface] = true
 }
 
 // markIPv6Capable makes an interface look like it carries a global IPv6 address.

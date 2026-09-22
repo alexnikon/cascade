@@ -60,6 +60,11 @@ const (
 	// gateway cannot carry it, or the rule cannot match in it. No policy rule
 	// and no table contents; matching traffic (if any) uses the main table.
 	pbrUnsupported pbrKind = "unsupported"
+	// pbrUnknown: the desired state cannot be derived right now, because the
+	// gateway's interface is momentarily absent. The kernel is left exactly as
+	// it is and the next reconciliation decides — whatever is installed came
+	// from the last time the answer was known, which beats any guess.
+	pbrUnknown pbrKind = "unknown"
 )
 
 // pbrDesired is the routing state a rule should currently have in one family.
@@ -191,8 +196,11 @@ func (m *Manager) desiredRoutingState(rule *Rule, f fam) (pbrDesired, error) {
 	if err != nil {
 		return pbrDesired{}, err
 	}
-	route, capable := m.gatewayRouteFor(gw, f)
-	if !capable {
+	route, cap := m.gatewayRouteFor(gw, f)
+	switch cap {
+	case capUnknown:
+		return pbrDesired{kind: pbrUnknown}, nil
+	case capNo:
 		return pbrDesired{kind: pbrUnsupported}, nil
 	}
 
@@ -278,6 +286,12 @@ func (m *Manager) reconcileRoutingForRule(rule *Rule) error {
 func (m *Manager) applyDesiredLocked(rule *Rule, desired pbrDesired, f fam) error {
 	fwmark := *rule.Fwmark
 	key := keyFor(rule.ID, f)
+
+	// Nothing can be decided yet: leave the kernel untouched and record nothing,
+	// so the next pass re-evaluates from scratch.
+	if desired.kind == pbrUnknown {
+		return nil
+	}
 
 	// A family the gateway cannot carry gets nothing at all: no policy rule, no
 	// table contents. Releasing rather than skipping matters on a change — a
