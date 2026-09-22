@@ -155,11 +155,13 @@ type Manager struct {
 	ruleApplyMu   sync.Map   // rule ID → *sync.Mutex; serialises route updates per rule
 	routeStateMu  sync.Mutex
 	activeGateway map[string]resolvedGW // rule ID → last successfully applied gateway
+	appliedState  map[string]pbrDesired // rule ID → last desired state written to the kernel
 	restoreDelay  time.Duration
 
 	fallbackMu     sync.Mutex
 	fallbackActive map[string]bool        // rule ID → currently in fallback/blackhole
 	restoreTimers  map[string]*time.Timer // rule ID → 30 s anti-flap restore timer
+	restoreWG      sync.WaitGroup         // in-flight restore callbacks
 }
 
 // New creates a Manager. Call Init() after db.Init().
@@ -168,6 +170,7 @@ func New(am *aliases.Manager, gm *gateway.Manager) *Manager {
 		am:             am,
 		gm:             gm,
 		activeGateway:  make(map[string]resolvedGW),
+		appliedState:   make(map[string]pbrDesired),
 		restoreDelay:   30 * time.Second,
 		fallbackActive: make(map[string]bool),
 		restoreTimers:  make(map[string]*time.Timer),
@@ -305,6 +308,14 @@ func (m *Manager) ensureAppliedSnapshot() error {
 // ApplyRules copies the current draft (firewall_rules) → applied snapshot, then
 // rebuilds iptables chains from the snapshot.
 func (m *Manager) ApplyRules() error {
+	// Marks owned before the snapshot is replaced. Any that no longer appear
+	// afterwards belonged to rules this apply removed, and their routing state
+	// has to go with them.
+	before, err := pbrMarksInUse("")
+	if err != nil {
+		return err
+	}
+
 	tx, err := db.DB().Begin()
 	if err != nil {
 		return err
@@ -329,6 +340,7 @@ func (m *Manager) ApplyRules() error {
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	m.releaseOrphanedMarks(before)
 	log.Printf("firewall: rules applied (snapshot updated)")
 	return m.rebuildChains()
 }
@@ -661,6 +673,12 @@ func (m *Manager) DeleteRule(id string) error {
 	if _, err := db.DB().Exec(`DELETE FROM firewall_rules WHERE id = ?`, id); err != nil {
 		return err
 	}
+
+	// Tear the rule's routing state down now, while its fwmark is still known.
+	// Rediscovering it after the row is gone is impossible, which is exactly how
+	// stale ip rules and populated tables used to survive a delete.
+	m.releaseRoutingForRule(r)
+
 	log.Printf("firewall: rule deleted %q — pending apply", r.Name)
 	return nil
 }
@@ -1113,16 +1131,18 @@ func (m *Manager) rebuildChains() error {
 	m.rebuildMu.Lock()
 	defer m.rebuildMu.Unlock()
 
-	// Reset fallback state — GatewayMonitor will re-emit if gateways are still down.
+	// Drop the in-memory view of what is installed. Every rule is reconciled
+	// from scratch below against live gateway health, so this bookkeeping is
+	// rebuilt rather than carried over.
+	m.StopPendingRouteRestores()
 	m.fallbackMu.Lock()
-	for _, t := range m.restoreTimers {
-		t.Stop()
-	}
-	m.restoreTimers = make(map[string]*time.Timer)
 	m.fallbackActive = make(map[string]bool)
 	m.fallbackMu.Unlock()
 	m.routeStateMu.Lock()
 	m.activeGateway = make(map[string]resolvedGW)
+	// Forcing appliedState empty makes the reconciliation below write every
+	// route rather than short-circuit on a stale "already applied" record.
+	m.appliedState = make(map[string]pbrDesired)
 	m.routeStateMu.Unlock()
 
 	// Flush custom chains.
@@ -1188,19 +1208,44 @@ func (m *Manager) rebuildChains() error {
 	return nil
 }
 
-// cleanupRoutingRules removes all ip rule + ip route table entries for PBR rules.
+// cleanupRoutingRules releases the PBR state that the rebuild about to follow
+// will not reinstall — marks owned by rules that are disabled, are separators,
+// or linger in one table but not the other.
+//
+// Marks belonging to rules the rebuild will reconcile are deliberately left
+// alone. "ip route replace" overwrites in place, so there is nothing to clear
+// first, and not clearing has two real benefits: the table is never momentarily
+// empty (a restart used to leak matched traffic to the main table until the
+// route was rewritten), and a route that cannot be rewritten yet — an interface
+// that has not come up — keeps its previous, still-correct contents instead of
+// being emptied. Policy-rule priorities also stay stable across rebuilds.
+//
+// The owned set spans the draft table and the applied snapshot: the kernel is
+// built from the applied snapshot while allocation and deletion happen in the
+// draft, so reading only one of them loses marks and leaves their ip rule and
+// table behind.
 func (m *Manager) cleanupRoutingRules() error {
-	rules, err := m.GetRules()
+	owned, err := pbrMarksInUse("")
 	if err != nil {
 		return err
 	}
-	for _, r := range rules {
-		if r.Fwmark == nil {
+
+	applied, err := m.getAppliedRules()
+	if err != nil {
+		return err
+	}
+	keep := make(map[int]bool)
+	for _, r := range applied {
+		if r.RuleType == "separator" || !r.Enabled || r.Fwmark == nil {
 			continue
 		}
-		fwmark := *r.Fwmark
-		util.Exec(fmt.Sprintf("ip rule del fwmark %d lookup %d", fwmark, fwmark), 5*time.Second, false) //nolint
-		util.Exec(fmt.Sprintf("ip route flush table %d", fwmark), 5*time.Second, false)                 //nolint
+		keep[*r.Fwmark] = true
+	}
+
+	for fwmark := range owned {
+		if !keep[fwmark] {
+			m.releasePBRState(fwmark)
+		}
 	}
 	return nil
 }
@@ -1388,30 +1433,13 @@ func (m *Manager) cleanupSubchains() {
 	}
 }
 
-// applyRoutingForRule sets ip route + ip rule for a PBR rule.
-// Uses "ip route replace" (idempotent — overwrites stale fallback/blackhole routes).
+// applyRoutingForRule installs ip route + ip rule for a PBR rule.
+//
+// It reconciles rather than assuming health: a rule applied while its gateway is
+// already down gets its fallback or blackhole route straight away, without
+// waiting for the monitor to emit another transition.
 func (m *Manager) applyRoutingForRule(rule *Rule) error {
-	return m.withRuleApply(rule.ID, func() error {
-		gw, err := m.resolveGateway(rule)
-		if err != nil {
-			return err
-		}
-		if err := m.replacePBRRoute(rule, gw); err != nil {
-			return err
-		}
-
-		fwmark := *rule.Fwmark
-		// ip rule add fwmark <fwmark> lookup <fwmark> — only if not already present.
-		if !m.ipRuleExists(fwmark) {
-			priority := 1000 + rule.Order*10
-			cmd := fmt.Sprintf("ip rule add fwmark %d lookup %d priority %d", fwmark, fwmark, priority)
-			if _, err := pbrRuleExec(cmd, 10*time.Second, true); err != nil {
-				return fmt.Errorf("ip rule add: %w", err)
-			}
-		}
-
-		return nil
-	})
+	return m.reconcileRoutingForRule(rule)
 }
 
 func (m *Manager) withRuleApply(ruleID string, fn func() error) error {
@@ -1765,12 +1793,19 @@ func (m *Manager) ipRuleExists(fwmark int) bool {
 // ── Private: gateway fallback ─────────────────────────────────────────────────
 
 // handleGatewayStatusChange is the GatewayMonitor callback (FIX-15b).
+//
+// Edges are handled as before. A status change that is not an edge but reports a
+// healthy gateway is also passed to onGatewayUp, because a rule can be parked in
+// fallback with no recovery edge left to deliver: editing a gateway stops its
+// monitor and starts a fresh one, whose first result is "unknown" → "healthy",
+// an up-to-up change under the old test. onGatewayUp only acts on rules that are
+// actually still in fallback, so this stays cheap and keeps the anti-flap delay.
 func (m *Manager) handleGatewayStatusChange(gatewayID, newStatus, oldStatus string) error {
 	isDown := func(s string) bool { return s == "down" || s == "admin_down" }
-	if isDown(newStatus) && !isDown(oldStatus) {
+	switch {
+	case isDown(newStatus) && !isDown(oldStatus):
 		return m.onGatewayDown(gatewayID)
-	}
-	if !isDown(newStatus) && isDown(oldStatus) {
+	case !isDown(newStatus):
 		return m.onGatewayUp(gatewayID)
 	}
 	return nil
@@ -1869,22 +1904,46 @@ func (m *Manager) onGatewayUp(gatewayID string) error {
 	return nil
 }
 
+// StopPendingRouteRestores cancels every scheduled anti-flap re-resolution and
+// waits for any callback already running to finish. Used before a full rebuild,
+// where each rule is reconciled immediately anyway, and on shutdown so no timer
+// fires against a torn-down manager.
+func (m *Manager) StopPendingRouteRestores() {
+	m.fallbackMu.Lock()
+	for _, t := range m.restoreTimers {
+		if t.Stop() {
+			m.restoreWG.Done() // cancelled before firing — its callback never runs
+		}
+	}
+	m.restoreTimers = make(map[string]*time.Timer)
+	m.fallbackMu.Unlock()
+	m.restoreWG.Wait()
+}
+
 func (m *Manager) cancelRestoreTimer(ruleID string) {
 	m.fallbackMu.Lock()
 	defer m.fallbackMu.Unlock()
 	if timer, ok := m.restoreTimers[ruleID]; ok {
-		timer.Stop()
+		if timer.Stop() {
+			m.restoreWG.Done()
+		}
 		delete(m.restoreTimers, ruleID)
 	}
 }
 
 func (m *Manager) scheduleRouteRestore(rule Rule) {
 	m.fallbackMu.Lock()
-	if timer, ok := m.restoreTimers[rule.ID]; ok {
-		timer.Stop()
+	// A restore already pending is left to run. Restarting it on every healthy
+	// probe would push the deadline out forever and the rule would never leave
+	// fallback. onGatewayDown cancels the timer explicitly when that is wanted.
+	if _, pending := m.restoreTimers[rule.ID]; pending {
+		m.fallbackMu.Unlock()
+		return
 	}
 	log.Printf("firewall: rule %q: scheduling route re-resolution in %s", rule.Name, m.restoreDelay)
+	m.restoreWG.Add(1)
 	m.restoreTimers[rule.ID] = time.AfterFunc(m.restoreDelay, func() {
+		defer m.restoreWG.Done()
 		m.fallbackMu.Lock()
 		delete(m.restoreTimers, rule.ID)
 		m.fallbackMu.Unlock()
@@ -1895,106 +1954,42 @@ func (m *Manager) scheduleRouteRestore(rule Rule) {
 	m.fallbackMu.Unlock()
 }
 
+// reapplyGatewayGroupRule re-resolves a group rule after one member changed
+// state while the group as a whole is still up.
 func (m *Manager) reapplyGatewayGroupRule(rule *Rule, gatewayID string) error {
-	return m.withRuleApply(rule.ID, func() error {
-		gw, err := m.resolveGateway(rule)
-		if err != nil {
-			return err
-		}
-		current, ok := m.activeGatewayForRule(rule.ID)
-		if ok && current == gw {
-			return nil
-		}
-		if err := m.replacePBRRoute(rule, gw); err != nil {
-			return err
-		}
-		m.fallbackMu.Lock()
-		delete(m.fallbackActive, rule.ID)
-		m.fallbackMu.Unlock()
+	before, hadBefore := m.activeGatewayForRule(rule.ID)
+	if err := m.reconcileRoutingForRule(rule); err != nil {
+		return err
+	}
+	if after, ok := m.activeGatewayForRule(rule.ID); ok && (!hadBefore || before != after) {
 		log.Printf("firewall: rule %q: Gateway Group route switched to %s via %s (gateway %s)",
-			rule.Name, gw.gatewayIP, gw.iface, gatewayID)
-		return nil
-	})
+			rule.Name, after.gatewayIP, after.iface, gatewayID)
+	}
+	return nil
 }
 
-// triggerFallback installs a blackhole or default-gateway route for table N.
+// triggerFallback moves a rule onto its fallback or blackhole route because its
+// gateway went down. The decision itself lives in desiredRoutingState, so this
+// is the monitor-driven entry point into the same reconciliation used by apply
+// and startup — the two can never disagree.
 func (m *Manager) triggerFallback(rule *Rule, reason string) {
-	_ = m.withRuleApply(rule.ID, func() error {
-		m.fallbackMu.Lock()
-		if m.fallbackActive[rule.ID] {
-			m.fallbackMu.Unlock()
-			return nil
-		}
-		m.fallbackMu.Unlock()
-		m.cancelRestoreTimer(rule.ID)
-
-		fwmark := *rule.Fwmark
-		if rule.FallbackToDefault {
-			gw, err := m.getSystemDefaultGateway()
-			if err != nil {
-				log.Printf("firewall: triggerFallback: cannot get system default gw: %v", err)
-				return nil
-			}
-			cmd := fmt.Sprintf("ip route replace default via %s dev %s onlink table %d", gw.gatewayIP, gw.iface, fwmark)
-			if _, err := pbrRouteExec(cmd, 10*time.Second, true); err != nil {
-				log.Printf("firewall: triggerFallback: %v", err)
-				return nil
-			}
-			log.Printf("firewall: rule %q: fallback → default via %s (%s)", rule.Name, gw.gatewayIP, reason)
-		} else {
-			cmd := fmt.Sprintf("ip route replace blackhole default table %d", fwmark)
-			if _, err := pbrRouteExec(cmd, 10*time.Second, true); err != nil {
-				log.Printf("firewall: triggerFallback: blackhole: %v", err)
-				return nil
-			}
-			log.Printf("firewall: rule %q: blackhole ACTIVE (%s)", rule.Name, reason)
-		}
-
-		m.routeStateMu.Lock()
-		delete(m.activeGateway, rule.ID)
-		m.routeStateMu.Unlock()
-		m.fallbackMu.Lock()
-		m.fallbackActive[rule.ID] = true
-		m.fallbackMu.Unlock()
-		return nil
-	})
+	m.cancelRestoreTimer(rule.ID)
+	if err := m.reconcileRoutingForRule(rule); err != nil {
+		log.Printf("firewall: triggerFallback %q (%s): %v", rule.Name, reason, err)
+	}
 }
 
-// restoreRoute reinstates the original gateway route after recovery.
+// restoreRoute re-resolves a rule after its gateway recovered. Fires from the
+// anti-flap timer; the desired state is recomputed from live health, so a
+// gateway that went down again in the meantime simply stays in fallback.
 func (m *Manager) restoreRoute(rule *Rule) error {
-	return m.withRuleApply(rule.ID, func() error {
-		if rule.GatewayGroupID != "" {
-			allDown, err := m.isGroupAllDown(rule.GatewayGroupID)
-			if err != nil {
-				return err
-			}
-			if allDown {
-				return nil
-			}
-		}
-		gw, err := m.resolveGateway(rule)
-		if err != nil {
-			return err
-		}
-		current, ok := m.activeGatewayForRule(rule.ID)
-		if !ok || current != gw {
-			if err := m.replacePBRRoute(rule, gw); err != nil {
-				return err
-			}
-			log.Printf("firewall: rule %q: Gateway Group route switched to %s via %s", rule.Name, gw.gatewayIP, gw.iface)
-		}
-
-		m.fallbackMu.Lock()
-		delete(m.fallbackActive, rule.ID)
-		m.fallbackMu.Unlock()
-		return nil
-	})
+	return m.reconcileRoutingForRule(rule)
 }
 
 // getSystemDefaultGateway parses "ip route show default" for the host's default gw.
 // Uses text output (FIX-11): "default via 192.168.1.1 dev eth0 ..."
 func (m *Manager) getSystemDefaultGateway() (resolvedGW, error) {
-	out, err := util.Exec("ip route show default", 5*time.Second, false)
+	out, err := sysRouteExec("ip route show default", 5*time.Second, false)
 	if err != nil {
 		return resolvedGW{}, err
 	}
@@ -2314,19 +2309,15 @@ func (m *Manager) nextOrder() (int, error) {
 }
 
 // nextFwmark returns the smallest integer >= 1000 not already used as a fwmark.
+//
+// Candidates are drawn from the draft table and the applied snapshot together. A
+// mark whose rule was deleted from the draft but is still in the applied
+// snapshot is still backing a live routing table, so handing it to a new rule
+// would silently graft that rule onto the old one's routes.
 func (m *Manager) nextFwmark() (int, error) {
-	rows, err := db.DB().Query(`SELECT fwmark FROM firewall_rules WHERE fwmark IS NOT NULL`)
+	used, err := pbrMarksInUse("")
 	if err != nil {
 		return 0, err
-	}
-	defer rows.Close()
-
-	used := make(map[int]bool)
-	for rows.Next() {
-		var v int
-		if rows.Scan(&v) == nil {
-			used[v] = true
-		}
 	}
 
 	mark := 1000

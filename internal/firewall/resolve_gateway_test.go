@@ -159,6 +159,10 @@ func TestPBRGatewayGroupStateMachine(t *testing.T) {
 		t.Fatalf("onGatewayUp(secondary, partial recovery): %v", err)
 	}
 	waitForCommand("via 198.51.100.2 dev eth2")
+
+	// Drain the anti-flap timer before the deferred cleanup swaps the exec seams
+	// back — a callback still in flight would otherwise race that restore.
+	m.StopPendingRouteRestores()
 }
 
 func TestPBRGatewayGroupCallbacksSerializeSameRule(t *testing.T) {

@@ -24,13 +24,16 @@ func initTestDB(t *testing.T) (*Manager, *aliasespkg.Manager) {
 	if err != nil {
 		t.Fatalf("ipset.New: %v", err)
 	}
-	t.Cleanup(func() {
-		db.Close()
-		os.RemoveAll(dir)
-	})
 	am := aliasespkg.New(im)
 	gm := gateway.NewManager()
 	mgr := New(am, gm)
+	t.Cleanup(func() {
+		// Anti-flap timers must not outlive the test: they reconcile in the
+		// background and would race the exec seams tests swap in and out.
+		mgr.StopPendingRouteRestores()
+		db.Close()
+		os.RemoveAll(dir)
+	})
 	return mgr, am
 }
 

@@ -418,6 +418,10 @@ func main() {
 	}
 	// Retire the DNS refresh goroutines before the DB closes under them.
 	dnsResolver.Stop()
+	// Anti-flap route re-resolution timers read the DB when they fire.
+	if fw := firewall.Get(); fw != nil {
+		fw.StopPendingRouteRestores()
+	}
 	if err := metricsServer.Shutdown(); err != nil {
 		log.Printf("metrics shutdown error: %v", err)
 	}
