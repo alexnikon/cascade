@@ -3,7 +3,9 @@
 </p>
 
 <p align="center">
-  <strong>Self-hosted WireGuard / AmneziaWG router management platform</strong>
+  <strong>Your own VPN router, managed from one browser tab.</strong><br/>
+  Self-hosted WireGuard &amp; AmneziaWG — tunnels, peers, policy routing, firewall, NAT and TLS,
+  in a single Go binary.
 </p>
 
 <p align="center">
@@ -22,48 +24,37 @@
 
 <img width="1484" height="775" alt="image" src="https://github.com/user-attachments/assets/01be9f90-afc5-452c-ad5e-25bfa586ba2b" />
 
-> ⚠️ **Kernel module mode users:** always update the host kernel module
-> (`sudo bash deploy/switch-mode.sh --kernel`) whenever you update the
-> Cascade container, or interfaces will fail to start. This mainly affects
-> Existing AWG 2.0 interfaces are preserved during upgrades. New interfaces
-> default to AWG 3.1. Userspace deployments use a pinned AWG 3.1 runtime;
-> kernel deployments expose AWG 3.1 only when module major version 3 or newer is detected.
+> **AWG versions:** existing AWG 2.0 interfaces are preserved across upgrades; new interfaces
+> default to AWG 3.1. Userspace deployments use a pinned AWG 3.1 runtime, while kernel
+> deployments expose AWG 3.1 only when module major version 3 or newer is detected.
+>
+> ⚠️ **Kernel module mode:** re-sync the host module (`sudo bash deploy/switch-mode.sh --kernel`)
+> whenever you update the container, or interfaces will fail to start — see [Updating](#-updating).
 
-## ✨ Features
-| Module | Description                                                                                                                                |
+## ✨ What Cascade does
+
+A complete router control plane, not just a peer manager — every module below shares the same
+UI and the same REST API, served by one static Go binary with no Node.js, no npm and no runtime
+dependencies.
+
+| Module | |
 |--------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| 🔌 **Interfaces** | Multiple WireGuard / AmneziaWG tunnel interfaces, quick-create in one click, import `.conf` as uplink, per-interface MSS clamping          |
+| 🔌 **Interfaces** | Multiple WireGuard / AmneziaWG tunnels, quick-create in one click, per-interface MSS clamping. Import any `.conf` as an uplink and use it as a PBR gateway without touching the main routing table |
 | 👥 **Peers** | Client and site-to-site (S2S) interconnect peers with QR codes, lifetime traffic stats, per-client bandwidth limiting and group membership |
-| 🌐 **Routing** | Static routes, policy-based routing (PBR), kernel route inspection, OSPF is on plans                                                       |
-| 🔀 **NAT** | Outbound MASQUERADE / SNAT with alias support + Port Forwarding (DNAT) with per-interface scoping                                          |
-| 🛡️ **Firewall** | Filter rules (ACCEPT / DROP / REJECT) + PBR via gateway                                                                                    |
-| 📋 **Aliases** | 7 types: host, network, ipset, client-group, group, port, port-group. Client groups are ipset-backed and auto-updated on peer changes      |
-| 📡 **Gateways** | Live ping + HTTP monitoring, gateway groups, automatic failover                                                                            |
-| 🎛️ **AWG 2.0/3.1 Templates** | Versioned AWG 2.0 and AWG 3.1 templates with a built-in generator                                                                          |
-| 🔐 **Auth** | Multi-user accounts, TOTP 2FA (Google Authenticator), long-lived API tokens                                                                |
-| 🔒 **TLS** | Let's Encrypt via acme.sh (bare IP shortlived cert or domain)                                                                              |
-| 🎭 **Decoy site** | Caddy reverse proxy serves a fake streaming site on `/`; admin UI hidden behind a secret path                                              |
-| 🖥️ **Multi-Server** | Manage multiple Cascade routers from one UI — switch servers in the sidebar, proxy all API calls transparently, self-signed cert support   |
-| 📊 **Monitoring** | Real-time traffic metrics per interface, gateway status history (stacked bar chart), Diagnostics page with per-period history              |
-| ⚡ **Speed Test** | iperf3-based speed test between any two managed servers — Auto / Tunnel / Internet mode, S2S tunnel autodetect, result history             |
-| 🚦 **Rate Limits** | Per-client-group bandwidth limiting via tc HTB (kbps down/up enforced per IP)                                                              |
-| 🧙 **Wizards** | Step-by-step setup wizards: Simple Client VPN, Cascade via WireGuard Uplink, Cascade ↔ Cascade S2S interconnect                            |
-
-## 🎯 Why Cascade?
-- ✅ **Go binary** — single static binary, no Node.js, no npm, no dependencies
-- ✅ **Multi-interface** — manage multiple WireGuard/AWG interfaces from one UI
-- ✅ **AmneziaWG 2.0 + AmneziaWG 3.1** — header protection, padding/rekey/timeout controls, CPS profiles, and isolated defaults per protocol
-- ✅ **Policy-based routing** — route traffic per-source through different gateways
-- ✅ **Port Forwarding (DNAT)** — transparent traffic cascading with optional source NAT
-- ✅ **Import .conf as uplink** — connect Cascade as a client to any WireGuard server; use as PBR gateway without touching the routing table
-- ✅ **Gateway monitoring** — ICMP ping + HTTP/S probes, auto-fallback on failure
-- ✅ **Multi-user + TOTP 2FA** — per-user accounts with Google Authenticator support
-- ✅ **HTTPS by default** — Caddy + acme.sh, works with bare IPs via Let's Encrypt shortlived certs
-- ✅ **Decoy protection** — admin path is hidden; visitors see a fake streaming site
-- ✅ **Multi-server management** — control multiple Cascade routers from one browser tab, with transparent API proxying
-- ✅ **Built-in speed test** — iperf3 between any managed servers, S2S tunnel autodetect, result history
-- ✅ **Traffic monitoring** — per-interface metrics and gateway health history with configurable time periods
-- ✅ **Setup wizards** — guided wizards for Uplink VPN and S2S interconnect; auto-create interfaces, aliases, gateways, PBR rules and NAT in one flow
+| 🌐 **Routing** | Static routes and policy-based routing — send traffic per-source, per-destination or **per-domain** through different gateways. Dual-stack: `ip rule` and `ip -6 rule` built from one rule, with per-family fallback and blackhole |
+| 🔀 **NAT** | Outbound MASQUERADE / SNAT with alias support, plus Port Forwarding (DNAT) with per-interface scoping and optional source NAT |
+| 🛡️ **Firewall** | Filter rules (ACCEPT / DROP / REJECT) and PBR via gateway, matching on addresses, ports, interfaces or domain aliases — IPv4 and IPv6 from a single rule |
+| 📋 **Aliases** | 8 types: host, network, ipset, client-group, group, port, port-group and **domain**. Domain aliases resolve DNS names in the background into TTL-aware kernel ipsets; client groups are ipset-backed and auto-update on peer changes |
+| 📡 **Gateways** | Live ICMP ping and HTTP/S monitoring with automatic failover and gateway groups. Optional IPv6 next hop and ICMPv6 probe target for dual-stack links |
+| 🎛️ **AWG 2.0/3.1 Templates** | Versioned AmneziaWG 2.0 and 3.1 templates with a built-in generator — header protection, padding/rekey/timeout controls, CPS profiles and isolated defaults per protocol |
+| 🔐 **Auth** | Multi-user accounts, TOTP 2FA (Google Authenticator), long-lived API tokens |
+| 🔒 **TLS** | HTTPS by default via Caddy + acme.sh — works on a bare IP through Let's Encrypt shortlived certs, or on your own domain |
+| 🎭 **Decoy site** | Caddy serves a fake streaming site on `/` while the admin UI hides behind a secret path |
+| 🖥️ **Multi-Server** | Manage multiple Cascade routers from one UI — switch servers in the sidebar, proxy all API calls transparently, self-signed cert support |
+| 📊 **Monitoring** | Real-time per-interface traffic metrics, gateway status history (stacked bar chart), Diagnostics page with per-period history |
+| ⚡ **Speed Test** | iperf3 between any two managed servers — Auto / Tunnel / Internet mode, S2S tunnel autodetect, result history |
+| 🚦 **Rate Limits** | Per-client-group bandwidth limiting via tc HTB (kbps down/up enforced per IP) |
+| 🧙 **Wizards** | Guided setup for Simple Client VPN, Cascade via WireGuard uplink, and Cascade ↔ Cascade S2S — interfaces, aliases, gateways, PBR rules and NAT created in one flow |
 
 ## 📋 Requirements
 - Ubuntu 22.04, 24.04, Debian 13 (other distros: not tested)
@@ -72,24 +63,20 @@
 ## 🚀 Quick Install
 
 ### Userspace mode — recommended
-Works on **any VPS** without a custom kernel. No reboot needed, no deadlocks.
+Works on **any VPS**: no custom kernel, no reboot, no deadlocks.
 ```bash
 curl -fsSL https://github.com/alexnikon/cascade/releases/latest/download/install.sh \
   | sudo bash -s -- --yes
 ```
 
 > `--yes` picks all defaults: **userspace mode**, auto-detected public IP, random admin path.
->
-> No release is currently published, so this command will become available with the next release.
 
 ### Kernel module mode
 Maximum throughput, but the AmneziaWG kernel module has **[known deadlock issues](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/issues/146)**
 that can freeze tunnel operations. Only recommended if you need peak performance and can tolerate occasional interface restarts.
 
-> ⚠️ Remember to re-sync the kernel module (`/opt/cascade/deploy/switch-mode.sh --kernel`) every
-> time you update Cascade — mainly matters if you installed **before the
-> AmneziaWG 3.0 protocol jump (2026-07-30)**, since the module doesn't update
-> on its own and can drift out of sync with the Docker image. See [Updating](#-updating).
+> ⚠️ Re-sync the kernel module (`/opt/cascade/deploy/switch-mode.sh --kernel`) every time you
+> update Cascade — the module does not update itself. Details: [Updating](#-updating).
 
 ```bash
 # Interactive setup — choose [2] Kernel module at Step 2
@@ -112,8 +99,8 @@ The script handles kernel module install/unload, blacklisting, and container res
 ## 🚀 Deployment Options
 
 ### Option A — Router only (advanced users)
-Run just the Cascade container. The web UI listens on **localhost only** — no public exposure, no TLS.
-You are responsible for network security, authentication and access control.
+Just the Cascade container. The web UI listens on **localhost only** — no public exposure, no TLS,
+and network security, authentication and access control are yours to handle.
 
 ```bash
 # Run the userspace installation from Quick Install above, then:
@@ -126,7 +113,7 @@ Step-by-step guide: [docs/DEPLOY.md](docs/DEPLOY.md)
 
 ### Option B — Full stack (recommended)
 
-One command sets up everything: AmneziaWG, TLS certificate, Caddy reverse proxy with a decoy
+One command sets up everything — AmneziaWG, TLS certificate, Caddy reverse proxy with a decoy
 streaming site, and a hidden admin path. The router is never exposed directly to the internet.
 
 Use the userspace or kernel-module installation command from Quick Install above.
@@ -284,7 +271,7 @@ sudo ./setup.sh
 ```
 
 ## 🔌 REST API
-Cascade exposes a full REST API — everything the web UI does, your scripts can do too.
+Everything the web UI does, your scripts can do too — the UI is just a client of this API.
 ```bash
 # Authenticate
 curl -c cookies.txt -X POST http://127.0.0.1:8888/api/login \
