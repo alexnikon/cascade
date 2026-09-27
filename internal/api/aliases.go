@@ -10,6 +10,7 @@
 //	POST   /api/aliases/:id/upload           ← upload prefix file → ipset
 //	POST   /api/aliases/:id/generate         ← start async generation job, returns { jobId }
 //	GET    /api/aliases/:id/generate/:jobId  ← poll job status { status, entryCount?, error? }
+//	POST   /api/aliases/:id/refresh          ← re-resolve a domain alias now
 package api
 
 import (
@@ -21,6 +22,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/alexnikon/cascade/internal/aliases"
+	"github.com/alexnikon/cascade/internal/dnsalias"
 	"github.com/alexnikon/cascade/internal/firewall"
 	"github.com/alexnikon/cascade/internal/nat"
 	"github.com/alexnikon/cascade/internal/tunnel"
@@ -42,6 +44,7 @@ func RegisterAliases(api fiber.Router) {
 	g.Get("/:id/entries", getAliasEntries)
 	g.Post("/:id/generate", generateAlias)
 	g.Get("/:id/generate/:jobId", getAliasJobStatus)
+	g.Post("/:id/refresh", refreshAlias)
 }
 
 // GET /api/aliases
@@ -49,6 +52,9 @@ func listAliases(c *fiber.Ctx) error {
 	list, err := aliases.Get().GetAll()
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	for i := range list {
+		attachDomainStatus(&list[i])
 	}
 	return c.JSON(list)
 }
@@ -62,6 +68,7 @@ func getAlias(c *fiber.Ctx) error {
 	if a == nil {
 		return fiber.NewError(fiber.StatusNotFound, "alias not found")
 	}
+	attachDomainStatus(a)
 	return c.JSON(a)
 }
 
@@ -75,6 +82,13 @@ func createAlias(c *fiber.Ctx) error {
 	a, err := aliases.Get().Create(inp)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	// Creates the kernel sets and kicks off the first resolution in the
+	// background — the response does not wait for DNS.
+	if a.Type == "domain" {
+		if r := dnsalias.Get(); r != nil {
+			r.Sync(a.ID)
+		}
 	}
 	return c.Status(fiber.StatusCreated).JSON(a)
 }
@@ -117,6 +131,14 @@ func updateAlias(c *fiber.Ctx) error {
 		}()
 	}
 
+	// Domain alias: pick up the new domain list and re-resolve immediately.
+	if a.Type == "domain" {
+		if r := dnsalias.Get(); r != nil {
+			r.Sync(aliasID)
+		}
+		attachDomainStatus(a)
+	}
+
 	// Re-apply tc limits for all peers in this group if rate limits changed.
 	if a.Type == "client-group" && (a.RateDown != oldRateDown || a.RateUp != oldRateUp) {
 		if tm := tunnel.Get(); tm != nil {
@@ -152,6 +174,10 @@ func deleteAlias(c *fiber.Ctx) error {
 	if err := aliases.Get().Delete(c.Params("id")); err != nil {
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	}
+	// Delete already destroyed the kernel sets; retire the resolver goroutine.
+	if r := dnsalias.Get(); r != nil {
+		r.Forget(c.Params("id"))
+	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -167,6 +193,40 @@ func getAliasEntries(c *fiber.Ctx) error {
 		entries = []string{}
 	}
 	return c.JSON(fiber.Map{"entries": entries})
+}
+
+// POST /api/aliases/:id/refresh
+// Requests an immediate re-resolution of a domain alias. Returns as soon as the
+// request is queued — DNS never blocks the API.
+func refreshAlias(c *fiber.Ctx) error {
+	a, err := aliases.Get().GetByID(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+	if a == nil {
+		return fiber.NewError(fiber.StatusNotFound, "alias not found")
+	}
+	if a.Type != "domain" {
+		return fiber.NewError(fiber.StatusBadRequest, "refresh is only supported for domain aliases")
+	}
+	r := dnsalias.Get()
+	if r == nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "domain resolver is not running")
+	}
+	r.Refresh(a.ID)
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// attachDomainStatus decorates a domain alias with the resolver's in-memory
+// runtime state. Nothing here is persisted: the configured domain names remain
+// the only source of truth.
+func attachDomainStatus(a *aliases.Alias) {
+	if a == nil || a.Type != "domain" {
+		return
+	}
+	if r := dnsalias.Get(); r != nil {
+		a.DomainStatus = r.Status(a.ID)
+	}
 }
 
 // POST /api/aliases/:id/upload

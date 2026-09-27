@@ -1453,3 +1453,74 @@ func TestFrontendPWAIntegration(t *testing.T) {
 		}
 	}
 }
+
+// Stage 2 domain-alias UI: the Domain type, its runtime panel, the manual refresh
+// action and the per-rule "apply to local traffic" toggle must all be reachable,
+// and the existing alias types must keep working exactly as before.
+func TestFrontendDomainAliasUI(t *testing.T) {
+	indexContent, err := renderedIndex(t)
+	if err != nil {
+		t.Fatalf("read index.html: %v", err)
+	}
+	index := string(indexContent)
+	app := readFrontendJavaScript(t)
+
+	for _, expected := range []string{
+		`<option value="domain">`,
+		`v-if="aliasCreate.type === 'domain'"`,
+		`v-if="aliasEdit.type === 'domain'"`,
+		"Domains (one per line)",
+		"refreshDomainAlias(alias)",
+		"_domainStatusLabel(alias)",
+		"domainStatus || {}).ipv4Count",
+		"domainStatus || {}).ipv6Count",
+		"v-model=\"firewallCreate.applyToLocal\"",
+		"v-model=\"firewallEdit.applyToLocal\"",
+	} {
+		if !strings.Contains(index, expected) {
+			t.Errorf("index.html does not contain %q", expected)
+		}
+	}
+
+	// api.js is not part of the app.js bundle the helper builds.
+	api := readEmbedded(t, "www/js/api.js")
+	for _, expected := range []string{
+		"async refreshAlias({ id })",
+		"/aliases/${id}/refresh",
+	} {
+		if !strings.Contains(api, expected) {
+			t.Errorf("api.js does not contain %q", expected)
+		}
+	}
+
+	for _, expected := range []string{
+		"_domainStatusLabel(alias)",
+		"toggleDomainDetails(alias)",
+		"applyToLocal:      Boolean(form.applyToLocal)",
+		"aliasDomainOpenId",
+		"aliasRefreshingId",
+	} {
+		if !strings.Contains(app, expected) {
+			t.Errorf("app.js does not contain %q", expected)
+		}
+	}
+
+	// Wildcards are not resolvable in Stage 1, so the UI must say so rather than
+	// silently accepting a name the API will reject.
+	if !strings.Contains(index, "Wildcards") && !strings.Contains(index, "wildcard") {
+		t.Error("the domain alias form should explain that wildcards are unsupported")
+	}
+
+	// Regression: every pre-existing alias type is still offered and still edits
+	// through its own branch.
+	for _, typ := range []string{"host", "network", "ipset", "client-group", "group", "port", "port-group"} {
+		if !strings.Contains(index, `<option value="`+typ+`"`) {
+			t.Errorf("alias type %q is no longer offered in the create form", typ)
+		}
+	}
+	// Domain aliases are address-shaped, so they must remain selectable wherever a
+	// firewall rule takes an address alias (the selector excludes port types only).
+	if !strings.Contains(index, `aliases.filter(x => x.type !== 'port' && x.type !== 'port-group')`) {
+		t.Error("firewall rule alias selectors no longer use the shared address-alias filter")
+	}
+}

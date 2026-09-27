@@ -92,13 +92,66 @@ _portAliasOptions() {
       return this.aliases.filter(a => a.type === 'port' || a.type === 'port-group');
     },
 
+    // ── Domain aliases ────────────────────────────────────────────────────────
+    // Runtime state (counts, timestamps, resolver errors) lives in memory on the
+    // server and arrives on the alias object as `domainStatus`. It is never
+    // persisted, so it can be absent right after creation.
+
+_domainStatusLabel(alias) {
+      const st = alias && alias.domainStatus;
+      if (!st) return { text: 'Starting…', tone: 'muted' };
+      if (st.lastError) return { text: 'DNS error', tone: 'error' };
+      if (!st.lastUpdate) return { text: 'Resolving…', tone: 'muted' };
+      return { text: 'Healthy', tone: 'ok' };
+    },
+
+    // Local-time formatting for lastUpdate / nextUpdate; '—' when unset.
+
+_domainTime(value) {
+      if (!value) return '—';
+      const d = new Date(value);
+      return isNaN(d.getTime()) ? '—' : d.toLocaleTimeString();
+    },
+
+toggleDomainDetails(alias) {
+      this.aliasDomainOpenId = this.aliasDomainOpenId === alias.id ? '' : alias.id;
+    },
+
+    // Manual refresh. The endpoint returns 204 as soon as the resolver is woken,
+    // so poll the alias list briefly to pick up the new counts.
+
+async refreshDomainAlias(alias) {
+      if (this.aliasRefreshingId) return;
+      this.aliasRefreshingId = alias.id;
+      try {
+        await this.api.refreshAlias({ id: alias.id });
+        const before = alias.domainStatus ? alias.domainStatus.lastUpdate : '';
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 600));
+          await this.loadAliases();
+          const cur = this.aliases.find(a => a.id === alias.id);
+          if (cur && cur.domainStatus && cur.domainStatus.lastUpdate !== before) break;
+        }
+        const cur = this.aliases.find(a => a.id === alias.id);
+        if (cur && cur.domainStatus && cur.domainStatus.lastError) {
+          this.showToast(`Refreshed with errors: ${cur.domainStatus.lastError}`, 'error');
+        } else {
+          this.showToast('Domains re-resolved', 'success');
+        }
+      } catch (err) {
+        this.showToast(err.message || 'Refresh failed', 'error');
+      } finally {
+        this.aliasRefreshingId = '';
+      }
+    },
+
 async createAlias() {
       try {
         const data = { name: this.aliasCreate.name, description: this.aliasCreate.description, type: this.aliasCreate.type };
         if (data.type === 'host' || data.type === 'network') {
           data.entries = this.aliasCreate.entries.split('\n').map(l => l.trim()).filter(Boolean);
         }
-        if (data.type === 'port') {
+        if (data.type === 'port' || data.type === 'domain') {
           data.entries = this.aliasCreate.entries.split('\n').map(l => l.trim()).filter(Boolean);
         }
         if (data.type === 'group' || data.type === 'port-group') {
@@ -185,7 +238,8 @@ onCountryBlur() {
     },
 
 async openAliasEdit(alias) {
-      const hasEntries = alias.type === 'host' || alias.type === 'network' || alias.type === 'port';
+      const hasEntries = alias.type === 'host' || alias.type === 'network' ||
+                         alias.type === 'port' || alias.type === 'domain';
       const hasMembers = alias.type === 'group' || alias.type === 'port-group';
       this.aliasEdit = {
         id: alias.id,
@@ -234,7 +288,7 @@ async saveAliasEdit() {
         if (this.aliasEdit.type === 'host' || this.aliasEdit.type === 'network') {
           data.entries = this.aliasEdit.entries.split('\n').map(l => l.trim()).filter(Boolean);
         }
-        if (this.aliasEdit.type === 'port') {
+        if (this.aliasEdit.type === 'port' || this.aliasEdit.type === 'domain') {
           data.entries = this.aliasEdit.entries.split('\n').map(l => l.trim()).filter(Boolean);
         }
         if (this.aliasEdit.type === 'group' || this.aliasEdit.type === 'port-group') {

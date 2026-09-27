@@ -892,7 +892,7 @@ export class API {
   }
 
   // ============================================================
-  // Aliases API — Firewall Aliases (host / network / ipset)
+  // Aliases API — Firewall Aliases (host / network / ipset / domain)
   // ============================================================
 
   /**
@@ -952,6 +952,15 @@ export class API {
 
   async getAliasEntries({ id }) {
     return this.call({ method: 'get', path: `/aliases/${id}/entries` });
+  }
+
+  /**
+   * Trigger an immediate DNS re-resolution of a domain alias.
+   * Returns as soon as the resolver has been woken — resolution itself is async.
+   * @param {{ id: string }}
+   */
+  async refreshAlias({ id }) {
+    return this.call({ method: 'post', path: `/aliases/${id}/refresh` });
   }
 
   /**

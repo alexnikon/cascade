@@ -67,6 +67,10 @@
                 <span class="font-mono shrink-0" style="min-width:110px; display:flex; flex-direction:column; gap:1px;">
                   <span class="text-sm text-gray-600 dark:text-neutral-300">{{gw.gatewayIP}}</span>
                   <span v-if="gw.monitorAddress" class="text-xs text-gray-400 dark:text-neutral-500">▸ {{gw.monitorAddress}}</span>
+                  <!-- IPv6 health, shown only when it is measured separately -->
+                  <span v-if="gw.ipv6Source === 'probe'" class="text-xs"
+                    :class="gw.ipv6Status === 'healthy' ? 'text-green-600 dark:text-green-400' : (gw.ipv6Status === 'down' ? 'text-red-500' : 'text-gray-400 dark:text-neutral-500')"
+                    :title="'IPv6 probe: ' + gw.ipv6Status">IPv6 {{gw.ipv6Status}}</span>
                 </span>
 
                 <!-- RTT -->
@@ -259,6 +263,22 @@
                   </div>
                 </div>
 
+                <!-- IPv6 (optional) -->
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Gateway IPv6 <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                    <input v-model="gatewayCreate.gatewayIPv6" type="text" placeholder="e.g. 2001:db8::1"
+                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">IPv6 next hop; blank = use the interface's own IPv6 address</p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IPv6 <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                    <input v-model="gatewayCreate.monitorAddressV6" type="text" placeholder="e.g. 2606:4700:4700::1111"
+                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">ICMPv6 target; blank = IPv6 health follows the IPv4 probe</p>
+                  </div>
+                </div>
+
                 <!-- Monitor toggle -->
                 <div class="flex items-center gap-3">
                   <label class="flex items-center gap-2 cursor-pointer">
@@ -409,6 +429,22 @@
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
                     <p v-if="gatewayEdit.monitorAddress && gatewayEdit.monitorAddress !== gatewayEdit.gatewayIP && /^(wg|awg)/.test(gatewayEdit.interface)" class="text-xs text-amber-600 mt-1">This target is checked through the tunnel. Internet targets require remote forwarding and egress NAT for this tunnel's source address; client-subnet NAT may not cover it.</p>
                     <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Ping target; blank = Gateway IP</p>
+                  </div>
+                </div>
+
+                <!-- IPv6 (optional) -->
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Gateway IPv6 <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                    <input v-model="gatewayEdit.gatewayIPv6" type="text" placeholder="e.g. 2001:db8::1"
+                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">IPv6 next hop; blank = use the interface's own IPv6 address</p>
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IPv6 <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
+                    <input v-model="gatewayEdit.monitorAddressV6" type="text" placeholder="e.g. 2606:4700:4700::1111"
+                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">ICMPv6 target; blank = IPv6 health follows the IPv4 probe</p>
                   </div>
                 </div>
 
