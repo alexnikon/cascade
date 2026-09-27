@@ -24,7 +24,7 @@ services:
   cascade:
     # To update Cascade, change this exact release tag, then run:
     # docker compose pull && docker compose up -d
-    image: ghcr.io/alexnikon/cascade:0.9.5
+    image: ghcr.io/alexnikon/cascade:0.9.10
     container_name: cascade
     restart: unless-stopped
 
