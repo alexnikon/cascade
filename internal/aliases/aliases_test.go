@@ -4,6 +4,9 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/alexnikon/cascade/internal/db"
 	"github.com/alexnikon/cascade/internal/ipset"
@@ -18,6 +21,28 @@ func requireIPSet(t *testing.T) {
 }
 
 func initTestDB(t *testing.T) *Manager { m, _ := initTestDBWithDir(t); return m }
+
+// seedIPSetAlias inserts an ipset-type alias row directly, skipping the kernel
+// set that Manager.Create would build.
+//
+// Tests that only need such an alias to exist — to check delete ordering, or
+// that the firewall compiles it into IPv4 alone — must not depend on the ipset
+// binary being installed: CI runners do not have it, and on macOS util.Exec
+// no-ops so the dependency is invisible locally.
+func seedIPSetAlias(t *testing.T, name string) *Alias {
+	t.Helper()
+	a := &Alias{
+		ID:        uuid.New().String(),
+		Name:      name,
+		Type:      "ipset",
+		IPSetName: ipsetNameFromAlias(name),
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+	if err := insertAlias(a); err != nil {
+		t.Fatalf("seedIPSetAlias(%s): %v", name, err)
+	}
+	return a
+}
 
 func initTestDBWithDir(t *testing.T) (*Manager, string) {
 	t.Helper()

@@ -87,10 +87,7 @@ func TestDeleteDomainAlias_DestroysBothFamiliesAfterDroppingKernelRefs(t *testin
 func TestDeleteIPSetAlias_DropsKernelRefsBeforeDestroying(t *testing.T) {
 	m, dir := initTestDBWithDir(t)
 
-	a, err := m.Create(Alias{Name: "TEST-bignets", Type: "ipset"})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
+	a := seedIPSetAlias(t, "TEST-bignets")
 	saves := seedSaveFiles(t, dir, a.IPSetName)
 
 	order := []string{}

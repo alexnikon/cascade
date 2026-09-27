@@ -11,8 +11,12 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/alexnikon/cascade/internal/aliases"
+	"github.com/alexnikon/cascade/internal/db"
 	"github.com/alexnikon/cascade/internal/gateway"
 )
 
@@ -127,13 +131,10 @@ func TestBuildMatchParts_FamilyFiltering(t *testing.T) {
 // An ipset alias is a hash:net family inet set: it has no IPv6 counterpart, so
 // no IPv6 rule may reference it.
 func TestBuildMatchParts_PlainIPSetAliasIsIPv4Only(t *testing.T) {
-	m, am := initTestDB(t)
-	a, err := am.Create(aliases.Alias{Name: "bignets", Type: "ipset"})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
+	m, _ := initTestDB(t)
+	id := seedIPSetAliasRow(t, "bignets")
 
-	ep := Endpoint{Type: "alias", AliasID: a.ID}
+	ep := Endpoint{Type: "alias", AliasID: id}
 	if _, ok, err := m.buildMatchParts("dst", &ep, famV4); err != nil || !ok {
 		t.Fatalf("IPv4: ok=%v err=%v, want it compiled", ok, err)
 	}
@@ -547,6 +548,25 @@ func TestReconcile_LosingIPv6CapabilityReleasesIPv6State(t *testing.T) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// seedIPSetAliasRow inserts an ipset-type alias row straight into the database.
+//
+// aliases.Manager.Create would also build the kernel set, which needs the ipset
+// binary — absent on CI runners, and silently no-op'd on macOS. This test is
+// about which family the alias compiles into, not about ipset itself.
+func seedIPSetAliasRow(t *testing.T, name string) string {
+	t.Helper()
+	id := uuid.New().String()
+	if _, err := db.DB().Exec(
+		`INSERT INTO aliases (id, name, description, type, entries, member_ids, ipset_name,
+		                      entry_count, generator_opts, last_updated, created_at, rate_down, rate_up)
+		 VALUES (?, ?, '', 'ipset', '[]', '[]', ?, 0, '', '', ?, 0, 0)`,
+		id, name, name, time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		t.Fatalf("seedIPSetAliasRow(%s): %v", name, err)
+	}
+	return id
+}
 
 func mustPBRRule(t *testing.T, m *Manager, name, gatewayID string, fallback bool) *Rule {
 	t.Helper()

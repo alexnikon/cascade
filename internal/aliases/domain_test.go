@@ -376,10 +376,7 @@ func TestExistingAliasTypes_MatchSpecUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create network: %v", err)
 	}
-	set, err := m.Create(Alias{Name: "RuNets", Type: "ipset"})
-	if err != nil {
-		t.Fatalf("create ipset: %v", err)
-	}
+	set := seedIPSetAlias(t, "RuNets")
 	group, err := m.Create(Alias{Name: "Combined", Type: "group", MemberIDs: []string{host.ID, network.ID}})
 	if err != nil {
 		t.Fatalf("create group: %v", err)
