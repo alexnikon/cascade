@@ -3,6 +3,13 @@
  * Methods intentionally operate on the Vue instance passed as this.
  */
 export const authMethods = {
+    focusLoginField() {
+      this.$nextTick(() => {
+        if (this.authenticated !== false) return;
+        const input = this.totpRequired ? this.$refs.loginTOTP : this.$refs.loginUsername;
+        if (input) input.focus({ preventScroll: true });
+      });
+    },
 login() {
       const usernameInput = document.getElementById('login-username');
       const passwordInput = document.getElementById('login-password');

@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="application-name" content="Cascade">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#1c1c1e">
   <meta name="color-scheme" content="light dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Cascade">
@@ -27,7 +27,7 @@
         const selectedTheme = ['light', 'dark', 'auto'].includes(theme) ? theme : 'auto';
         const dark = selectedTheme === 'dark'
           || (selectedTheme === 'auto' && mediaQuery.matches);
-        const chromeColor = dark ? '#0f172a' : '#f8fafc';
+        const chromeColor = dark ? '#1c1c1e' : '#f8fafc';
         root.classList.toggle('dark', dark);
         root.style.colorScheme = dark ? 'dark' : 'light';
         root.style.setProperty('--browser-chrome-color', chromeColor);
@@ -51,6 +51,17 @@
     })();
   </script>
   <style>
+  html.dark {
+    --surface-base: #1c1c1e;
+    --surface-panel: #2c2c2e;
+    --surface-raised: #3a3a3c;
+    --text-primary: #f5f5f7;
+    --text-secondary: #a1a1a6;
+    --accent-blue: #0a84ff;
+    --status-green: #30d158;
+    --status-red: #ff453a;
+    --status-yellow: #ffd60a;
+  }
   [v-cloak] {
     display: none;
   }
@@ -166,7 +177,7 @@
     border-radius: 12px;
   }
   .dark .dash-card {
-    background: rgba(15,23,42,0.82) !important;
+    background: var(--surface-panel) !important;
     backdrop-filter: blur(8px);
     border: 1px solid rgba(255,255,255,0.08) !important;
     box-shadow: 0 4px 24px rgba(0,0,0,0.3) !important;
@@ -223,7 +234,7 @@
     position: fixed;
     inset: 0;
     z-index: 9999;
-    background: linear-gradient(135deg, #14532d 0%, #0f172a 50%, #1e3a8a 100%);
+    background: var(--surface-base, #f8fafc);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -264,12 +275,12 @@
     height: 100%;
     min-height: 100%;
   }
-  /* ── Page background — dark mode: deep logo-gradient ── */
+  /* Dark page background uses a neutral graphite surface. */
   html.dark, html.dark body, html.dark #app, html.dark .app-root, html.dark .app-shell {
-    background: linear-gradient(135deg, #14532d 0%, #0f172a 50%, #1e3a8a 100%) !important;
+    background: var(--surface-base) !important;
   }
   html.dark, html.dark body {
-    background-color: var(--browser-chrome-color, #0f172a) !important;
+    background-color: var(--browser-chrome-color, #1c1c1e) !important;
   }
 
   html.pwa-standalone,
@@ -330,7 +341,7 @@
   }
   .dark .app-nav-footer {
     border-top-color: #404040;
-    background: rgba(15,23,42,0.78);
+    background: var(--surface-panel);
   }
   .app-shell {
     height: 100vh;
@@ -436,8 +447,8 @@
     color: #6b7280;
     font-size: 0.8125rem;
   }
-  .dark .auth-title { color: #f5f5f5; }
-  .dark .auth-subtitle { color: #a3a3a3; }
+  .dark .auth-title { color: var(--text-primary); }
+  .dark .auth-subtitle { color: var(--text-secondary); }
   .auth-field { margin-bottom: 14px; }
   .auth-field label {
     display: block;
@@ -463,9 +474,15 @@
   }
   .dark .auth-field input {
     border-color: #525252;
-    background: rgba(38,38,38,0.9);
-    color: #f5f5f5;
+    background: var(--surface-raised);
+    color: var(--text-primary);
   }
+  .dark .auth-field input:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(10,132,255,0.25);
+  }
+  .dark .auth-primary { background: var(--accent-blue); }
+  .dark .auth-primary:hover { background: #0071e3; }
   .auth-primary {
     width: 100%;
     min-height: 44px;
@@ -525,14 +542,14 @@
   .dark .auth-divider::after { background: #404040; }
   /* ── Sidebar & main area — dark mode ── */
   .dark .app-nav {
-    background: rgba(15,23,42,0.72);
+    background: var(--surface-panel);
     backdrop-filter: blur(12px);
     border-right: 1px solid rgba(255,255,255,0.08);
-    color: #e5e7eb;
+    color: var(--text-primary);
   }
   .dark .app-main {
-    background: rgba(15,23,42,0.78);
-    color: #e5e7eb;
+    background: var(--surface-base);
+    color: var(--text-primary);
     /* no backdrop-filter — same reason as light mode */
   }
 
@@ -542,7 +559,7 @@
   .dark .shadow-lg,
   .dark .shadow-xl,
   .dark .shadow-2xl {
-    color: #e5e7eb;
+    color: var(--text-primary);
   }
 
   /* ── AmneziaWG profile generator ── */
@@ -742,8 +759,12 @@
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
     }
+    html.pwa-standalone .mobile-app-header {
+      min-height: calc(64px + env(safe-area-inset-top));
+      padding-top: calc(16px + env(safe-area-inset-top));
+    }
     .dark .mobile-app-header {
-      background: rgba(15,23,42,0.92);
+      background: var(--surface-panel);
       border-bottom-color: rgba(255,255,255,0.08);
     }
     .mobile-menu-button {
@@ -974,31 +995,31 @@
     box-shadow: 0 16px 48px rgba(0,0,0,0.15) !important;
   }
 
-  /* ── Dark mode: glassmorphism for all content panels ── */
+  /* Dark content panels share the neutral surface palette. */
   /* Main content panels: peer tables, routing, firewall, NAT, etc. */
   .dark .shadow-md {
-    background: rgba(15,23,42,0.85) !important;
+    background: var(--surface-panel) !important;
     backdrop-filter: blur(6px);
     border: 1px solid rgba(255,255,255,0.07) !important;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
   }
   /* Sub-panels: server info dropdowns, chart wrappers */
   .dark .shadow-lg {
-    background: rgba(15,23,42,0.88) !important;
+    background: var(--surface-panel) !important;
     backdrop-filter: blur(8px);
     border: 1px solid rgba(255,255,255,0.09) !important;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
   }
   /* Modal dialogs */
   .dark .modal-panel {
-    background: rgba(10,18,36,0.88) !important;
+    background: var(--surface-raised) !important;
     backdrop-filter: blur(18px);
     border: 1px solid rgba(255,255,255,0.10);
   }
   /* First-run & delete confirm modals (shadow-2xl) */
   .dark .shadow-2xl,
   .dark .shadow-xl {
-    background: rgba(10,18,36,0.88) !important;
+    background: var(--surface-panel) !important;
     backdrop-filter: blur(18px);
     border: 1px solid rgba(255,255,255,0.10) !important;
     box-shadow: 0 20px 60px rgba(0,0,0,0.5) !important;

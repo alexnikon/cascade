@@ -1085,6 +1085,12 @@ new Vue({
     }
   },
   watch: {
+    authenticated(value) {
+      if (value === false) this.focusLoginField();
+    },
+    totpRequired() {
+      this.focusLoginField();
+    },
     // Update browser tab title whenever router name or hostname changes.
     pageTitle: {
       immediate: true,

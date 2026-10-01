@@ -1,10 +1,11 @@
 # Cascade PWA
 
 Cascade's PWA support is intentionally conservative. The service worker is
-served from `/sw.js`, keeps the current worker active until the user accepts an
-update, and caches only same-origin static frontend assets. HTML navigation,
+served from `/sw.js`, keeps the current worker active until its controlled tabs close, and caches only same-origin static frontend assets. HTML navigation,
 API requests, authentication/session requests, and backend state are always
-network-only.
+network-only. Service worker updates do not display a release notification or
+automatically reload an open page. Cascade release notices come from the
+separate release-checking API.
 
 Service Workers require a secure context: use HTTPS in deployments, or a
 browser-supported localhost secure context for local testing. No certificate

@@ -136,7 +136,7 @@
                       <td class="font-mono text-gray-600 dark:text-neutral-400" class="tc-dense">{{ r.gateway || '—' }}</td>
                       <td class="font-mono text-gray-600 dark:text-neutral-400" class="tc-dense">{{ r.dev || '—' }}</td>
                       <td class="tc-dense">
-                        <span class="rounded-full text-xs font-medium"
+                        <span class="ui-badge rounded-full text-xs font-medium"
                           style="padding:2px 8px; display:inline-block;"
                           :style="r.protocol === 'kernel' ? 'background:#e0e7ff;color:#3730a3;' :
                                   r.protocol === 'static' ? 'background:#dcfce7;color:#166534;' :
@@ -200,7 +200,7 @@
                 <!-- Next-hop (gateway IP, gateway name, or group name) -->
                 <span class="shrink-0" style="min-width:130px;">
                   <!-- Gateway Group badge -->
-                  <span v-if="route.gatewayGroupId"
+                  <span class="ui-badge" v-if="route.gatewayGroupId"
                     style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;background:#fde68a;color:#92400e;font-size:12px;">
                     <svg style="width:10px;height:10px;" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-1a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v1h-3zM4.75 14.094A5.973 5.973 0 004 17v1H1v-1a3 3 0 013.75-2.906z"/>
@@ -208,7 +208,7 @@
                     {{ _routeNextHopLabel(route) }}
                   </span>
                   <!-- Gateway badge -->
-                  <span v-else-if="route.gatewayId"
+                  <span class="ui-badge" v-else-if="route.gatewayId"
                     style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;background:#bbf7d0;color:#065f46;font-size:12px;">
                     <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
@@ -229,7 +229,7 @@
                 <span v-else class="shrink-0" style="min-width:60px;"></span>
 
                 <!-- Table -->
-                <span class="text-xs rounded-full shrink-0"
+                <span class="ui-badge text-xs rounded-full shrink-0"
                   style="padding:2px 8px; background:#e0e7ff; color:#3730a3;">
                   {{ route.table || 'main' }}
                 </span>

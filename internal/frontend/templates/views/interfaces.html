@@ -104,27 +104,27 @@
                               class="rounded px-1 border-2 dark:bg-neutral-700 border-gray-100 dark:border-neutral-600 focus:border-gray-200 dark:focus:border-neutral-500 dark:placeholder:text-neutral-500 outline-none w-30" />
                             <span v-show="peerEditNameId !== peer.id">{{peer.name}}</span>
                             <!-- Interface name badge -->
-                            <span style="margin-left:6px;font-size:0.65rem;padding:1px 6px;background:rgba(107,114,128,0.12);color:#6b7280;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;">
+                            <span class="ui-badge" style="margin-left:6px;font-size:0.65rem;padding:1px 6px;background:rgba(107,114,128,0.12);color:#6b7280;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;">
                               {{peer.interfaceName}}
                             </span>
                             <!-- S2S badge -->
-                            <span v-if="peer.peerType === 'interconnect' && peerEditNameId !== peer.id"
+                            <span class="ui-badge" v-if="peer.peerType === 'interconnect' && peerEditNameId !== peer.id"
                               style="margin-left:4px;font-size:0.65rem;padding:1px 6px;background:rgba(59,130,246,0.12);color:#2563eb;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;">
                               S2S
                             </span>
                             <!-- Client group badge -->
-                            <span v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId) && peerEditNameId !== peer.id"
+                            <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId) && peerEditNameId !== peer.id"
                               style="margin-left:4px;font-size:0.65rem;padding:1px 6px;background:rgba(124,58,237,0.1);color:#7c3aed;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                               :title="'Group: ' + peerGroupName(peer.groupId)">
                               {{peerGroupName(peer.groupId)}}
                             </span>
-                            <span v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateDown > 0 && peerEditNameId !== peer.id"
+                            <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateDown > 0 && peerEditNameId !== peer.id"
                               style="margin-left:4px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                               :style="peerEffectiveRate(peer).fromGroup ? {background:'rgba(99,102,241,0.1)',color:'#4338ca'} : {background:'rgba(220,38,38,0.1)',color:'#dc2626'}"
                               :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Download limit: ') + formatRate(peerEffectiveRate(peer).rateDown) + 'bit/s'">
                               <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↓{{formatRate(peerEffectiveRate(peer).rateDown)}}
                             </span>
-                            <span v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateUp > 0 && peerEditNameId !== peer.id"
+                            <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateUp > 0 && peerEditNameId !== peer.id"
                               style="margin-left:4px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                               :style="peerEffectiveRate(peer).fromGroup ? {background:'rgba(99,102,241,0.1)',color:'#4338ca'} : {background:'rgba(22,163,74,0.1)',color:'#16a34a'}"
                               :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Upload limit: ') + formatRate(peerEffectiveRate(peer).rateUp) + 'bit/s'">
@@ -292,11 +292,11 @@
                 </div>
                 <div class="flex gap-2">
                   <span v-if="currentInterface.enabled"
-                    class="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-lg">
+                    class="ui-badge px-3 py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-lg">
                     Running
                   </span>
                   <span v-else
-                    class="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300 rounded-lg">
+                    class="ui-badge px-3 py-1 text-xs font-medium bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300 rounded-lg">
                     Stopped
                   </span>
                 </div>
@@ -332,7 +332,7 @@
                     </span>
                   </div>
                   <div v-if="currentInterface.disableRoutes">
-                    <span class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded">Table = off</span>
+                    <span class="ui-badge px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded">Table = off</span>
                   </div>
                 </div>
                 <div class="flex flex-wrap gap-2">
@@ -477,23 +477,23 @@
                             :ref="'peer-' + peer.id + '-name'"
                             class="rounded px-1 border-2 dark:bg-neutral-700 border-gray-100 dark:border-neutral-600 focus:border-gray-200 dark:focus:border-neutral-500 dark:placeholder:text-neutral-500 outline-none w-30" />
                           <span v-show="peerEditNameId !== peer.id">{{peer.name}}</span>
-                          <span v-if="peer.peerType === 'interconnect' && peerEditNameId !== peer.id"
+                          <span class="ui-badge" v-if="peer.peerType === 'interconnect' && peerEditNameId !== peer.id"
                             style="margin-left:6px;font-size:0.65rem;padding:1px 6px;background:rgba(59,130,246,0.12);color:#2563eb;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;">
                             S2S
                           </span>
                           <!-- Client group badge -->
-                          <span v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId) && peerEditNameId !== peer.id"
+                          <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId) && peerEditNameId !== peer.id"
                             style="margin-left:4px;font-size:0.65rem;padding:1px 6px;background:rgba(124,58,237,0.1);color:#7c3aed;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                             :title="'Group: ' + peerGroupName(peer.groupId)">
                             {{peerGroupName(peer.groupId)}}
                           </span>
-                          <span v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateDown > 0 && peerEditNameId !== peer.id"
+                          <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateDown > 0 && peerEditNameId !== peer.id"
                             style="margin-left:6px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                             :style="peerEffectiveRate(peer).fromGroup ? {background:'rgba(99,102,241,0.1)',color:'#4338ca'} : {background:'rgba(220,38,38,0.1)',color:'#dc2626'}"
                             :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Download limit: ') + formatRate(peerEffectiveRate(peer).rateDown) + 'bit/s'">
                             <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↓{{formatRate(peerEffectiveRate(peer).rateDown)}}
                           </span>
-                          <span v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateUp > 0 && peerEditNameId !== peer.id"
+                          <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateUp > 0 && peerEditNameId !== peer.id"
                             style="margin-left:4px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                             :style="peerEffectiveRate(peer).fromGroup ? {background:'rgba(99,102,241,0.1)',color:'#4338ca'} : {background:'rgba(22,163,74,0.1)',color:'#16a34a'}"
                             :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Upload limit: ') + formatRate(peerEffectiveRate(peer).rateUp) + 'bit/s'">
@@ -1188,7 +1188,7 @@
               <h2 class="text-2xl font-medium dark:text-neutral-200">Edit Interface</h2>
               <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">
                 {{ interfaceEdit.id }}
-                <span class="ml-2 px-2 py-0.5 text-xs rounded"
+                <span class="ui-badge ml-2 px-2 py-0.5 text-xs rounded"
 				  :class="interfaceEdit.protocol.startsWith('amneziawg-')
                     ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
                     : 'bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300'">

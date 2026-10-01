@@ -52,7 +52,7 @@
                   </span>
                   <!-- Warning badge -->
                   <span v-if="globalSettings.publicIPWarning"
-                    class="text-xs font-medium px-2 py-0.5 rounded-full"
+                    class="ui-badge text-xs font-medium px-2 py-0.5 rounded-full"
                     style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;"
                     :title="globalSettings.publicIPWarning">
                     ⚠ {{ globalSettings.publicIPWarning }}
@@ -283,11 +283,11 @@
               style="padding:8px 20px;">
               <div class="flex-grow min-w-0 flex items-center gap-2">
                 <span class="font-medium dark:text-neutral-200 text-sm">{{ tmpl.name }}</span>
-				<span class="text-xs rounded-full font-medium" style="padding:1px 8px;" :class="(tmpl.protocolVersion || '2.0') === '3.1' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300'">
+				<span class="ui-badge text-xs rounded-full font-medium" style="padding:1px 8px;" :class="(tmpl.protocolVersion || '2.0') === '3.1' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300'">
 				  AWG {{ tmpl.protocolVersion || '2.0' }}
 				</span>
                 <span v-if="tmpl.isDefault"
-                  class="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full font-medium"
+                  class="ui-badge text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full font-medium"
                   style="padding:1px 8px;">
                   Default
                 </span>
@@ -456,7 +456,7 @@
                 <div>
                   <div class="flex items-center gap-2 mb-1">
                     <label class="text-sm font-medium dark:text-neutral-300">Bearer token</label>
-                    <span class="text-xs rounded-full font-medium px-2 py-0.5"
+                    <span class="ui-badge text-xs rounded-full font-medium px-2 py-0.5"
                       :class="metricsSettings.tokenConfigured && !metricsSettings.clearToken
                         ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
                         : 'bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300'">

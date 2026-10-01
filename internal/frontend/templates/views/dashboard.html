@@ -175,11 +175,11 @@
                           <span style="font-family:monospace; color:#9ca3af; white-space:nowrap; flex-shrink:0; font-size:0.65rem;">{{ iface.id }}:{{ iface.listenPort }}</span>
 
                           <!-- S2S badge -->
-                          <span v-if="iface.disableRoutes"
+                          <span class="ui-badge" v-if="iface.disableRoutes"
                             style="font-size:0.6rem; font-weight:600; padding:1px 4px; background:rgba(59,130,246,0.12); color:#2563eb; border-radius:3px; flex-shrink:0;">S2S</span>
 
                           <!-- protocol badge -->
-                          <span style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
+                          <span class="ui-badge" style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
                             :style="iface.protocol === 'wireguard-1.0' || iface.protocol === 'wireguard'
                               ? (theme==='dark' ? 'background:rgba(156,163,175,0.15); color:#d1d5db;' : 'background:rgba(107,114,128,0.1); color:#6b7280;')
                               : (theme==='dark' ? 'background:rgba(99,102,241,0.2); color:#a5b4fc;' : 'background:rgba(99,102,241,0.12); color:#6366f1;')">
@@ -187,13 +187,13 @@
                           </span>
 
                           <!-- MTU badge -->
-                          <span style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
+                          <span class="ui-badge" style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
                             :style="{ background: theme==='dark'?'rgba(75,85,99,0.35)':'rgba(107,114,128,0.08)', color: theme==='dark'?'#d1d5db':'#6b7280' }">
                             MTU {{ iface.mtu > 0 ? iface.mtu : (globalSettings.mtu > 0 ? globalSettings.mtu : 'auto') }}
                           </span>
 
                           <!-- MSS badge (only if not disabled) -->
-                          <span v-if="iface.mss !== 0"
+                          <span class="ui-badge" v-if="iface.mss !== 0"
                             style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
                             :style="{ background: theme==='dark'?'rgba(245,158,11,0.2)':'rgba(245,158,11,0.1)', color: theme==='dark'?'#fbbf24':'#d97706' }">
                             {{ iface.mss === -1 ? 'MSS auto' : 'MSS ' + iface.mss }}
@@ -264,14 +264,14 @@
                               </span>
                             </div>
                             <!-- type badge -->
-                            <span style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px;"
+                            <span class="ui-badge" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px;"
                               :style="rule.type === 'MASQUERADE'
                                 ? 'background:rgba(99,102,241,0.12); color:#6366f1;'
                                 : 'background:rgba(234,179,8,0.12); color:#ca8a04;'">
                               {{ rule.type }}
                             </span>
                             <!-- auto badge -->
-                            <span v-if="rule.auto" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:rgba(107,114,128,0.1); color:#9ca3af;">auto</span>
+                            <span class="ui-badge" v-if="rule.auto" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:rgba(107,114,128,0.1); color:#9ca3af;">auto</span>
                           </div>
                         </div>
 
@@ -304,7 +304,7 @@
                               </span>
                             </div>
                             <!-- proto badge -->
-                            <span style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:rgba(34,197,94,0.1); color:#16a34a; text-transform:uppercase;">
+                            <span class="ui-badge" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:rgba(34,197,94,0.1); color:#16a34a; text-transform:uppercase;">
                               {{ rule.protocol }}
                             </span>
                             <!-- port mapping -->
@@ -368,11 +368,11 @@
                               <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; font-size:0.75rem;"
                                 :style="{ color: theme==='dark'?'#e5e5e5':'#374151' }">
                                 {{ peer.name }}
-                                <span style="font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:3px; font-weight:600;"
+                                <span class="ui-badge" style="font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:3px; font-weight:600;"
                                   :style="{ background: theme==='dark'?'rgba(156,163,175,0.15)':'rgba(107,114,128,0.12)', color: theme==='dark'?'#d1d5db':'#6b7280' }">{{ peer.interfaceName }}</span>
-                                <span v-if="peer.peerType === 'interconnect'" style="font-size:0.6rem; padding:1px 4px; background:rgba(59,130,246,0.12); color:#2563eb; border-radius:3px; margin-left:2px; font-weight:600;">S2S</span>
+                                <span class="ui-badge" v-if="peer.peerType === 'interconnect'" style="font-size:0.6rem; padding:1px 4px; background:rgba(59,130,246,0.12); color:#2563eb; border-radius:3px; margin-left:2px; font-weight:600;">S2S</span>
                                 <!-- group badge for client peers -->
-                                <span v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId)"
+                                <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId)"
                                   style="font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:2px; font-weight:600;"
                                   :style="{ background: theme==='dark'?'rgba(34,197,94,0.18)':'rgba(34,197,94,0.1)', color: theme==='dark'?'#4ade80':'#16a34a' }"
                                   :title="'Group: ' + peerGroupName(peer.groupId)">{{ peerGroupName(peer.groupId) }}</span>
@@ -382,7 +382,7 @@
                                   🤝{{ peer.latestHandshakeAt ? dashTimeShort(peer.latestHandshakeAt) : 'Never' }}
                                 </span>
                                 <!-- expiry badge -->
-                                <span v-if="peer.expiredAt"
+                                <span class="ui-badge" v-if="peer.expiredAt"
                                   style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; margin-left:2px;"
                                   :title="'Expires: ' + new Date(peer.expiredAt).toLocaleDateString('ru-RU')"
                                   :style="new Date(peer.expiredAt) < new Date()

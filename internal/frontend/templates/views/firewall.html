@@ -116,7 +116,7 @@
                     </span>
                     <span v-else class="font-mono text-gray-600 dark:text-neutral-400">{{ _firewallEndpointLabel(rule.source) }}</span>
                     <span v-if="rule.source && rule.source.portAliasId"
-                      class="font-semibold rounded ml-1"
+                      class="ui-badge font-semibold rounded ml-1"
                       style="padding:1px 6px; display:inline-block; background:#ede9fe; color:#5b21b6; font-size:0.65rem;">
                       :{{ _aliasLabel(rule.source.portAliasId) }}
                     </span>
@@ -136,7 +136,7 @@
                     </span>
                     <span v-else class="font-mono text-gray-600 dark:text-neutral-400">{{ _firewallEndpointLabel(rule.destination) }}</span>
                     <span v-if="rule.destination && rule.destination.portAliasId"
-                      class="font-semibold rounded ml-1"
+                      class="ui-badge font-semibold rounded ml-1"
                       style="padding:1px 6px; display:inline-block; background:#ede9fe; color:#5b21b6; font-size:0.65rem;">
                       :{{ _aliasLabel(rule.destination.portAliasId) }}
                     </span>
@@ -144,7 +144,7 @@
                   </td>
                   <!-- Action badge -->
                   <td class="text-center tc">
-                    <span class="text-xs font-bold rounded" :style="_firewallActionStyle(rule.action, rule.enabled)" style="padding:3px 8px;">
+                    <span class="ui-badge text-xs font-bold rounded" :style="_firewallActionStyle(rule.action, rule.enabled)" style="padding:3px 8px;">
                       {{ rule.action ? rule.action.toUpperCase() : '—' }}
                     </span>
                   </td>

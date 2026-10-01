@@ -81,7 +81,7 @@
           <!-- Username field -->
           <div class="auth-field">
             <label for="login-username">Username</label>
-            <input id="login-username" type="text" name="username" placeholder="Username" v-model="username"
+            <input id="login-username" ref="loginUsername" type="text" name="username" placeholder="Username" v-model="username"
               autocomplete="username" autocapitalize="none" spellcheck="false" required />
           </div>
 
@@ -133,7 +133,7 @@
           </div>
           <div class="auth-field">
             <label for="totp-code">One-time code</label>
-            <input id="totp-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
+            <input id="totp-code" ref="loginTOTP" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
               v-model="totpCode" @keyup.enter="loginStep2"
               class="text-center tracking-widest font-mono text-lg" />
           </div>

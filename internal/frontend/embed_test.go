@@ -313,7 +313,7 @@ func TestFrontendDarkThemeHasReadableTextDefaults(t *testing.T) {
 	for _, expected := range []string{
 		".dark .app-main-content,",
 		".dark .modal-panel,",
-		"color: #e5e7eb;",
+		"color: var(--text-primary);",
 		`class="text-xl font-semibold dark:text-neutral-100">Dashboard`,
 		`text-orange-600 dark:text-orange-400`,
 		`text-red-600 dark:text-red-400`,
@@ -1332,7 +1332,7 @@ func TestPWAAssets(t *testing.T) {
 	if manifest.Name != "Cascade" || manifest.ShortName != "Cascade" || manifest.Description == "" || manifest.Display != "standalone" {
 		t.Fatalf("unexpected PWA identity: %+v", manifest)
 	}
-	if manifest.BackgroundColor != "#0f172a" || manifest.ThemeColor != "#0f172a" {
+	if manifest.BackgroundColor != "#1c1c1e" || manifest.ThemeColor != "#1c1c1e" {
 		t.Fatalf("unexpected PWA colors: %+v", manifest)
 	}
 
@@ -1389,7 +1389,7 @@ func TestFrontendPWAIntegration(t *testing.T) {
 	}
 	for _, expected := range []string{
 		`<link rel="manifest" href="./manifest.json">`,
-		`<meta name="theme-color" content="#0f172a">`,
+		`<meta name="theme-color" content="#1c1c1e">`,
 		`<link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">`,
 		`<script src="./js/pwa.js"></script>`,
 	} {
@@ -1437,10 +1437,9 @@ func TestFrontendPWAIntegration(t *testing.T) {
 	}
 	swSource := string(sw)
 	for _, expected := range []string{
-		"const CACHE_VERSION = 'cascade-static-v1';",
+		"const CACHE_VERSION = 'cascade-static-v2';",
 		"request.mode === 'navigate'",
 		"isDynamicPath(url.pathname)",
-		"event.data.type === 'SKIP_WAITING'",
 		"caches.delete(key)",
 	} {
 		if !strings.Contains(swSource, expected) {

@@ -2152,7 +2152,7 @@ button.interface-filter-button {
 
 .user-badge {
   align-items: center;
-  border-radius: 9999px;
+  border-radius: 6px;
   display: inline-flex;
   font-size: 0.75rem;
   font-weight: 500;
@@ -2501,3 +2501,35 @@ button.interface-filter-button {
     width: 100%;
   }
 }
+
+/* A wrapped badge remains one box rather than separate inline fragments. */
+.ui-badge {
+  border-radius: 6px;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.4;
+}
+
+/* Dark appearance uses neutral macOS surfaces and semantic accent colors. */
+.dark .dark\:bg-neutral-600 { background-color: var(--surface-raised); }
+.dark .dark\:bg-neutral-700 { background-color: var(--surface-raised); }
+.dark .dark\:bg-neutral-800 { background-color: var(--surface-panel); }
+.dark .dark\:text-neutral-100,
+.dark .dark\:text-neutral-200,
+.dark .dark\:text-neutral-300 { color: var(--text-primary); }
+.dark .dark\:text-neutral-400,
+.dark .dark\:text-neutral-500 { color: var(--text-secondary); }
+.dark .bg-blue-600 { background-color: var(--accent-blue); }
+.dark .hover\:bg-blue-700:hover { background-color: #0071e3; }
+.dark .text-blue-500,
+.dark .text-blue-600 { color: var(--accent-blue); }
+.dark .bg-green-600 { background-color: #248a3d; }
+.dark .text-green-500,
+.dark .text-green-600 { color: var(--status-green); }
+.dark .text-red-500,
+.dark .text-red-600 { color: var(--status-red); }
+.dark .text-yellow-500,
+.dark .text-yellow-600 { color: var(--status-yellow); }

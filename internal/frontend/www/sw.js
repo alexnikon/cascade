@@ -5,7 +5,7 @@
 // Bump this value when the set or behavior of cached frontend assets changes.
 // The service worker script itself is served with no-cache so new workers are
 // discovered without relying on a long-lived browser cache entry.
-const CACHE_VERSION = 'cascade-static-v1';
+const CACHE_VERSION = 'cascade-static-v2';
 const STATIC_CACHE = CACHE_VERSION;
 
 const STATIC_PATHS = [
@@ -47,8 +47,8 @@ async function networkFirstStatic(request) {
 }
 
 self.addEventListener('install', () => {
-  // Keep a replacement worker waiting until the user explicitly accepts the
-  // update. This avoids interrupting an open administration workflow.
+  // Activate a replacement naturally after controlled tabs close.
+  // Do not interrupt an open administration workflow.
 });
 
 self.addEventListener('activate', (event) => {
@@ -61,12 +61,6 @@ self.addEventListener('activate', (event) => {
       ))
       .then(() => clients.claim()),
   );
-});
-
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
 });
 
 self.addEventListener('fetch', (event) => {
