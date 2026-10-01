@@ -856,3 +856,29 @@ func TestPeerEffectiveRateLimits_OnlyDownstreamGroupLimit(t *testing.T) {
 		t.Errorf("got (%d,%d), want (500,0)", rd, ru)
 	}
 }
+
+func TestRuntimeSnapshotInterfaceRole(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		uplink    bool
+		peerTypes []string
+		want      string
+	}{
+		{"empty", false, nil, "client"},
+		{"clients", false, []string{"client"}, "client"},
+		{"uplink", true, nil, "s2s"},
+		{"interconnect", false, []string{"interconnect"}, "s2s"},
+		{"mixed", false, []string{"client", "interconnect"}, "s2s"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			iface := newTestIface()
+			iface.Uplink = tc.uplink
+			for _, typ := range tc.peerTypes {
+				iface.peers[typ] = &peer.Peer{ID: typ, PeerType: typ}
+			}
+			if got := iface.RuntimeSnapshot().Role; got != tc.want {
+				t.Fatalf("role=%q, want %q", got, tc.want)
+			}
+		})
+	}
+}

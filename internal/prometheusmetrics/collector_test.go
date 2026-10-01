@@ -207,3 +207,19 @@ func gatherText(t *testing.T, collector prometheus.Collector) string {
 	promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(recorder, httptest.NewRequest("GET", "/metrics", nil))
 	return recorder.Body.String()
 }
+
+func TestCollectorInterfaceRoles(t *testing.T) {
+	collector := NewCollector(fakeRuntime{snapshots: []tunnel.RuntimeInterfaceSnapshot{
+		{ID: "wg10", Role: "client"}, {ID: "wg11", Role: "s2s"}, {ID: "wg12"},
+	}}, nil, nil, "dev", "test", time.Minute)
+	body := gatherText(t, collector)
+	for _, expected := range []string{
+		`cascade_interface_role_info{interface="wg10",role="client"} 1`,
+		`cascade_interface_role_info{interface="wg11",role="s2s"} 1`,
+		`cascade_interface_role_info{interface="wg12",role="client"} 1`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("missing %s", expected)
+		}
+	}
+}

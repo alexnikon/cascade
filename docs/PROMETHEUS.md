@@ -77,8 +77,8 @@ Grafana, select **Dashboards → New → Import**, upload the JSON file, and map
 
 The dashboard supports multiple Cascade targets through the standard Prometheus
 `instance` label. Its variables are hierarchical: selecting an instance limits
-the available interfaces, peers, and gateways. All selectors support multiple
-values and default to **All**.
+the available interfaces, peers, and gateways. The exported dashboard retains its saved selections; use **All** in the query
+selectors to include every eligible value.
 
 Every dashboard query uses a metric documented below. Gateway latency and packet
 loss panels naturally remain empty when no gateway is monitored or when the
@@ -94,8 +94,10 @@ first available sample rather than reconstructing earlier traffic.
 
 ## Metrics
 
-Traffic values are lifetime totals maintained by Cascade across interface
-restarts and are exposed as Prometheus counters from snapshots.
+Traffic values are accumulated totals maintained by Cascade across interface
+restarts and are exposed as Prometheus counters from snapshots. Manual peer
+traffic resets lower the affected counters; historical queries use `increase()`
+to handle resets observed between scrapes.
 
 | Metric | Type | Labels |
 |--------|------|--------|
@@ -112,6 +114,7 @@ restarts and are exposed as Prometheus counters from snapshots.
 | `cascade_interface_tx_bits_per_second` | gauge | `interface` |
 | `cascade_interface_listen_port` | gauge | `interface` |
 | `cascade_interface_info` | gauge | `interface`, `name`, `protocol` |
+| `cascade_interface_role_info` | gauge | `interface`, `role` |
 | `cascade_peer_received_bytes_total` | counter | `interface`, `peer_id`, `name` |
 | `cascade_peer_sent_bytes_total` | counter | `interface`, `peer_id`, `name` |
 | `cascade_peer_latest_handshake_timestamp_seconds` | gauge | `interface`, `peer_id`, `name` |
@@ -177,3 +180,37 @@ current gateway monitor retains sliding-window state but does not persist
 monotonic event counters. Latency, packet loss, enumerated state, and status are
 exported directly and reliably; persistent event counters can be added later at
 the monitor ownership boundary without reconstructing them during scrapes.
+
+## Monthly peer traffic and S2S visibility
+
+**Top Peers by Traffic This Month** ranks the top 10 client peers by RX + TX
+increases since `now/M`, capped by their current Cascade RX + TX totals. A manual
+**Reset trafic** therefore clears usage from before the reset after the next
+Prometheus scrape and panel refresh. Repeated resets use the same cap. Historical
+Prometheus samples are retained. This panel always requires interface role
+`client`, regardless of the S2S switch; S2S interfaces and targets without role
+metadata are excluded. Upgrade older targets to display their clients.
+
+The period uses the dashboard timezone (`browser` by default). An absolute
+dashboard time range takes precedence over the month override, as for **Traffic
+Month**; the cap still uses the counters at the query evaluation time. Available
+history, scrape intervals, extrapolation, and resets missed between scrapes can
+limit accuracy. This is not a billing record. Other traffic panels retain their
+historical `increase()` behavior after manual resets.
+
+The **S2S interfaces** variable defaults to **Show**. **Hide** excludes S2S
+interfaces and their peers from interface/peer counts, other traffic panels,
+rates, handshake panels, and the Interface/Peer selectors. Gateway health and server-wide panels
+remain visible. A mixed interface containing any interconnect peer is treated as
+S2S in its entirety.
+
+Cascade emits `cascade_interface_role_info{interface,role="client|s2s"} 1`
+from the shared runtime snapshot. An uplink or an interface with an interconnect
+peer has role `s2s`; every other interface has role `client`. Existing traffic
+labels are unchanged. The dashboard uses `unless on (instance, interface)`
+before aggregation and ranking for panels controlled by the switch, so older
+targets without role metadata remain visible there even in Hide mode. Upgrade
+those targets to enable automatic hiding.
+
+To evaluate dashboard PromQL against synthetic counter resets, multiple targets,
+legacy metadata, and S2S exclusion, run `python3 grafana/check_promql.py /path/to/promtool`.

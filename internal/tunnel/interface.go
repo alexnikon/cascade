@@ -104,6 +104,7 @@ type RuntimePeerSnapshot struct {
 
 // RuntimeInterfaceSnapshot is an immutable, secret-free interface snapshot.
 type RuntimeInterfaceSnapshot struct {
+	Role       string
 	ID         string
 	Name       string
 	Protocol   string
@@ -567,9 +568,15 @@ func (t *TunnelInterface) RuntimeSnapshot() RuntimeInterfaceSnapshot {
 
 	out := RuntimeInterfaceSnapshot{
 		ID: t.ID, Name: t.Name, Protocol: t.Protocol, ListenPort: t.ListenPort,
-		Enabled: t.Enabled, Peers: make([]RuntimePeerSnapshot, 0, len(t.peers)),
+		Enabled: t.Enabled, Role: "client", Peers: make([]RuntimePeerSnapshot, 0, len(t.peers)),
+	}
+	if t.Uplink {
+		out.Role = "s2s"
 	}
 	for _, p := range t.peers {
+		if p.PeerType == "interconnect" {
+			out.Role = "s2s"
+		}
 		var handshake *string
 		if p.LatestHandshakeAt != nil {
 			value := *p.LatestHandshakeAt

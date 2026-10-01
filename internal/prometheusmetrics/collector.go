@@ -101,6 +101,11 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 			c.emit(ch, "interface_peers", prometheus.GaugeValue, float64(len(iface.Peers)), labels...)
 			c.emit(ch, "interface_listen_port", prometheus.GaugeValue, float64(iface.ListenPort), labels...)
 			c.emit(ch, "interface_info", prometheus.GaugeValue, 1, iface.ID, iface.Name, iface.Protocol)
+			role := "client"
+			if iface.Role == "s2s" {
+				role = "s2s"
+			}
+			c.emit(ch, "interface_role_info", prometheus.GaugeValue, 1, iface.ID, role)
 
 			var rx, tx int64
 			connected := 0
@@ -173,6 +178,7 @@ func (c *Collector) initDescriptions() {
 		add(name, "Cascade interface metric: "+name+".", "interface")
 	}
 	add("interface_info", "Stable Cascade interface metadata.", "interface", "name", "protocol")
+	add("interface_role_info", "Interface role: s2s for uplinks or interfaces with interconnect peers, otherwise client.", "interface", "role")
 	for _, name := range []string{"peer_received_bytes_total", "peer_sent_bytes_total", "peer_latest_handshake_timestamp_seconds", "peer_handshake_age_seconds", "peer_connected", "peer_enabled", "peer_persistent_keepalive_seconds"} {
 		add(name, "Cascade peer metric: "+name+".", "interface", "peer_id", "name")
 	}

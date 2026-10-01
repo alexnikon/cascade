@@ -100,7 +100,7 @@ func TestDashboardPeerVariableUsesNames(t *testing.T) {
 		t.Fatalf("peer variable=%v, want label Peer", peer)
 	}
 	definition := stringAt(t, peer["definition"], "peer definition")
-	if !strings.HasSuffix(definition, ", name)") {
+	if !strings.Contains(definition, "group by (name)") || !strings.Contains(definition, dashboardRoleExclusion) {
 		t.Fatalf("peer definition=%q does not select name label", definition)
 	}
 }
@@ -120,7 +120,7 @@ func TestDashboardInterfaceVariableUsesIDAndName(t *testing.T) {
 			continue
 		}
 
-		wantQuery := `query_result(label_join(cascade_interface_info{instance=~"$instance"}, "selector", " | ", "interface", "name"))`
+		wantQuery := `query_result(label_join((cascade_interface_info{instance=~"$instance"} unless on (instance, interface) cascade_interface_role_info{instance=~"$instance",role=~"$excluded_interface_role"}), "selector", " | ", "interface", "name"))`
 		if got := stringAt(t, variableSpec["definition"], "interface definition"); got != wantQuery {
 			t.Fatalf("interface definition=%q, want %q", got, wantQuery)
 		}
@@ -166,7 +166,7 @@ func TestDashboardGatewayStatus(t *testing.T) {
 
 func TestDashboardTrafficPanelsUsePeerCounters(t *testing.T) {
 	dashboard := loadDashboard(t)
-	wantExpr := `sum(increase(cascade_peer_sent_bytes_total{instance=~"$instance",interface=~"$interface"}[$__range]))`
+	wantExpr := `sum((increase(cascade_peer_sent_bytes_total{instance=~"$instance",interface=~"$interface"}[$__range]) unless on (instance, interface) cascade_interface_role_info{instance=~"$instance",role=~"$excluded_interface_role"}))`
 	wantTimeFrom := map[string]string{
 		"35": "now/d",
 		"36": "now/M",
@@ -219,5 +219,63 @@ func TestDashboardPeerQueriesUseNameFilter(t *testing.T) {
 				t.Fatalf("panel %s still filters peer_id with $peer: %s", panelID, expr)
 			}
 		}
+	}
+}
+
+const dashboardRoleExclusion = `unless on (instance, interface) cascade_interface_role_info{instance=~"$instance",role=~"$excluded_interface_role"}`
+
+func TestDashboardMonthTopPeersAndS2SFilter(t *testing.T) {
+	dashboard := loadDashboard(t)
+	spec := object(t, dashboard["spec"], "spec")
+	variables := spec["variables"].([]any)
+	found := false
+	for _, raw := range variables {
+		v := object(t, raw, "variable")
+		vs := object(t, v["spec"], "variable spec")
+		if vs["name"] != "excluded_interface_role" {
+			continue
+		}
+		found = true
+		if v["kind"] != "CustomVariable" || vs["query"] != "Show : __none__, Hide : s2s" || object(t, vs["current"], "current")["value"] != "__none__" {
+			t.Fatalf("unexpected S2S switch: %v", v)
+		}
+	}
+	if !found {
+		t.Fatal("S2S switch missing")
+	}
+	for _, id := range []string{"3", "4", "5", "6", "7", "31", "32", "33", "34", "35", "36", "42", "51", "91"} {
+		for _, q := range queries(t, dashboard, id) {
+			if !strings.Contains(queryExpr(t, q), dashboardRoleExclusion) {
+				t.Errorf("panel %s missing role filter", id)
+			}
+		}
+	}
+	for _, q := range queries(t, dashboard, "71")[:2] {
+		if !strings.Contains(queryExpr(t, q), dashboardRoleExclusion) {
+			t.Error("managed interface/peer count missing role filter")
+		}
+	}
+	for _, id := range []string{"2", "8", "61", "62", "63", "81", "82", "83", "84", "92", "93"} {
+		for _, q := range queries(t, dashboard, id) {
+			if strings.Contains(queryExpr(t, q), dashboardRoleExclusion) {
+				t.Errorf("unrelated panel %s filtered", id)
+			}
+		}
+	}
+	panel := object(t, object(t, spec["elements"], "elements")["panel-43"], "panel")
+	ps := object(t, panel["spec"], "panel spec")
+	if ps["title"] != "Top Peers by Traffic This Month" {
+		t.Fatalf("title=%v", ps["title"])
+	}
+	data := object(t, object(t, ps["data"], "data")["spec"], "data spec")
+	if object(t, data["queryOptions"], "query options")["timeFrom"] != "now/M" {
+		t.Fatal("monthly override missing")
+	}
+	expr := queryExpr(t, queries(t, dashboard, "43")[0])
+	if !strings.HasPrefix(expr, "topk(10,") || strings.Count(expr, "increase(") != 4 || strings.Count(expr, "[$__range]") != 4 {
+		t.Fatalf("monthly expr=%q", expr)
+	}
+	if !strings.Contains(expr, "clamp_min(") || !strings.Contains(expr, `and on (instance, interface) cascade_interface_role_info{instance=~"$instance",role="client"}`) || strings.Contains(expr, "$excluded_interface_role") {
+		t.Fatalf("monthly reset cap or client-only filter missing: %q", expr)
 	}
 }
