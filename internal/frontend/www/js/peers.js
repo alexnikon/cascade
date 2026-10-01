@@ -96,6 +96,28 @@ async _refreshPeersOrAll(opts = {}) {
       }
     },
 
+async resetPeerTraffic(peer) {
+      if (this.peerTrafficResetInFlight || peer.peerType !== 'client') return;
+      if (!window.confirm(`Reset traffic counters for client "${peer.name}"?`)) return;
+      const remoteId = this.activeRemoteId;
+      const interfaceId = this._peerIfaceId(peer);
+      this.peerTrafficResetInFlight = true;
+      try {
+        await this.api.resetPeerTraffic({ interfaceId, peerId: peer.id });
+        if (remoteId !== this.activeRemoteId) return;
+        // Drain pending reads before fetching the committed reset state.
+        await Promise.all([this.refreshPeersPromise, this.refreshAllPeersPromise]);
+        if (remoteId !== this.activeRemoteId) return;
+        this.$delete(this.peersPersist, peer.id);
+        await this._refreshPeersOrAll();
+        this.showToast('Client traffic counters reset');
+      } catch (err) {
+        this.showToast(err.message || err.toString(), 'error');
+      } finally {
+        this.peerTrafficResetInFlight = false;
+      }
+    },
+
 async enablePeer(peer) {
       try {
         await this.api.enablePeer({ interfaceId: this._peerIfaceId(peer), peerId: peer.id });

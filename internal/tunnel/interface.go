@@ -20,6 +20,7 @@ package tunnel
 import (
 	"database/sql"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -57,6 +58,7 @@ type peerTrafficState struct {
 
 // TunnelInterface represents a single WireGuard or AmneziaWG tunnel interface.
 type TunnelInterface struct {
+	statusMu  sync.Mutex   // serializes status reads, traffic resets, and interface lifecycle changes
 	reloadMu  sync.Mutex   // serializes Reload/Restart — concurrent syncconf = kernel deadlock (FIX-8, FIX-9)
 	peersMu   sync.RWMutex // protects peers map: written by AddPeer/Remove, read by GetStatus goroutine
 	trafficMu sync.Mutex   // protects trafficState map
@@ -520,6 +522,12 @@ func (t *TunnelInterface) replaceCachedPeer(updated *peer.Peer) {
 			delete(t.peers, key)
 		}
 	}
+	// Traffic state is authoritative even when a concurrent DB read predates a reset.
+	t.trafficMu.Lock()
+	if st := t.trafficState[updated.ID]; st != nil {
+		updated.TotalRx, updated.TotalTx = st.totalRx, st.totalTx
+	}
+	t.trafficMu.Unlock()
 	t.peers[updated.ID] = updated
 }
 
@@ -816,6 +824,8 @@ func (t *TunnelInterface) UpdatePeer(peerID string, upd peer.PeerUpdate) (*peer.
 // RemovePeer deletes the peer from SQLite, removes it from the cache,
 // regenerates config, and removes it from the running kernel.
 func (t *TunnelInterface) RemovePeer(peerID string) error {
+	t.statusMu.Lock()
+	defer t.statusMu.Unlock()
 	// Capture peer data before deletion (needed for tc cleanup).
 	t.peersMu.RLock()
 	removed := t.peers[peerID]
@@ -881,6 +891,8 @@ func isUserspaceMode() bool {
 //   - "Address in use": flush stale kernel routes left by a previous interface,
 //     then retry.
 func (t *TunnelInterface) Start() error {
+	t.statusMu.Lock()
+	defer t.statusMu.Unlock()
 	// Always regenerate before up — ensures PostUp/PostDown are current (FIX-2).
 	if err := t.RegenerateConfig(); err != nil {
 		return fmt.Errorf("start %s: regenerate config: %w", t.ID, err)
@@ -994,6 +1006,8 @@ func (t *TunnelInterface) restoreTCLimits() {
 // Flushes traffic totals to DB before bringing the interface down so that the
 // kernel counters (which reset on wg-quick down) are not lost.
 func (t *TunnelInterface) Stop() error {
+	t.statusMu.Lock()
+	defer t.statusMu.Unlock()
 	t.FlushTrafficTotals()
 	_, err := util.ExecDefault(fmt.Sprintf("%s down %s", t.quickBin(), t.ID))
 	if err != nil {
@@ -1421,6 +1435,8 @@ func (t *TunnelInterface) generateSyncConfig() string {
 // `wg/awg show <id> dump` and updates the runtime fields on in-memory peers.
 // NOT persisted. Called every ~1 s by InterfaceManager (FIX-10: 5 s timeout).
 func (t *TunnelInterface) GetStatus() {
+	t.statusMu.Lock()
+	defer t.statusMu.Unlock()
 	if !t.Enabled {
 		return
 	}
@@ -1526,6 +1542,78 @@ func (t *TunnelInterface) GetStatus() {
 			break
 		}
 	}
+}
+
+// ErrTrafficPeerNotFound means the requested peer is not on this interface.
+var ErrTrafficPeerNotFound = errors.New("client not found on interface")
+
+// ErrTrafficPeerType means traffic reset was requested for a non-client peer.
+var ErrTrafficPeerType = errors.New("traffic reset is only available for clients")
+
+// ResetPeerTraffic resets accumulated usage without changing the running peer.
+// A fresh kernel sample establishes the baseline before totals are committed.
+func (t *TunnelInterface) ResetPeerTraffic(peerID string) error {
+	t.statusMu.Lock()
+	defer t.statusMu.Unlock()
+	t.peersMu.Lock()
+	defer t.peersMu.Unlock()
+	t.trafficMu.Lock()
+	defer t.trafficMu.Unlock()
+
+	p := t.peers[peerID]
+	if p == nil {
+		return ErrTrafficPeerNotFound
+	}
+	if p.PeerType != "client" {
+		return ErrTrafficPeerType
+	}
+	var rx, tx int64
+	if t.Enabled {
+		out, err := util.ExecSilentFast(fmt.Sprintf("%s show %s dump", t.syncBin(), t.ID))
+		if err != nil {
+			return fmt.Errorf("read traffic baseline: %w", err)
+		}
+		found := false
+		for _, line := range strings.Split(strings.TrimSpace(out), "\n")[1:] {
+			fields := strings.Split(line, "\t")
+			if len(fields) < 7 || fields[0] != p.PublicKey {
+				continue
+			}
+			rx, err = strconv.ParseInt(fields[5], 10, 64)
+			if err != nil || rx < 0 {
+				return fmt.Errorf("invalid received traffic baseline")
+			}
+			tx, err = strconv.ParseInt(fields[6], 10, 64)
+			if err != nil || tx < 0 {
+				return fmt.Errorf("invalid sent traffic baseline")
+			}
+			found = true
+			break
+		}
+		if !found && p.Enabled {
+			return fmt.Errorf("client missing from running tunnel")
+		}
+	}
+	result, err := db.DB().Exec(
+		`UPDATE peers SET total_rx = 0, total_tx = 0 WHERE id = ? AND interface_id = ?`,
+		peerID, t.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("save traffic reset: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("verify traffic reset: %w", err)
+	}
+	if rows != 1 {
+		return ErrTrafficPeerNotFound
+	}
+	if t.trafficState == nil {
+		t.trafficState = make(map[string]*peerTrafficState)
+	}
+	t.trafficState[peerID] = &peerTrafficState{lastSeenRx: rx, lastSeenTx: tx}
+	p.TotalRx, p.TotalTx = 0, 0
+	return nil
 }
 
 // FlushTrafficTotals persists dirty traffic totals to SQLite.

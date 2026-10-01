@@ -22,6 +22,7 @@ package api
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -109,6 +110,7 @@ func RegisterPeers(api fiber.Router) {
 
 	g.Post("/:peerId/enable", enablePeer)
 	g.Post("/:peerId/disable", disablePeer)
+	g.Post("/:peerId/reset-traffic", resetPeerTraffic)
 
 	// Fine-grained update endpoints (ported from Node.js API).
 	g.Put("/:peerId/name", renamePeer)
@@ -497,6 +499,22 @@ func updatePeer(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(sanitizePeer(p))
+}
+
+// POST /api/tunnel-interfaces/:id/peers/:peerId/reset-traffic
+func resetPeerTraffic(c *fiber.Ctx) error {
+	if err := mgr().ResetPeerTraffic(c.Params("id"), c.Params("peerId")); err != nil {
+		switch {
+		case errors.Is(err, tunnel.ErrTrafficPeerNotFound):
+			return fiber.NewError(fiber.StatusNotFound, err.Error())
+		case errors.Is(err, tunnel.ErrTrafficPeerType):
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		default:
+			log.Printf("api: reset traffic %s/%s: %v", c.Params("id"), c.Params("peerId"), err)
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to reset client traffic")
+		}
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // DELETE /api/tunnel-interfaces/:id/peers/:peerId

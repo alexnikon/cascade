@@ -182,7 +182,7 @@ Base path: `/api/tunnel-interfaces/:id/peers`
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/peers` | List peers. Returns `{ peers: [...] }` |
-| `POST` | `/peers` | Create peer. Body: `{ name, peerType (client/interconnect), clientAllowedIPs?, persistentKeepalive?, expiredAt? }`. Response includes `totalRx`/`totalTx` (lifetime traffic counters from SQLite, persist across restarts) and `latestHandshakeAt` (last handshake timestamp, persisted across restarts; `null` if peer never connected) |
+| `POST` | `/peers` | Create peer. Body: `{ name, peerType (client/interconnect), clientAllowedIPs?, persistentKeepalive?, expiredAt? }`. Response includes `totalRx`/`totalTx` (accumulated traffic counters from SQLite, persist across restarts) and `latestHandshakeAt` (last handshake timestamp, persisted across restarts; `null` if peer never connected) |
 | `POST` | `/peers/import-json` | Create interconnect peer from exported JSON |
 | `GET` | `/peers/:peerId` | Get peer |
 | `PATCH` | `/peers/:peerId` | Update peer fields. Accepts: `name?, endpoint?, allowedIPs?, clientAllowedIPs?, persistentKeepalive?, enabled?, expiredAt?, oneTimeLink?, rateDown?, rateUp?`. Fields `rateDown`/`rateUp` — bandwidth limit in **kbps** (0 = unlimited), enforced via `tc HTB + police` on the server; the UI accepts **Mbit/s** and converts automatically |
@@ -191,11 +191,14 @@ Base path: `/api/tunnel-interfaces/:id/peers`
 | `GET` | `/peers/:peerId/qrcode.svg` | QR code SVG (client peers only) |
 | `POST` | `/peers/:peerId/enable` | Enable peer |
 | `POST` | `/peers/:peerId/disable` | Disable peer |
+| `POST` | `/peers/:peerId/reset-traffic` | Reset accumulated client RX/TX without disconnecting. No body; returns **204**, **404** for a missing interface/client, **400** for an interconnect peer, or **500** if baseline collection or persistence fails. |
 | `PUT` | `/peers/:peerId/name` | Rename peer. Body: `{ name }` |
 | `PUT` | `/peers/:peerId/address` | Update overlay address. Body: `{ address }` → stored as AllowedIPs |
 | `PUT` | `/peers/:peerId/expireDate` | Set expiry. Body: `{ expireDate }` — RFC3339 or YYYY-MM-DD, empty clears |
 | `POST` | `/peers/:peerId/generateOneTimeLink` | Generate one-time config link token. Returns `{ oneTimeLink: "https://..." }`. Token is single-use — cleared after first download. |
 | `GET` | `/peers/:peerId/export-json` | Export interconnect peer as JSON (interconnect only) |
+
+Traffic totals (`totalRx`/`totalTx`) persist across restarts and measure usage since the last reset. Reset also lowers the current peer Prometheus counters and the interface totals derived from them. Existing Prometheus history is retained. Raw `transferRx`/`transferTx` remain technical WireGuard counters for rate calculation and are not reset. No interface restart or client config update is required.
 
 ### One-time config download (public)
 

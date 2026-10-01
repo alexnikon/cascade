@@ -76,7 +76,7 @@ type Peer struct {
 	// Computed from PrivateKey (not stored separately)
 	DownloadableConfig bool `json:"downloadableConfig"`
 
-	// Persisted traffic totals (migration v11) — lifetime accumulated bytes.
+	// Persisted traffic totals (migration v11) — accumulated bytes since the last reset.
 	// Flushed to SQLite every 60 s and before wg-quick down.
 	// Updated each poll tick by TunnelInterface.GetStatus().
 	TotalRx int64 `json:"totalRx"`
@@ -84,7 +84,7 @@ type Peer struct {
 
 	// Runtime fields — populated by TunnelInterface.GetStatus(), NOT persisted.
 	// TransferRx/Tx are the raw kernel counters (reset on wg-quick down).
-	// Use TotalRx/TotalTx for lifetime totals displayed in the UI.
+	// Use TotalRx/TotalTx for resettable usage totals displayed in the UI.
 	TransferRx        int64   `json:"transferRx"`
 	TransferTx        int64   `json:"transferTx"`
 	LatestHandshakeAt *string `json:"latestHandshakeAt"`

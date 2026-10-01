@@ -260,6 +260,7 @@ new Vue({
     showPeerCreate: false, // manual peer create modal
     showQuickPeerCreate: false, // quick peer create dialog
     peerMutationInFlight: false,
+    peerTrafficResetInFlight: false,
     interfaceMutationInFlight: false,
     loadingInterfaceId: null,
     interfaceCreate: {

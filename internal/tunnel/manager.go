@@ -769,6 +769,15 @@ func (m *Manager) RemovePeer(interfaceID, peerID string) error {
 	return t.RemovePeer(peerID)
 }
 
+// ResetPeerTraffic resets a client's accumulated usage on its owning interface.
+func (m *Manager) ResetPeerTraffic(interfaceID, peerID string) error {
+	t := m.GetInterface(interfaceID)
+	if t == nil {
+		return ErrTrafficPeerNotFound
+	}
+	return t.ResetPeerTraffic(peerID)
+}
+
 // GetPeer returns the in-memory peer from the given interface.
 func (m *Manager) GetPeer(interfaceID, peerID string) *peer.Peer {
 	t := m.GetInterface(interfaceID)

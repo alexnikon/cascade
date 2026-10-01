@@ -526,6 +526,13 @@ export class API {
     });
   }
 
+  async resetPeerTraffic({ interfaceId, peerId }) {
+    return this.call({
+      method: 'post',
+      path: `/tunnel-interfaces/${interfaceId}/peers/${peerId}/reset-traffic`,
+    });
+  }
+
   async getPeerConfig({ interfaceId, peerId }) {
     const segs = window.location.pathname.split('/').filter(Boolean);
     const apiBase = segs.length > 0
