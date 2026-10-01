@@ -117,7 +117,6 @@ switchPage(pageId) {
       }
       this.activePage = pageId;
       if (this.isCompactViewport) this.closeMobileNav(false);
-      if (pageId.startsWith('wizard-')) this.wizardsExpanded = true;
       // Reset scroll and any GridStack inline styles AFTER Vue updates the DOM.
       this.$nextTick(() => {
         // Reset all inline styles GridStack may have set on the scroll container,

@@ -32,17 +32,13 @@
 
             <!-- Gateways table -->
             <div v-else-if="gatewaysLoaded && gateways.length > 0"
-              class="content-panel bg-white dark:bg-neutral-800 rounded-lg shadow-sm mobile-dense-list"
+              class="content-panel bg-white dark:bg-neutral-800 rounded-lg shadow-sm gateway-list"
               style="overflow:hidden;">
-              <div v-for="(gw, idx) in gateways" :key="gw.id"
-                class="flex items-center"
-                :style="idx > 0 ? 'border-top:1px solid #e5e7eb;' : ''"
-                :class="'dark:' + (idx > 0 ? 'border-neutral-700' : '')"
-                style="padding:12px 16px; gap:12px;">
+              <div v-for="gw in gateways" :key="gw.id" class="gateway-row">
 
                 <!-- Admin Down toggle button -->
                 <button @click.stop="toggleGatewayAdminDown(gw)"
-                  class="shrink-0 rounded-full"
+                  class="gateway-toggle shrink-0 rounded-full"
                   style="width:14px; height:14px; display:inline-block; border:none; padding:0; cursor:pointer; transition: opacity 0.15s;"
                   :style="{
                     background: gatewayStatusColor(gw.status),
@@ -54,17 +50,19 @@
                 </button>
 
                 <!-- Name -->
-                <span class="font-medium dark:text-neutral-200 truncate" style="min-width:120px; max-width:160px;">
-                  {{gw.name}}
-                </span>
+                <div class="gateway-name">
+                  <span class="font-medium dark:text-neutral-200">{{gw.name}}</span>
+                  <span v-if="gw.description" class="gateway-description text-xs text-gray-400 dark:text-neutral-500">{{gw.description}}</span>
+                </div>
 
                 <!-- Interface -->
-                <span class="text-sm text-gray-500 dark:text-neutral-400 font-mono shrink-0" style="min-width:60px;">
-                  {{gw.interface}}
+                <span class="gateway-interface text-sm text-gray-500 dark:text-neutral-400">
+                  <span class="gateway-field-label">Interface</span>
+                  <span class="font-mono">{{gw.interface}}</span>
                 </span>
 
                 <!-- Gateway IP / Monitor IP -->
-                <span class="font-mono shrink-0" style="min-width:110px; display:flex; flex-direction:column; gap:1px;">
+                <span class="gateway-addresses font-mono">
                   <span class="text-sm text-gray-600 dark:text-neutral-300">{{gw.gatewayIP}}</span>
                   <span v-if="gw.monitorAddress" class="text-xs text-gray-400 dark:text-neutral-500">▸ {{gw.monitorAddress}}</span>
                   <!-- IPv6 health, shown only when it is measured separately -->
@@ -74,46 +72,43 @@
                 </span>
 
                 <!-- RTT -->
-                <span class="text-sm shrink-0" style="min-width:70px;"
+                <span class="gateway-latency text-sm"
                   :class="gw.latency !== null ? 'text-gray-700 dark:text-neutral-200' : 'text-gray-400 dark:text-neutral-500'">
+                  <span class="gateway-field-label">RTT</span>
                   {{gw.latency !== null ? gw.latency + ' ms' : '— ms'}}
                 </span>
 
                 <!-- Packet loss -->
-                <span class="text-sm shrink-0" style="min-width:50px;"
+                <span class="gateway-loss text-sm"
                   :class="gw.packetLoss !== null ? 'text-gray-700 dark:text-neutral-200' : 'text-gray-400 dark:text-neutral-500'">
+                  <span class="gateway-field-label">Loss</span>
                   {{gw.packetLoss !== null ? gw.packetLoss + '%' : '—'}}
                 </span>
 
                 <!-- HTTP probe status (when monitorRule requires HTTP) -->
-                <span v-if="gw.monitorHttp && gw.monitorHttp.url && gw.monitorRule !== 'icmp_only'"
-                  class="text-sm shrink-0 font-mono"
-                  style="min-width:80px; display:flex; align-items:center; gap:5px;">
-                  <span class="w-2 h-2 rounded-full shrink-0" style="display:inline-block;"
-                    :style="'background-color:' + gatewayStatusColor(gw.httpStatus || 'unknown')"></span>
-                  <span :style="'color:' + gatewayStatusColor(gw.httpStatus || 'unknown')">
-                    <span v-if="gw.httpCode !== null && gw.httpCode !== undefined" class="text-xs" style="opacity:0.75;">{{gw.httpCode}}</span>
-                    <span v-else class="text-xs" style="opacity:0.75;">HTTP</span>
-                    {{gw.httpLatency !== null ? ' ' + gw.httpLatency + ' ms' : ' —'}}
+                <span class="gateway-http text-sm font-mono">
+                  <span class="gateway-field-label">HTTP</span>
+                  <span v-if="gw.monitorHttp && gw.monitorHttp.url && gw.monitorRule !== 'icmp_only'" class="gateway-http-result">
+                    <span class="w-2 h-2 rounded-full shrink-0" style="display:inline-block;"
+                      :style="'background-color:' + gatewayStatusColor(gw.httpStatus || 'unknown')"></span>
+                    <span :style="'color:' + gatewayStatusColor(gw.httpStatus || 'unknown')">
+                      <span v-if="gw.httpCode !== null && gw.httpCode !== undefined" class="text-xs" style="opacity:0.75;">{{gw.httpCode}}</span>
+                      <span v-else class="text-xs" style="opacity:0.75;">HTTP</span>
+                      {{gw.httpLatency !== null ? ' ' + gw.httpLatency + ' ms' : ' —'}}
+                    </span>
                   </span>
+                  <span v-else class="gateway-http-empty text-gray-400 dark:text-neutral-500">—</span>
                 </span>
 
                 <!-- Status label -->
-                <span class="text-sm font-medium shrink-0" style="min-width:70px;"
+                <span class="gateway-status text-sm font-medium"
                   :style="'color:' + gatewayStatusColor(gw.status)">
+                  <span class="gateway-field-label">Status</span>
                   {{gatewayStatusLabel(gw.status)}}
                 </span>
 
-                <!-- Spacer -->
-                <div class="grow"></div>
-
-                <!-- Description -->
-                <span v-if="gw.description" class="text-xs text-gray-400 dark:text-neutral-500 truncate hidden md:block" style="max-width:140px;">
-                  {{gw.description}}
-                </span>
-
                 <!-- Actions -->
-                <div class="flex gap-1 items-center shrink-0">
+                <div class="gateway-actions flex gap-1 items-center">
                   <!-- Edit -->
                   <button @click="openGatewayEdit(gw); loadSystemInterfaces();"
                     class="p-2 rounded text-gray-400 dark:text-neutral-400 transition"

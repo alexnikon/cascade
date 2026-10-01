@@ -456,7 +456,6 @@ new Vue({
     speedtestError: '',
     speedtestHistory: [],
 
-    wizardsExpanded: false,
 
 
     // ── Wizard: Simple Client VPN ─────────────────────────────────────────────
