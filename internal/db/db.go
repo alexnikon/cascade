@@ -869,6 +869,7 @@ ALTER TABLE gateways ADD COLUMN gateway_ipv6       TEXT NOT NULL DEFAULT '';
 ALTER TABLE gateways ADD COLUMN monitor_address_v6 TEXT NOT NULL DEFAULT '';
 `,
 	},
+	{version: 44, sql: `ALTER TABLE interfaces ADD COLUMN domain_alias_dns INTEGER NOT NULL DEFAULT 0;`},
 }
 
 func runMigrations(db *sql.DB) error {

@@ -51,14 +51,15 @@ type Manager struct {
 
 // CreateInput is the payload for Manager.CreateInterface.
 type CreateInput struct {
-	Name          string
-	Protocol      string // default: "wireguard-1.0"
-	Address       string // CIDR e.g. "10.8.0.1/24"
-	ListenPort    int    // 0 = auto-assign; if PortPool is also set, pool takes priority
-	PortPool      string // when non-empty and ListenPort==0: select port from pool under lock
-	DisableRoutes bool
-	AWG2          *peer.AWG2Settings // required for AmneziaWG protocols
-	DNS           string             // per-interface DNS override; empty = use global
+	Name           string
+	Protocol       string // default: "wireguard-1.0"
+	Address        string // CIDR e.g. "10.8.0.1/24"
+	ListenPort     int    // 0 = auto-assign; if PortPool is also set, pool takes priority
+	PortPool       string // when non-empty and ListenPort==0: select port from pool under lock
+	DisableRoutes  bool
+	AWG2           *peer.AWG2Settings // required for AmneziaWG protocols
+	DomainAliasDNS bool
+	DNS            string // per-interface DNS override; empty = use global
 }
 
 // QuickCreateResult is returned by Manager.QuickCreate.
@@ -280,16 +281,17 @@ func (m *Manager) CreateInterface(inp CreateInput) (*TunnelInterface, error) {
 	}
 
 	t, err := Create(InterfaceInput{
-		ID:            id,
-		Name:          name,
-		Protocol:      inp.Protocol,
-		Address:       inp.Address,
-		ListenPort:    port,
-		DisableRoutes: inp.DisableRoutes,
-		DNS:           inp.DNS,
-		PrivateKey:    keys.PrivateKey,
-		PublicKey:     keys.PublicKey,
-		AWG2:          inp.AWG2,
+		ID:             id,
+		Name:           name,
+		Protocol:       inp.Protocol,
+		Address:        inp.Address,
+		ListenPort:     port,
+		DisableRoutes:  inp.DisableRoutes,
+		DNS:            inp.DNS,
+		DomainAliasDNS: inp.DomainAliasDNS,
+		PrivateKey:     keys.PrivateKey,
+		PublicKey:      keys.PublicKey,
+		AWG2:           inp.AWG2,
 	})
 	if err != nil {
 		return nil, err
@@ -843,6 +845,12 @@ func (m *Manager) BuildPeerRemoteConfig(t *TunnelInterface, p *peer.Peer) (strin
 		awg2 = &cp
 	}
 
+	if t.DomainAliasDNS {
+		if _, _, err := net.ParseCIDR(t.Address); err != nil {
+			return "", fmt.Errorf("Cascade DNS requires a valid tunnel address: %w", err)
+		}
+	}
+
 	// Resolve MTU: per-interface override takes priority over global setting.
 	mtu := gs.MTU
 	if t.MTU > 0 {
@@ -850,13 +858,20 @@ func (m *Manager) BuildPeerRemoteConfig(t *TunnelInterface, p *peer.Peer) (strin
 	}
 
 	ifaceData := peer.InterfaceData{
-		ID:         t.ID,
-		Name:       t.Name,
-		Protocol:   t.Protocol,
-		PublicKey:  t.PublicKey,
-		Address:    t.Address,
-		ListenPort: t.ListenPort,
+		ID:             t.ID,
+		Name:           t.Name,
+		Protocol:       t.Protocol,
+		PublicKey:      t.PublicKey,
+		Address:        t.Address,
+		ListenPort:     t.ListenPort,
+		DomainAliasDNS: t.DomainAliasDNS,
 		DNS: func() string {
+			if t.DomainAliasDNS {
+				ip, _, err := net.ParseCIDR(t.Address)
+				if err == nil {
+					return ip.String()
+				}
+			}
 			if t.DNS != "" {
 				return t.DNS
 			}

@@ -44,7 +44,7 @@ dependencies.
 | 🌐 **Routing** | Static routes and policy-based routing — send traffic per-source, per-destination or **per-domain** through different gateways. Dual-stack: `ip rule` and `ip -6 rule` built from one rule, with per-family fallback and blackhole |
 | 🔀 **NAT** | Outbound MASQUERADE / SNAT with alias support, plus Port Forwarding (DNAT) with per-interface scoping and optional source NAT |
 | 🛡️ **Firewall** | Filter rules (ACCEPT / DROP / REJECT) and PBR via gateway, matching on addresses, ports, interfaces or domain aliases — IPv4 and IPv6 from a single rule |
-| 📋 **Aliases** | 8 types: host, network, ipset, client-group, group, port, port-group and **domain**. Domain aliases resolve DNS names in the background into TTL-aware kernel ipsets; client groups are ipset-backed and auto-update on peer changes |
+| 📋 **Aliases** | 8 types: host, network, ipset, client-group, group, port, port-group and **domain**. Domain aliases resolve exact DNS names in the background and learn wildcard suffixes (e.g. `*.googlevideo.com`) through optional per-interface Cascade DNS into TTL-aware kernel ipsets; client groups are ipset-backed and auto-update on peer changes |
 | 📡 **Gateways** | Live ICMP ping and HTTP/S monitoring with automatic failover and gateway groups. Optional IPv6 next hop and ICMPv6 probe target for dual-stack links |
 | 🎛️ **AWG 2.0/3.1 Templates** | Versioned AmneziaWG 2.0 and 3.1 templates with a built-in generator — header protection, padding/rekey/timeout controls, CPS profiles and isolated defaults per protocol |
 | 🔐 **Auth** | Multi-user accounts, TOTP 2FA (Google Authenticator), long-lived API tokens |

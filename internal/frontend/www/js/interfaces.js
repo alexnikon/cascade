@@ -55,6 +55,7 @@ async createTunnelInterface() {
           address: this.interfaceCreate.address,
           listenPort: this.interfaceCreate.listenPort ? parseInt(this.interfaceCreate.listenPort, 10) : undefined,
           disableRoutes: this.interfaceCreate.disableRoutes || false,
+          domainAliasDNS: !!this.interfaceCreate.domainAliasDNS,
           dns: this.interfaceCreate.dns || '',
         };
 
@@ -279,7 +280,7 @@ _resetInterfaceCreate() {
       this.createMode = 'quick';
       this.interfaceCreate = {
 		name: '', protocol: 'amneziawg-3.1', address: '', listenPort: '',
-        disableRoutes: false, dns: '', selectedTemplateId: '',
+        disableRoutes: false, domainAliasDNS: false, dns: '', selectedTemplateId: '',
         settings: {
           jc: 6, jmin: 10, jmax: 50, s1: 64, s2: 67, s3: 64, s4: 4,
           h1: '', h2: '', h3: '', h4: '',
@@ -352,6 +353,8 @@ openInterfaceEdit(iface) {
         listenPort: iface.listenPort || '',
         disableRoutes: !!iface.disableRoutes,
         natDisabled: !!iface.natDisabled,
+        domainAliasDNSStatus: iface.domainAliasDNSStatus || {},
+        domainAliasDNS: !!iface.domainAliasDNS,
         dns: iface.dns || '',
         publicHost: iface.publicHost || '',
         mtu: iface.mtu || 0,
@@ -407,7 +410,7 @@ onEditInterfaceTemplateSelect(templateId) {
     },
 
 async saveInterfaceEdit() {
-      const { id, name, address, listenPort, disableRoutes, natDisabled, dns, publicHost, mtu, mss, protocol, settings } = this.interfaceEdit;
+      const { id, name, address, listenPort, disableRoutes, natDisabled, domainAliasDNS, dns, publicHost, mtu, mss, protocol, settings } = this.interfaceEdit;
 
       if (!name) { this.showToast('Please enter a name', 'error'); return; }
       if (!address || !address.includes('/')) {
@@ -430,6 +433,7 @@ async saveInterfaceEdit() {
         listenPort: listenPort !== '' && listenPort !== null ? Number(listenPort) : undefined,
         disableRoutes,
         natDisabled,
+        domainAliasDNS: !!domainAliasDNS,
         dns: dns || '',
         publicHost: publicHost || '',
         mtu: mtu || 0,

@@ -26,6 +26,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/alexnikon/cascade/internal/dnsalias"
 	"github.com/alexnikon/cascade/internal/firewall"
 	"github.com/alexnikon/cascade/internal/peer"
 	"github.com/alexnikon/cascade/internal/routing"
@@ -108,24 +109,28 @@ func peerJSON(p *peer.Peer) fiber.Map {
 // PrivateKey is always excluded; peers slice is included if withPeers=true.
 func ifaceJSON(t *tunnel.TunnelInterface, withPeers bool) fiber.Map {
 	m := fiber.Map{
-		"id":            t.ID,
-		"name":          t.Name,
-		"address":       t.Address,
-		"listenPort":    t.ListenPort,
-		"protocol":      t.Protocol,
-		"enabled":       t.Enabled,
-		"disableRoutes": t.DisableRoutes,
-		"natDisabled":   t.NatDisabled,
-		"dns":           t.DNS,
-		"publicHost":    t.PublicHost,
-		"mtu":           t.MTU,
-		"mss":           t.MSS,
-		"kernelMtu":     kernelMTU(t.ID),
-		"uplink":        t.Uplink,
-		"publicKey":     t.PublicKey,
-		"settings":      t.AWG2,
-		"createdAt":     t.CreatedAt,
-		"peerCount":     t.PeerCount(),
+		"id":             t.ID,
+		"name":           t.Name,
+		"address":        t.Address,
+		"listenPort":     t.ListenPort,
+		"protocol":       t.Protocol,
+		"enabled":        t.Enabled,
+		"disableRoutes":  t.DisableRoutes,
+		"natDisabled":    t.NatDisabled,
+		"dns":            t.DNS,
+		"domainAliasDNS": t.DomainAliasDNS,
+		"publicHost":     t.PublicHost,
+		"mtu":            t.MTU,
+		"mss":            t.MSS,
+		"kernelMtu":      kernelMTU(t.ID),
+		"uplink":         t.Uplink,
+		"publicKey":      t.PublicKey,
+		"settings":       t.AWG2,
+		"createdAt":      t.CreatedAt,
+		"peerCount":      t.PeerCount(),
+	}
+	if r := dnsalias.Get(); r != nil {
+		m["domainAliasDNSStatus"] = r.ProxyStatus()[t.ID]
 	}
 	if withPeers {
 		m["peers"] = t.GetAllPeers()
@@ -169,13 +174,14 @@ func getInterface(c *fiber.Ctx) error {
 // Body: { name, protocol?, address?, listenPort?, disableRoutes?, settings? }
 func createInterface(c *fiber.Ctx) error {
 	var body struct {
-		Name          string             `json:"name"`
-		Protocol      string             `json:"protocol"`
-		Address       string             `json:"address"`
-		ListenPort    int                `json:"listenPort"`
-		DisableRoutes bool               `json:"disableRoutes"`
-		DNS           string             `json:"dns"`
-		AWG2          *peer.AWG2Settings `json:"settings"`
+		Name           string             `json:"name"`
+		Protocol       string             `json:"protocol"`
+		Address        string             `json:"address"`
+		ListenPort     int                `json:"listenPort"`
+		DisableRoutes  bool               `json:"disableRoutes"`
+		DomainAliasDNS bool               `json:"domainAliasDNS"`
+		DNS            string             `json:"dns"`
+		AWG2           *peer.AWG2Settings `json:"settings"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
@@ -200,13 +206,14 @@ func createInterface(c *fiber.Ctx) error {
 		}
 	}
 	t, err := mgr().CreateInterface(tunnel.CreateInput{
-		Name:          strings.TrimSpace(body.Name),
-		Protocol:      body.Protocol,
-		Address:       addr,
-		ListenPort:    body.ListenPort,
-		DisableRoutes: body.DisableRoutes,
-		DNS:           strings.TrimSpace(body.DNS),
-		AWG2:          awg2,
+		Name:           strings.TrimSpace(body.Name),
+		Protocol:       body.Protocol,
+		Address:        addr,
+		ListenPort:     body.ListenPort,
+		DisableRoutes:  body.DisableRoutes,
+		DNS:            strings.TrimSpace(body.DNS),
+		DomainAliasDNS: body.DomainAliasDNS,
+		AWG2:           awg2,
 	})
 	if err != nil {
 		return fiber.NewError(interfaceErrorStatus(err), err.Error())
@@ -270,6 +277,9 @@ func updateInterface(c *fiber.Ctx) error {
 	}
 
 	upd := tunnel.InterfaceUpdate{}
+	if v, ok := raw["domainAliasDNS"].(bool); ok {
+		upd.DomainAliasDNS = &v
+	}
 
 	if v, ok := raw["name"].(string); ok {
 		s := strings.TrimSpace(v)

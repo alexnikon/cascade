@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"regexp"
 	"strings"
 	"time"
@@ -140,6 +141,7 @@ type InterfaceData struct {
 	PublicKey               string
 	Address                 string // CIDR e.g. "10.8.0.1/24"
 	ListenPort              int
+	DomainAliasDNS          bool
 	DNS                     string // for client [Interface] section
 	DefaultClientAllowedIPs string
 	Host                    string       // WG_HOST env (used in Endpoint line of client config)
@@ -632,6 +634,9 @@ func (p *Peer) generateCompleteConfig(iface InterfaceData) string {
 	if clientAllowedIPs == "" {
 		clientAllowedIPs = "0.0.0.0/0, ::/0"
 	}
+	if iface.DomainAliasDNS {
+		clientAllowedIPs = includeDNSRoute(clientAllowedIPs, iface.DNS)
+	}
 	fmt.Fprintf(&sb, "AllowedIPs = %s\n", clientAllowedIPs)
 	fmt.Fprintf(&sb, "PersistentKeepalive = %d\n", p.PersistentKeepalive)
 
@@ -723,6 +728,9 @@ func (p *Peer) generateTemplateConfig(iface InterfaceData) string {
 	}
 	if clientAllowedIPs == "" {
 		clientAllowedIPs = "0.0.0.0/0, ::/0"
+	}
+	if iface.DomainAliasDNS {
+		clientAllowedIPs = includeDNSRoute(clientAllowedIPs, iface.DNS)
 	}
 	fmt.Fprintf(&sb, "AllowedIPs = %s\n", clientAllowedIPs)
 	fmt.Fprintf(&sb, "PersistentKeepalive = %d\n\n", p.PersistentKeepalive)
@@ -961,4 +969,23 @@ func normaliseExpiredAt(s string) string {
 		return t.UTC().Format(time.RFC3339)
 	}
 	return ""
+}
+
+// includeDNSRoute ensures split-tunnel clients can reach the tunnel DNS address.
+func includeDNSRoute(routes, server string) string {
+	ip := net.ParseIP(server)
+	if ip == nil {
+		return routes
+	}
+	for _, entry := range strings.Split(routes, ",") {
+		_, n, err := net.ParseCIDR(strings.TrimSpace(entry))
+		if err == nil && n.Contains(ip) {
+			return routes
+		}
+	}
+	bits := 128
+	if ip.To4() != nil {
+		bits = 32
+	}
+	return strings.Trim(routes, " ,") + fmt.Sprintf(", %s/%d", ip, bits)
 }

@@ -1505,10 +1505,9 @@ func TestFrontendDomainAliasUI(t *testing.T) {
 		}
 	}
 
-	// Wildcards are not resolvable in Stage 1, so the UI must say so rather than
-	// silently accepting a name the API will reject.
-	if !strings.Contains(index, "Wildcards") && !strings.Contains(index, "wildcard") {
-		t.Error("the domain alias form should explain that wildcards are unsupported")
+	// Suffixes require clients to use the tunnel DNS service.
+	if !strings.Contains(index, "Use Cascade DNS") || !strings.Contains(index, "*.example.com") {
+		t.Error("the domain alias form must explain suffix learning through Cascade DNS")
 	}
 
 	// Regression: every pre-existing alias type is still offered and still edits

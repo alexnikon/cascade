@@ -100,6 +100,8 @@ _portAliasOptions() {
 _domainStatusLabel(alias) {
       const st = alias && alias.domainStatus;
       if (!st) return { text: 'Starting…', tone: 'muted' };
+      if (st.suffixCount && !Object.values(st.dnsProxy || {}).some(s => s.ready)) return { text: 'Needs Cascade DNS', tone: 'muted' };
+      if (st.suffixCount && !st.exactCount && !st.ipv4Count && !st.ipv6Count) return { text: 'Waiting for client DNS', tone: 'muted' };
       if (st.lastError) return { text: 'DNS error', tone: 'error' };
       if (!st.lastUpdate) return { text: 'Resolving…', tone: 'muted' };
       return { text: 'Healthy', tone: 'ok' };

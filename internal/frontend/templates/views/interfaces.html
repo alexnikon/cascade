@@ -782,13 +782,19 @@
                   </p>
                 </div>
 
-                <!-- DNS Override (optional) -->
+                <div v-if="createMode === 'manual'" class="mb-4">
+ <label class="flex items-center gap-2 text-sm dark:text-neutral-300">
+ <input type="checkbox" v-model="interfaceCreate.domainAliasDNS"> Use Cascade DNS
+ </label>
+ <p class="text-xs text-gray-400 mt-1">Use the tunnel address as client DNS to learn Domain Alias suffixes. Existing clients must import the updated configuration. Secure DNS (DoH/DoT) bypasses this feature.</p>
+ </div>
+ <!-- DNS Override (optional) -->
                 <div v-if="createMode === 'manual'" class="mb-4">
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
                     DNS Override
                     <span class="text-gray-400 font-normal">(optional)</span>
                   </label>
-                  <input v-model="interfaceCreate.dns" type="text"
+                  <input v-model="interfaceCreate.dns" :disabled="interfaceCreate.domainAliasDNS" type="text"
                     placeholder="e.g. 1.1.1.1, 8.8.8.8"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
@@ -1250,13 +1256,21 @@
                 </p>
               </div>
 
-              <!-- DNS Override -->
+              <div class="mb-4">
+ <label class="flex items-center gap-2 text-sm dark:text-neutral-300">
+ <input type="checkbox" v-model="interfaceEdit.domainAliasDNS"> Use Cascade DNS
+ </label>
+ <p v-if="interfaceEdit.domainAliasDNSStatus.error" class="text-xs text-red-500 mt-1">{{ interfaceEdit.domainAliasDNSStatus.error }}</p>
+ <p v-if="interfaceEdit.domainAliasDNSStatus.ready" class="text-xs text-green-600 mt-1">DNS ready at {{ interfaceEdit.domainAliasDNSStatus.address }}</p>
+ <p class="text-xs text-gray-400 mt-1">Use the tunnel address as client DNS to learn Domain Alias suffixes. Existing clients must import the updated configuration. Secure DNS (DoH/DoT) bypasses this feature.</p>
+ </div>
+ <!-- DNS Override -->
               <div class="mb-4">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
                   DNS Override
                   <span class="text-gray-400 font-normal">(optional)</span>
                 </label>
-                <input v-model="interfaceEdit.dns" type="text"
+                <input v-model="interfaceEdit.dns" :disabled="interfaceEdit.domainAliasDNS" type="text"
                   placeholder="e.g. 1.1.1.1, 8.8.8.8"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">

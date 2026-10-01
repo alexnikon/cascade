@@ -33,12 +33,15 @@ const (
 // DomainStatus is the resolver's runtime view of a domain alias. It is attached
 // to the API representation on read and is never stored in SQLite.
 type DomainStatus struct {
-	LastUpdate string `json:"lastUpdate,omitempty"` // RFC3339, last successful resolution
-	NextUpdate string `json:"nextUpdate,omitempty"` // RFC3339, when the next attempt is due
-	IPv4Count  int    `json:"ipv4Count"`
-	IPv6Count  int    `json:"ipv6Count"`
-	LastError  string `json:"lastError,omitempty"` // most recent DNS failure, cleared on success
-	Resolving  bool   `json:"resolving,omitempty"`
+	DNSProxy    map[string]DNSProxyStatus `json:"dnsProxy,omitempty"`
+	SuffixCount int                       `json:"suffixCount"`
+	ExactCount  int                       `json:"exactCount"`
+	LastUpdate  string                    `json:"lastUpdate,omitempty"` // RFC3339, last successful resolution
+	NextUpdate  string                    `json:"nextUpdate,omitempty"` // RFC3339, when the next attempt is due
+	IPv4Count   int                       `json:"ipv4Count"`
+	IPv6Count   int                       `json:"ipv6Count"`
+	LastError   string                    `json:"lastError,omitempty"` // most recent DNS failure, cleared on success
+	Resolving   bool                      `json:"resolving,omitempty"`
 }
 
 // DomainSetV4 returns the deterministic kernel ipset name holding the IPv4
@@ -63,9 +66,7 @@ func domainSetName(aliasID, suffix string) string {
 // normalizeDomainEntries validates, lowercases and deduplicates the domain names
 // of a domain alias, preserving the order in which they were given.
 //
-// Wildcards are rejected outright rather than silently ignored: "*.example.com"
-// is not a resolvable name, and accepting it would imply a matching behaviour
-// this stage does not provide.
+// Wildcard suffixes are learned from client DNS responses.
 func normalizeDomainEntries(entries []string) ([]string, error) {
 	out := make([]string, 0, len(entries))
 	seen := make(map[string]struct{}, len(entries))
@@ -96,8 +97,9 @@ func normalizeDomainEntries(entries []string) ([]string, error) {
 // (as widened by RFC 1123 to allow a leading digit). Internationalised names are
 // accepted in punycode form only.
 func validateDomainName(name string) error {
-	if strings.HasPrefix(name, "*") || strings.Contains(name, "*") {
-		return fmt.Errorf("wildcard domains are not supported (got %q) — list each name explicitly", name)
+	name = strings.TrimPrefix(name, "*.")
+	if strings.Contains(name, "*") {
+		return fmt.Errorf("invalid wildcard %q: only a leading *. is supported", name)
 	}
 	if net.ParseIP(name) != nil {
 		return fmt.Errorf("%q is an IP address — use a host or network alias instead", name)
@@ -154,4 +156,20 @@ func (m *Manager) domainSetPrefixInUse(setName string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// DNSProxyStatus describes a per-interface DNS listener.
+type DNSProxyStatus struct {
+	Address string `json:"address"`
+	Ready   bool   `json:"ready"`
+	Error   string `json:"error,omitempty"`
+}
+
+// DomainMatches compares an exact name or wildcard suffix on DNS label boundaries.
+func DomainMatches(pattern, name string) bool {
+	name = strings.TrimSuffix(strings.ToLower(name), ".")
+	if strings.HasPrefix(pattern, "*.") {
+		return strings.HasSuffix(name, pattern[1:])
+	}
+	return name == pattern
 }

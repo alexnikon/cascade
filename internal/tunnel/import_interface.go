@@ -26,17 +26,18 @@ type cascadeBackup struct {
 
 // cascadeBackupIface mirrors the ifaceJSON output plus privateKey.
 type cascadeBackupIface struct {
-	PrivateKey    string             `json:"privateKey"`
-	PublicKey     string             `json:"publicKey"`
-	Address       string             `json:"address"`
-	Protocol      string             `json:"protocol"`
-	DisableRoutes bool               `json:"disableRoutes"`
-	NatDisabled   bool               `json:"natDisabled"`
-	DNS           string             `json:"dns"`
-	PublicHost    string             `json:"publicHost"`
-	MTU           int                `json:"mtu"`
-	MSS           int                `json:"mss"`
-	AWG2          *peer.AWG2Settings `json:"settings"`
+	PrivateKey     string             `json:"privateKey"`
+	PublicKey      string             `json:"publicKey"`
+	Address        string             `json:"address"`
+	Protocol       string             `json:"protocol"`
+	DisableRoutes  bool               `json:"disableRoutes"`
+	NatDisabled    bool               `json:"natDisabled"`
+	DomainAliasDNS bool               `json:"domainAliasDNS"`
+	DNS            string             `json:"dns"`
+	PublicHost     string             `json:"publicHost"`
+	MTU            int                `json:"mtu"`
+	MSS            int                `json:"mss"`
+	AWG2           *peer.AWG2Settings `json:"settings"`
 }
 
 // cascadeBackupPeer mirrors the peer.Peer JSON fields we need.
@@ -140,12 +141,13 @@ func (m *Manager) importCascadeBackup(inp ImportInterfaceInput) (*ImportInterfac
 	}
 
 	iface, err := m.CreateInterface(CreateInput{
-		Protocol:      protocol,
-		Address:       address,
-		ListenPort:    inp.ListenPort,
-		DisableRoutes: ifc.DisableRoutes,
-		DNS:           ifc.DNS,
-		AWG2:          ifc.AWG2,
+		Protocol:       protocol,
+		Address:        address,
+		ListenPort:     inp.ListenPort,
+		DisableRoutes:  ifc.DisableRoutes,
+		DNS:            ifc.DNS,
+		DomainAliasDNS: ifc.DomainAliasDNS,
+		AWG2:           ifc.AWG2,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create interface: %w", err)

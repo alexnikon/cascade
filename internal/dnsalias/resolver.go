@@ -8,8 +8,7 @@
 // addresses on its own and a DNS outage degrades gradually instead of wiping the
 // set.
 //
-// This is not a DNS proxy and it does not intercept client queries: it resolves
-// only the names the operator configured on the alias.
+// Exact names are resolved proactively; suffixes are learned by the DNS proxy.
 //
 // The configured names in SQLite are the source of truth; resolved addresses
 // live only in the kernel and the runtime state below lives only in memory.
@@ -75,11 +74,15 @@ type Resolver struct {
 	im ipsetWriter
 	dc *dnsClient
 
-	mu      sync.RWMutex
-	states  map[string]*aliasState
-	stop    chan struct{}
-	wg      sync.WaitGroup
-	started bool
+	proxyConfigMu sync.Mutex
+	proxyMu       sync.Mutex
+	proxies       map[string]*proxyListener
+	proxyStatus   map[string]aliases.DNSProxyStatus
+	mu            sync.RWMutex
+	states        map[string]*aliasState
+	stop          chan struct{}
+	wg            sync.WaitGroup
+	started       bool
 }
 
 // aliasState is the per-alias runtime state and control plane.
@@ -100,11 +103,13 @@ type aliasState struct {
 // New creates a Resolver. Call Start to bring it up.
 func New(am *aliases.Manager, im ipsetWriter) *Resolver {
 	return &Resolver{
-		am:     am,
-		im:     im,
-		dc:     newDNSClient(systemServers(resolvConfPath)),
-		states: make(map[string]*aliasState),
-		stop:   make(chan struct{}),
+		proxies:     make(map[string]*proxyListener),
+		proxyStatus: make(map[string]aliases.DNSProxyStatus),
+		am:          am,
+		im:          im,
+		dc:          newDNSClient(systemServers(resolvConfPath)),
+		states:      make(map[string]*aliasState),
+		stop:        make(chan struct{}),
 	}
 }
 
@@ -155,6 +160,7 @@ func (r *Resolver) Stop() {
 	close(r.stop)
 	r.mu.Unlock()
 
+	r.stopProxies()
 	r.wg.Wait()
 
 	r.mu.Lock()
@@ -220,6 +226,16 @@ func (r *Resolver) Status(aliasID string) *aliases.DomainStatus {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	s := st.status
+	for _, d := range st.domains {
+		if strings.HasPrefix(d, "*.") {
+			s.SuffixCount++
+		} else {
+			s.ExactCount++
+		}
+	}
+	s.DNSProxy = r.ProxyStatus()
+	s.IPv4Count = r.im.GetEntryCount(st.setV4)
+	s.IPv6Count = r.im.GetEntryCount(st.setV6)
 	return &s
 }
 
@@ -309,7 +325,12 @@ func (r *Resolver) ensureSets(st *aliasState) error {
 // age out if it persists.
 func (r *Resolver) resolveOnce(st *aliasState) time.Duration {
 	st.mu.Lock()
-	domains := append([]string(nil), st.domains...)
+	var domains []string
+	for _, d := range st.domains {
+		if !strings.HasPrefix(d, "*.") {
+			domains = append(domains, d)
+		}
+	}
 	st.status.Resolving = true
 	st.mu.Unlock()
 

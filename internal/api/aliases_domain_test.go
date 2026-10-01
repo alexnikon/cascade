@@ -83,16 +83,16 @@ func TestAPI_CreateDomainAlias(t *testing.T) {
 	}
 }
 
-func TestAPI_CreateDomainAliasRejectsWildcard(t *testing.T) {
+func TestAPI_CreateDomainAliasRejectsInvalidWildcard(t *testing.T) {
 	app, _ := newAliasApp(t)
 
 	status, body := doJSON(t, app, "POST", "/api/aliases",
-		`{"name":"API-Wildcard","type":"domain","entries":["*.googlevideo.com"]}`)
+		`{"name":"API-Wildcard","type":"domain","entries":["foo.*.googlevideo.com"]}`)
 	if status != fiber.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body = %s", status, body)
 	}
 	if !strings.Contains(string(body), "wildcard") {
-		t.Errorf("error message should explain wildcards are unsupported, got %s", body)
+		t.Errorf("error message should explain wildcard syntax, got %s", body)
 	}
 }
 
@@ -176,5 +176,13 @@ func TestAPI_RefreshUnknownAliasIs404(t *testing.T) {
 	status, _ := doJSON(t, app, "POST", "/api/aliases/00000000-0000-0000-0000-000000000000/refresh", "")
 	if status != fiber.StatusNotFound {
 		t.Errorf("status = %d, want 404", status)
+	}
+}
+
+func TestAPI_CreateDomainAliasAcceptsSuffix(t *testing.T) {
+	app, _ := newAliasApp(t)
+	status, body := doJSON(t, app, "POST", "/api/aliases", `{"name":"Suffix","type":"domain","entries":["*.GoogleVideo.COM."]}`)
+	if status != fiber.StatusCreated || !strings.Contains(string(body), "*.googlevideo.com") {
+		t.Fatalf("status=%d body=%s", status, body)
 	}
 }

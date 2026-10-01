@@ -241,6 +241,8 @@ new Vue({
       listenPort: '',
       disableRoutes: false,
       natDisabled: false,
+      domainAliasDNS: false,
+      domainAliasDNSStatus: {},
       dns: '',
       publicHost: '',
       mtu: 0,
@@ -266,6 +268,7 @@ new Vue({
       address: '',
       listenPort: '',
       disableRoutes: false,
+      domainAliasDNS: false,
       dns: '',
       selectedTemplateId: '',   // UI-only template selection; not sent to the API
       settings: {

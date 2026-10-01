@@ -13,6 +13,7 @@ func TestNormalizeDomainEntries_Valid(t *testing.T) {
 		in   []string
 		want []string
 	}{
+		{"wildcard", []string{" *.GoogleVideo.COM. "}, []string{"*.googlevideo.com"}},
 		{"plain name", []string{"youtube.com"}, []string{"youtube.com"}},
 		{"subdomain", []string{"www.youtube.com"}, []string{"www.youtube.com"}},
 		{"deep subdomain", []string{"youtubei.googleapis.com"}, []string{"youtubei.googleapis.com"}},
@@ -55,7 +56,7 @@ func TestNormalizeDomainEntries_Invalid(t *testing.T) {
 		in         []string
 		wantErrHas string
 	}{
-		{"wildcard", []string{"*.googlevideo.com"}, "wildcard"},
+		{"multiple wildcard", []string{"*.*.googlevideo.com"}, "wildcard"},
 		{"bare asterisk", []string{"*"}, "wildcard"},
 		{"embedded asterisk", []string{"foo.*.com"}, "wildcard"},
 		{"IPv4 address", []string{"142.250.185.78"}, "IP address"},
@@ -193,7 +194,7 @@ func TestDomainAlias_Create(t *testing.T) {
 func TestDomainAlias_CreateRejectsInvalidEntries(t *testing.T) {
 	m := initTestDB(t)
 
-	if _, err := m.Create(Alias{Name: "Bad", Type: "domain", Entries: []string{"*.example.com"}}); err == nil {
+	if _, err := m.Create(Alias{Name: "Bad", Type: "domain", Entries: []string{"foo.*.example.com"}}); err == nil {
 		t.Error("want Create to reject a wildcard entry")
 	}
 	if _, err := m.Create(Alias{Name: "Empty", Type: "domain", Entries: nil}); err == nil {
@@ -228,7 +229,7 @@ func TestDomainAlias_UpdateRejectsInvalidEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if _, err := m.Update(a.ID, Alias{Entries: []string{"*.googlevideo.com"}}); err == nil {
+	if _, err := m.Update(a.ID, Alias{Entries: []string{"foo.*.googlevideo.com"}}); err == nil {
 		t.Fatal("want Update to reject a wildcard entry")
 	}
 
@@ -457,5 +458,21 @@ func TestDomainAlias_RejectedByIPSetOnlyOperations(t *testing.T) {
 	}
 	if _, err := m.UploadFromFile(a.ID, "/nonexistent"); err == nil {
 		t.Error("want UploadFromFile to reject a domain alias")
+	}
+}
+
+func TestDomainMatches(t *testing.T) {
+	for _, name := range []string{"r1.googlevideo.com", "a.b.googlevideo.com", "R1.GOOGLEVIDEO.COM."} {
+		if !DomainMatches("*.googlevideo.com", name) {
+			t.Errorf("did not match %s", name)
+		}
+	}
+	for _, name := range []string{"googlevideo.com", "notgooglevideo.com", "googlevideo.com.example.org"} {
+		if DomainMatches("*.googlevideo.com", name) {
+			t.Errorf("unexpected match %s", name)
+		}
+	}
+	if !DomainMatches("youtube.com", "YOUTUBE.COM.") || DomainMatches("youtube.com", "www.youtube.com") {
+		t.Fatal("exact matching broken")
 	}
 }

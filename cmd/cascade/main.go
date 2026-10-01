@@ -385,6 +385,11 @@ func main() {
 	dnsResolver := dnsalias.New(aliasMgr, ipsetMgr)
 	dnsalias.SetInstance(dnsResolver)
 	dnsResolver.Start()
+	for _, iface := range tunnel.Get().GetAllInterfaces() {
+		if err := iface.SyncDomainDNS(); err != nil {
+			log.Printf("dnsalias: %s: %v", iface.ID, err)
+		}
+	}
 
 	// 8. Peer expiry checker — disables peers whose expiredAt has passed.
 	//    Runs every 60 s; first check at 30 s after startup.

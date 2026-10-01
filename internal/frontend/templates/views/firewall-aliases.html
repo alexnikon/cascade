@@ -105,6 +105,7 @@
                     <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;">
                       <div class="dark:text-neutral-300">
                         <div class="text-gray-400 dark:text-neutral-500 uppercase" style="font-size:10px;">Resolved</div>
+                        Exact: {{ (alias.domainStatus || {}).exactCount || 0 }} · Suffix: {{ (alias.domainStatus || {}).suffixCount || 0 }} ·
                         IPv4: <strong>{{ (alias.domainStatus || {}).ipv4Count || 0 }}</strong> ·
                         IPv6: <strong>{{ (alias.domainStatus || {}).ipv6Count || 0 }}</strong>
                       </div>
@@ -127,6 +128,9 @@
                         {{ aliasRefreshingId === alias.id ? 'Refreshing…' : '⟳ Refresh now' }}
                       </button>
                     </div>
+                    <p class="text-xs text-gray-400 mt-1">Refresh updates exact names; suffixes are learned from client DNS queries.</p>
+                    <p v-if="(alias.domainStatus || {}).suffixCount && !Object.values((alias.domainStatus || {}).dnsProxy || {}).some(s => s.ready)" class="text-amber-600 text-xs mt-1">Enable Use Cascade DNS on a client interface and update the client configuration to learn suffixes.</p>
+                    <p v-for="(proxy, id) in ((alias.domainStatus || {}).dnsProxy || {})" :key="id" class="text-xs mt-1" :class="proxy.error ? 'text-red-500' : 'text-gray-400'">DNS {{ id }} · {{ proxy.address }} · {{ proxy.ready ? 'Ready' : proxy.error }}</p>
                     <p v-if="(alias.domainStatus || {}).lastError" class="text-red-500 mt-1 font-mono">
                       {{ alias.domainStatus.lastError }}
                     </p>
@@ -206,12 +210,11 @@
               <div v-if="aliasCreate.type === 'domain'">
                 <label class="text-sm font-medium dark:text-neutral-300">Domains (one per line)</label>
                 <textarea v-model="aliasCreate.entries" rows="6"
-                  placeholder="youtube.com&#10;www.youtube.com&#10;googlevideo.com&#10;i.ytimg.com"
+                  placeholder="youtube.com&#10;www.youtube.com&#10;*.googlevideo.com&#10;*.ytimg.com"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
                   Each name is resolved in the background (A + AAAA) into a kernel ipset that firewall rules match on.
-                  Entries carry the DNS TTL and expire on their own. Wildcards such as <code>*.example.com</code> are not supported —
-                  list each name explicitly.
+                  Entries expire by DNS TTL. Suffixes such as <code>*.example.com</code> are learned from client DNS responses when Use Cascade DNS is enabled. The apex must be listed separately.
                 </p>
               </div>
               <!-- Group: member checklist -->
@@ -406,7 +409,7 @@
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1 font-mono"></textarea>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
                   Saving re-resolves immediately. The kernel ipset keeps its name, so firewall rules referencing this alias are unaffected.
-                  Wildcards are not supported.
+                  Suffixes such as *.example.com are learned through Cascade DNS.
                 </p>
               </div>
               <!-- Group: member checklist -->

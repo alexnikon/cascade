@@ -346,6 +346,35 @@ Each rule creates up to 4 iptables commands per protocol: PREROUTING DNAT + 2× 
 | `POST` | `/api/aliases/:id/generate` | Generate ipset from RIPE/ipdeny. Body: `{ country?, asn?, asnList? }`. Returns `{ jobId }` |
 | `GET` | `/api/aliases/:id/generate/:jobId` | Poll job status. Returns `{ status: "running"\|"done"\|"error", entryCount?, error? }` |
 
+### Domain Alias DNS
+
+Set `domainAliasDNS: true` when creating or updating a tunnel interface to enable
+**Use Cascade DNS**. The default is `false`. The listener binds UDP and TCP port 53
+on that interface's tunnel address and accepts queries from its enabled client
+peers only. Interface responses include `domainAliasDNSStatus` with `address`,
+`ready` and an optional `error`. Upstream DNS uses the system resolver configuration;
+self-referencing upstreams are excluded. A port conflict is reported as an error.
+
+Generated client downloads, one-time links and QR codes use only the tunnel
+address as DNS while this mode is enabled. The address is included in split-tunnel
+`AllowedIPs` as needed. Existing clients must import the updated configuration.
+Stored per-interface and global DNS settings remain available when the mode is
+disabled. Host firewall INPUT policy must allow client DNS to the tunnel address.
+
+Domain alias `entries` accepts exact names and a single leading `*.` suffix.
+`*.googlevideo.com` matches `r1.googlevideo.com` and deeper subdomains, but not
+`googlevideo.com` itself. Exact names are also refreshed proactively; suffixes are
+learned from client DNS answers. Matching query names and their CNAME chains add
+related A/AAAA records to every matching alias before the answer is returned.
+Entries expire by bounded DNS TTL; failure to write an ipset returns SERVFAIL.
+Refresh (`POST /api/aliases/:id/refresh`) updates exact names only.
+
+`domainStatus` includes `exactCount`, `suffixCount`, current `ipv4Count`/`ipv6Count`
+and a `dnsProxy` map keyed by interface ID. Resolved IPs are transient kernel state.
+Removed suffixes stop learning immediately; previously learned addresses remain
+until TTL expiry. DoH/DoT and browser Secure DNS bypass this service. Shared IPs
+can cause other sites at the same address to follow the same gateway.
+
 ### Alias types
 
 | Type | Entries format | Use |
@@ -355,6 +384,7 @@ Each rule creates up to 4 iptables commands per protocol: PREROUTING DNAT + 2× 
 | `ipset` | generated | Large prefix sets (kernel ipset) |
 | `group` | `["<aliasId>"]` | Combines host/network aliases |
 | `client-group` | managed automatically | Kernel ipset populated with IPs of peers belonging to the group. Managed automatically on peer create/update/delete. Used in firewall rules for per-group traffic control. |
+| `domain` | `["youtube.com", "*.googlevideo.com"]` | Exact DNS names and learned suffixes; separate IPv4/IPv6 timeout ipsets |
 | `port` | `["tcp:443", "udp:53", "any:80"]` | L4 ports |
 | `port-group` | `["<portAliasId>"]` | Combines port aliases |
 

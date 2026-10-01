@@ -619,3 +619,20 @@ func TestDerivePublicKey_AcceptsWellFormedKeyFormat(t *testing.T) {
 		t.Errorf("DerivePublicKey with well-formed key returned error: %v", err)
 	}
 }
+
+func TestCascadeDNSRoutesInCompleteAndTemplateConfigs(t *testing.T) {
+	for _, key := range []string{"", "private-key"} {
+		p := &Peer{PrivateKey: key, ClientAllowedIPs: "192.0.2.0/24"}
+		iface := InterfaceData{DNS: "10.101.0.1", DomainAliasDNS: true}
+		cfg := p.GenerateRemoteConfig(iface)
+		if !strings.Contains(cfg, "DNS = 10.101.0.1\n") || !strings.Contains(cfg, "AllowedIPs = 192.0.2.0/24, 10.101.0.1/32") {
+			t.Fatalf("config: %s", cfg)
+		}
+	}
+	if got := includeDNSRoute("0.0.0.0/0", "10.101.0.1"); got != "0.0.0.0/0" {
+		t.Fatalf("duplicate route: %s", got)
+	}
+	if got := includeDNSRoute("192.0.2.0/24", "2001:db8::1"); got != "192.0.2.0/24, 2001:db8::1/128" {
+		t.Fatalf("IPv6 route: %s", got)
+	}
+}
