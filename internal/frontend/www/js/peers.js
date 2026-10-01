@@ -97,8 +97,9 @@ async _refreshPeersOrAll(opts = {}) {
     },
 
 async resetPeerTraffic(peer) {
-      if (this.peerTrafficResetInFlight || peer.peerType !== 'client') return;
-      if (!window.confirm(`Reset traffic counters for client "${peer.name}"?`)) return;
+      if (this.peerTrafficResetInFlight || !['client', 'interconnect'].includes(peer.peerType)) return;
+      const label = peer.peerType === 'interconnect' ? 'S2S peer' : 'client';
+      if (!window.confirm(`Reset traffic counters for ${label} "${peer.name}"?`)) return;
       const remoteId = this.activeRemoteId;
       const interfaceId = this._peerIfaceId(peer);
       this.peerTrafficResetInFlight = true;
@@ -110,7 +111,7 @@ async resetPeerTraffic(peer) {
         if (remoteId !== this.activeRemoteId) return;
         this.$delete(this.peersPersist, peer.id);
         await this._refreshPeersOrAll();
-        this.showToast('Client traffic counters reset');
+        this.showToast(`${peer.peerType === 'interconnect' ? 'S2S peer' : 'Client'} traffic counters reset`);
       } catch (err) {
         this.showToast(err.message || err.toString(), 'error');
       } finally {

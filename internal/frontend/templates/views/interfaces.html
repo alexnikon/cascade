@@ -255,7 +255,7 @@
                         </button>
 
                         <!-- Reset traffic -->
-                        <button v-if="peer.peerType === 'client'" @click="resetPeerTraffic(peer)"
+                        <button @click="resetPeerTraffic(peer)"
                           title="Reset trafic" aria-label="Reset trafic" :disabled="peerTrafficResetInFlight"
                           class="peer-action-button" :class="{ 'is-disabled': peerTrafficResetInFlight }">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -662,7 +662,7 @@
                       </button>
 
                       <!-- Reset traffic -->
-                      <button v-if="peer.peerType === 'client'" @click="resetPeerTraffic(peer)"
+                      <button @click="resetPeerTraffic(peer)"
                         title="Reset trafic" aria-label="Reset trafic" :disabled="peerTrafficResetInFlight"
                         class="peer-action-button" :class="{ 'is-disabled': peerTrafficResetInFlight }">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">

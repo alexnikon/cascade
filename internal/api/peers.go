@@ -511,7 +511,7 @@ func resetPeerTraffic(c *fiber.Ctx) error {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		default:
 			log.Printf("api: reset traffic %s/%s: %v", c.Params("id"), c.Params("peerId"), err)
-			return fiber.NewError(fiber.StatusInternalServerError, "Failed to reset client traffic")
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to reset peer traffic")
 		}
 	}
 	return c.SendStatus(fiber.StatusNoContent)

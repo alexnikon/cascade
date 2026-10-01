@@ -628,7 +628,7 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 			t.Errorf("Interfaces action markup %q count = %d, want %d", markup, got, want)
 		}
 	}
-	resetBeforeDelete := regexp.MustCompile(`(?s)<button v-if="peer.peerType === 'client'" @click="resetPeerTraffic\(peer\)"\s+title="Reset trafic" aria-label="Reset trafic" :disabled="peerTrafficResetInFlight".{0,800}?</button>\s+<button @click="peerDelete = peer"`)
+	resetBeforeDelete := regexp.MustCompile(`(?s)<button @click="resetPeerTraffic\(peer\)"\s+title="Reset trafic" aria-label="Reset trafic" :disabled="peerTrafficResetInFlight".{0,800}?</button>\s+<button @click="peerDelete = peer"`)
 	if got := len(resetBeforeDelete.FindAllString(interfaces, -1)); got != 2 {
 		t.Errorf("Interfaces Reset traffic buttons before Delete = %d, want 2", got)
 	}

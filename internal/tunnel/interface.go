@@ -1545,14 +1545,21 @@ func (t *TunnelInterface) GetStatus() {
 }
 
 // ErrTrafficPeerNotFound means the requested peer is not on this interface.
-var ErrTrafficPeerNotFound = errors.New("client not found on interface")
+var ErrTrafficPeerNotFound = errors.New("peer not found on interface")
 
-// ErrTrafficPeerType means traffic reset was requested for a non-client peer.
-var ErrTrafficPeerType = errors.New("traffic reset is only available for clients")
+// ErrTrafficPeerType means traffic reset was requested for an unsupported peer type.
+var ErrTrafficPeerType = errors.New("traffic reset is only available for clients and S2S peers")
 
 // ResetPeerTraffic resets accumulated usage without changing the running peer.
 // A fresh kernel sample establishes the baseline before totals are committed.
 func (t *TunnelInterface) ResetPeerTraffic(peerID string) error {
+	return t.resetPeerTraffic(peerID, func() (string, error) {
+		return util.ExecSilentFast(fmt.Sprintf("%s show %s dump", t.syncBin(), t.ID))
+	})
+}
+
+// resetPeerTraffic allows deterministic baseline checks without a live tunnel.
+func (t *TunnelInterface) resetPeerTraffic(peerID string, readBaseline func() (string, error)) error {
 	t.statusMu.Lock()
 	defer t.statusMu.Unlock()
 	t.peersMu.Lock()
@@ -1564,12 +1571,12 @@ func (t *TunnelInterface) ResetPeerTraffic(peerID string) error {
 	if p == nil {
 		return ErrTrafficPeerNotFound
 	}
-	if p.PeerType != "client" {
+	if p.PeerType != "client" && p.PeerType != "interconnect" {
 		return ErrTrafficPeerType
 	}
 	var rx, tx int64
 	if t.Enabled {
-		out, err := util.ExecSilentFast(fmt.Sprintf("%s show %s dump", t.syncBin(), t.ID))
+		out, err := readBaseline()
 		if err != nil {
 			return fmt.Errorf("read traffic baseline: %w", err)
 		}
@@ -1591,7 +1598,7 @@ func (t *TunnelInterface) ResetPeerTraffic(peerID string) error {
 			break
 		}
 		if !found && p.Enabled {
-			return fmt.Errorf("client missing from running tunnel")
+			return fmt.Errorf("peer missing from running tunnel")
 		}
 	}
 	result, err := db.DB().Exec(
