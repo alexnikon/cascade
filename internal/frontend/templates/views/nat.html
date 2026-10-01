@@ -41,13 +41,13 @@
 
             <!-- Empty state -->
             <div v-if="!natRulesLoading && natRules.length === 0"
-              class="text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
+              class="content-panel text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
               No NAT rules configured. Click <strong>+ Add Rule</strong> to create one.
             </div>
 
             <!-- Rules list -->
             <div v-if="natRules.length > 0"
-              class="bg-white dark:bg-neutral-800 rounded-lg shadow-sm mobile-dense-list"
+              class="content-panel bg-white dark:bg-neutral-800 rounded-lg shadow-sm mobile-dense-list"
               style="overflow:hidden;">
 
               <!-- Table header -->
@@ -171,7 +171,7 @@
           <div v-if="activeNatTab === 'portforward'" style="display:flex; flex-direction:column; gap:16px;">
 
             <!-- Header -->
-            <div class="bg-white dark:bg-neutral-700 rounded-lg shadow" style="padding:16px 24px 24px;">
+            <div class="content-panel bg-white dark:bg-neutral-700 rounded-lg shadow" style="padding:16px 24px 24px;">
               <div class="flex items-center justify-between mb-2">
                 <div>
                   <h2 class="text-lg font-semibold dark:text-neutral-100">Port Forwarding</h2>
@@ -194,13 +194,13 @@
 
             <!-- Empty -->
             <div v-else-if="!dnatRules.length"
-              class="bg-white dark:bg-neutral-700 rounded-lg shadow text-center text-gray-400 dark:text-neutral-400"
+              class="content-panel bg-white dark:bg-neutral-700 rounded-lg shadow text-center text-gray-400 dark:text-neutral-400"
               style="padding:40px 0;">
               No rules yet. Click "+ Add Rule" to forward a port to another server.
             </div>
 
             <!-- Rules table -->
-            <div v-else class="bg-white dark:bg-neutral-700 rounded-lg shadow overflow-hidden">
+            <div v-else class="content-panel bg-white dark:bg-neutral-700 rounded-lg shadow overflow-hidden">
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b dark:border-neutral-600 text-left text-gray-500 dark:text-neutral-400">

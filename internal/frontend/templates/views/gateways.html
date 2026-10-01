@@ -15,24 +15,24 @@
             </div>
 
             <div v-if="gatewaysLoading && !gatewaysLoaded"
-              class="text-center text-gray-500 dark:text-neutral-400 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
+              class="content-panel text-center text-gray-500 dark:text-neutral-400 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
               Loading gateways…
             </div>
 
             <div v-else-if="gatewaysError && !gatewaysLoaded"
-              class="text-center text-red-600 dark:text-red-400 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
+              class="content-panel text-center text-red-600 dark:text-red-400 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
               Unable to load gateways. Please try again.
             </div>
 
             <!-- Empty state -->
             <div v-else-if="gatewaysLoaded && gateways.length === 0"
-              class="text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
+              class="content-panel text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
               No gateways configured yet. Create one to start monitoring.
             </div>
 
             <!-- Gateways table -->
             <div v-else-if="gatewaysLoaded && gateways.length > 0"
-              class="bg-white dark:bg-neutral-800 rounded-lg shadow-sm mobile-dense-list"
+              class="content-panel bg-white dark:bg-neutral-800 rounded-lg shadow-sm mobile-dense-list"
               style="overflow:hidden;">
               <div v-for="(gw, idx) in gateways" :key="gw.id"
                 class="flex items-center"
@@ -150,14 +150,14 @@
 
             <!-- Empty state -->
             <div v-if="gatewayGroups.length === 0"
-              class="text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
+              class="content-panel text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
               No gateway groups defined yet.
             </div>
 
             <!-- Groups list -->
             <div style="display:flex; flex-direction:column; gap:12px;">
               <div v-for="grp in gatewayGroups" :key="grp.id"
-                class="bg-white dark:bg-neutral-800 rounded-lg shadow-sm"
+                class="content-panel bg-white dark:bg-neutral-800 rounded-lg shadow-sm"
                 style="padding:16px;">
 
                 <!-- Group header -->

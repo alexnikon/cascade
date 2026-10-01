@@ -16,11 +16,10 @@
               New
             </button>
             <button @click="showImportBackup = true; importBackupTab = 'cascade'; importBackupForm = { json: '', listenPort: '', fileName: '' }"
-			  class="btn flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition"
-              :style="{ background: 'transparent', color: theme === 'dark' ? '#c084fc' : '#7c3aed', border: '1px solid currentColor' }"
+			  class="btn interface-import-button flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition"
               title="Import a Cascade interface export or WG/AWG configuration">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>
               </svg>
               Import
             </button>
@@ -82,7 +81,7 @@
                 class="text-center text-gray-500 dark:text-neutral-400" style="padding: 60px 0;">
                 <p>No clients or peers across all interfaces.</p>
               </div>
-              <div v-else class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+              <div v-else class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
                 <div v-for="peer in allPeers" :key="peer.id + '/' + peer.interfaceId"
                   class="relative overflow-hidden border-b last:border-b-0 border-gray-100 dark:border-neutral-600 border-solid">
 
@@ -282,7 +281,7 @@
           <!-- Per-interface view -->
           <div v-if="currentInterface">
             <!-- Interface info card -->
-            <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden mb-4">
+            <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden mb-4">
               <div class="flex flex-row flex-wrap gap-3" style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">
                 <div class="flex-grow">
                   <h2 class="text-xl font-medium dark:text-neutral-200">
@@ -390,7 +389,7 @@
             </div>
 
             <!-- Peers section -->
-            <div class="shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
               <div class="flex flex-row flex-auto items-center p-3 px-5 border-b-2 border-gray-100 dark:border-neutral-600">
                 <div class="flex-grow">
                   <p class="text-2xl font-medium dark:text-neutral-200">{{ currentInterface && currentInterface.disableRoutes ? 'Peers' : 'Clients' }}</p>

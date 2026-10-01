@@ -22,12 +22,17 @@
     (() => {
       const root = document.documentElement;
       const systemScheme = window.matchMedia('(prefers-color-scheme: dark)');
+      const compactViewport = window.matchMedia('(max-width: 1023px)');
+      let currentTheme = 'auto';
 
       window.applyCascadeTheme = (theme, mediaQuery = systemScheme) => {
         const selectedTheme = ['light', 'dark', 'auto'].includes(theme) ? theme : 'auto';
         const dark = selectedTheme === 'dark'
           || (selectedTheme === 'auto' && mediaQuery.matches);
-        const chromeColor = dark ? '#1c1c1e' : '#f8fafc';
+        currentTheme = selectedTheme;
+        const pageColor = dark ? '#1c1c1e' : '#eef0f3';
+        const headerColor = dark ? '#2c2c2e' : '#ffffff';
+        const chromeColor = compactViewport.matches ? headerColor : pageColor;
         root.classList.toggle('dark', dark);
         root.style.colorScheme = dark ? 'dark' : 'light';
         root.style.setProperty('--browser-chrome-color', chromeColor);
@@ -48,6 +53,7 @@
         selectedTheme = localStorage.getItem('theme') || 'auto';
       } catch (_) {}
       window.applyCascadeTheme(selectedTheme, systemScheme);
+      compactViewport.addEventListener('change', () => window.applyCascadeTheme(currentTheme));
     })();
   </script>
   <style>
@@ -258,12 +264,12 @@
     to { transform: rotate(360deg); }
   }
 
-  /* ── Page background — light mode: soft tint of logo palette ── */
+  /* Neutral page background keeps white content panels distinct. */
   html, body, #app, .app-root, .app-shell {
-    background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 55%, #eff6ff 100%) !important;
+    background: #eef0f3 !important;
   }
   html, body {
-    background-color: var(--browser-chrome-color, #f8fafc) !important;
+    background-color: var(--browser-chrome-color, #eef0f3) !important;
     background-attachment: fixed !important;
     width: 100%;
     height: 100%;
@@ -355,7 +361,7 @@
     height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
-    background: rgba(255,255,255,0.45);
+    background: transparent;
     /* no backdrop-filter — it creates a stacking context that traps
        position:fixed children (toasts), making their background invisible */
   }
@@ -754,7 +760,7 @@
       padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
       align-items: center;
       gap: 10px;
-      background: rgba(255,255,255,0.9);
+      background: #ffffff;
       border-bottom: 1px solid rgba(0,0,0,0.08);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
@@ -1042,6 +1048,32 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
   }
+  /* Shared content panels; dashboard shadows belong to the outer wrapper. */
+  .content-panel {
+    background: rgba(255,255,255,0.80) !important;
+    border: 1px solid rgba(0,0,0,0.06) !important;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08) !important;
+  }
+  .dark .content-panel {
+    background: var(--surface-panel) !important;
+    border-color: rgba(255,255,255,0.07) !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+  }
+  .grid-stack-item-content.content-panel { border: none !important; }
+  .grid-stack-item-content.content-panel > .dash-card { box-shadow: none !important; }
+  .interface-import-button {
+    background: #2563eb;
+    color: #fff;
+    border: 1px solid transparent;
+  }
+  .interface-import-button:hover { background: #1d4ed8; }
+  .dark .interface-import-button { background: var(--accent-blue); }
+  .dark .interface-import-button:hover { background: #0071e3; }
+  .interface-import-button:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 3px;
+  }
+  .dark .interface-import-button:focus-visible { outline-color: var(--accent-blue); }
 </style>
 </head>
 

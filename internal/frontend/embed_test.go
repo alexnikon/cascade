@@ -476,7 +476,7 @@ func TestFrontendUsesConsistentButtonRadius(t *testing.T) {
 	if got := strings.Count(index, `class="interface-filter-button px-4 py-2 font-medium transition text-sm"`); got != 2 {
 		t.Errorf("Interfaces filter button count = %d, want 2", got)
 	}
-	if got := strings.Count(index, `class="btn flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition"`); got != 2 {
+	if got := strings.Count(strings.ReplaceAll(index, "btn interface-import-button ", "btn "), `class="btn flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition"`); got != 2 {
 		t.Errorf("Interfaces primary action button count = %d, want 2", got)
 	}
 	for _, expected := range []string{
@@ -1110,7 +1110,7 @@ func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
 		`root.style.colorScheme = dark ? 'dark' : 'light';`,
 		`root.style.setProperty('--browser-chrome-color', chromeColor);`,
 		`statusBar.setAttribute('content', dark ? 'black-translucent' : 'default');`,
-		`background-color: var(--browser-chrome-color, #f8fafc) !important;`,
+		`background-color: var(--browser-chrome-color, #eef0f3) !important;`,
 		`window.applyCascadeTheme(selectedTheme, systemScheme);`,
 	} {
 		if !strings.Contains(index, expected) {
