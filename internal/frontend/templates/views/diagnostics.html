@@ -3,30 +3,7 @@
         <!-- ============================================================== -->
         <div v-if="activePage === 'diagnostics'" key="page-diagnostics" style="display:flex; flex-direction:column; gap:16px; padding-bottom:40px;">
 
-          <!-- Header -->
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <h2 class="text-lg font-semibold dark:text-neutral-100">Diagnostics</h2>
-            <button v-if="diagActiveTab === 'graphs'" @click="diagAddWidget()"
-              class="text-sm text-white rounded"
-              style="padding:7px 16px; background:#2563eb; border:none; cursor:pointer;">
-              + Add Graph
-            </button>
-          </div>
-
           <!-- Tabs -->
-          <div style="display:flex; gap:0; border-bottom:2px solid; border-color: transparent;"
-            :style="{ borderColor: theme==='dark'?'#404040':'#e5e7eb' }">
-            <button @click="diagActiveTab='graphs'" class="ui-tab-button"
-              style="padding:7px 18px; border:none; cursor:pointer; font-size:0.875rem; font-weight:500; border-bottom:2px solid transparent; margin-bottom:-2px; background:none;"
-              :style="{ color: diagActiveTab==='graphs' ? (theme==='dark'?'#60a5fa':'#2563eb') : (theme==='dark'?'#a3a3a3':'#6b7280'), borderBottomColor: diagActiveTab==='graphs' ? (theme==='dark'?'#60a5fa':'#2563eb') : 'transparent' }">
-              Graphs
-            </button>
-            <button @click="diagActiveTab='utilities'" class="ui-tab-button"
-              style="padding:7px 18px; border:none; cursor:pointer; font-size:0.875rem; font-weight:500; border-bottom:2px solid transparent; margin-bottom:-2px; background:none;"
-              :style="{ color: diagActiveTab==='utilities' ? (theme==='dark'?'#60a5fa':'#2563eb') : (theme==='dark'?'#a3a3a3':'#6b7280'), borderBottomColor: diagActiveTab==='utilities' ? (theme==='dark'?'#60a5fa':'#2563eb') : 'transparent' }">
-              Utilities
-            </button>
-          </div>
 
           <!-- ── Graphs tab ─────────────────────────────────────────────── -->
           <div v-show="diagActiveTab === 'graphs'">

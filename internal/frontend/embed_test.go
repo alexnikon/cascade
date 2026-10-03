@@ -314,7 +314,7 @@ func TestFrontendDarkThemeHasReadableTextDefaults(t *testing.T) {
 		".dark .app-main-content,",
 		".dark .modal-panel,",
 		"color: var(--text-primary);",
-		`class="text-xl font-semibold dark:text-neutral-100">Dashboard`,
+		`class="section-title dark:text-neutral-200">{{ sectionTitle }}`,
 		`text-orange-600 dark:text-orange-400`,
 		`text-red-600 dark:text-red-400`,
 		`:class="theme === 'dark' ? (toast.type === 'error' ? 'toast-error' : 'toast-success') : ''"`,
@@ -1102,9 +1102,9 @@ func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
 		`calc(12px + env(safe-area-inset-bottom))`,
 		`awg-generator-panel`,
 		`awg-generator-footer`,
-		`class="firewall-toolbar"`,
-		`bottom:max(24px, env(safe-area-inset-bottom))`,
-		`right:max(24px, env(safe-area-inset-right))`,
+		`class="firewall-toolbar section-toolbar-actions"`,
+		`class="section-toolbar"`,
+		`.app-main.section-layout { display: flex; flex-direction: column; overflow: hidden; }`,
 		`<meta name="color-scheme" content="light dark">`,
 		`window.applyCascadeTheme = (theme, mediaQuery = systemScheme) => {`,
 		`root.style.colorScheme = dark ? 'dark' : 'light';`,
@@ -1332,7 +1332,7 @@ func TestPWAAssets(t *testing.T) {
 	if manifest.Name != "Cascade" || manifest.ShortName != "Cascade" || manifest.Description == "" || manifest.Display != "standalone" {
 		t.Fatalf("unexpected PWA identity: %+v", manifest)
 	}
-	if manifest.BackgroundColor != "#1c1c1e" || manifest.ThemeColor != "#1c1c1e" {
+	if manifest.BackgroundColor != "#1c1c1e" || manifest.ThemeColor != "#2c2c2e" {
 		t.Fatalf("unexpected PWA colors: %+v", manifest)
 	}
 
@@ -1389,7 +1389,7 @@ func TestFrontendPWAIntegration(t *testing.T) {
 	}
 	for _, expected := range []string{
 		`<link rel="manifest" href="./manifest.json">`,
-		`<meta name="theme-color" content="#1c1c1e">`,
+		`<meta name="theme-color" content="#2c2c2e">`,
 		`<link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">`,
 		`<script src="./js/pwa.js"></script>`,
 	} {

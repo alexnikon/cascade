@@ -1130,6 +1130,15 @@ new Vue({
       return this.globalSettings.routerName || this.globalSettings.hostname || 'Cascade';
     },
 
+    isWizardPage() {
+      return this.activePage.startsWith('wizard-');
+    },
+
+    sectionTitle() {
+      const titles = { 'firewall-aliases': 'Firewall Aliases', firewall: 'Firewall Rules', remotes: 'Remote Servers' };
+      return titles[this.activePage] || this.activePageLabel;
+    },
+
     activePageLabel() {
       const page = this.sidebarMenu.find(item => item.id === this.activePage);
       return page ? page.label : 'Cascade';

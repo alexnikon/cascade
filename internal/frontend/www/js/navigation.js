@@ -125,6 +125,8 @@ switchPage(pageId) {
         if (mainEl) {
           mainEl.scrollTop = 0;
         }
+        const content = document.querySelector('.app-main-content');
+        if (content) content.scrollTop = 0;
         const dashboardScroll = document.querySelector('.dashboard-scroll');
         if (dashboardScroll) {
           dashboardScroll.scrollTop = 0;

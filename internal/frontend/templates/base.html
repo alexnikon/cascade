@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="application-name" content="Cascade">
-  <meta name="theme-color" content="#1c1c1e">
+  <meta name="theme-color" content="#2c2c2e">
   <meta name="color-scheme" content="light dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Cascade">
@@ -22,17 +22,12 @@
     (() => {
       const root = document.documentElement;
       const systemScheme = window.matchMedia('(prefers-color-scheme: dark)');
-      const compactViewport = window.matchMedia('(max-width: 1023px)');
-      let currentTheme = 'auto';
 
       window.applyCascadeTheme = (theme, mediaQuery = systemScheme) => {
         const selectedTheme = ['light', 'dark', 'auto'].includes(theme) ? theme : 'auto';
         const dark = selectedTheme === 'dark'
           || (selectedTheme === 'auto' && mediaQuery.matches);
-        currentTheme = selectedTheme;
-        const pageColor = dark ? '#1c1c1e' : '#eef0f3';
-        const headerColor = dark ? '#2c2c2e' : '#ffffff';
-        const chromeColor = compactViewport.matches ? headerColor : pageColor;
+        const chromeColor = dark ? '#2c2c2e' : '#fafbfc';
         root.classList.toggle('dark', dark);
         root.style.colorScheme = dark ? 'dark' : 'light';
         root.style.setProperty('--browser-chrome-color', chromeColor);
@@ -53,7 +48,6 @@
         selectedTheme = localStorage.getItem('theme') || 'auto';
       } catch (_) {}
       window.applyCascadeTheme(selectedTheme, systemScheme);
-      compactViewport.addEventListener('change', () => window.applyCascadeTheme(currentTheme));
     })();
   </script>
   <style>
@@ -1111,6 +1105,51 @@
     .dark .gateway-field-label { color: var(--text-secondary); }
     .gateway-http-empty { display: inline; }
   }
+
+  /* Shared navigation surface keeps browser chrome and application chrome aligned. */
+  :root { --navigation-surface: #fafbfc; }
+  html.dark { --navigation-surface: #2c2c2e; }
+  .app-nav, .dark .app-nav { background: var(--navigation-surface); }
+  .app-main.section-layout { display: flex; flex-direction: column; overflow: hidden; }
+  .section-layout > .app-main-content {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    overscroll-behavior: contain; scrollbar-gutter: stable;
+  }
+  .section-layout > .dashboard-main-content { overflow: hidden; }
+  .section-layout .dashboard-scroll { padding-top: 16px; }
+  .section-toolbar {
+    flex: 0 0 auto; position: relative; z-index: 30;
+    padding: 20px 32px; background: var(--navigation-surface);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .dark .section-toolbar { border-bottom-color: rgba(255,255,255,0.08); }
+  .section-toolbar-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .section-toolbar-heading { min-width: 0; flex: 1 1 auto; }
+  .section-title { margin: 0; font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
+  .section-toolbar-controls, .section-toolbar-actions {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  }
+  .section-toolbar-controls:empty { display: none; }
+  .section-toolbar-actions > .flex, .section-toolbar-actions > div { margin-bottom: 0 !important; }
+  .section-toolbar .dashboard-toolbar { padding: 0; }
+  .section-toolbar-tabs {
+    display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto;
+    max-width: 100%; margin-top: 14px; padding-bottom: 2px;
+  }
+  .section-toolbar-tabs > button { flex: 0 0 auto; white-space: nowrap; }
+  .section-server-label, .section-toolbar .mobile-menu-button { display: none; }
+  @media (max-width: 1023px) {
+    .section-toolbar {
+      padding: calc(10px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left));
+    }
+    .section-server-label { display: block; }
+    .section-toolbar .mobile-menu-button { display: inline-flex; }
+    .section-toolbar-heading { flex: 1 1 0; }
+    .section-title { overflow-wrap: anywhere; }
+    .section-toolbar-controls { width: 100%; }
+    .section-layout.mobile-nav-open > .app-main-content { overflow: hidden; }
+    .section-layout > .app-main-content { scrollbar-gutter: auto; }
+  }
 </style>
 </head>
 
@@ -1131,22 +1170,7 @@
           aria-label="Close navigation" @click="closeMobileNav()"></button>
 
 [[ template "sidebar" . ]]
-        <!-- ==================== Content Area ==================== -->
-        <main class="flex-grow app-main" :class="{ 'mobile-nav-open': mobileNavOpen, 'dashboard-active': activePage === 'dashboard' }">
-          <header class="mobile-app-header">
-            <button ref="mobileMenuButton" type="button" class="mobile-menu-button"
-              aria-label="Open navigation" aria-controls="app-navigation"
-              :aria-expanded="String(mobileNavOpen)" @click="openMobileNav()">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/>
-              </svg>
-            </button>
-            <div style="min-width:0;">
-              <div class="text-xs text-gray-500 dark:text-neutral-400 truncate">{{ activeServerLabel }}</div>
-              <div class="font-semibold dark:text-neutral-100 truncate">{{ activePage === 'dashboard' ? 'Cascade' : activePageLabel }}</div>
-            </div>
-          </header>
-          <div class="app-main-content" :class="{ 'dashboard-main-content': activePage === 'dashboard' }">
+[[ template "header" . ]]
 
 [[ template "firewall-banner" . ]]
 [[ template "dashboard" . ]]
@@ -1170,7 +1194,6 @@
 [[ template "global-modals" . ]]
 [[ template "monitoring-modal" . ]]
 [[ template "notifications" . ]]
-[[ template "firewall-toolbar" . ]]
 [[ template "separator-modal" . ]]
 
 

@@ -4,53 +4,7 @@
         <!-- ============================================================== -->
         <div v-if="activePage === 'interfaces'" key="page-interfaces">
 
-          <!-- Action buttons row -->
-          <div class="flex gap-2" style="margin-bottom:10px;">
-			<button @click="_resetInterfaceCreate(); showInterfaceCreate = true; generateAndFillInterfaceParams()"
-			  class="btn flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition"
-              :style="{ background: theme === 'dark' ? '#15803d' : '#16a34a', color: 'white' }"
-              title="Create new interface">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-              </svg>
-              New
-            </button>
-            <button @click="showImportBackup = true; importBackupTab = 'cascade'; importBackupForm = { json: '', listenPort: '', fileName: '' }"
-			  class="btn interface-import-button flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition"
-              title="Import a Cascade interface export or WG/AWG configuration">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>
-              </svg>
-              Import
-            </button>
-          </div>
-
-          <!-- Separator -->
-          <div style="border-top:1px solid #e5e7eb; margin-bottom:12px;" class="dark:border-neutral-600"></div>
-
           <!-- Tab bar: "All" dashboard tab + interface tabs -->
-          <div class="flex flex-wrap gap-2 mb-4">
-            <!-- "All" dashboard tab: selected when no interface is active -->
-            <button @click="activeInterfaceId = null"
-              class="interface-filter-button px-4 py-2 font-medium transition text-sm"
-              :style="!activeInterfaceId
-                ? 'background:#2563eb; color:white; border:none;'
-                : theme==='dark'
-                  ? 'background:#404040; color:#e5e5e5; border:1px solid #525252;'
-                  : 'background:#f3f4f6; color:#111827; border:1px solid #d1d5db;'">
-              All
-            </button>
-            <button v-for="iface in tunnelInterfaces" :key="iface.id"
-              @click="activeInterfaceId = iface.id"
-              class="interface-filter-button px-4 py-2 font-medium transition text-sm"
-              :style="activeInterfaceId === iface.id
-                ? 'background:#16a34a; color:white; border:none;'
-                : theme==='dark'
-                  ? 'background:#404040; color:#e5e5e5; border:1px solid #525252;'
-                  : 'background:#f3f4f6; color:#111827; border:1px solid #d1d5db;'">
-              {{ iface.name || iface.id }}
-            </button>
-          </div>
 
           <!-- Dashboard view (no interface tab selected) -->
           <div v-if="!activeInterfaceId">

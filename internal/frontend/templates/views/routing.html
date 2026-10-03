@@ -3,25 +3,6 @@
         <!-- ============================================================== -->
         <div v-if="activePage === 'routing'" key="page-routing">
 
-          <!-- Tab bar: Status | Static | OSPF -->
-          <div class="flex gap-2 mb-4">
-            <button @click="switchRoutingTab('status')"
-              :class="activeRoutingTab === 'status' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200'"
-              class="px-4 py-2 rounded-lg font-medium transition text-sm">
-              Status
-            </button>
-            <button @click="switchRoutingTab('static')"
-              :class="activeRoutingTab === 'static' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200'"
-              class="px-4 py-2 rounded-lg font-medium transition text-sm">
-              Static
-            </button>
-            <button @click="switchRoutingTab('ospf')"
-              class="px-4 py-2 rounded-lg font-medium transition text-sm bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200"
-              style="opacity:0.5; cursor:not-allowed;" disabled>
-              OSPF
-            </button>
-          </div>
-
           <!-- ── STATUS TAB ────────────────────────────────────────────── -->
           <div v-if="activeRoutingTab === 'status'" style="display:flex; flex-direction:column; gap:24px;">
 
@@ -160,10 +141,7 @@
             <!-- Header -->
             <div class="flex items-center justify-between">
               <h2 class="text-xl font-semibold dark:text-neutral-200">Static Routes</h2>
-              <button @click="showRouteCreate = true"
-                class="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium transition">
-                + Add Route
-              </button>
+
             </div>
 
             <!-- Empty state -->
@@ -267,7 +245,6 @@
           </div>
 
         </div>
-
 
         <!-- ── Add Static Route Modal ──────────────────────────────────── -->
         <div v-if="showRouteCreate && activePage === 'routing'"

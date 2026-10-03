@@ -3,20 +3,6 @@
         <!-- ============================================================== -->
         <div v-if="activePage === 'nat'" key="page-nat">
 
-          <!-- Tab bar: Outbound NAT | Port Forwarding -->
-          <div class="flex gap-2 mb-4">
-            <button @click="switchNatTab('outbound')"
-              :class="activeNatTab === 'outbound' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200'"
-              class="px-4 py-2 rounded-lg font-medium transition text-sm">
-              Outbound NAT
-            </button>
-            <button @click="switchNatTab('portforward')"
-              :class="activeNatTab === 'portforward' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200'"
-              class="px-4 py-2 rounded-lg font-medium transition text-sm">
-              Port Forwarding
-            </button>
-          </div>
-
           <!-- ── OUTBOUND NAT TAB ──────────────────────────────────────── -->
           <div v-if="activeNatTab === 'outbound'" style="display:flex; flex-direction:column; gap:16px;">
 
@@ -28,10 +14,7 @@
                   Source NAT (POSTROUTING) — rewrite source IP of outgoing packets.
                 </p>
               </div>
-              <button @click="showNatRuleCreate = true; loadNatInterfaces()"
-                class="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium transition">
-                + Add Rule
-              </button>
+
             </div>
 
             <!-- Loading state -->
@@ -179,11 +162,7 @@
                     Redirect inbound traffic to another server (DNAT). Client → this server → destination.
                   </p>
                 </div>
-                <button @click="openAddDnat()"
-                  class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg"
-                  style="padding:8px 16px;">
-                  + Add Rule
-                </button>
+
               </div>
             </div>
 

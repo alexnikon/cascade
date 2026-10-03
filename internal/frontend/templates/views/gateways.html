@@ -5,14 +5,6 @@
 
           <!-- ── Section 1: Gateways ────────────────────────────────────── -->
           <div>
-            <!-- Section header -->
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-xl font-semibold dark:text-neutral-200">Gateways</h2>
-              <button @click="showGatewayCreate = true"
-                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
-                + New Gateway
-              </button>
-            </div>
 
             <div v-if="gatewaysLoading && !gatewaysLoaded"
               class="content-panel text-center text-gray-500 dark:text-neutral-400 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
@@ -137,10 +129,7 @@
             <!-- Section header -->
             <div class="flex items-center justify-between mb-4">
               <h2 class="text-xl font-semibold dark:text-neutral-200">Gateway Groups</h2>
-              <button @click="showGroupCreate = true"
-                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
-                + New Group
-              </button>
+
             </div>
 
             <!-- Empty state -->

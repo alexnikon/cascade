@@ -3,41 +3,6 @@
         <!-- Dashboard Page                                                 -->
         <!-- ============================================================== -->
         <div v-if="activePage === 'dashboard'" key="page-dashboard" class="dashboard-page">
-          <!-- Toolbar -->
-          <div class="dashboard-toolbar flex items-center justify-between">
-            <h1 class="text-xl font-semibold dark:text-neutral-100">Dashboard</h1>
-            <div class="flex gap-2">
-              <!-- Add Widget dropdown -->
-              <div style="position:relative;">
-                <button @click="dashShowAddMenu = !dashShowAddMenu"
-                  class="flex items-center gap-2 text-white rounded-lg text-sm font-medium"
-                  style="padding:7px 12px; background:#4f46e5; border:none; cursor:pointer;">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                  Add Widget
-                </button>
-                <div v-if="dashShowAddMenu"
-                  @click.self="dashShowAddMenu = false"
-                  class="bg-white dark:bg-neutral-700 rounded-lg shadow-lg"
-                  style="position:absolute; right:0; top:calc(100% + 6px); width:220px; z-index:100; border:1px solid #e5e7eb;">
-                  <div v-for="wt in dashAvailableWidgetTypes" :key="wt.type"
-                    @click="dashAddWidget(wt.type); dashShowAddMenu = false"
-                    class="flex items-center gap-3 text-sm dark:text-neutral-200 cursor-pointer"
-                    style="padding:10px 14px; border-bottom:1px solid #f3f4f6;"
-                    :style="{ 'border-bottom-color': theme === 'dark' ? '#525252' : '#f3f4f6' }"
-                    @mouseenter="$event.currentTarget.style.background = theme==='dark'?'#525252':'#f9fafb'"
-                    @mouseleave="$event.currentTarget.style.background = 'transparent'">
-                    <span style="font-size:1.1rem;">{{ wt.icon }}</span>
-                    <span>{{ wt.label }}</span>
-                  </div>
-                </div>
-              </div>
-              <button @click="dashResetLayout"
-                class="px-3 py-2 border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:text-neutral-200 transition"
-                title="Reset to default layout">
-                Reset
-              </button>
-            </div>
-          </div>
 
           <div class="dashboard-scroll">
           <!-- GridStack container — Vue renders items directly here; GridStack adopts them -->
