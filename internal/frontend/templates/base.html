@@ -750,8 +750,8 @@
       position: sticky;
       z-index: 30;
       top: 0;
-      min-height: calc(56px + env(safe-area-inset-top));
-      padding: calc(8px + env(safe-area-inset-top)) 12px 8px;
+      min-height: calc(64px + env(safe-area-inset-top));
+      padding: calc(16px + env(safe-area-inset-top)) 12px 8px;
       align-items: center;
       gap: 10px;
       background: #ffffff;
@@ -760,8 +760,8 @@
       -webkit-backdrop-filter: blur(14px);
     }
     html.pwa-standalone .mobile-app-header {
-      min-height: calc(64px + env(safe-area-inset-top));
-      padding-top: calc(16px + env(safe-area-inset-top));
+      min-height: calc(72px + env(safe-area-inset-top));
+      padding-top: calc(24px + env(safe-area-inset-top));
     }
     .dark .mobile-app-header {
       background: var(--surface-panel);
@@ -919,11 +919,11 @@
       bottom: 0;
       padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
       flex-wrap: wrap;
-      background: rgba(255,255,255,0.96);
+      background: #fff;
     }
     .dark .modal-footer,
     .dark .modal-footer-compact {
-      background: rgba(10,18,36,0.96);
+      background: inherit;
     }
     .modal-footer > button,
     .modal-footer-compact > button {
@@ -1015,6 +1015,13 @@
     background: var(--surface-raised) !important;
     backdrop-filter: blur(18px);
     border: 1px solid rgba(255,255,255,0.10);
+  }
+  /* Opaque compact modal surfaces keep sticky footers aligned with the body. */
+  @media (max-width: 1023px) {
+    html:not(.dark) .modal-panel:has(> .modal-footer),
+    html:not(.dark) .modal-panel:has(> .modal-footer-compact) {
+      background: #fff !important;
+    }
   }
   /* First-run & delete confirm modals (shadow-2xl) */
   .dark .shadow-2xl,
@@ -1140,7 +1147,7 @@
   .section-server-label, .section-toolbar .mobile-menu-button { display: none; }
   @media (max-width: 1023px) {
     .section-toolbar {
-      padding: calc(10px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left));
+      padding: calc(18px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left));
     }
     .section-server-label { display: block; }
     .section-toolbar .mobile-menu-button { display: inline-flex; }
