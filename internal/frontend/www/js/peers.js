@@ -208,6 +208,8 @@ openPeerEdit(peer) {
         endpoint: peer.endpoint || '',
         allowedIPs: peer.allowedIPs || '',
         clientAllowedIPs: peer.clientAllowedIPs || '',
+        clientAllowedIPsMode: peer.clientAllowedIPsMode || 'manual',
+        clientAllowedIPsAliasId: peer.clientAllowedIPsAliasId || '',
         rateDown: peer.rateDown ? peer.rateDown / 1000 : 0,
         rateUp:   peer.rateUp   ? peer.rateUp   / 1000 : 0,
         groupId: peer.groupId || (peer.peerType === 'client' ? this.defaultGroupId() : ''),
@@ -282,6 +284,8 @@ async savePeerEdit() {
           return;
         }
         updates.clientAllowedIPs = this.peerEditForm.clientAllowedIPs;
+        updates.clientAllowedIPsMode = this.peerEditForm.clientAllowedIPsMode;
+        updates.clientAllowedIPsAliasId = this.peerEditForm.clientAllowedIPsMode === 'exclude-ipset' ? this.peerEditForm.clientAllowedIPsAliasId : '';
         updates.rateDown = Math.round((Number(this.peerEditForm.rateDown) || 0) * 1000);
         updates.rateUp   = Math.round((Number(this.peerEditForm.rateUp)   || 0) * 1000);
         updates.groupId  = this.peerEditForm.groupId || '';

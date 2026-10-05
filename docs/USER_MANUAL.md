@@ -511,6 +511,16 @@ In the **Generate** section, select the source:
 
 Click **Generate** — prefixes are fetched from RIPE NCC asynchronously.
 
+### Client Split Tunneling with an ipset Alias
+
+In **Settings → Global Settings → Default Client AllowedIPs**, choose **Manual AllowedIPs** or **Exclude ipset alias**. The latter routes all IPv4 destinations through the VPN except the selected alias networks. IPv6 always uses the VPN (`::/0`); the existing ipset generator supports IPv4 only.
+
+New client peers inherit the selected mode and alias ID. Existing peers keep their manual routes until changed in the client editor. An explicit manual AllowedIPs list on creation overrides the global alias default. Interconnect peers keep manual routing.
+
+The alias is resolved at each configuration export, including QR codes, keyless templates, and one-time download links. Updates to an alias affect the next export, not configurations already installed on devices: download and re-import them after changes. RIPEstat generation remains manually triggered; this feature does not schedule source refreshes. Cascade DNS retains its required VPN host route even if the alias excludes that address.
+
+An empty, missing, unreadable, or invalid alias blocks export instead of falling back to a full tunnel. Aliases used by global defaults or client peers cannot be deleted; change those routing choices first. Large configurations may exceed QR capacity; use the `.conf` download instead.
+
 ### Editing an ipset Alias
 
 When clicking **Edit** on an ipset alias, the behavior depends on the set size:

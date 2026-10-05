@@ -5,6 +5,7 @@ package settings
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/alexnikon/cascade/internal/aliases"
 	"github.com/alexnikon/cascade/internal/awgparams"
 	"github.com/alexnikon/cascade/internal/db"
 	"github.com/alexnikon/cascade/internal/peer"
@@ -26,12 +28,14 @@ import (
 // GlobalSettings holds application-wide defaults.
 // Mirrors the DEFAULTS object in Settings.js.
 type GlobalSettings struct {
-	DNS                        string  `json:"dns"`
-	DefaultPersistentKeepalive int     `json:"defaultPersistentKeepalive"`
-	DefaultClientAllowedIPs    string  `json:"defaultClientAllowedIPs"`
-	GatewayWindowSeconds       int     `json:"gatewayWindowSeconds"`
-	GatewayHealthyThreshold    float64 `json:"gatewayHealthyThreshold"`
-	GatewayDegradedThreshold   float64 `json:"gatewayDegradedThreshold"`
+	DNS                            string  `json:"dns"`
+	DefaultPersistentKeepalive     int     `json:"defaultPersistentKeepalive"`
+	DefaultClientAllowedIPsMode    string  `json:"defaultClientAllowedIPsMode"`
+	DefaultClientAllowedIPsAliasID string  `json:"defaultClientAllowedIPsAliasId"`
+	DefaultClientAllowedIPs        string  `json:"defaultClientAllowedIPs"`
+	GatewayWindowSeconds           int     `json:"gatewayWindowSeconds"`
+	GatewayHealthyThreshold        float64 `json:"gatewayHealthyThreshold"`
+	GatewayDegradedThreshold       float64 `json:"gatewayDegradedThreshold"`
 
 	// Router identity
 	RouterName     string `json:"routerName"`     // human-readable name, e.g. "Moscow-01"
@@ -132,25 +136,28 @@ type AWG2Params = AWGParams
 
 // PeerDefaults are passed to InterfaceManager when creating a new peer.
 type PeerDefaults struct {
-	DNS                 string `json:"dns"`
-	PersistentKeepalive int    `json:"persistentKeepalive"`
-	ClientAllowedIPs    string `json:"clientAllowedIPs"`
+	DNS                     string `json:"dns"`
+	PersistentKeepalive     int    `json:"persistentKeepalive"`
+	ClientAllowedIPs        string `json:"clientAllowedIPs"`
+	ClientAllowedIPsMode    string `json:"clientAllowedIPsMode"`
+	ClientAllowedIPsAliasID string `json:"clientAllowedIPsAliasId"`
 }
 
 // defaults mirrors DEFAULTS in Settings.js.
 var defaults = GlobalSettings{
-	DNS:                        "1.1.1.1, 8.8.8.8",
-	DefaultPersistentKeepalive: 25,
-	DefaultClientAllowedIPs:    "0.0.0.0/0, ::/0",
-	GatewayWindowSeconds:       60,
-	GatewayHealthyThreshold:    95,
-	GatewayDegradedThreshold:   90,
-	PublicIPMode:               "auto",
-	ChartType:                  2, // area by default
-	Lang:                       "en",
-	SubnetPool:                 "10.10.0.0/16",
-	PortPool:                   "51831-65535",
-	DefaultFwPolicy:            "accept",
+	DNS:                         "1.1.1.1, 8.8.8.8",
+	DefaultPersistentKeepalive:  25,
+	DefaultClientAllowedIPs:     "0.0.0.0/0, ::/0",
+	DefaultClientAllowedIPsMode: "manual",
+	GatewayWindowSeconds:        60,
+	GatewayHealthyThreshold:     95,
+	GatewayDegradedThreshold:    90,
+	PublicIPMode:                "auto",
+	ChartType:                   2, // area by default
+	Lang:                        "en",
+	SubnetPool:                  "10.10.0.0/16",
+	PortPool:                    "51831-65535",
+	DefaultFwPolicy:             "accept",
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -184,11 +191,50 @@ func GetSettingsFromDB(d *sql.DB) (*GlobalSettings, error) {
 	return &s, nil
 }
 
+var ErrInvalidClientRouting = errors.New("invalid client routing")
+
 // UpdateSettings persists only the provided fields (partial update).
 // Returns the updated settings.
 func UpdateSettings(updates map[string]any) (*GlobalSettings, error) {
 	d := db.DB()
-
+	_, modeChanged := updates["defaultClientAllowedIPsMode"]
+	_, aliasChanged := updates["defaultClientAllowedIPsAliasId"]
+	if modeChanged || aliasChanged {
+		current, err := GetSettings()
+		if err != nil {
+			return nil, err
+		}
+		mode, id := current.DefaultClientAllowedIPsMode, current.DefaultClientAllowedIPsAliasID
+		if v, ok := updates["defaultClientAllowedIPsMode"]; ok {
+			var valid bool
+			mode, valid = v.(string)
+			if !valid {
+				return nil, fmt.Errorf("%w: defaultClientAllowedIPsMode must be a string", ErrInvalidClientRouting)
+			}
+		}
+		if v, ok := updates["defaultClientAllowedIPsAliasId"]; ok {
+			var valid bool
+			id, valid = v.(string)
+			if !valid {
+				return nil, fmt.Errorf("%w: defaultClientAllowedIPsAliasId must be a string", ErrInvalidClientRouting)
+			}
+		}
+		if mode != "manual" && mode != "exclude-ipset" {
+			return nil, fmt.Errorf("%w: defaultClientAllowedIPsMode must be manual or exclude-ipset", ErrInvalidClientRouting)
+		}
+		if mode == "exclude-ipset" {
+			if _, err := aliases.ResolveClientAllowedIPs(id); err != nil {
+				return nil, fmt.Errorf("%w: %v", ErrInvalidClientRouting, err)
+			}
+		} else {
+			updates["defaultClientAllowedIPsAliasId"] = ""
+		}
+	}
+	tx, err := d.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
 	for k, raw := range updates {
 		v := fmt.Sprintf("%v", raw)
 		// Validate before writing — invalid values are silently skipped
@@ -196,7 +242,7 @@ func UpdateSettings(updates map[string]any) (*GlobalSettings, error) {
 		if !isValidSettingValue(k, v) {
 			continue
 		}
-		_, err := d.Exec(
+		_, err := tx.Exec(
 			`INSERT INTO settings(key, value) VALUES(?,?)
 			 ON CONFLICT(key) DO UPDATE SET value=excluded.value`,
 			k, v,
@@ -206,6 +252,9 @@ func UpdateSettings(updates map[string]any) (*GlobalSettings, error) {
 		}
 	}
 
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
 	return GetSettings()
 }
 
@@ -235,9 +284,11 @@ func GetPeerDefaults() (*PeerDefaults, error) {
 		return nil, err
 	}
 	return &PeerDefaults{
-		DNS:                 s.DNS,
-		PersistentKeepalive: s.DefaultPersistentKeepalive,
-		ClientAllowedIPs:    s.DefaultClientAllowedIPs,
+		DNS:                     s.DNS,
+		PersistentKeepalive:     s.DefaultPersistentKeepalive,
+		ClientAllowedIPs:        s.DefaultClientAllowedIPs,
+		ClientAllowedIPsMode:    s.DefaultClientAllowedIPsMode,
+		ClientAllowedIPsAliasID: s.DefaultClientAllowedIPsAliasID,
 	}, nil
 }
 
@@ -875,6 +926,10 @@ func applySettingKey(s *GlobalSettings, k, v string) {
 		if n > 0 {
 			s.DefaultPersistentKeepalive = n
 		}
+	case "defaultClientAllowedIPsMode":
+		s.DefaultClientAllowedIPsMode = v
+	case "defaultClientAllowedIPsAliasId":
+		s.DefaultClientAllowedIPsAliasID = v
 	case "defaultClientAllowedIPs":
 		s.DefaultClientAllowedIPs = v
 	case "gatewayWindowSeconds":

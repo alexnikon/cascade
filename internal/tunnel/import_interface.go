@@ -42,20 +42,22 @@ type cascadeBackupIface struct {
 
 // cascadeBackupPeer mirrors the peer.Peer JSON fields we need.
 type cascadeBackupPeer struct {
-	Name                string      `json:"name"`
-	PublicKey           string      `json:"publicKey"`
-	PrivateKey          string      `json:"privateKey"`
-	PresharedKey        string      `json:"presharedKey"`
-	AllowedIPs          string      `json:"allowedIPs"`
-	Address             string      `json:"address"`
-	ClientAllowedIPs    string      `json:"clientAllowedIPs"`
-	PeerType            string      `json:"peerType"`
-	Endpoint            string      `json:"endpoint"`
-	PersistentKeepalive int         `json:"persistentKeepalive"`
-	GroupID             string      `json:"groupId"`
-	ExpiredAt           interface{} `json:"expiredAt"`
-	Enabled             bool        `json:"enabled"`
-	CreatedAt           string      `json:"createdAt"`
+	Name                    string      `json:"name"`
+	PublicKey               string      `json:"publicKey"`
+	PrivateKey              string      `json:"privateKey"`
+	PresharedKey            string      `json:"presharedKey"`
+	AllowedIPs              string      `json:"allowedIPs"`
+	Address                 string      `json:"address"`
+	ClientAllowedIPsMode    string      `json:"clientAllowedIPsMode"`
+	ClientAllowedIPsAliasID string      `json:"clientAllowedIPsAliasId"`
+	ClientAllowedIPs        string      `json:"clientAllowedIPs"`
+	PeerType                string      `json:"peerType"`
+	Endpoint                string      `json:"endpoint"`
+	PersistentKeepalive     int         `json:"persistentKeepalive"`
+	GroupID                 string      `json:"groupId"`
+	ExpiredAt               interface{} `json:"expiredAt"`
+	Enabled                 bool        `json:"enabled"`
+	CreatedAt               string      `json:"createdAt"`
 }
 
 // ── Input / Result types ──────────────────────────────────────────────────────
@@ -173,19 +175,21 @@ func (m *Manager) importCascadeBackup(inp ImportInterfaceInput) (*ImportInterfac
 
 	for _, bp := range backup.Peers {
 		inp := peer.PeerInput{
-			Name:                bp.Name,
-			PublicKey:           bp.PublicKey,
-			PrivateKey:          bp.PrivateKey,
-			PresharedKey:        bp.PresharedKey,
-			AllowedIPs:          bp.AllowedIPs,
-			Address:             bp.Address,
-			ClientAllowedIPs:    bp.ClientAllowedIPs,
-			PeerType:            bp.PeerType,
-			Endpoint:            bp.Endpoint,
-			PersistentKeepalive: bp.PersistentKeepalive,
-			GroupID:             bp.GroupID,
-			GenerateKeys:        false,
-			CreatedAt:           bp.CreatedAt,
+			Name:                    bp.Name,
+			PublicKey:               bp.PublicKey,
+			PrivateKey:              bp.PrivateKey,
+			PresharedKey:            bp.PresharedKey,
+			AllowedIPs:              bp.AllowedIPs,
+			Address:                 bp.Address,
+			ClientAllowedIPs:        bp.ClientAllowedIPs,
+			ClientAllowedIPsMode:    bp.ClientAllowedIPsMode,
+			ClientAllowedIPsAliasID: bp.ClientAllowedIPsAliasID,
+			PeerType:                bp.PeerType,
+			Endpoint:                bp.Endpoint,
+			PersistentKeepalive:     bp.PersistentKeepalive,
+			GroupID:                 bp.GroupID,
+			GenerateKeys:            false,
+			CreatedAt:               bp.CreatedAt,
 		}
 		if bp.ExpiredAt != nil {
 			if s, ok := bp.ExpiredAt.(string); ok && s != "" {

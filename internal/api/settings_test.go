@@ -22,6 +22,7 @@ import (
 
 	"github.com/alexnikon/cascade/internal/db"
 	"github.com/alexnikon/cascade/internal/prometheusmetrics"
+	"github.com/alexnikon/cascade/internal/settings"
 	"github.com/alexnikon/cascade/internal/tokens"
 	"github.com/alexnikon/cascade/internal/users"
 )
@@ -379,5 +380,30 @@ func TestGenerateTemplateDefaultsToAWG31AndCanGenerateLegacyAWG2(t *testing.T) {
 	params, _ = decodeBody(resp)["params"].(map[string]any)
 	if _, exists := params["headerProtectionKey"]; exists {
 		t.Fatalf("legacy response leaked AWG3 field: %v", params)
+	}
+}
+
+func TestSettingsClientRoutingRejectsInvalidChoiceAtomically(t *testing.T) {
+	ta := newSettingsTestApp(t)
+	for _, body := range []string{
+		`{"defaultClientAllowedIPsMode":"bad","routerName":"must-not-save"}`,
+		`{"defaultClientAllowedIPsMode":"exclude-ipset","defaultClientAllowedIPsAliasId":"missing","routerName":"must-not-save"}`,
+	} {
+		var payload map[string]any
+		if err := json.Unmarshal([]byte(body), &payload); err != nil {
+			t.Fatal(err)
+		}
+		resp := ta.put(t, payload)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("status=%d", resp.StatusCode)
+		}
+		resp.Body.Close()
+		s, err := settings.GetSettings()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if s.RouterName == "must-not-save" || s.DefaultClientAllowedIPsMode != "manual" {
+			t.Fatalf("partial invalid update: %+v", s)
+		}
 	}
 }

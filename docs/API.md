@@ -494,3 +494,11 @@ Legacy endpoints retained for frontend compatibility. Read-only, return safe def
 - Timestamps: RFC3339 UTC — `"2026-03-19T10:00:00Z"`
 - Interface IDs: string slugs — `"wg10"`, `"wg11"`, …
 - All other IDs: UUID v4
+
+### Client AllowedIPs source
+
+Global settings expose `defaultClientAllowedIPsMode` (`manual` or `exclude-ipset`) and `defaultClientAllowedIPsAliasId`, alongside the existing `defaultClientAllowedIPs` string. Client peer create, read, and update APIs expose `clientAllowedIPsMode` and `clientAllowedIPsAliasId` alongside `clientAllowedIPs`.
+
+Omitting a mode on client creation inherits the global choice unless a nonempty manual `clientAllowedIPs` is supplied. Existing peers and interconnect peers default to `manual`. Updating `clientAllowedIPs` without a mode switches the peer to manual routing and clears its alias binding. Explicit `manual` also clears the binding. Alias mode requires a nonempty readable IPv4 alias of type `ipset`.
+
+Export computes the IPv4 complement of the current alias entries and appends `::/0`. The peer stores the source choice, not the computed CIDR list. An unavailable or invalid alias causes an export error. Deletion of an alias referenced by global settings or a client peer is rejected.

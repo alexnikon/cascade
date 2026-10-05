@@ -101,9 +101,22 @@
               </div>
               <div>
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Default Client AllowedIPs</label>
-                <input v-model="globalSettings.defaultClientAllowedIPs" type="text" placeholder="0.0.0.0/0, ::/0"
+                <select v-model="globalSettings.defaultClientAllowedIPsMode"
+                  class="w-full px-3 py-2 mb-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                  <option value="manual">Manual AllowedIPs</option>
+                  <option value="exclude-ipset">Exclude ipset alias</option>
+                </select>
+                <select v-if="globalSettings.defaultClientAllowedIPsMode === 'exclude-ipset'" v-model="globalSettings.defaultClientAllowedIPsAliasId"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                  <option disabled value="">Select an ipset alias</option>
+                  <option v-for="alias in aliases.filter(a => a.type === 'ipset')" :key="alias.id" :value="alias.id">{{ alias.name }} ({{ alias.entryCount }} excluded IPv4 entries)</option>
+                </select>
+                <p v-if="globalSettings.defaultClientAllowedIPsMode === 'exclude-ipset'" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                  All IPv4 except this alias uses the VPN. All IPv6 uses the VPN. Export uses the current alias contents; download and re-import after changes. Cascade DNS keeps its VPN route.
+                </p>
+                <input v-if="globalSettings.defaultClientAllowedIPsMode !== 'exclude-ipset'" v-model="globalSettings.defaultClientAllowedIPs" type="text" placeholder="0.0.0.0/0, ::/0"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
-                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">What the client routes through the VPN (full tunnel = 0.0.0.0/0, ::/0).</p>
+                <p v-if="globalSettings.defaultClientAllowedIPsMode !== 'exclude-ipset'" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">What the client routes through the VPN (full tunnel = 0.0.0.0/0, ::/0).</p>
               </div>
 
               <!-- Quick Interface Creation Pool -->

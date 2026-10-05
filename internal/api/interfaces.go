@@ -26,6 +26,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/alexnikon/cascade/internal/aliases"
 	"github.com/alexnikon/cascade/internal/dnsalias"
 	"github.com/alexnikon/cascade/internal/firewall"
 	"github.com/alexnikon/cascade/internal/peer"
@@ -91,17 +92,19 @@ func mgr() *tunnel.Manager {
 // PrivateKey is always excluded — consistent with ifaceJSON for TunnelInterface.
 func peerJSON(p *peer.Peer) fiber.Map {
 	return fiber.Map{
-		"id":                  p.ID,
-		"name":                p.Name,
-		"publicKey":           p.PublicKey,
-		"presharedKey":        p.PresharedKey,
-		"endpoint":            p.Endpoint,
-		"allowedIPs":          p.AllowedIPs,
-		"clientAllowedIPs":    p.ClientAllowedIPs,
-		"peerType":            p.PeerType,
-		"persistentKeepalive": p.PersistentKeepalive,
-		"enabled":             p.Enabled,
-		"createdAt":           p.CreatedAt,
+		"id":                      p.ID,
+		"name":                    p.Name,
+		"publicKey":               p.PublicKey,
+		"presharedKey":            p.PresharedKey,
+		"endpoint":                p.Endpoint,
+		"allowedIPs":              p.AllowedIPs,
+		"clientAllowedIPs":        p.ClientAllowedIPs,
+		"clientAllowedIPsMode":    p.ClientAllowedIPsMode,
+		"clientAllowedIPsAliasId": p.ClientAllowedIPsAliasID,
+		"peerType":                p.PeerType,
+		"persistentKeepalive":     p.PersistentKeepalive,
+		"enabled":                 p.Enabled,
+		"createdAt":               p.CreatedAt,
 	}
 }
 
@@ -607,6 +610,14 @@ func restoreInterface(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "interface not found")
 	}
 
+	// Validate alias bindings before removing the existing peers.
+	for _, inp := range body.File.Peers {
+		if inp.ClientAllowedIPsMode == "exclude-ipset" {
+			if _, err := aliases.ResolveClientAllowedIPs(inp.ClientAllowedIPsAliasID); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, err.Error())
+			}
+		}
+	}
 	// Remove all existing peers first.
 	existing, _ := mgr().GetPeers(id)
 	for _, p := range existing {

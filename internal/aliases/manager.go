@@ -40,19 +40,19 @@ type Alias struct {
 	ID            string         `json:"id"`
 	Name          string         `json:"name"`
 	Description   string         `json:"description"`
-	Type          string         `json:"type"`           // host/network/ipset/group/port/port-group
-	Entries       []string       `json:"entries"`        // for host/network/port; domains for domain
-	MemberIDs     []string       `json:"memberIds"`      // for group/port-group
+	Type          string         `json:"type"`                // host/network/ipset/group/port/port-group
+	Entries       []string       `json:"entries"`             // for host/network/port; domains for domain
+	MemberIDs     []string       `json:"memberIds"`           // for group/port-group
 	IPSetName     string         `json:"ipsetName,omitempty"` // for ipset; _v4 set for domain
 	EntryCount    int            `json:"entryCount"`
 	GeneratorOpts *GeneratorOpts `json:"generatorOpts"` // null unless generated via RIPEstat
 	LastUpdated   string         `json:"lastUpdated,omitempty"`
 	CreatedAt     string         `json:"createdAt"`
 	// Rate limits for client-group type (kbps; 0 = unlimited).
-	RateDown      int            `json:"rateDown"`
-	RateUp        int            `json:"rateUp"`
+	RateDown int `json:"rateDown"`
+	RateUp   int `json:"rateUp"`
 	// Resolver runtime state for domain type; attached on read, never stored.
-	DomainStatus  *DomainStatus  `json:"domainStatus,omitempty"`
+	DomainStatus *DomainStatus `json:"domainStatus,omitempty"`
 }
 
 // GeneratorOpts stores the source parameters used to generate an ipset alias.
@@ -273,6 +273,10 @@ func (m *Manager) Update(id string, data Alias) (*Alias, error) {
 		return nil, err
 	}
 
+	if data.Type != "" && data.Type != a.Type {
+		return nil, fmt.Errorf("alias type cannot be changed")
+	}
+
 	// Name change — check uniqueness.
 	newName := strings.TrimSpace(data.Name)
 	if newName != "" && newName != a.Name {
@@ -361,9 +365,9 @@ func (m *Manager) Update(id string, data Alias) (*Alias, error) {
 //
 // Ordering matters and is deterministic:
 //
-//	1. remove the DB row, so nothing can compile a match on the alias any more
-//	2. rebuild the kernel firewall rules, which drops every reference to its sets
-//	3. destroy the sets, which the kernel now allows
+//  1. remove the DB row, so nothing can compile a match on the alias any more
+//  2. rebuild the kernel firewall rules, which drops every reference to its sets
+//  3. destroy the sets, which the kernel now allows
 //
 // Doing 3 before 2 is what used to fail: "ipset destroy" is refused while a
 // kernel component still references the set, leaving it orphaned until the next
@@ -372,6 +376,9 @@ func (m *Manager) Update(id string, data Alias) (*Alias, error) {
 // For client-group aliases, moves peers to default and then deletes.
 // Returns an error if the alias is referenced by a group.
 func (m *Manager) Delete(id string) error {
+	if err := checkClientRoutingReferences(id); err != nil {
+		return err
+	}
 	a, err := m.getOrNotFound(id)
 	if err != nil {
 		return err

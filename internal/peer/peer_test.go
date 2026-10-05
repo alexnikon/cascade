@@ -636,3 +636,28 @@ func TestCascadeDNSRoutesInCompleteAndTemplateConfigs(t *testing.T) {
 		t.Fatalf("IPv6 route: %s", got)
 	}
 }
+
+func TestManualRoutingDetachesAlias(t *testing.T) {
+	initTestDB(t)
+	insertTestInterface(t, "wg10")
+	p, err := CreatePeer("wg10", PeerInput{Name: "Split", PublicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", AllowedIPs: "10.8.0.2/32", ClientAllowedIPs: "192.0.2.0/24"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.DB().Exec(`UPDATE peers SET client_allowed_ips_mode='exclude-ipset',client_allowed_ips_alias_id='deleted-alias' WHERE id=?`, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	manual := "198.51.100.0/24"
+	p, err = UpdatePeer(p.ID, PeerUpdate{ClientAllowedIPs: &manual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := GetPeer(p.ID)
+	if err != nil || loaded.ClientAllowedIPsMode != "manual" || loaded.ClientAllowedIPsAliasID != "" || loaded.ClientAllowedIPs != manual {
+		t.Fatalf("peer=%+v err=%v", loaded, err)
+	}
+	invalid := "unsupported"
+	if _, err = UpdatePeer(p.ID, PeerUpdate{ClientAllowedIPsMode: &invalid}); err == nil {
+		t.Fatal("invalid mode accepted")
+	}
+}

@@ -125,6 +125,7 @@ async toggleDisableRoutes(iface) {
 async loadSettings() {
       try {
         this.globalSettings = await this.api.getSettings();
+        await this.loadAliases();
         if (this.globalSettings.lang && i18n.availableLocales.includes(this.globalSettings.lang)) {
           i18n.locale = this.globalSettings.lang;
           localStorage.setItem('lang', this.globalSettings.lang);

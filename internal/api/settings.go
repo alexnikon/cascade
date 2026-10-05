@@ -4,6 +4,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -151,6 +152,9 @@ func RegisterSettings(api fiber.Router) {
 
 		updated, err := settings.UpdateSettings(body)
 		if err != nil {
+			if errors.Is(err, settings.ErrInvalidClientRouting) {
+				return fiber.NewError(fiber.StatusBadRequest, err.Error())
+			}
 			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 		}
 

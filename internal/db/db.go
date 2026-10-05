@@ -870,6 +870,10 @@ ALTER TABLE gateways ADD COLUMN monitor_address_v6 TEXT NOT NULL DEFAULT '';
 `,
 	},
 	{version: 44, sql: `ALTER TABLE interfaces ADD COLUMN domain_alias_dns INTEGER NOT NULL DEFAULT 0;`},
+	{version: 45, sql: `
+ALTER TABLE peers ADD COLUMN client_allowed_ips_mode TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE peers ADD COLUMN client_allowed_ips_alias_id TEXT NOT NULL DEFAULT '';
+`},
 }
 
 func runMigrations(db *sql.DB) error {

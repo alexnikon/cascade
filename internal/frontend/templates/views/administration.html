@@ -307,7 +307,9 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              <img :src="qrcode" />
+              <img :src="qrcode" @load="qrcodeError = false" @error="qrcodeError = true" />
+              <p v-if="qrcodeError" class="text-sm mt-3 dark:text-neutral-200">QR unavailable. Large configurations may exceed QR capacity; download the .conf file.</p>
+              <a :href="qrcode.replace(/qrcode\.svg.*$/, 'config')" download class="block mt-3 text-sm text-blue-600 dark:text-blue-400">Download .conf</a>
             </div>
           </div>
         </div>

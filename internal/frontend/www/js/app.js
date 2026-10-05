@@ -92,6 +92,7 @@ new Vue({
     clientEditExpireDate: null,
     clientEditExpireDateId: null,
     qrcode: null,
+    qrcodeError: false,
 
     uiTrafficStats: false,
 
@@ -325,6 +326,8 @@ new Vue({
       endpoint: '',         // interconnect only
       allowedIPs: '',       // interconnect only (editable)
       clientAllowedIPs: '', // client only
+      clientAllowedIPsMode: 'manual',
+      clientAllowedIPsAliasId: '',
       rateDown: 0,          // kbps, 0 = unlimited
       rateUp: 0,            // kbps, 0 = unlimited
       groupId: '',          // client-group alias ID
@@ -335,6 +338,8 @@ new Vue({
       dns: '1.1.1.1, 8.8.8.8',
       defaultPersistentKeepalive: 25,
       defaultClientAllowedIPs: '0.0.0.0/0, ::/0',
+      defaultClientAllowedIPsMode: 'manual',
+      defaultClientAllowedIPsAliasId: '',
       subnetPool:       '10.10.0.0/16',
       portPool:         '51831-65535',
       defaultFwPolicy:  'accept',
@@ -1084,6 +1089,7 @@ new Vue({
     }
   },
   watch: {
+    qrcode() { this.qrcodeError = false; },
     authenticated(value) {
       if (value === false) this.focusLoginField();
     },
