@@ -62,6 +62,68 @@
     --status-red: #ff453a;
     --status-yellow: #ffd60a;
   }
+  /* Semantic badge colors follow the root appearance without inline overrides. */
+  :root {
+    --badge-neutral-bg: #f3f4f6; --badge-neutral-text: #374151;
+    --badge-blue-bg: #dbeafe; --badge-blue-text: #1e40af;
+    --badge-purple-bg: #ede9fe; --badge-purple-text: #5b21b6;
+    --badge-red-bg: #fee2e2; --badge-red-text: #991b1b;
+    --badge-pink-bg: #fce7f3; --badge-pink-text: #9d174d;
+    --badge-teal-bg: #ccfbf1; --badge-teal-text: #0f766e;
+    --badge-green-bg: #dcfce7; --badge-green-text: #166534;
+    --badge-orange-bg: #fef3c7; --badge-orange-text: #92400e;
+  }
+  html.dark {
+    --badge-neutral-bg: #3a3a3c; --badge-neutral-text: #d1d1d6;
+    --badge-blue-bg: #23374d; --badge-blue-text: #93c5fd;
+    --badge-purple-bg: #382d48; --badge-purple-text: #d8b4fe;
+    --badge-red-bg: #472b2d; --badge-red-text: #fca5a5;
+    --badge-pink-bg: #432c3a; --badge-pink-text: #f9a8d4;
+    --badge-teal-bg: #243e3c; --badge-teal-text: #99f6e4;
+    --badge-green-bg: #293e30; --badge-green-text: #86efac;
+    --badge-orange-bg: #433929; --badge-orange-text: #fcd34d;
+  }
+  .alias-badge-host, .alias-badge-network { background: var(--badge-blue-bg); color: var(--badge-blue-text); }
+  .alias-badge-ipset, .alias-badge-group { background: var(--badge-purple-bg); color: var(--badge-purple-text); }
+  .alias-badge-port { background: var(--badge-red-bg); color: var(--badge-red-text); }
+  .alias-badge-port-group { background: var(--badge-pink-bg); color: var(--badge-pink-text); }
+  .alias-badge-domain { background: var(--badge-teal-bg); color: var(--badge-teal-text); }
+  .alias-badge-client-group { background: var(--badge-neutral-bg); color: var(--badge-neutral-text); }
+  .dark .ui-badge.bg-gray-100, .dark .user-badge.bg-gray-100 { background: var(--badge-neutral-bg); color: var(--badge-neutral-text); }
+  .dark .ui-badge.bg-blue-100, .dark .user-badge.bg-blue-100 { background: var(--badge-blue-bg); color: var(--badge-blue-text); }
+  .dark .ui-badge.bg-purple-100, .dark .user-badge.bg-purple-100 { background: var(--badge-purple-bg); color: var(--badge-purple-text); }
+  .dark .ui-badge.bg-red-100, .dark .user-badge.bg-red-100 { background: var(--badge-red-bg); color: var(--badge-red-text); }
+  .dark .ui-badge.bg-pink-100, .dark .user-badge.bg-pink-100 { background: var(--badge-pink-bg); color: var(--badge-pink-text); }
+  .dark .ui-badge.bg-teal-100, .dark .user-badge.bg-teal-100 { background: var(--badge-teal-bg); color: var(--badge-teal-text); }
+  .dark .ui-badge.bg-green-100, .dark .user-badge.bg-green-100 { background: var(--badge-green-bg); color: var(--badge-green-text); }
+  .dark .ui-badge.bg-yellow-100, .dark .user-badge.bg-yellow-100 { background: var(--badge-orange-bg); color: var(--badge-orange-text); }
+  .dark .user-badge-admin { background: var(--badge-orange-bg); color: var(--badge-orange-text); }
+  .awg-settings-panel { background: #f9fafb; border: 1px solid #e5e7eb; }
+  .dark .awg-settings-panel { background: var(--surface-panel); border-color: rgba(255,255,255,0.10); }
+  .settings-page .content-panel > .flex,
+  .settings-page .content-panel > .p-5.flex { flex-wrap: wrap; gap: 12px; }
+  .settings-template-row > .flex-grow { flex-wrap: wrap; overflow-wrap: anywhere; }
+  .settings-template-row .ui-badge { white-space: nowrap; }
+  @media (max-width: 640px) {
+    .settings-page .content-panel > .flex > *,
+    .settings-page .content-panel > .p-5.flex > * { min-width: 0; max-width: 100%; }
+    .settings-page .content-panel > .flex > .flex { flex-wrap: wrap; }
+    .settings-template-row { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px 16px !important; }
+    .settings-template-row > .flex { flex-wrap: wrap; }
+    .settings-page button { white-space: normal; }
+    .settings-page input[style*="min-width:220px"] { min-width: 0 !important; width: 100%; }
+    .settings-template-row button { min-height: 32px; }
+    .app-main .settings-card-table, .settings-card-table tbody, .settings-card-table tr { display: block; width: 100%; min-width: 0; }
+    .settings-card-table thead { display: none; }
+    .settings-card-table tr { padding: 12px 16px; }
+    .settings-card-table td { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; align-items: start; padding: 6px 0; overflow-wrap: anywhere; }
+    .settings-card-table td::before { content: attr(data-label); font-size: 12px; font-weight: 500; color: #6b7280; }
+    .dark .settings-card-table td::before { color: var(--text-secondary); }
+    .settings-card-table td > * { min-width: 0; justify-self: start; }
+    .settings-card-table td > .flex { flex-wrap: wrap; justify-content: flex-start; }
+    .settings-card-table .user-identity { flex-wrap: wrap; }
+    .awg-settings-panel > div:first-child { flex-wrap: wrap; gap: 8px; }
+  }
   [v-cloak] {
     display: none;
   }

@@ -75,7 +75,7 @@
                 <div style="flex:2; min-width:0;">
                   <template v-if="rule.sourceAliasId">
                     <span class="ui-badge text-xs font-semibold rounded"
-                      style="padding:2px 8px; display:inline-block; background:#ede9fe; color:#5b21b6; cursor:pointer;"
+                      style="padding:2px 8px; display:inline-block; background:var(--badge-purple-bg); color:var(--badge-purple-text); cursor:pointer;"
                       title="Click to edit alias"
                       @click.stop="openAliasFromBadge(rule.sourceAliasId)"
                       @mouseenter="showAliasTooltip($event, rule.sourceAliasId)"
@@ -88,7 +88,7 @@
                   </template>
                   <template v-else>
                     <span class="ui-badge text-xs rounded-full font-medium"
-                      style="padding:2px 8px; display:inline-block; background:#f3f4f6; color:#6b7280;">
+                      style="padding:2px 8px; display:inline-block; background:var(--badge-neutral-bg); color:var(--badge-neutral-text);">
                       any
                     </span>
                   </template>
@@ -105,8 +105,8 @@
                   <span class="ui-badge text-xs rounded-full font-medium"
                     style="padding:2px 8px; display:inline-block;"
                     :style="rule.type === 'MASQUERADE'
-                      ? 'background:#dbeafe; color:#1d4ed8;'
-                      : 'background:#fef3c7; color:#92400e;'">
+                      ? 'background:var(--badge-blue-bg); color:var(--badge-blue-text);'
+                      : 'background:var(--badge-orange-bg); color:var(--badge-orange-text);'">
                     {{ _natRuleTypeLabel(rule) }}
                   </span>
                 </div>

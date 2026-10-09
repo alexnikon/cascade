@@ -780,7 +780,7 @@
 				</div>
 
 				<!-- Versioned AmneziaWG settings -->
-				<div v-if="interfaceCreate.protocol.startsWith('amneziawg-')" class="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded">
+				<div v-if="interfaceCreate.protocol.startsWith('amneziawg-')" class="awg-settings-panel mb-4 p-4 rounded">
                   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
 					<h3 class="font-medium dark:text-neutral-200">AmneziaWG {{ interfaceCreate.protocol === 'amneziawg-3.1' ? '3.1' : '2.0' }} Parameters</h3>
                     <button @click="generateAndFillInterfaceParams()"
@@ -1295,7 +1295,7 @@
               </div>
 
 			  <!-- Versioned AmneziaWG settings -->
-			  <div v-if="interfaceEdit.protocol.startsWith('amneziawg-')" class="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded">
+			  <div v-if="interfaceEdit.protocol.startsWith('amneziawg-')" class="awg-settings-panel mb-4 p-4 rounded">
 				<p class="font-medium dark:text-neutral-200 mb-3">AmneziaWG {{ interfaceEdit.protocol === 'amneziawg-3.1' ? '3.1' : '2.0' }} Settings</p>
 
                 <!-- Template dropdown -->

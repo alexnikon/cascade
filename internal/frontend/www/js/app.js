@@ -807,6 +807,7 @@ new Vue({
 
     uiTheme: localStorage.theme || 'auto',
     prefersDarkScheme: window.matchMedia('(prefers-color-scheme: dark)'),
+    systemDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
 
     // ISO 3166-1 alpha-2 country list for the country picker combobox.
     countries: [
@@ -1180,7 +1181,7 @@ new Vue({
     },
     theme() {
       if (this.uiTheme === 'auto') {
-        return this.prefersDarkScheme.matches ? 'dark' : 'light';
+        return this.systemDark ? 'dark' : 'light';
       }
       return this.uiTheme;
     },

@@ -15,7 +15,8 @@ setTheme(theme) {
       window.applyCascadeTheme(theme, this.prefersDarkScheme);
     },
 
-handlePrefersChange() {
+handlePrefersChange(event) {
+      this.systemDark = event.matches;
       if (this.uiTheme === 'auto') {
         this.setTheme('auto');
       }

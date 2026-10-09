@@ -310,11 +310,11 @@ _firewallGatewayLabel(rule) {
 _firewallActionStyle(action, enabled) {
       if (!enabled) {
         // Disabled rule — muted grey badge regardless of action.
-        return 'background:#e5e7eb; color:#9ca3af;';
+        return 'background:var(--badge-neutral-bg); color:var(--badge-neutral-text);';
       }
-      if (action === 'accept') return 'background:#dcfce7; color:#15803d;';
-      if (action === 'drop')   return 'background:#fee2e2; color:#dc2626;';
-      if (action === 'reject') return 'background:#ffedd5; color:#ea580c;';
+      if (action === 'accept') return 'background:var(--badge-green-bg); color:var(--badge-green-text);';
+      if (action === 'drop') return 'background:var(--badge-red-bg); color:var(--badge-red-text);';
+      if (action === 'reject') return 'background:var(--badge-orange-bg); color:var(--badge-orange-text);';
       return '';
     },
 
