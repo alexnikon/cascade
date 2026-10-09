@@ -128,7 +128,7 @@ func TestCoarsenPrefixes(t *testing.T) {
 // Rounding must never drop coverage: every address the input excluded is still
 // excluded, and no emitted prefix may be finer than the requested granularity.
 func TestCoarsenPrefixesCoversInput(t *testing.T) {
-	entries := []string{"5.8.0.0/13", "31.13.144.0/21", "77.88.55.66/32", "93.186.224.0/19", "217.20.147.0/24"}
+	entries := []string{"5.8.0.0/13", "77.88.55.66/32", "93.186.224.0/19", "217.20.147.0/24", "212.113.96.0/19"}
 	got, err := CoarsenPrefixes(entries, 16)
 	if err != nil {
 		t.Fatal(err)
@@ -160,4 +160,56 @@ func lastAddr(p netip.Prefix) netip.Addr {
 	n := uint32(a[0])<<24 | uint32(a[1])<<16 | uint32(a[2])<<8 | uint32(a[3])
 	n += uint32(1)<<(32-p.Bits()) - 1
 	return netip.AddrFrom4([4]byte{byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)})
+}
+
+// A rounding that would reach a protected service must not happen: Russian
+// prefixes sharing a block with Telegram or Meta stay exact.
+func TestCoarsenPrefixesProtectsServices(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		entry string
+		want  string
+	}{
+		{"telegram neighbour in same /16", "91.108.0.0/24", "91.108.0.0/24"},
+		{"telegram neighbour in 149.154/16", "149.154.128.0/24", "149.154.128.0/24"},
+		{"meta neighbour in 31.13/16", "31.13.20.0/24", "31.13.20.0/24"},
+		{"unrelated prefix still rounds", "10.1.2.0/24", "10.1.0.0/16"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := CoarsenPrefixes([]string{tc.entry}, 16)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got) != 1 || got[0] != tc.want {
+				t.Fatalf("got %v, want [%s]", got, tc.want)
+			}
+		})
+	}
+}
+
+// The point of the protection list: Telegram must end up inside the tunnel.
+// A Russian prefix sharing its /16 used to round outward and swallow it.
+func TestCoarsenPrefixesKeepsTelegramInTunnel(t *testing.T) {
+	coarse, err := CoarsenPrefixes([]string{"91.108.0.0/24"}, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	routes, err := ExcludedClientRoutes(coarse)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, service := range []string{"91.108.4.5", "91.108.56.130", "149.154.160.1", "31.13.24.1"} {
+		address := netip.MustParseAddr(service)
+		tunneled := false
+		for _, part := range strings.Split(routes, ", ") {
+			p := netip.MustParsePrefix(part)
+			if p.Addr().Is4() && p.Contains(address) {
+				tunneled = true
+				break
+			}
+		}
+		if !tunneled {
+			t.Fatalf("%s is not routed through the tunnel with exclusions %v", service, coarse)
+		}
+	}
 }

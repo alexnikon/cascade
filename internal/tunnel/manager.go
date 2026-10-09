@@ -902,7 +902,48 @@ func (m *Manager) BuildPeerRemoteConfig(t *TunnelInterface, p *peer.Peer) (strin
 		cp.ClientAllowedIPs = allowed
 		p = &cp
 	}
+	// A tunnel whose interface has no IPv6 address cannot carry IPv6. Sending
+	// ::/0 anyway blackholes the client's IPv6 instead of leaving it on the
+	// local link, and apps that prefer IPv6 — Telegram above all — stall on the
+	// timeout before falling back to IPv4. Applies to both routing modes, since
+	// the IPv4-only default carries ::/0 as well.
+	if !hasIPv6Address(t.Address) {
+		if stripped := stripIPv6Routes(p.ClientAllowedIPs); stripped != p.ClientAllowedIPs {
+			cp := *p
+			cp.ClientAllowedIPs = stripped
+			p = &cp
+		}
+	}
 	return p.GenerateRemoteConfig(ifaceData), nil
+}
+
+// hasIPv6Address reports whether an interface address list contains an IPv6 CIDR.
+func hasIPv6Address(address string) bool {
+	for _, part := range strings.Split(address, ",") {
+		ip, _, err := net.ParseCIDR(strings.TrimSpace(part))
+		if err == nil && ip.To4() == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// stripIPv6Routes removes IPv6 prefixes from an AllowedIPs list, preserving the
+// order of the IPv4 ones. It never returns an empty list: a config with no
+// routes at all would be rejected by the client.
+func stripIPv6Routes(allowed string) string {
+	var kept []string
+	for _, part := range strings.Split(allowed, ",") {
+		text := strings.TrimSpace(part)
+		if text == "" || strings.Contains(text, ":") {
+			continue
+		}
+		kept = append(kept, text)
+	}
+	if len(kept) == 0 {
+		return allowed
+	}
+	return strings.Join(kept, ", ")
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
