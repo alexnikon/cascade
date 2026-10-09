@@ -62,6 +62,13 @@ type GlobalSettings struct {
 	// sets DF, so every oversized packet was dropped — large transfers and
 	// calls failed while small ones worked. The default is therefore the
 	// IPv6 minimum, which is the largest value that is safe everywhere.
+	//
+	// The AmneziaWG obfuscation does not make this worse. ContentPaddingAddition
+	// only fills the space up to the internal MTU ("does not exceed it"), and
+	// RandomTrailers sizes itself against the UDP window of both sides so it
+	// cannot violate either MTU. S1-S4 prefixes are already part of the 80-byte
+	// overhead measured above.
+	//
 	// Per-interface MTU overrides this value when non-zero.
 	MTU int `json:"mtu"`
 
