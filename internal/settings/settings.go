@@ -53,7 +53,15 @@ type GlobalSettings struct {
 	// Firewall
 	DefaultFwPolicy string `json:"defaultFwPolicy"` // "accept" | "drop" — appended to FIREWALL_FORWARD after all rules
 
-	// MTU for client configs. 0 = not set (WireGuard picks automatically).
+	// MTU for client configs. 0 = not set, letting the client pick its own
+	// default (1420 for most WireGuard apps).
+	//
+	// Leaving it unset assumes a 1500-byte path, which is wrong on plenty of
+	// real connections: a measured mobile client could carry only 1360-byte
+	// outer packets, while a 1420 inner MTU produces exactly 1500. WireGuard
+	// sets DF, so every oversized packet was dropped — large transfers and
+	// calls failed while small ones worked. The default is therefore the
+	// IPv6 minimum, which is the largest value that is safe everywhere.
 	// Per-interface MTU overrides this value when non-zero.
 	MTU int `json:"mtu"`
 
@@ -155,6 +163,7 @@ var defaults = GlobalSettings{
 	PublicIPMode:                "auto",
 	ChartType:                   2, // area by default
 	Lang:                        "en",
+	MTU:                         1280,
 	SubnetPool:                  "10.10.0.0/16",
 	PortPool:                    "51831-65535",
 	DefaultFwPolicy:             "accept",

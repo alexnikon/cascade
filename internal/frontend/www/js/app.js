@@ -322,8 +322,10 @@ new Vue({
       routerName:     '',
       publicIPMode:   'auto',
       publicIPManual: '',
-      // MTU for client configs (0 = auto)
-      mtu: 0,
+      // MTU for client configs. 1280 is the IPv6 minimum and the largest value
+      // that fits every path we have measured; 0 would let the client assume a
+      // 1500-byte path, which mobile connections frequently do not have.
+      mtu: 1280,
       // Expired peer policy
       expiredPeerPolicy:   'disable',  // "disable" | "restrict"
       expiredPeerRateDown: 0,          // kbps downstream; 0 = no limit
