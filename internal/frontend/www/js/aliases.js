@@ -69,7 +69,7 @@ async createInlineClientGroup(targetModal) {
 _resetAliasCreate() {
       this.aliasCreate = {
         name: '', description: '', type: 'network', entries: '', ipsetEntries: '', memberIds: [],
-        genSource: 'country', genCountry: '', genAsn: '', genAsnList: '',
+        genSource: 'country', genCountry: '', genAsn: '', genAsnList: '', genGranularity: 16,
         file: null, rateDown: 0, rateUp: 0,
       };
     },
@@ -167,10 +167,11 @@ async createAlias() {
         const ipsetText = this.aliasCreate.ipsetEntries.trim();
         const uploadFile = this.aliasCreate.file;
         const genOpts = this.aliasCreate.type === 'ipset' ? {
-          source:  this.aliasCreate.genSource,
-          country: this.aliasCreate.genCountry,
-          asn:     this.aliasCreate.genAsn,
-          asnList: this.aliasCreate.genAsnList,
+          source:      this.aliasCreate.genSource,
+          country:     this.aliasCreate.genCountry,
+          asn:         this.aliasCreate.genAsn,
+          asnList:     this.aliasCreate.genAsnList,
+          granularity: this.aliasCreate.genGranularity,
         } : null;
 
         const res = await this.api.createAlias(data);
@@ -259,6 +260,7 @@ async openAliasEdit(alias) {
         genCountry: alias.generatorOpts?.country || '',
         genAsn: alias.generatorOpts?.asn || '',
         genAsnList: alias.generatorOpts?.asnList || '',
+        genGranularity: alias.generatorOpts?.clientGranularity ?? 16,
         rateDown: alias.rateDown || 0,
         rateUp: alias.rateUp || 0,
       };
@@ -365,6 +367,7 @@ async startAliasGenerate(alias) {
         country: this.aliasEdit.genCountry,
         asn: this.aliasEdit.genAsn,
         asnList: this.aliasEdit.genAsnList,
+        granularity: this.aliasEdit.genGranularity,
       });
     },
 
@@ -374,6 +377,19 @@ async startAliasGenerateCreate(aliasId) {
         country: this.aliasCreate.genCountry,
         asn: this.aliasCreate.genAsn,
         asnList: this.aliasCreate.genAsnList,
+      });
+    },
+
+// Re-run the stored generator for an alias sourced from RIPEstat, so its
+    // prefix list can be refreshed straight from the aliases table.
+    async refreshGeneratedAlias(alias) {
+      const g = alias.generatorOpts || {};
+      await this._startAliasGenerate(alias.id, {
+        source:      g.asnList ? 'asn-list' : g.asn ? 'asn' : 'country',
+        country:     g.country,
+        asn:         g.asn,
+        asnList:     g.asnList,
+        granularity: g.clientGranularity || 0,
       });
     },
 
@@ -388,6 +404,10 @@ async _startAliasGenerate(aliasId, opts) {
           this.showToast(this.$t('toast.aliasGenerateSourceRequired'), 'error');
           return;
         }
+        // Rounding narrows the routes pushed to clients; the ipset keeps the
+        // exact prefixes, so firewall rules using this alias stay precise.
+        const granularity = Number(opts?.granularity) || 0;
+        if (granularity > 0) genOpts.clientGranularity = granularity;
         const { jobId } = await this.api.generateAlias({ id: aliasId, ...genOpts });
         this.aliasGeneratingId = aliasId;
         this.aliasGenerateJobId = jobId;

@@ -37,6 +37,14 @@ func (m *Manager) ClientAllowedIPs(id string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("alias %q: %w", a.Name, err)
 	}
+	// A generated country/ASN alias is far too granular to use as a client
+	// exclusion verbatim; round it outward if the alias asks for it.
+	if a.GeneratorOpts != nil && a.GeneratorOpts.ClientGranularity > 0 {
+		entries, err = ipset.CoarsenPrefixes(entries, a.GeneratorOpts.ClientGranularity)
+		if err != nil {
+			return "", fmt.Errorf("alias %q: %w", a.Name, err)
+		}
+	}
 	routes, err := ipset.ExcludedClientRoutes(entries)
 	if err != nil {
 		return "", fmt.Errorf("alias %q: %w", a.Name, err)

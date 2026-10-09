@@ -79,6 +79,13 @@
                   </td>
                   <td class="tc">
                     <div class="flex gap-2 justify-end">
+                      <button v-if="alias.generatorOpts && (alias.generatorOpts.country || alias.generatorOpts.asn || alias.generatorOpts.asnList)"
+                        @click="refreshGeneratedAlias(alias)"
+                        :disabled="aliasGeneratingId === alias.id"
+                        class="text-xs bg-blue-100 text-blue-700 rounded px-2 py-1 transition"
+                        :style="aliasGeneratingId === alias.id ? 'opacity:0.6;cursor:not-allowed;' : ''">
+                        {{ aliasGeneratingId === alias.id ? $t("alias.generating") : '⟳ ' + $t("alias.refreshNow") }}
+                      </button>
                       <button @click="openAliasEdit(alias)"
                         class="text-xs bg-gray-100 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded px-2 py-1 transition">
                         {{$t("common.edit")}}
@@ -313,6 +320,17 @@
                 <input v-if="aliasCreate.genSource === 'asn-list'" v-model="aliasCreate.genAsnList"
                   type="text" placeholder="12345,20485,3216"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono" />
+                <div class="mt-2">
+                  <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("alias.excludePrecision")}}</label>
+                  <select v-model.number="aliasCreate.genGranularity"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option :value="0">{{$t("alias.precisionExact")}}</option>
+                    <option :value="18">{{$t("alias.precision18")}}</option>
+                    <option :value="16">{{$t("alias.precision16")}}</option>
+                    <option :value="14">{{$t("alias.precision14")}}</option>
+                  </select>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("alias.excludePrecisionHint")}}</p>
+                </div>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("alias.generateHint")}}</p>
               </div>
             </div>
@@ -474,6 +492,17 @@
                 <input v-if="aliasEdit.genSource === 'asn-list'" v-model="aliasEdit.genAsnList"
                   type="text" placeholder="12345,20485,3216"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono mb-2" />
+                <div class="mb-2">
+                  <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("alias.excludePrecision")}}</label>
+                  <select v-model.number="aliasEdit.genGranularity"
+                    class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                    <option :value="0">{{$t("alias.precisionExact")}}</option>
+                    <option :value="18">{{$t("alias.precision18")}}</option>
+                    <option :value="16">{{$t("alias.precision16")}}</option>
+                    <option :value="14">{{$t("alias.precision14")}}</option>
+                  </select>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("alias.excludePrecisionHint")}}</p>
+                </div>
                 <button @click="startAliasGenerate(aliasEdit)"
                   :disabled="aliasGeneratingId === aliasEdit.id"
                   class="bg-purple-600 text-white rounded px-3 py-2 text-sm font-medium transition"

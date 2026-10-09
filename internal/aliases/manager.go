@@ -60,6 +60,18 @@ type GeneratorOpts struct {
 	Country string `json:"country,omitempty"`
 	ASN     string `json:"asn,omitempty"`
 	ASNList string `json:"asnList,omitempty"`
+
+	// ClientGranularity rounds this alias outward to the given IPv4 prefix
+	// length when the alias is used as a client exclusion ("Exclude ipset
+	// alias"). A country-sized alias yields tens of thousands of complement
+	// routes, which is impractical to push into a client config; rounding to
+	// e.g. /16 reduces that by an order of magnitude at the cost of also
+	// routing a little neighbouring address space outside the tunnel.
+	//
+	// This affects only the routes generated for clients — the ipset itself
+	// keeps the exact entries, so firewall rules using the same alias stay
+	// precise. 0 disables rounding.
+	ClientGranularity int `json:"clientGranularity,omitempty"`
 }
 
 // MatchSpec is returned by GetMatchSpec for use in FirewallManager iptables rules.

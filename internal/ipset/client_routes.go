@@ -39,6 +39,68 @@ type routeNode struct {
 	children [2]*routeNode
 }
 
+// CoarsenPrefixes rounds each IPv4 prefix outward to the given prefix length.
+//
+// A generated country alias can hold many thousands of scattered prefixes, and
+// the complement of that set is larger still — far too many routes to push into
+// a client configuration (a country-sized list yields tens of thousands of
+// CIDRs). Rounding each prefix up to a coarser block trades a small amount of
+// neighbouring address space for a dramatically smaller complement, which is
+// what makes the "exclude this alias" client mode practical for a whole country.
+//
+// The returned set covers everything the input covered plus the rounding
+// margin; granularity 0 returns the input unchanged.
+func CoarsenPrefixes(entries []string, granularity int) ([]string, error) {
+	if granularity == 0 {
+		return entries, nil
+	}
+	if granularity < 0 || granularity > 32 {
+		return nil, fmt.Errorf("invalid prefix granularity /%d", granularity)
+	}
+
+	seen := make(map[netip.Prefix]struct{}, len(entries))
+	out := make([]string, 0, len(entries))
+	add := func(p netip.Prefix) {
+		if _, ok := seen[p]; ok {
+			return
+		}
+		seen[p] = struct{}{}
+		out = append(out, p.String())
+	}
+
+	step := uint32(1) << (32 - granularity)
+	for _, entry := range entries {
+		text := strings.TrimSpace(entry)
+		if !strings.Contains(text, "/") {
+			text += "/32"
+		}
+		prefix, err := netip.ParsePrefix(text)
+		if err != nil || !prefix.Addr().Is4() {
+			return nil, fmt.Errorf("invalid IPv4 ipset entry %q", entry)
+		}
+		prefix = prefix.Masked()
+		if prefix.Bits() <= granularity {
+			add(prefix)
+			continue
+		}
+		addr := prefix.Addr().As4()
+		number := uint32(addr[0])<<24 | uint32(addr[1])<<16 | uint32(addr[2])<<8 | uint32(addr[3])
+		span := uint32(1) << (32 - prefix.Bits())
+		base := number / step * step
+		lastBase := (number + span - 1) / step * step
+		for {
+			add(netip.PrefixFrom(netip.AddrFrom4([4]byte{
+				byte(base >> 24), byte(base >> 16), byte(base >> 8), byte(base),
+			}), granularity))
+			if base == lastBase {
+				break
+			}
+			base += step
+		}
+	}
+	return out, nil
+}
+
 // ExcludedClientRoutes returns the minimal IPv4 complement plus an IPv6 default route.
 // A prefix trie bounds processing by 32 steps per input prefix without enumerating hosts.
 func ExcludedClientRoutes(entries []string) (string, error) {
