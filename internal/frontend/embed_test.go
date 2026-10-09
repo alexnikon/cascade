@@ -364,8 +364,8 @@ func TestFrontendNavigationThemeAndDashboardDefaults(t *testing.T) {
 		`width: 30px;`,
 		`height: 30px;`,
 		`placeholder="10.10.0.0/16"`,
-		`(e.g. 10.10.0.1/24)`,
-		`>Window (sec)</label>`,
+		`settings.subnetPoolHint`,
+		`>{{$t("settings.windowSec")}}</label>`,
 		`:aria-label="$t(` + "`" + `theme.${uiTheme}` + "`" + `)"`,
 		`>{{ uiTheme }}</span>`,
 		`.dashboard-toolbar {`,
@@ -435,7 +435,7 @@ func TestFrontendHandlesUnknownDevelopmentBuildUpdateStatus(t *testing.T) {
 	app := readEmbedded(t, "www/js/app.js")
 	for _, expected := range []string{
 		"this.versionInfo.updateStatus === 'unknown'",
-		"Current development build cannot be compared.",
+		"iface.devBuildNoCompare",
 	} {
 		if !strings.Contains(app, expected) {
 			t.Errorf("version UI does not contain %q", expected)
@@ -521,7 +521,7 @@ func TestFrontendUserBadgesAndMobileInterfaceActions(t *testing.T) {
 		`min-width: 44px;`,
 		`height: 44px;`,
 		`.interface-peer-action + .interface-peer-action {`,
-		`role="button" tabindex="0" aria-label="Restore interface"`,
+		`role="button" tabindex="0" :aria-label="$t('iface.restoreTitle')"`,
 		`@keydown.enter.prevent="$refs.restoreInterfaceInput.click()"`,
 		`@keydown.space.prevent="$refs.restoreInterfaceInput.click()"`,
 		`ref="restoreInterfaceInput"`,
@@ -603,8 +603,8 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 	for expected, want := range map[string]int{
 		`peer.enabled === true && peer.latestHandshakeAt`: 2,
 		`? '#22c55e' : '#9ca3af'`:                         2,
-		`peer.enabled === false ? 'Disabled'`:             2,
-		`? 'Inactive' : 'Never connected'`:                2,
+		`peer.enabled === false ? $t('common.disabled')`:             2,
+		`? $t('common.inactive') : $t('peer.neverConnected')`:                2,
 	} {
 		if got := strings.Count(interfaces, expected); got != want {
 			t.Errorf("Interfaces status expression %q count = %d, want %d", expected, got, want)
@@ -628,7 +628,7 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 			t.Errorf("Interfaces action markup %q count = %d, want %d", markup, got, want)
 		}
 	}
-	resetBeforeDelete := regexp.MustCompile(`(?s)<button @click="resetPeerTraffic\(peer\)"\s+title="Reset trafic" aria-label="Reset trafic" :disabled="peerTrafficResetInFlight".{0,800}?</button>\s+<button @click="peerDelete = peer"`)
+	resetBeforeDelete := regexp.MustCompile(`(?s)<button @click="resetPeerTraffic\(peer\)"\s+:title="\$t\('peer\.resetTraffic'\)" :aria-label="\$t\('peer\.resetTraffic'\)" :disabled="peerTrafficResetInFlight".{0,800}?</button>\s+<button @click="peerDelete = peer"`)
 	if got := len(resetBeforeDelete.FindAllString(interfaces, -1)); got != 2 {
 		t.Errorf("Interfaces Reset traffic buttons before Delete = %d, want 2", got)
 	}
@@ -734,9 +734,9 @@ func TestFrontendBackupModalDimsLaterSettingsPanels(t *testing.T) {
 
 func TestFrontendMetricsSettingsCardAndBindings(t *testing.T) {
 	index := readEmbedded(t, "www/index.html")
-	users := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">Users</p>`)
-	metrics := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">Metrics</p>`)
-	backup := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">System Backup</p>`)
+	users := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">{{$t("settings.users")}}</p>`)
+	metrics := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">{{$t("settings.metrics")}}</p>`)
+	backup := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">{{$t("settings.systemBackup")}}</p>`)
 	if users < 0 || metrics < 0 || backup < 0 || !(users < metrics && metrics < backup) {
 		t.Fatalf("Metrics card must be located after Users and before System Backup")
 	}
@@ -883,10 +883,10 @@ func TestFrontendContainsUIIssueRegressions(t *testing.T) {
 	}
 
 	for _, expected := range []string{
-		"Edit details",
-		"Save & Close",
+		"peer.editDetails",
+		"peer.saveClose",
 		"dashPeersViewDirty(w.id) ? dashSavePeersView(w.id) : dashResetPeersView(w.id)",
-		"title=\"Copy public IP\"",
+		":title=\"$t('nav.copyPublicIp')\"",
 		"@click=\"peerEditForm.expiredAt = ''\"",
 	} {
 		if !strings.Contains(index, expected) {
@@ -926,7 +926,7 @@ func TestFrontendClientExpiryUsesLocalDateTime(t *testing.T) {
 		if got := strings.Count(form, `type="datetime-local" step="60"`); got != 1 {
 			t.Errorf("%s datetime-local inputs = %d, want 1", name, got)
 		}
-		if !strings.Contains(form, "Expiry date and time") {
+		if !strings.Contains(form, "peer.expiryDateTime") {
 			t.Errorf("%s does not label the expiry time", name)
 		}
 	}
@@ -943,7 +943,7 @@ func TestFrontendClientExpiryUsesLocalDateTime(t *testing.T) {
 		"expiredAt: expiredAt || undefined",
 		"expiredAt: this.expiryDateTimeForInput(peer.expiredAt)",
 		"updates.expiredAt = expiredAt",
-		"Invalid expiry date and time",
+		"this.$t('toast.peerInvalidExpiry')",
 	} {
 		if !strings.Contains(app, expected) {
 			t.Errorf("client expiry implementation does not contain %q", expected)
@@ -1005,11 +1005,11 @@ func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
 	}
 
 	for _, expected := range []string{
-		`<span :title="iface.enabled ? 'Up' : 'Down'"`,
+		`<span :title="iface.enabled ? $t('common.ifaceUp') : $t('common.ifaceDown')"`,
 		`class="dash-peers-toolbar"`,
 		`class="dash-peers-select"`,
 		`class="dash-peers-view-action"`,
-		`:title="iface.enabled ? 'Up' : 'Down'"`,
+		`:title="iface.enabled ? $t('common.ifaceUp') : $t('common.ifaceDown')"`,
 	} {
 		if !strings.Contains(index, expected) {
 			t.Errorf("read-only dashboard does not contain %q", expected)
@@ -1053,7 +1053,7 @@ func TestFrontendExposesAllAmneziaTemplateVersions(t *testing.T) {
 			t.Errorf("app.js does not contain %q", expected)
 		}
 	}
-	for _, expected := range []string{"Amnezia Templates", "Use predefined templates or create your own. Supported up to version AWG 3.1", "New template", `value="1.0"`, "AWG 1.0", "AWG 2.0", "AWG 3.1", "HeaderProtectionKey", `value="amneziawg-3.1"`} {
+	for _, expected := range []string{"settings.amneziaTemplates", "settings.amneziaTemplatesHint", "peer.newTemplate", `value="1.0"`, "AWG 1.0", "AWG 2.0", "AWG 3.1", "HeaderProtectionKey", `value="amneziawg-3.1"`} {
 		if !strings.Contains(index, expected) {
 			t.Errorf("index.html does not contain %q", expected)
 		}
@@ -1122,7 +1122,7 @@ func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
 	}
 	for _, expected := range []string{
 		`if (!session.authenticated) return;`,
-		`this.showToast(e.message || 'Failed to load port forwarding rules', 'error')`,
+		`this.showToast(e.message || this.$t('toast.natLoadFailed'), 'error')`,
 		`username: '',          // login form username field`,
 		`if (usernameInput) this.username = usernameInput.value.trim();`,
 		`if (passwordInput) this.password = passwordInput.value;`,
@@ -1230,12 +1230,12 @@ func TestFrontendFirstRunUsesLoginDesign(t *testing.T) {
 		`id="setup-title" class="auth-title"`,
 		`class="auth-subtitle"`,
 		`type="submit" :disabled="firstRunSaving || restorePreviewLoading || systemRestoring" class="auth-primary"`,
-		`aria-label="Creating account"`,
+		`:aria-label="$t('auth.creatingAccount')"`,
 		`class="auth-divider"`,
 		`ref="firstRunRestoreInput" type="file" class="hidden"`,
 		`accept=".tar.gz,.gz,.enc"`,
 		`type="button" class="auth-secondary"`,
-		`Restore from Backup`,
+		`settings.restoreFromBackup`,
 	} {
 		if !strings.Contains(firstRun, expected) {
 			t.Errorf("first-run setup does not contain shared auth design %q", expected)
@@ -1261,14 +1261,14 @@ func TestFrontendFirstRunUsesLoginDesign(t *testing.T) {
 		`v-if="showRestorePreviewModal"`,
 		`@click.self="cancelRestoreFlow()"`,
 		`v-if="showFirstRunSetup"`,
-		`Sign in with an administrator account from the backup after restart.`,
+		`modal.firstRunSignIn`,
 	} {
 		if !strings.Contains(shared, expected) {
 			t.Errorf("shared first-run restore flow does not contain %q", expected)
 		}
 	}
 	settingsStart := strings.Index(index, `key="page-settings"`)
-	apiTokensStart := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">API Tokens</p>`)
+	apiTokensStart := strings.Index(index, `<p class="text-xl font-medium dark:text-neutral-200">{{$t("settings.apiTokens")}}</p>`)
 	if settingsStart < 0 || apiTokensStart <= settingsStart {
 		t.Fatal("Settings section boundaries not found")
 	}
@@ -1472,7 +1472,7 @@ func TestFrontendDomainAliasUI(t *testing.T) {
 		`<option value="domain">`,
 		`v-if="aliasCreate.type === 'domain'"`,
 		`v-if="aliasEdit.type === 'domain'"`,
-		"Domains (one per line)",
+		"alias.domainsOnePerLine",
 		"refreshDomainAlias(alias)",
 		"_domainStatusLabel(alias)",
 		"domainStatus || {}).ipv4Count",
@@ -1509,7 +1509,7 @@ func TestFrontendDomainAliasUI(t *testing.T) {
 	}
 
 	// Suffixes require clients to use the tunnel DNS service.
-	if !strings.Contains(index, "Use Cascade DNS") || !strings.Contains(index, "*.example.com") {
+	if !strings.Contains(index, "iface.useCascadeDns") || !strings.Contains(index, "*.example.com") {
 		t.Error("the domain alias form must explain suffix learning through Cascade DNS")
 	}
 

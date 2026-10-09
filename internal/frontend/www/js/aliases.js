@@ -27,14 +27,14 @@ async createInlineClientGroup(targetModal) {
 
       // Basic validation: letters, digits, hyphens, underscores; must start with letter
       if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,62}$/.test(name)) {
-        this.showToast('Invalid name: start with a letter, only letters/digits/-/_', 'error');
+        this.showToast(this.$t('toast.aliasInvalidName'), 'error');
         return;
       }
 
       // Check if already exists
       const existing = this.clientGroups.find(g => g.name.toLowerCase() === name.toLowerCase());
       if (existing) {
-        this.showToast(`Group "${name}" already exists`, 'error');
+        this.showToast(this.$t('toast.aliasGroupExists', { name }), 'error');
         if (targetModal === 'manual') {
           this.peerCreate.groupId = existing.id;
           this.inlineGroupShow = false;
@@ -60,9 +60,9 @@ async createInlineClientGroup(targetModal) {
           }
         }
         this.inlineGroupInput = '';
-        this.showToast(`Group "${name}" created`);
+        this.showToast(this.$t('toast.aliasGroupCreated', { name }));
       } catch (err) {
-        this.showToast(`Failed to create group: ${err.message}`, 'error');
+        this.showToast(this.$t('toast.aliasGroupCreateFailed', { error: err.message }), 'error');
       }
     },
 
@@ -99,12 +99,12 @@ _portAliasOptions() {
 
 _domainStatusLabel(alias) {
       const st = alias && alias.domainStatus;
-      if (!st) return { text: 'Starting…', tone: 'muted' };
-      if (st.suffixCount && !Object.values(st.dnsProxy || {}).some(s => s.ready)) return { text: 'Needs Cascade DNS', tone: 'muted' };
-      if (st.suffixCount && !st.exactCount && !st.ipv4Count && !st.ipv6Count) return { text: 'Waiting for client DNS', tone: 'muted' };
-      if (st.lastError) return { text: 'DNS error', tone: 'error' };
-      if (!st.lastUpdate) return { text: 'Resolving…', tone: 'muted' };
-      return { text: 'Healthy', tone: 'ok' };
+      if (!st) return { text: this.$t('alias.statusStarting'), tone: 'muted' };
+      if (st.suffixCount && !Object.values(st.dnsProxy || {}).some(s => s.ready)) return { text: this.$t('alias.statusNeedsDns'), tone: 'muted' };
+      if (st.suffixCount && !st.exactCount && !st.ipv4Count && !st.ipv6Count) return { text: this.$t('alias.statusWaitingDns'), tone: 'muted' };
+      if (st.lastError) return { text: this.$t('alias.statusDnsError'), tone: 'error' };
+      if (!st.lastUpdate) return { text: this.$t('alias.statusResolving'), tone: 'muted' };
+      return { text: this.$t('alias.statusHealthy'), tone: 'ok' };
     },
 
     // Local-time formatting for lastUpdate / nextUpdate; '—' when unset.
@@ -136,12 +136,12 @@ async refreshDomainAlias(alias) {
         }
         const cur = this.aliases.find(a => a.id === alias.id);
         if (cur && cur.domainStatus && cur.domainStatus.lastError) {
-          this.showToast(`Refreshed with errors: ${cur.domainStatus.lastError}`, 'error');
+          this.showToast(this.$t('toast.aliasRefreshWithErrors', { error: cur.domainStatus.lastError }), 'error');
         } else {
-          this.showToast('Domains re-resolved', 'success');
+          this.showToast(this.$t('toast.aliasDomainsReresolved'), 'success');
         }
       } catch (err) {
-        this.showToast(err.message || 'Refresh failed', 'error');
+        this.showToast(err.message || this.$t('toast.aliasRefreshFailed'), 'error');
       } finally {
         this.aliasRefreshingId = '';
       }
@@ -185,9 +185,9 @@ async createAlias() {
             const result = await this.api.uploadAliasFile({ id: created.id, text: ipsetText });
             await this.loadAliases();
             const count = result && result.entryCount ? result.entryCount : '?';
-            this.showToast(`Alias created — ${count} entries loaded`, 'success');
+            this.showToast(this.$t('toast.aliasCreatedEntriesLoaded', { count }), 'success');
           } catch (err) {
-            this.showToast(`Alias created, but entries upload failed: ${err.message}`, 'error');
+            this.showToast(this.$t('toast.aliasCreatedEntriesUploadFailed', { error: err.message }), 'error');
           }
         } else if (created.type === 'ipset' && uploadFile) {
           try {
@@ -195,13 +195,13 @@ async createAlias() {
             const result = await this.api.uploadAliasFile({ id: created.id, text });
             await this.loadAliases();
             const count = result && result.entryCount ? result.entryCount : '?';
-            this.showToast(`Alias created — ${count} entries uploaded from ${uploadFile.name}`, 'success');
+            this.showToast(this.$t('toast.aliasCreatedEntriesUploaded', { count, file: uploadFile.name }), 'success');
           } catch (err) {
-            this.showToast(`Alias created, but file upload failed: ${err.message}`, 'error');
+            this.showToast(this.$t('toast.aliasCreatedFileUploadFailed', { error: err.message }), 'error');
           }
         } else {
           if (created.type === 'client-group') await this.loadClientGroups();
-          this.showToast('Alias created', 'success');
+          this.showToast(this.$t('toast.aliasCreated'), 'success');
         }
 
         // Auto-generate when the alias is an ipset with a configured source.
@@ -210,7 +210,7 @@ async createAlias() {
           await this._startAliasGenerate(created.id, genOpts);
         }
       } catch (err) {
-        this.showToast(err.message || 'Failed to create alias', 'error');
+        this.showToast(err.message || this.$t('toast.aliasCreateFailed'), 'error');
       }
     },
 
@@ -308,26 +308,26 @@ async saveAliasEdit() {
           try {
             const result = await this.api.uploadAliasFile({ id: this.aliasEdit.id, text: ipsetText });
             const count = result && result.entryCount ? result.entryCount : '?';
-            this.showToast(`Alias updated — ${count} entries saved`, 'success');
+            this.showToast(this.$t('toast.aliasUpdatedEntriesSaved', { count }), 'success');
           } catch (err) {
-            this.showToast(`Alias saved, but entries upload failed: ${err.message}`, 'error');
+            this.showToast(this.$t('toast.aliasSavedEntriesUploadFailed', { error: err.message }), 'error');
           }
         } else {
-          this.showToast('Alias updated', 'success');
+          this.showToast(this.$t('toast.aliasUpdated'), 'success');
         }
 
         this.showAliasEdit = false;
         await this.loadAliases();
         if (this.aliasEdit.type === 'client-group') await this.loadClientGroups();
       } catch (err) {
-        this.showToast(err.message || 'Failed to update alias', 'error');
+        this.showToast(err.message || this.$t('toast.aliasUpdateFailed'), 'error');
       }
     },
 
 async deleteAlias(alias) {
       const msg = alias.type === 'client-group'
-        ? `Delete group "${alias.name}"? All peers will be moved to the default group.`
-        : `Delete alias "${alias.name}"?`;
+        ? this.$t('toast.aliasGroupDeleteConfirm', { name: alias.name })
+        : this.$t('toast.aliasDeleteConfirm', { name: alias.name });
       if (!confirm(msg)) return;
       try {
         const res = await this.api.deleteAlias({ id: alias.id });
@@ -337,13 +337,13 @@ async deleteAlias(alias) {
           const moved = res && res.movedCount ? res.movedCount : 0;
           const toast = moved > 0
             ? `Group "${alias.name}" deleted. ${moved} peer${moved > 1 ? 's' : ''} moved to default.`
-            : `Group "${alias.name}" deleted.`;
+            : this.$t('toast.aliasGroupDeleted', { name: alias.name });
           this.showToast(toast, 'success', 8000);
         } else {
-          this.showToast('Alias deleted', 'success');
+          this.showToast(this.$t('toast.aliasDeleted'), 'success');
         }
       } catch (err) {
-        this.showToast(err.message || 'Failed to delete alias', 'error');
+        this.showToast(err.message || this.$t('toast.aliasDeleteFailed'), 'error');
       }
     },
 
@@ -353,9 +353,9 @@ async uploadAliasFile(aliasId, file) {
         const result = await this.api.uploadAliasFile({ id: aliasId, text });
         await this.loadAliases();
         const count = result && result.entryCount ? result.entryCount : '?';
-        this.showToast(`Uploaded ${count} entries from ${file.name}`, 'success');
+        this.showToast(this.$t('toast.aliasUploadedEntries', { count, file: file.name }), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to upload file', 'error');
+        this.showToast(err.message || this.$t('toast.aliasUploadFailed'), 'error');
       }
     },
 
@@ -385,17 +385,17 @@ async _startAliasGenerate(aliasId, opts) {
         else if (src === 'asn' && opts?.asn) genOpts.asn = opts.asn;
         else if (src === 'asn-list' && opts?.asnList) genOpts.asnList = opts.asnList;
         else {
-          this.showToast('Please specify a generation source (country, ASN, or ASN list)', 'error');
+          this.showToast(this.$t('toast.aliasGenerateSourceRequired'), 'error');
           return;
         }
         const { jobId } = await this.api.generateAlias({ id: aliasId, ...genOpts });
         this.aliasGeneratingId = aliasId;
         this.aliasGenerateJobId = jobId;
         this.aliasGenerateJobStatus = { status: 'running' };
-        this.showToast('Generation started...', 'success');
+        this.showToast(this.$t('toast.aliasGenerationStarted'), 'success');
         this._pollAliasJob(aliasId, jobId);
       } catch (err) {
-        this.showToast(err.message || 'Failed to start generation', 'error');
+        this.showToast(err.message || this.$t('toast.aliasGenerationStartFailed'), 'error');
       }
     },
 
@@ -409,11 +409,11 @@ _pollAliasJob(aliasId, jobId) {
             this.aliasGeneratingId = null;
             this.aliasGenerateJobId = null;
             await this.loadAliases();
-            this.showToast(`Generation done: ${status.entryCount} prefixes`, 'success');
+            this.showToast(this.$t('toast.aliasGenerationDone', { count: status.entryCount }), 'success');
           } else if (status.status === 'error') {
             clearInterval(interval);
             this.aliasGeneratingId = null;
-            this.showToast(`Generation failed: ${status.error}`, 'error');
+            this.showToast(this.$t('toast.aliasGenerationFailed', { error: status.error }), 'error');
           }
         } catch (err) {
           clearInterval(interval);
@@ -424,7 +424,7 @@ _pollAliasJob(aliasId, jobId) {
     },
 
 _aliasLabel(aliasId) {
-      if (!aliasId || aliasId === 'any') return 'Any';
+      if (!aliasId || aliasId === 'any') return this.$t('fw.any');
       const a = this.aliases.find(x => x.id === aliasId);
       return a ? a.name : aliasId;
     },

@@ -19,7 +19,7 @@ async backupInterface() {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       } catch (err) {
-        this.showToast(`Backup failed: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.backupFailed')}${err.message}`, 'error');
       }
     },
 
@@ -33,11 +33,11 @@ restoreInterface(e) {
           return this.api.restoreTunnelInterface({ interfaceId: this.activeInterfaceId, file });
         })
         .then(() => {
-          this.showToast('Configuration restored!');
+          this.showToast(this.$t('settings.configRestored'));
           this.refreshPeers();
           this.loadTunnelInterfaces();
         })
-        .catch((err) => this.showToast(`Restore failed: ${err.message}`, 'error'));
+        .catch((err) => this.showToast(`${this.$t('settings.restoreFailed')}${err.message}`, 'error'));
     },
 
     // ============================================================
@@ -65,7 +65,7 @@ async exportMyInterfaceParams(iface) {
         a.click();
         URL.revokeObjectURL(url);
       } catch (err) {
-        this.showToast(`Failed to export interface params: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.exportParamsFailed')}${err.message}`, 'error');
       }
     },
 
@@ -95,12 +95,12 @@ importInterconnectPeerJSON() {
           // be shared with the other side through Export My Params.
           const pskWasInFile = !!data.presharedKey;
           if (pskWasInFile) {
-            this.showToast('Peer imported! PSK taken from the file — both sides are in sync.');
+            this.showToast(this.$t('settings.peerImportedPskFromFile'));
           } else {
-            this.showToast('Peer imported! PSK generated — export your params and send to the remote side.', 'success', 10000);
+            this.showToast(this.$t('settings.peerImportedPskGenerated'), 'success', 10000);
           }
         } catch (err) {
-          this.showToast(`Failed to import peer: ${err.message}`, 'error');
+          this.showToast(`${this.$t('settings.importPeerFailed')}${err.message}`, 'error');
         }
       };
       input.click();
@@ -114,7 +114,7 @@ async toggleDisableRoutes(iface) {
         });
         await this.loadTunnelInterfaces();
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.failed')}${err.message}`, 'error');
       }
     },
 
@@ -166,7 +166,7 @@ async saveMetricsSettings() {
         this.metricsSettingsSaved = true;
         setTimeout(() => { this.metricsSettingsSaved = false; }, 2500);
       } catch (err) {
-        this.showToast(`Failed to save metrics settings: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.saveMetricsFailed')}${err.message}`, 'error');
       }
     },
 
@@ -201,7 +201,7 @@ async saveSettings() {
         this.settingsSaved = true;
         setTimeout(() => { this.settingsSaved = false; }, 2500);
       } catch (err) {
-        this.showToast(`Failed to save settings: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.saveSettingsFailed')}${err.message}`, 'error');
       }
     },
 
@@ -211,10 +211,10 @@ async saveDefaultFwPolicy() {
       // matching ACCEPT rule exists for management traffic (SSH, WireGuard, etc.).
       if (policy === 'drop') {
         const ok = window.confirm(
-          'Set default policy to DROP?\n\n' +
-          'All forward traffic not matched by an explicit rule above will be silently discarded.\n\n' +
-          'Make sure you have ACCEPT rules covering your management traffic (SSH, WireGuard peers, etc.) ' +
-          'before applying — otherwise you may lose remote access.'
+          this.$t('settings.dropConfirmTitle') +
+          this.$t('settings.dropConfirmBody') +
+          this.$t('settings.dropConfirmMgmt') +
+          this.$t('settings.dropConfirmWarn')
         );
         if (!ok) {
           // Revert the select back to accept without saving
@@ -225,9 +225,9 @@ async saveDefaultFwPolicy() {
       try {
         const updated = await this.api.updateSettings({ defaultFwPolicy: policy });
         this.globalSettings = { ...this.globalSettings, ...updated };
-        this.showToast(`Default policy set to ${policy.toUpperCase()}`, 'success');
+        this.showToast(`${this.$t('settings.defaultPolicySet')}${policy.toUpperCase()}`, 'success');
       } catch (err) {
-        this.showToast(`Failed to update policy: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.updatePolicyFailed')}${err.message}`, 'error');
         // Revert optimistic change
         await this.loadSettings();
       }
@@ -292,7 +292,7 @@ async saveTemplate() {
         this.showTemplateModal = false;
         await this.loadSettings();
       } catch (err) {
-        this.showToast(`Failed to save template: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.saveTemplateFailed')}${err.message}`, 'error');
       }
     },
 
@@ -301,17 +301,17 @@ async setDefaultTemplate(templateId) {
         await this.api.setDefaultTemplate({ templateId });
         await this.loadSettings();
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.failed')}${err.message}`, 'error');
       }
     },
 
 async deleteTemplate(templateId) {
-      if (!confirm('Delete this template?')) return;
+      if (!confirm(this.$t('settings.deleteTemplateConfirm'))) return;
       try {
         await this.api.deleteTemplate({ templateId });
         await this.loadSettings();
       } catch (err) {
-        this.showToast(`Failed to delete template: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.deleteTemplateFailed')}${err.message}`, 'error');
       }
     },
 
@@ -359,14 +359,14 @@ importTemplateJSON() {
           const data = JSON.parse(text);
 		  // Ask for a name when the exported file did not contain one.
           if (!data.name) {
-            const name = prompt('Enter a name for this profile:', file.name.replace(/\.json$/i, ''));
+            const name = prompt(this.$t('settings.profileNamePrompt'), file.name.replace(/\.json$/i, ''));
             if (!name) return;
             data.name = name;
           }
           await this.api.createTemplate(data);
           await this.loadSettings();
         } catch (err) {
-          this.showToast(`Failed to import profile: ${err.message}`, 'error');
+          this.showToast(`${this.$t('settings.importProfileFailed')}${err.message}`, 'error');
         }
       };
       input.click();
@@ -396,7 +396,7 @@ async generateParams() {
           this.generateProfiles = res.profiles;
         }
       } catch (err) {
-        this.showToast(`Generate failed: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.generateFailed')}${err.message}`, 'error');
       } finally {
         this.generatingParams = false;
       }
@@ -406,7 +406,7 @@ async saveGeneratedTemplate() {
       if (!this.generatedParams || this.savingGeneratedTemplate) return;
       const name = this.generateForm.saveName.trim();
       if (!name) {
-        this.showToast('Enter a template name before saving', 'error');
+        this.showToast(this.$t('settings.templateNameRequired'), 'error');
         return;
       }
       this.savingGeneratedTemplate = true;
@@ -414,9 +414,9 @@ async saveGeneratedTemplate() {
 		await this.api.createTemplate({ name, protocolVersion: this.generateForm.protocolVersion, ...this.generatedParams });
         await this.loadSettings();
         this.showGenerateModal = false;
-        this.showToast(`Profile "${name}" saved`, 'success');
+        this.showToast(`${this.$t('settings.profileSavedPrefix')}${name}${this.$t('settings.profileSavedSuffix')}`, 'success');
       } catch (err) {
-        this.showToast(`Save failed: ${err.message}`, 'error');
+        this.showToast(`${this.$t('settings.saveFailed')}${err.message}`, 'error');
       } finally {
         this.savingGeneratedTemplate = false;
       }
@@ -427,9 +427,9 @@ async copyPublicIP() {
       if (!ip) return;
       try {
         await navigator.clipboard.writeText(ip);
-        this.showToast('Public IP copied to clipboard', 'success');
+        this.showToast(this.$t('settings.publicIpCopied'), 'success');
       } catch (_) {
-        this.showToast('Failed to copy public IP', 'error');
+        this.showToast(this.$t('settings.copyPublicIpFailed'), 'error');
       }
     },
 
@@ -466,7 +466,7 @@ onInterfaceTemplateSelect(templateId) {
       if (!tmpl) return;
 	  const version = this.interfaceCreate.protocol === 'amneziawg-3.1' ? '3.1' : '2.0';
 	  if ((tmpl.protocolVersion || '2.0') !== version) {
-		this.showToast(`This template is for AWG ${tmpl.protocolVersion || '2.0'}`, 'error');
+		this.showToast(`${this.$t('settings.templateAwgMismatch')}${tmpl.protocolVersion || '2.0'}`, 'error');
 		return;
 	  }
       this.interfaceCreate.settings = {
@@ -508,10 +508,10 @@ async loadCurrentUser() {
 
 async createFirstUser() {
       const { username, password, passwordConfirm } = this.firstRunForm;
-      if (!username) { this.showToast('Username is required', 'error'); return; }
-      if (!password) { this.showToast('Password is required', 'error'); return; }
-      if (password.length < 8) { this.showToast('Password must be at least 8 characters', 'error'); return; }
-      if (password !== passwordConfirm) { this.showToast('Passwords do not match', 'error'); return; }
+      if (!username) { this.showToast(this.$t('settings.usernameRequired'), 'error'); return; }
+      if (!password) { this.showToast(this.$t('settings.passwordRequired'), 'error'); return; }
+      if (password.length < 8) { this.showToast(this.$t('settings.passwordTooShort'), 'error'); return; }
+      if (password !== passwordConfirm) { this.showToast(this.$t('settings.passwordsMismatch'), 'error'); return; }
       this.firstRunSaving = true;
       try {
         await this.api.createUser({ username, password });
@@ -519,43 +519,43 @@ async createFirstUser() {
         this.firstRunSaving = false;
         window.location.reload();
       } catch (err) {
-        this.showToast(err.message || 'Failed to create admin account', 'error');
+        this.showToast(err.message || this.$t('settings.createAdminFailed'), 'error');
         this.firstRunSaving = false;
       }
     },
 
 async createUser() {
       const { username, password, passwordConfirm } = this.addUserForm;
-      if (!username) { this.showToast('Username is required', 'error'); return; }
-      if (!password) { this.showToast('Password is required', 'error'); return; }
-      if (password.length < 8) { this.showToast('Password must be at least 8 characters', 'error'); return; }
-      if (password !== passwordConfirm) { this.showToast('Passwords do not match', 'error'); return; }
+      if (!username) { this.showToast(this.$t('settings.usernameRequired'), 'error'); return; }
+      if (!password) { this.showToast(this.$t('settings.passwordRequired'), 'error'); return; }
+      if (password.length < 8) { this.showToast(this.$t('settings.passwordTooShort'), 'error'); return; }
+      if (password !== passwordConfirm) { this.showToast(this.$t('settings.passwordsMismatch'), 'error'); return; }
       try {
         await this.api.createUser({ username, password });
         this.showAddUserModal = false;
         this.addUserForm = { username: '', password: '', passwordConfirm: '' };
         await this.loadUsers();
-        this.showToast(`User "${username}" created`);
+        this.showToast(`${this.$t('settings.userPrefix')}${username}${this.$t('settings.userCreatedSuffix')}`);
       } catch (err) {
-        this.showToast(err.message || 'Failed to create user', 'error');
+        this.showToast(err.message || this.$t('settings.createUserFailed'), 'error');
       }
     },
 
 async deleteUser(user) {
-      if (!confirm(`Delete user "${user.username}"?`)) return;
+      if (!confirm(`${this.$t('settings.deleteUserPrefix')}${user.username}${this.$t('settings.deleteUserSuffix')}`)) return;
       try {
         await this.api.deleteUser(user.id);
         await this.loadUsers();
-        this.showToast(`User "${user.username}" deleted`);
+        this.showToast(`${this.$t('settings.userPrefix')}${user.username}${this.$t('settings.userDeletedSuffix')}`);
       } catch (err) {
-        this.showToast(err.message || 'Failed to delete user', 'error');
+        this.showToast(err.message || this.$t('settings.deleteUserFailed'), 'error');
       }
     },
 
 async setUserAdmin(user) {
       const granting = !user.is_admin;
-      const action = granting ? `grant admin to "${user.username}"` : `remove admin from "${user.username}"`;
-      if (!confirm(`Are you sure you want to ${action}?`)) return;
+      const action = granting ? `${this.$t('settings.grantAdminTo')}${user.username}${this.$t('settings.quoteEnd')}` : `${this.$t('settings.removeAdminFrom')}${user.username}${this.$t('settings.quoteEnd')}`;
+      if (!confirm(`${this.$t('settings.areYouSureWantTo')}${action}${this.$t('settings.questionMark')}`)) return;
       try {
         const res = await this.api.setUserAdmin(user.id, granting);
         if (res && res.user) {
@@ -565,9 +565,9 @@ async setUserAdmin(user) {
             this.currentUser = res.user;
           }
         }
-        this.showToast(granting ? `Admin granted to "${user.username}"` : `Admin removed from "${user.username}"`);
+        this.showToast(granting ? `${this.$t('settings.adminGrantedTo')}${user.username}${this.$t('settings.quoteEnd')}` : `${this.$t('settings.adminRemovedFrom')}${user.username}${this.$t('settings.quoteEnd')}`);
       } catch (err) {
-        this.showToast(err.message || 'Failed to update admin role', 'error');
+        this.showToast(err.message || this.$t('settings.updateAdminFailed'), 'error');
       }
     },
 
@@ -586,7 +586,7 @@ async loadApiTokens() {
 
 async createApiToken() {
       const { name } = this.createTokenForm;
-      if (!name) { this.showToast('Token name is required', 'error'); return; }
+      if (!name) { this.showToast(this.$t('settings.tokenNameRequired'), 'error'); return; }
       try {
         const res = await this.api.createApiToken({ name });
         this.showCreateTokenModal = false;
@@ -595,26 +595,26 @@ async createApiToken() {
         this.showNewTokenModal = true;
         await this.loadApiTokens();
       } catch (err) {
-        this.showToast(err.message || 'Failed to create token', 'error');
+        this.showToast(err.message || this.$t('settings.createTokenFailed'), 'error');
       }
     },
 
 async deleteApiToken(token) {
-      if (!confirm(`Revoke token "${token.name}"? This cannot be undone.`)) return;
+      if (!confirm(`${this.$t('settings.revokeTokenPrefix')}${token.name}${this.$t('settings.revokeTokenSuffix')}`)) return;
       try {
         await this.api.deleteApiToken({ id: token.id });
         await this.loadApiTokens();
-        this.showToast(`Token "${token.name}" revoked`);
+        this.showToast(`${this.$t('settings.tokenRevokedPrefix')}${token.name}${this.$t('settings.tokenRevokedSuffix')}`);
       } catch (err) {
-        this.showToast(err.message || 'Failed to revoke token', 'error');
+        this.showToast(err.message || this.$t('settings.revokeTokenFailed'), 'error');
       }
     },
 
 copyTokenToClipboard() {
       if (!this.newTokenValue) return;
       navigator.clipboard.writeText(this.newTokenValue)
-        .then(() => this.showToast('Token copied to clipboard'))
-        .catch(() => this.showToast('Failed to copy — select and copy manually', 'error'));
+        .then(() => this.showToast(this.$t('settings.tokenCopied')))
+        .catch(() => this.showToast(this.$t('settings.copyTokenFailed'), 'error'));
     },
 
     // ========================================================================
@@ -631,12 +631,12 @@ async openTOTPSetup() {
         this.totpSetupSaving = false;
         this.showTOTPSetupModal = true;
       } catch (err) {
-        this.showToast(err.message || 'Failed to start TOTP setup', 'error');
+        this.showToast(err.message || this.$t('settings.totpSetupFailed'), 'error');
       }
     },
 
 async confirmTOTPEnable() {
-      if (!this.totpSetupCode) { this.showToast('Enter the 6-digit code', 'error'); return; }
+      if (!this.totpSetupCode) { this.showToast(this.$t('settings.enterSixDigitCode'), 'error'); return; }
       this.totpSetupSaving = true;
       try {
         const res = await this.api.enableTOTP({ code: this.totpSetupCode });
@@ -648,9 +648,9 @@ async confirmTOTPEnable() {
           const idx = this.users.findIndex(u => u.id === res.user.id);
           if (idx !== -1) this.users.splice(idx, 1, res.user);
         }
-        this.showToast('Two-factor authentication enabled');
+        this.showToast(this.$t('settings.totpEnabled'));
       } catch (err) {
-        this.showToast(err.message || 'Failed to enable 2FA', 'error');
+        this.showToast(err.message || this.$t('settings.enable2faFailed'), 'error');
       } finally {
         this.totpSetupSaving = false;
       }
@@ -662,7 +662,7 @@ openTOTPDisable() {
     },
 
 async confirmTOTPDisable() {
-      if (!this.totpDisableCode) { this.showToast('Enter the 6-digit code', 'error'); return; }
+      if (!this.totpDisableCode) { this.showToast(this.$t('settings.enterSixDigitCode'), 'error'); return; }
       try {
         const res = await this.api.disableTOTP({ code: this.totpDisableCode });
         this.showTOTPDisableModal = false;
@@ -672,9 +672,9 @@ async confirmTOTPDisable() {
           const idx = this.users.findIndex(u => u.id === res.user.id);
           if (idx !== -1) this.users.splice(idx, 1, res.user);
         }
-        this.showToast('Two-factor authentication disabled');
+        this.showToast(this.$t('settings.totpDisabled'));
       } catch (err) {
-        this.showToast(err.message || 'Failed to disable 2FA', 'error');
+        this.showToast(err.message || this.$t('settings.disable2faFailed'), 'error');
       }
     },
     // ========================================================================

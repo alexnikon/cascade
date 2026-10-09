@@ -30,7 +30,7 @@ async loadKernelRoutes() {
         this.kernelRoutes = res.routes || [];
       } catch (err) {
         console.error('loadKernelRoutes error:', err);
-        this.kernelRoutesError = err.message || 'Failed to load kernel routes';
+        this.kernelRoutesError = err.message || this.$t('toast.routingKernelRoutesFailed');
         this.kernelRoutes = [];
       } finally {
         this.kernelRoutesLoading = false;
@@ -59,7 +59,7 @@ async testRoute() {
         this.routeTestMatchedRule = res.matchedRule || null;
         this.routeTestSteps       = res.steps || [];
       } catch (err) {
-        this.routeTestError = err.message || 'Error';
+        this.routeTestError = err.message || this.$t('common.error');
       } finally {
         this.routeTestLoading = false;
       }
@@ -75,7 +75,7 @@ _routeGatewayLabel(ip) {
       if (!ip) return '—';
       const gw = (this.gateways || []).find(g => g.gatewayIP === ip);
       if (gw) return `${ip} (${gw.name})`;
-      return `${ip} (default gateway)`;
+      return this.$t('routing.defaultGateway', { ip });
     },
 
 async createRoute() {
@@ -173,9 +173,9 @@ async saveEditRoute() {
         await this.api.updateStaticRoute({ routeId: this.routeEdit.id, data });
         this.showRouteEdit = false;
         await this.loadStaticRoutes();
-        this.showToast('Route updated');
+        this.showToast(this.$t('toast.routingUpdated'));
       } catch (err) {
-        this.showToast(err.message || 'Failed to update route', 'error');
+        this.showToast(err.message || this.$t('toast.routingUpdateFailed'), 'error');
       }
     },
 
@@ -184,17 +184,17 @@ async toggleRoute(id, enabled) {
         await this.api.toggleStaticRoute({ routeId: id, enabled });
         await this.loadStaticRoutes();
       } catch (err) {
-        this.showToast(err.message || 'Failed to toggle route', 'error');
+        this.showToast(err.message || this.$t('toast.routingToggleFailed'), 'error');
       }
     },
 
 async deleteRoute(id) {
-      if (!confirm('Delete this route?')) return;
+      if (!confirm(this.$t('toast.routingDeleteConfirm'))) return;
       try {
         await this.api.deleteStaticRoute({ routeId: id });
         await this.loadStaticRoutes();
       } catch (err) {
-        this.showToast(err.message || 'Failed to delete route', 'error');
+        this.showToast(err.message || this.$t('toast.routingDeleteFailed'), 'error');
       }
     },
 

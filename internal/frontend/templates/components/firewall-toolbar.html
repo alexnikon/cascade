@@ -4,12 +4,12 @@
       <button @click="openAddSeparator()"
         class="text-white rounded-lg font-medium text-sm btn"
         style="background:#6b7280; padding:6px 12px;">
-        + Separator
+        {{$t("fw.addSeparatorBtn")}}
       </button>
       <button @click="openFirewallCreate()"
         class="text-white rounded-lg font-medium text-sm btn"
         style="background:#2563eb; padding:6px 12px;">
-        + Add Rule
+        {{$t("fw.addRuleBtn")}}
       </button>
       <!-- Divider -->
       <div :style="theme === 'dark' ? 'background:#525252;' : 'background:#e5e7eb;'"
@@ -18,7 +18,7 @@
       <button @click="discardFirewallChanges()" v-if="firewallPending"
         class="text-white rounded-lg font-medium text-sm btn"
         style="background:#ef4444; padding:6px 12px;">
-        Discard
+        {{$t("fw.discardBtn")}}
       </button>
       <button @click="applyFirewallRules()"
         :disabled="!firewallPending || firewallApplying"

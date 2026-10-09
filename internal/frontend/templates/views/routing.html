@@ -8,19 +8,19 @@
 
             <!-- Route Lookup card -->
             <div class="content-panel bg-white dark:bg-neutral-800 rounded-lg shadow-sm" style="padding:20px 24px;">
-              <h3 class="font-semibold dark:text-neutral-200 mb-2">Route Lookup</h3>
+              <h3 class="font-semibold dark:text-neutral-200 mb-2">{{$t("routing.routeLookup")}}</h3>
               <div class="flex gap-2 items-center" style="flex-wrap:wrap;">
                 <div style="display:flex; flex-direction:column; gap:3px;">
-                  <label class="text-xs text-gray-500 dark:text-neutral-400">Source IP <span style="color:#9ca3af;">(optional)</span></label>
-                  <input v-model="routeTestSrc" type="text" placeholder="e.g. 192.168.1.5"
+                  <label class="text-xs text-gray-500 dark:text-neutral-400">{{$t("routing.sourceIp")}} <span style="color:#9ca3af;">({{$t("common.optional")}})</span></label>
+                  <input v-model="routeTestSrc" type="text" :placeholder="$t('routing.srcIpPlaceholder')"
                     @keyup.enter="testRoute"
                     class="border border-gray-300 dark:bg-neutral-700 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm"
                     style="width:180px;" />
                 </div>
                 <div style="display:flex; flex-direction:column; gap:3px; align-self:flex-end; padding-bottom:2px; color:#9ca3af; font-size:18px;">→</div>
                 <div style="display:flex; flex-direction:column; gap:3px;">
-                  <label class="text-xs text-gray-500 dark:text-neutral-400">Destination IP</label>
-                  <input v-model="routeTestIp" type="text" placeholder="e.g. 8.8.8.8"
+                  <label class="text-xs text-gray-500 dark:text-neutral-400">{{$t("routing.dstIp")}}</label>
+                  <input v-model="routeTestIp" type="text" :placeholder="$t('routing.dstIpPlaceholder')"
                     @keyup.enter="testRoute"
                     class="border border-gray-300 dark:bg-neutral-700 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm"
                     style="width:180px;" />
@@ -29,7 +29,7 @@
                   <button @click="testRoute" :disabled="routeTestLoading"
                     class="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium transition"
                     style="min-width:70px;">
-                    {{ routeTestLoading ? '...' : 'Test' }}
+                    {{ routeTestLoading ? '...' : $t('common.test') }}
                   </button>
                 </div>
               </div>
@@ -38,27 +38,27 @@
               <!-- Rule matched with gateway (PBR) -->
               <div v-if="routeTestMatchedRule !== null && routeTestMatchedRule.fwmark && routeTestSrc" class="mt-3 text-sm rounded"
                 style="padding:8px 12px; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);">
-                <span style="color:#16a34a;">✓ PBR matched:</span>
+                <span style="color:#16a34a;">{{$t("routing.pbrMatched")}}</span>
                 <span class="font-medium dark:text-neutral-200"> {{ routeTestMatchedRule.name }}</span>
                 <span class="text-gray-500"> (fwmark={{ routeTestMatchedRule.fwmark }})</span>
               </div>
               <!-- Rule matched without gateway (local internet, mangle RETURN) -->
               <div v-if="routeTestMatchedRule !== null && !routeTestMatchedRule.fwmark && routeTestSrc" class="mt-3 text-sm rounded"
                 style="padding:8px 12px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3);">
-                <span style="color:#2563eb;">✓ Rule matched:</span>
+                <span style="color:#2563eb;">{{$t("routing.ruleMatched")}}</span>
                 <span class="font-medium dark:text-neutral-200"> {{ routeTestMatchedRule.name }}</span>
-                <span class="text-gray-500"> (default routing)</span>
+                <span class="text-gray-500">{{$t("routing.defaultRoutingParen")}}</span>
               </div>
               <!-- No rule matched -->
               <div v-if="routeTestMatchedRule === null && routeTestSrc && (routeTestResult || routeTestError)" class="mt-3 text-sm rounded"
                 style="padding:8px 12px; background:rgba(156,163,175,0.1); border:1px solid rgba(156,163,175,0.3); color:#6b7280;">
-                ✗ No rule matched — default routing
+                {{$t("routing.noRuleMatched")}}
               </div>
 
               <!-- Route result -->
               <div v-if="routeTestResult" class="mt-2 rounded" style="padding:10px 12px; background:rgba(59,130,246,0.06); border:1px solid rgba(59,130,246,0.15);">
                 <div class="text-sm" style="display:flex; flex-direction:column; gap:4px;">
-                  <div><span class="text-gray-500" style="min-width:80px;display:inline-block;">gateway</span>
+                  <div><span class="text-gray-500" style="min-width:80px;display:inline-block;">{{$t("routing.gatewayLabel")}}</span>
                     <span class="font-mono font-medium">{{ _routeGatewayLabel(routeTestResult.gateway) }}</span></div>
                   <div><span class="text-gray-500" style="min-width:80px;display:inline-block;">dev</span>
                     <span class="font-mono">{{ routeTestResult.dev || '—' }}</span></div>
@@ -71,7 +71,7 @@
             <div class="content-panel bg-white dark:bg-neutral-800 rounded-lg shadow-sm" style="padding:20px 24px;">
               <!-- Table selector -->
               <div class="flex items-center gap-3 mb-4">
-                <h3 class="font-semibold dark:text-neutral-200">Kernel Routes</h3>
+                <h3 class="font-semibold dark:text-neutral-200">{{$t("routing.kernelRoutes")}}</h3>
                 <select v-model="routingTable" @change="loadKernelRoutes"
                   class="border border-gray-300 dark:bg-neutral-700 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm">
                   <option v-for="t in routingTables" :key="t.name" :value="t.name">
@@ -84,17 +84,17 @@
 
               <!-- Loading state -->
               <div v-if="kernelRoutesLoading" class="text-sm text-gray-400 dark:text-neutral-400" style="padding:16px 0;">
-                Loading...
+                {{$t("common.loading")}}
               </div>
 
               <!-- Error state -->
               <div v-if="!kernelRoutesLoading && kernelRoutesError" class="text-sm" class="alert-error">
-                ⚠️ Error: {{ kernelRoutesError }}
+                {{$t("routing.errorPrefix")}} {{ kernelRoutesError }}
               </div>
 
               <!-- Empty state -->
               <div v-if="!kernelRoutesLoading && !kernelRoutesError && kernelRoutes.length === 0" class="text-sm text-gray-400 dark:text-neutral-500" style="padding:16px 0;">
-                No routes found.
+                {{$t("routing.noRoutesFound")}}
               </div>
 
               <!-- Routes table -->
@@ -102,11 +102,11 @@
                 <table class="w-full text-sm text-left" style="border-collapse:collapse;">
                   <thead>
                     <tr style="border-bottom:1px solid #e5e7eb;">
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Destination</th>
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Gateway</th>
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Interface</th>
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Protocol</th>
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Metric</th>
+                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">{{$t("common.destination")}}</th>
+                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">{{$t("common.gateway")}}</th>
+                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">{{$t("common.interface")}}</th>
+                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">{{$t("common.protocol")}}</th>
+                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">{{$t("routing.metric")}}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -140,14 +140,14 @@
 
             <!-- Header -->
             <div class="flex items-center justify-between">
-              <h2 class="text-xl font-semibold dark:text-neutral-200">Static Routes</h2>
+              <h2 class="text-xl font-semibold dark:text-neutral-200">{{$t("routing.staticRoutes")}}</h2>
 
             </div>
 
             <!-- Empty state -->
             <div v-if="staticRoutes.length === 0"
               class="text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
-              No static routes configured. Click <strong>+ Add Route</strong> to create one.
+              {{$t("routing.emptyNoStatic")}} <strong>{{$t("routing.addRouteInline")}}</strong> {{$t("routing.emptyToCreate")}}
             </div>
 
             <!-- Routes list -->
@@ -162,7 +162,7 @@
                 <!-- Enable toggle -->
                 <span @click="toggleRoute(route.id, !route.enabled)"
                   class="cursor-pointer shrink-0"
-                  :title="route.enabled ? 'Disable route' : 'Enable route'">
+                  :title="route.enabled ? $t('routing.disableRoute') : $t('routing.enableRoute')">
                   <span v-if="route.enabled"
                     style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 2px #bbf7d0;"></span>
                   <span v-else
@@ -216,7 +216,7 @@
                 <button @click="openEditRoute(route)"
                   class="shrink-0 text-gray-400 dark:text-neutral-500 rounded transition"
                   style="background:none;border:none;cursor:pointer;padding:6px;"
-                  title="Edit route"
+                  :title="$t('routing.editRoute')"
                   onmouseover="this.style.color='#2563eb'" onmouseout="this.style.color=''">
                   <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -226,7 +226,7 @@
                 <button @click="deleteRoute(route.id)"
                   class="shrink-0 text-gray-400 dark:text-neutral-500 rounded transition"
                   style="background:none;border:none;cursor:pointer;padding:6px;"
-                  title="Delete route"
+                  :title="$t('routing.deleteRoute')"
                   onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color=''">
                   <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -241,7 +241,7 @@
           <!-- ── OSPF TAB ───────────────────────────────────────────────── -->
           <div v-if="activeRoutingTab === 'ospf'" class="text-center text-gray-500 dark:text-neutral-400" style="padding:60px 0;">
             <h2 class="text-2xl font-medium dark:text-neutral-200 mb-4">OSPF</h2>
-            <p class="text-lg">Coming soon</p>
+            <p class="text-lg">{{$t("routing.comingSoon")}}</p>
           </div>
 
         </div>
@@ -254,7 +254,7 @@
           <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-480">
             <!-- Header -->
             <div class="modal-header dark:border-neutral-600">
-              <h2 class="text-xl font-medium dark:text-neutral-200">Add Static Route</h2>
+              <h2 class="text-xl font-medium dark:text-neutral-200">{{$t("routing.addStaticRoute")}}</h2>
             </div>
 
             <!-- Body -->
@@ -262,35 +262,35 @@
 
               <!-- Destination -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Destination (CIDR) *</label>
-                <input v-model="routeCreate.destination" type="text" placeholder="e.g. 10.0.0.0/8 or default"
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.destinationCidr")}}</label>
+                <input v-model="routeCreate.destination" type="text" :placeholder="$t('routing.destinationPlaceholder')"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
               </div>
 
               <!-- Next-hop mode selector -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Next-hop</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.nextHop")}}</label>
                 <div class="flex gap-1 mt-1">
                   <button @click="routeCreate.viaMode = 'manual'"
                     :style="routeCreate.viaMode === 'manual'
                       ? 'background:#2563eb;color:#fff;border:1px solid #2563eb;'
                       : 'background:transparent;color:#6b7280;border:1px solid #d1d5db;'"
                     style="flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
-                    Manual IP
+                    {{$t("routing.manualIp")}}
                   </button>
                   <button @click="routeCreate.viaMode = 'gateway'"
                     :style="routeCreate.viaMode === 'gateway'
                       ? 'background:#059669;color:#fff;border:1px solid #059669;'
                       : 'background:transparent;color:#6b7280;border:1px solid #d1d5db;'"
                     style="flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
-                    Gateway
+                    {{$t("common.gateway")}}
                   </button>
                   <button @click="routeCreate.viaMode = 'group'"
                     :style="routeCreate.viaMode === 'group'
                       ? 'background:#d97706;color:#fff;border:1px solid #d97706;'
                       : 'background:transparent;color:#6b7280;border:1px solid #d1d5db;'"
                     style="flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
-                    GW Group
+                    {{$t("routing.gwGroup")}}
                   </button>
                 </div>
               </div>
@@ -298,15 +298,15 @@
               <!-- Manual IP + dev -->
               <template v-if="routeCreate.viaMode === 'manual'">
                 <div>
-                  <label class="text-sm font-medium dark:text-neutral-300">Gateway IP (via)</label>
-                  <input v-model="routeCreate.gateway" type="text" placeholder="e.g. 10.255.255.1"
+                  <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.gatewayIpVia")}}</label>
+                  <input v-model="routeCreate.gateway" type="text" :placeholder="$t('routing.gatewayIpPlaceholder')"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
                 </div>
                 <div>
-                  <label class="text-sm font-medium dark:text-neutral-300">Interface (dev, optional)</label>
+                  <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.ifaceDevOptional")}}</label>
                   <select v-model="routeCreate.dev"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
-                    <option value="">— not specified —</option>
+                    <option value="">{{$t("routing.notSpecified")}}</option>
                     <option v-for="iface in natInterfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}</option>
                   </select>
                 </div>
@@ -314,43 +314,43 @@
 
               <!-- Gateway selector -->
               <div v-if="routeCreate.viaMode === 'gateway'">
-                <label class="text-sm font-medium dark:text-neutral-300">Gateway *</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.gatewayRequired")}}</label>
                 <select v-model="routeCreate.gatewayId"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
-                  <option value="">— select gateway —</option>
+                  <option value="">{{$t("routing.selectGateway")}}</option>
                   <option v-for="gw in gateways" :key="gw.id" :value="gw.id">
                     {{ gw.name }} ({{ gw.interface }} → {{ gw.gatewayIP }})
                   </option>
                 </select>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  Route via is resolved from the gateway's IP. No automatic failover — use Gateway Group for failover.
+                  {{$t("routing.viaGatewayHint")}}
                 </p>
               </div>
 
               <!-- Gateway Group selector -->
               <div v-if="routeCreate.viaMode === 'group'">
-                <label class="text-sm font-medium dark:text-neutral-300">Gateway Group * <span class="text-yellow-600 dark:text-yellow-400">(failover)</span></label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.gatewayGroupRequired")}} <span class="text-yellow-600 dark:text-yellow-400">{{$t("routing.failoverParen")}}</span></label>
                 <select v-model="routeCreate.gatewayGroupId"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
-                  <option value="">— select group —</option>
+                  <option value="">{{$t("routing.selectGroup")}}</option>
                   <option v-for="grp in gatewayGroups" :key="grp.id" :value="grp.id">
                     {{ grp.name }}
                   </option>
                 </select>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  Tier 1 gateway is used by default. When tier 1 goes down, route automatically switches to tier 2 (after 30 s on recovery).
+                  {{$t("routing.tierHint")}}
                 </p>
               </div>
 
               <!-- Metric + Table -->
               <div class="flex gap-3">
                 <div style="flex:1;">
-                  <label class="text-sm font-medium dark:text-neutral-300">Metric</label>
-                  <input v-model="routeCreate.metric" type="number" placeholder="optional"
+                  <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.metric")}}</label>
+                  <input v-model="routeCreate.metric" type="number" :placeholder="$t('common.optional')"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
                 </div>
                 <div style="flex:1;">
-                  <label class="text-sm font-medium dark:text-neutral-300">Table</label>
+                  <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.table")}}</label>
                   <select v-if="routingTables.length > 0" v-model="routeCreate.table"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                     <option v-for="t in routingTables.filter(t => t.name !== 'all')" :key="t.name" :value="t.name">
@@ -364,8 +364,8 @@
 
               <!-- Description -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Description</label>
-                <input v-model="routeCreate.description" type="text" placeholder="optional"
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("common.description")}}</label>
+                <input v-model="routeCreate.description" type="text" :placeholder="$t('common.optional')"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
               </div>
 
@@ -373,11 +373,11 @@
               <div class="flex gap-2" style="justify-content:flex-end;">
                 <button @click="showRouteCreate = false"
                   class="px-4 py-2 bg-gray-200 dark:bg-neutral-600 dark:text-neutral-200 rounded text-sm font-medium transition">
-                  Cancel
+                  {{$t("common.cancel")}}
                 </button>
                 <button @click="createRoute"
                   class="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium transition">
-                  Add Route
+                  {{$t("routing.addRoute")}}
                 </button>
               </div>
             </div>
@@ -388,41 +388,41 @@
         <div v-if="showRouteEdit && activePage === 'routing'" class="modal-overlay" @click.self="showRouteEdit = false">
           <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-480">
             <div class="modal-header dark:border-neutral-600">
-              <h2 class="text-xl font-medium dark:text-neutral-200">Edit Static Route</h2>
+              <h2 class="text-xl font-medium dark:text-neutral-200">{{$t("routing.editStaticRoute")}}</h2>
             </div>
             <div class="modal-body">
 
               <!-- Destination -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Destination (CIDR) *</label>
-                <input v-model="routeEdit.destination" type="text" placeholder="e.g. 10.0.0.0/8 or default"
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.destinationCidr")}}</label>
+                <input v-model="routeEdit.destination" type="text" :placeholder="$t('routing.destinationPlaceholder')"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
               </div>
 
               <!-- Next-hop mode -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Next-hop</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.nextHop")}}</label>
                 <div class="flex gap-1 mt-1">
                   <button @click="routeEdit.viaMode = 'manual'"
                     :style="routeEdit.viaMode === 'manual'
                       ? 'background:#2563eb;color:#fff;border:1px solid #2563eb;'
                       : 'background:transparent;color:#6b7280;border:1px solid #d1d5db;'"
                     style="flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
-                    Manual IP
+                    {{$t("routing.manualIp")}}
                   </button>
                   <button @click="routeEdit.viaMode = 'gateway'"
                     :style="routeEdit.viaMode === 'gateway'
                       ? 'background:#059669;color:#fff;border:1px solid #059669;'
                       : 'background:transparent;color:#6b7280;border:1px solid #d1d5db;'"
                     style="flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
-                    Gateway
+                    {{$t("common.gateway")}}
                   </button>
                   <button @click="routeEdit.viaMode = 'group'"
                     :style="routeEdit.viaMode === 'group'
                       ? 'background:#d97706;color:#fff;border:1px solid #d97706;'
                       : 'background:transparent;color:#6b7280;border:1px solid #d1d5db;'"
                     style="flex:1;padding:5px 0;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;">
-                    GW Group
+                    {{$t("routing.gwGroup")}}
                   </button>
                 </div>
               </div>
@@ -430,15 +430,15 @@
               <!-- Manual IP + dev -->
               <template v-if="routeEdit.viaMode === 'manual'">
                 <div>
-                  <label class="text-sm font-medium dark:text-neutral-300">Gateway IP (via)</label>
-                  <input v-model="routeEdit.gateway" type="text" placeholder="e.g. 10.255.255.1"
+                  <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.gatewayIpVia")}}</label>
+                  <input v-model="routeEdit.gateway" type="text" :placeholder="$t('routing.gatewayIpPlaceholder')"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
                 </div>
                 <div>
-                  <label class="text-sm font-medium dark:text-neutral-300">Interface (dev, optional)</label>
+                  <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.ifaceDevOptional")}}</label>
                   <select v-model="routeEdit.dev"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
-                    <option value="">— not specified —</option>
+                    <option value="">{{$t("routing.notSpecified")}}</option>
                     <option v-for="iface in natInterfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}</option>
                   </select>
                 </div>
@@ -446,10 +446,10 @@
 
               <!-- Gateway selector -->
               <div v-if="routeEdit.viaMode === 'gateway'">
-                <label class="text-sm font-medium dark:text-neutral-300">Gateway *</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.gatewayRequired")}}</label>
                 <select v-model="routeEdit.gatewayId"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
-                  <option value="">— select gateway —</option>
+                  <option value="">{{$t("routing.selectGateway")}}</option>
                   <option v-for="gw in gateways" :key="gw.id" :value="gw.id">
                     {{ gw.name }} ({{ gw.interface }} → {{ gw.gatewayIP }})
                   </option>
@@ -458,10 +458,10 @@
 
               <!-- Gateway Group selector -->
               <div v-if="routeEdit.viaMode === 'group'">
-                <label class="text-sm font-medium dark:text-neutral-300">Gateway Group * <span class="text-yellow-600 dark:text-yellow-400">(failover)</span></label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.gatewayGroupRequired")}} <span class="text-yellow-600 dark:text-yellow-400">{{$t("routing.failoverParen")}}</span></label>
                 <select v-model="routeEdit.gatewayGroupId"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
-                  <option value="">— select group —</option>
+                  <option value="">{{$t("routing.selectGroup")}}</option>
                   <option v-for="grp in gatewayGroups" :key="grp.id" :value="grp.id">{{ grp.name }}</option>
                 </select>
               </div>
@@ -469,12 +469,12 @@
               <!-- Metric + Table -->
               <div class="flex gap-3">
                 <div style="flex:1;">
-                  <label class="text-sm font-medium dark:text-neutral-300">Metric</label>
-                  <input v-model="routeEdit.metric" type="number" placeholder="optional"
+                  <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.metric")}}</label>
+                  <input v-model="routeEdit.metric" type="number" :placeholder="$t('common.optional')"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
                 </div>
                 <div style="flex:1;">
-                  <label class="text-sm font-medium dark:text-neutral-300">Table</label>
+                  <label class="text-sm font-medium dark:text-neutral-300">{{$t("routing.table")}}</label>
                   <select v-if="routingTables.length > 0" v-model="routeEdit.table"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                     <option v-for="t in routingTables.filter(t => t.name !== 'all')" :key="t.name" :value="t.name">
@@ -488,8 +488,8 @@
 
               <!-- Description -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Description</label>
-                <input v-model="routeEdit.description" type="text" placeholder="optional"
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("common.description")}}</label>
+                <input v-model="routeEdit.description" type="text" :placeholder="$t('common.optional')"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1" />
               </div>
 
@@ -497,11 +497,11 @@
               <div class="flex gap-2" style="justify-content:flex-end;">
                 <button @click="showRouteEdit = false"
                   class="px-4 py-2 bg-gray-200 dark:bg-neutral-600 dark:text-neutral-200 rounded text-sm font-medium transition">
-                  Cancel
+                  {{$t("common.cancel")}}
                 </button>
                 <button @click="saveEditRoute"
                   class="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium transition">
-                  Save Changes
+                  {{$t("common.saveChanges")}}
                 </button>
               </div>
             </div>

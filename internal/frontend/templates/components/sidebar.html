@@ -8,7 +8,7 @@
           <!-- Logo -->
           <div style="padding: 20px 16px 14px; position:relative;">
             <img :src="theme === 'dark' ? 'img/logo-dark.svg' : 'img/logo.svg'" style="width:216px; height:auto; display:block;" alt="Cascade" />
-            <button type="button" class="mobile-nav-close" aria-label="Close navigation"
+            <button type="button" class="mobile-nav-close" :aria-label="$t('nav.closeNavigation')"
               @click="closeMobileNav()">
               <svg class="mobile-nav-close-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                 stroke-width="2" stroke="currentColor" aria-hidden="true">
@@ -26,7 +26,7 @@
             <div class="flex items-center gap-1" style="margin-top:3px;">
               <button type="button" @click="copyPublicIP()"
                     :disabled="!globalSettings.resolvedPublicIP"
-                    title="Copy public IP"
+                    :title="$t('nav.copyPublicIp')"
                     class="text-xs font-mono truncate"
                     style="padding:0; border:0; background:none; cursor:pointer; text-align:left;"
                     :style="{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280' }">
@@ -42,7 +42,7 @@
             <div v-if="globalSettings.awgMode" style="margin-top:5px; display:flex; flex-wrap:wrap; gap:4px;">
               <!-- WG implementation: KERNEL (green) | USERSPACE (blue) -->
               <span v-if="globalSettings.awgMode === 'userspace'"
-                    title="Running amneziawg-go (userspace)"
+                    :title="$t('nav.awgUserspace')"
                     :style="{
                       display:'inline-block', fontSize:'10px', fontWeight:'600',
                       letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
@@ -52,7 +52,7 @@
                 USERSPACE
               </span>
               <span v-else
-                    title="Running AmneziaWG kernel module"
+                    :title="$t('nav.awgKernel')"
                     :style="{
                       display:'inline-block', fontSize:'10px', fontWeight:'600',
                       letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
@@ -63,7 +63,7 @@
               </span>
               <!-- Docker network mode: HOST (gray) | BRIDGE (amber) | NONE (red) -->
               <span v-if="globalSettings.networkMode === 'bridge'"
-                    title="Docker bridge network mode — ports are published via docker-compose"
+                    :title="$t('nav.networkBridge')"
                     :style="{
                       display:'inline-block', fontSize:'10px', fontWeight:'600',
                       letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
@@ -73,7 +73,7 @@
                 BRIDGE
               </span>
               <span v-else-if="globalSettings.networkMode === 'none'"
-                    title="Docker none network mode — no external network"
+                    :title="$t('nav.networkNone')"
                     :style="{
                       display:'inline-block', fontSize:'10px', fontWeight:'600',
                       letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
@@ -83,7 +83,7 @@
                 NONE
               </span>
               <span v-else
-                    title="Docker host network mode — container shares host network namespace"
+                    :title="$t('nav.networkHost')"
                     :style="{
                       display:'inline-block', fontSize:'10px', fontWeight:'600',
                       letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
@@ -96,13 +96,13 @@
           </div>
           <!-- Server switcher (visible only when remotes exist) -->
           <div v-if="remotes.length" class="app-nav-divider" style="padding: 8px 16px 12px;">
-            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-neutral-500" style="margin-bottom:6px;">Server</div>
+            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-neutral-500" style="margin-bottom:6px;">{{$t("nav.server")}}</div>
             <div style="position:relative;">
               <select @change="$event.target.value === '__local__' ? switchToLocal() : switchToRemote(remotes.find(r => r.id === $event.target.value))"
                 class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
                 style="padding:5px 8px; appearance:none; cursor:pointer; width:100%;"
                 :value="activeRemoteId || '__local__'">
-                <option value="__local__">🏠 {{ localServerName || pageTitle || 'Local' }}</option>
+                <option value="__local__">🏠 {{ localServerName || pageTitle || $t('remote.local') }}</option>
                 <option v-for="r in remotes" :key="r.id" :value="r.id">🌐 {{ r.name }}</option>
               </select>
             </div>
@@ -110,7 +110,7 @@
             <div v-if="activeRemoteId"
               style="margin-top:6px; padding:4px 8px; border-radius:6px; background:#fef9c3; border:1px solid #fde047;">
               <span style="font-size:0.7rem; color:#854d0e; font-weight:600;">
-                ⚡ Managing remote server
+                ⚡ {{$t("nav.managingRemote")}}
               </span>
             </div>
           </div>
@@ -179,17 +179,17 @@
                 target="_blank"
                 :style="{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280' }"
                 style="display:inline-flex; align-items:center; gap:3px; font-size:11px; text-decoration:none;"
-                title="API Guide">
+                :title="$t('nav.apiGuide')">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
                 </svg>
-                API Guide
+                {{$t("nav.apiGuide")}}
               </a>
               <!-- Check for updates button (shown only when no update available) -->
               <button v-if="versionInfo && !versionInfo.updateAvailable"
                 @click="checkForUpdates"
                 :disabled="updateChecking"
-                :title="updateChecking ? 'Checking...' : 'Check for updates'"
+                :title="updateChecking ? $t('nav.checking') : $t('nav.checkForUpdates')"
                 style="display:inline-flex; align-items:center; gap:3px; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:500; border:none; cursor:pointer; flex-shrink:0;"
                 :style="{ background: theme==='dark' ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', color: theme==='dark' ? '#a3a3a3' : '#6b7280', opacity: updateChecking ? 0.6 : 1 }">
                 <span v-if="updateChecking">...</span>
@@ -201,14 +201,14 @@
                 style="display:inline-flex; align-items:center; gap:3px; flex-shrink:0;">
                 <a v-if="versionInfo.releaseURL" :href="versionInfo.releaseURL"
                   target="_blank"
-                  :title="'New version available: ' + versionInfo.latestVersion + '\nUpdate the image tag in docker-compose.yml, then run docker compose pull and docker compose up -d'"
+                  :title="$t('nav.newVersionAvailable') + ' ' + versionInfo.latestVersion + '\n' + $t('nav.updateHint')"
                   style="display:inline-flex; align-items:center; gap:3px; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:600; text-decoration:none; background:#f59e0b; color:#fff;">
                   ↑ {{ versionInfo.latestVersion }}
                 </a>
-                <span v-else :title="versionInfo.changelog || ('New version available: ' + versionInfo.latestVersion)">
+                <span v-else :title="versionInfo.changelog || ($t('nav.newVersionAvailable') + ' ' + versionInfo.latestVersion)">
                   ↑ {{ versionInfo.latestVersion }}
                 </span>
-                <button @click="updateBannerDismissed = true" title="Dismiss"
+                <button @click="updateBannerDismissed = true" :title="$t('toast.dismiss')"
                   style="display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; border-radius:50%; border:none; background:rgba(0,0,0,0.15); color:#9ca3af; font-size:10px; cursor:pointer; padding:0; line-height:1;">×</button>
               </span>
             </div>

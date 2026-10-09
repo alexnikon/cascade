@@ -3,24 +3,24 @@
     <div v-if="showTOTPSetupModal" class="modal-overlay">
       <div class="modal-panel modal-panel-480 bg-white dark:bg-neutral-700">
         <div class="modal-header">
-          <h3 class="text-lg font-semibold dark:text-neutral-100">Enable Two-Factor Authentication</h3>
+          <h3 class="text-lg font-semibold dark:text-neutral-100">{{$t("modal.enableTwoFactor")}}</h3>
         </div>
         <div class="modal-body">
           <p class="text-sm text-gray-600 dark:text-neutral-300">
-            Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+            {{$t("modal.scanQr")}}
           </p>
           <div class="flex justify-center">
             <img v-if="totpSetupQrPng" :src="totpSetupQrPng"
               style="width:200px; height:200px; border-radius:8px; border:1px solid #e5e7eb;" />
           </div>
           <div>
-            <p class="text-xs text-gray-500 dark:text-neutral-400 mb-1">Manual entry secret:</p>
+            <p class="text-xs text-gray-500 dark:text-neutral-400 mb-1">{{$t("modal.manualSecret")}}</p>
             <p class="font-mono text-sm dark:text-neutral-200 bg-gray-50 dark:bg-neutral-800 px-3 py-2 rounded"
               style="word-break:break-all;">{{ totpSetupSecret }}</p>
           </div>
           <div>
             <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-              Enter the 6-digit code to confirm
+              {{$t("modal.enter6DigitConfirm")}}
             </label>
             <input v-model="totpSetupCode" type="text" inputmode="numeric" maxlength="6"
               placeholder="000000"
@@ -31,13 +31,13 @@
         <div class="modal-footer">
           <button @click="showTOTPSetupModal = false"
             class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
-            Cancel
+            {{$t("common.cancel")}}
           </button>
           <button @click="confirmTOTPEnable()"
             :disabled="totpSetupSaving || !totpSetupCode"
             class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition"
             :class="{ 'opacity-50 cursor-not-allowed': totpSetupSaving || !totpSetupCode }">
-            Enable 2FA
+            {{$t("settings.enable2fa")}}
           </button>
         </div>
       </div>
@@ -48,17 +48,17 @@
       <div class="modal-panel modal-panel-sm bg-white dark:bg-neutral-700" role="dialog"
         aria-modal="true" aria-labelledby="restore-password-title">
         <div class="modal-header dark:border-neutral-600">
-          <p id="restore-password-title" class="text-lg font-semibold dark:text-neutral-100">Encrypted Backup</p>
+          <p id="restore-password-title" class="text-lg font-semibold dark:text-neutral-100">{{$t("modal.encryptedBackup")}}</p>
         </div>
         <div class="modal-body">
           <p class="text-sm text-gray-600 dark:text-neutral-400">
-            <strong class="break-all">{{ restoreFile && restoreFile.name }}</strong> is encrypted.
-            Enter the password that was used when creating this backup.
+            <strong class="break-all">{{ restoreFile && restoreFile.name }}</strong> {{$t("modal.isEncrypted")}}
+            {{$t("modal.enterBackupPassword")}}
           </p>
           <div>
-            <label for="restore-backup-password" class="text-sm font-medium dark:text-neutral-300">Password</label>
+            <label for="restore-backup-password" class="text-sm font-medium dark:text-neutral-300">{{$t("common.password")}}</label>
             <input id="restore-backup-password" v-model="restorePassword" type="password"
-              autocomplete="off" placeholder="Backup password"
+              autocomplete="off" :placeholder="$t('modal.backupPasswordPlaceholder')"
               class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1"
               @keydown.enter.prevent="confirmRestoreWithPassword()" autofocus>
           </div>
@@ -66,14 +66,14 @@
         <div class="modal-footer dark:border-neutral-600">
           <button type="button" @click="cancelRestoreFlow()"
             class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
-            Cancel
+            {{$t("common.cancel")}}
           </button>
           <button type="button" @click="confirmRestoreWithPassword()"
             :disabled="!restorePassword || restorePreviewLoading"
             class="rounded-lg font-medium text-sm btn text-white"
             style="background:#2563eb;">
-            <span v-if="restorePreviewLoading">Analyzing…</span>
-            <span v-else>Continue</span>
+            <span v-if="restorePreviewLoading">{{$t("settings.analyzing")}}</span>
+            <span v-else>{{$t("modal.continue")}}</span>
           </button>
         </div>
       </div>
@@ -83,24 +83,24 @@
       <div class="modal-panel modal-panel-md bg-white dark:bg-neutral-700" role="dialog"
         aria-modal="true" aria-labelledby="restore-preview-title">
         <div class="modal-header dark:border-neutral-600">
-          <p id="restore-preview-title" class="text-lg font-semibold dark:text-neutral-100">Restore Backup</p>
+          <p id="restore-preview-title" class="text-lg font-semibold dark:text-neutral-100">{{$t("settings.restoreBackup")}}</p>
         </div>
         <div class="modal-body">
           <div v-if="restorePreview && !restorePreview.needsRemap">
             <p class="text-sm text-gray-600 dark:text-neutral-400" style="margin-bottom:10px;">
-              Network interfaces match. Ready to restore.
+              {{$t("modal.ifacesMatch")}}
             </p>
             <div class="restore-ready-box rounded-lg">
               <p class="text-sm">
-                ✓ All NAT rules reference interfaces present on this server:
-                <strong>{{ (restorePreview.backupIfaces || []).join(', ') || 'none' }}</strong>
+                ✓ {{$t("modal.natRulesReference")}}
+                <strong>{{ (restorePreview.backupIfaces || []).join(', ') || $t('common.none') }}</strong>
               </p>
             </div>
           </div>
           <div v-if="restorePreview && restorePreview.needsRemap">
             <p class="text-sm text-gray-600 dark:text-neutral-400" style="margin-bottom:10px;">
-              The backup references network interfaces that differ from this server.
-              Map each backup interface to the correct interface on this server.
+              {{$t("modal.ifacesDiffer")}}
+              {{$t("modal.mapIfaces")}}
             </p>
             <div v-for="bi in (restorePreview.backupIfaces || [])" :key="bi"
               class="restore-interface-map-row">
@@ -114,24 +114,23 @@
           </div>
           <div class="restore-warning-box rounded-lg">
             <p v-if="showFirstRunSetup" class="text-sm">
-              ⚠ This backup will completely replace the state of this new installation and restart Cascade.
-              Sign in with an administrator account from the backup after restart.
+              ⚠ {{$t("modal.firstRunReplace")}}
+              {{$t("modal.firstRunSignIn")}}
             </p>
             <p v-else class="text-sm">
-              ⚠ This will stop all interfaces, clear firewall rules and ipsets, replace the database,
-              and restart the server. A pre-restore backup will be saved automatically.
+              ⚠ {{$t("modal.restoreWarning")}}
             </p>
           </div>
         </div>
         <div class="modal-footer dark:border-neutral-600">
           <button type="button" @click="cancelRestoreFlow()"
             class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
-            Cancel
+            {{$t("common.cancel")}}
           </button>
           <button type="button" @click="confirmRestoreApply()" :disabled="systemRestoring"
             class="rounded-lg font-medium text-sm btn text-white" style="background:#dc2626;">
-            <span v-if="systemRestoring">Restoring…</span>
-            <span v-else>⬆ Apply Restore</span>
+            <span v-if="systemRestoring">{{$t("settings.restoring")}}</span>
+            <span v-else>⬆ {{$t("modal.applyRestore")}}</span>
           </button>
         </div>
       </div>
@@ -142,11 +141,11 @@
     <div v-if="showTOTPDisableModal" class="modal-overlay">
       <div class="modal-panel modal-panel-sm bg-white dark:bg-neutral-700">
         <div class="modal-header">
-          <h3 class="text-lg font-semibold dark:text-neutral-100">Disable Two-Factor Authentication</h3>
+          <h3 class="text-lg font-semibold dark:text-neutral-100">{{$t("modal.disableTwoFactor")}}</h3>
         </div>
         <div class="modal-body">
           <p class="text-sm text-gray-600 dark:text-neutral-300">
-            Enter your current 6-digit authenticator code to confirm.
+            {{$t("modal.enterCurrentCode")}}
           </p>
           <input v-model="totpDisableCode" type="text" inputmode="numeric" maxlength="6"
             placeholder="000000"
@@ -156,13 +155,13 @@
         <div class="modal-footer">
           <button @click="showTOTPDisableModal = false"
             class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
-            Cancel
+            {{$t("common.cancel")}}
           </button>
           <button @click="confirmTOTPDisable()"
             :disabled="!totpDisableCode"
             class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition"
             :class="{ 'opacity-50 cursor-not-allowed': !totpDisableCode }">
-            Disable 2FA
+            {{$t("settings.disable2fa")}}
           </button>
         </div>
       </div>
@@ -172,22 +171,22 @@
     <div v-if="showAddUserModal" class="modal-overlay">
       <div class="modal-panel modal-panel-sm bg-white dark:bg-neutral-700">
         <div class="modal-header">
-          <h3 class="text-lg font-semibold dark:text-neutral-100">Add User</h3>
+          <h3 class="text-lg font-semibold dark:text-neutral-100">{{$t("settings.addUser")}}</h3>
         </div>
         <div class="modal-body">
           <div>
-            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Username</label>
-            <input v-model="addUserForm.username" type="text" placeholder="username"
+            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.username")}}</label>
+            <input v-model="addUserForm.username" type="text" :placeholder="$t('common.username')"
               class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm" />
           </div>
           <div>
-            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Password</label>
-            <input v-model="addUserForm.password" type="password" placeholder="Password"
+            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.password")}}</label>
+            <input v-model="addUserForm.password" type="password" :placeholder="$t('common.password')"
               class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm" />
           </div>
           <div>
-            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Confirm Password</label>
-            <input v-model="addUserForm.passwordConfirm" type="password" placeholder="Confirm password"
+            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("settings.confirmPassword")}}</label>
+            <input v-model="addUserForm.passwordConfirm" type="password" :placeholder="$t('settings.confirmPassword')"
               class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm"
               @keyup.enter="createUser()" />
           </div>
@@ -195,11 +194,11 @@
         <div class="modal-footer">
           <button @click="showAddUserModal = false"
             class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
-            Cancel
+            {{$t("common.cancel")}}
           </button>
           <button @click="createUser()"
             class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
-            Create User
+            {{$t("modal.createUser")}}
           </button>
         </div>
       </div>
@@ -209,27 +208,27 @@
     <div v-if="showCreateTokenModal" class="modal-overlay">
       <div class="modal-panel modal-panel-sm bg-white dark:bg-neutral-700">
         <div class="modal-header">
-          <h3 class="text-lg font-semibold dark:text-neutral-100">Create API Token</h3>
+          <h3 class="text-lg font-semibold dark:text-neutral-100">{{$t("modal.createApiToken")}}</h3>
         </div>
         <div class="modal-body">
           <div>
-            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Token name</label>
-            <input v-model="createTokenForm.name" type="text" placeholder="e.g. monitoring-script"
+            <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("modal.tokenName")}}</label>
+            <input v-model="createTokenForm.name" type="text" :placeholder="$t('modal.tokenNamePlaceholder')"
               class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm"
               @keyup.enter="createApiToken()" />
           </div>
           <p class="text-xs text-gray-500 dark:text-neutral-400">
-            The token will be shown once after creation. Store it securely — it cannot be retrieved later.
+            {{$t("modal.tokenShownOnce")}}
           </p>
         </div>
         <div class="modal-footer">
           <button @click="showCreateTokenModal = false"
             class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
-            Cancel
+            {{$t("common.cancel")}}
           </button>
           <button @click="createApiToken()"
             class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
-            Create
+            {{$t("common.create")}}
           </button>
         </div>
       </div>
@@ -239,29 +238,29 @@
     <div v-if="showNewTokenModal" class="modal-overlay">
       <div class="modal-panel modal-panel-md api-token-created-modal bg-white dark:bg-neutral-700">
         <div class="modal-header">
-          <h3 class="text-lg font-semibold dark:text-neutral-100">Token Created</h3>
+          <h3 class="text-lg font-semibold dark:text-neutral-100">{{$t("modal.tokenCreated")}}</h3>
         </div>
         <div class="modal-body">
           <div class="api-token-warning bg-amber-50 dark:bg-amber-900 border border-amber-300 dark:border-amber-700 rounded p-3 text-xs text-amber-800 dark:text-amber-200">
-            ⚠ This is the only time the token will be shown. Copy it now — it cannot be retrieved later.
+            ⚠ {{$t("modal.tokenOnlyTime")}}
           </div>
-          <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Your API token</label>
+          <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("modal.yourApiToken")}}</label>
           <div class="api-token-copy-row">
             <code class="api-token-value bg-gray-100 dark:bg-neutral-600 dark:text-neutral-200 select-all">{{ newTokenValue }}</code>
             <button @click="copyTokenToClipboard()"
               class="api-token-copy-button px-3 py-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded transition whitespace-nowrap">
-              Copy
+              {{$t("common.copy")}}
             </button>
           </div>
           <div class="api-token-usage text-xs text-gray-500 dark:text-neutral-400">
-            <span>Usage</span>
+            <span>{{$t("modal.usage")}}</span>
             <code class="font-mono bg-gray-100 dark:bg-neutral-600 dark:text-neutral-200 rounded">Authorization: Bearer {{ newTokenValue }}</code>
           </div>
         </div>
         <div class="modal-footer">
           <button @click="showNewTokenModal = false; newTokenValue = ''"
             class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
-            Done
+            {{$t("common.done")}}
           </button>
         </div>
       </div>
@@ -282,30 +281,30 @@
         <!-- host / network / port -->
         <template v-if="aliasTooltip.alias.type !== 'ipset' && aliasTooltip.alias.type !== 'group' && aliasTooltip.alias.type !== 'port-group' && aliasTooltip.alias.type !== 'client-group'">
           <div v-if="!aliasTooltip.alias.entries || !aliasTooltip.alias.entries.length"
-            class="text-gray-400 dark:text-neutral-500 text-xs italic">empty</div>
+            class="text-gray-400 dark:text-neutral-500 text-xs italic">{{$t("modal.empty")}}</div>
           <div v-for="e in aliasTooltip.alias.entries" :key="e"
             class="font-mono text-xs" style="padding:1px 0; color:#374151;">{{ e }}</div>
         </template>
         <!-- ipset / client-group -->
         <template v-else-if="aliasTooltip.alias.type === 'ipset' || aliasTooltip.alias.type === 'client-group'">
-          <div v-if="aliasTooltip.ipsetLoading" class="text-xs text-gray-400 dark:text-neutral-500 italic">Loading…</div>
+          <div v-if="aliasTooltip.ipsetLoading" class="text-xs text-gray-400 dark:text-neutral-500 italic">{{$t("alias.loadingEllipsis")}}</div>
           <template v-else-if="aliasTooltip.ipsetEntries && aliasTooltip.ipsetEntries.length">
             <div v-for="e in aliasTooltip.ipsetEntries.slice(0, 20)" :key="e"
               class="font-mono text-xs" style="padding:1px 0; color:#374151;">{{ e }}</div>
             <div v-if="aliasTooltip.ipsetEntries.length > 20"
               class="text-xs text-gray-400 dark:text-neutral-500 italic" style="padding-top:4px;">
-              … and {{ aliasTooltip.ipsetEntries.length - 20 }} more
+              {{$t("modal.andMore", { n: aliasTooltip.ipsetEntries.length - 20 })}}
             </div>
           </template>
           <div v-else class="text-xs text-gray-400 dark:text-neutral-500 italic">
-            {{ aliasTooltip.alias.entryCount || 0 }} entries
-            <span v-if="aliasTooltip.alias.generatorOpts">(generated)</span>
+            {{ aliasTooltip.alias.entryCount || 0 }} {{$t("modal.entries")}}
+            <span v-if="aliasTooltip.alias.generatorOpts">{{$t("alias.generated")}}</span>
           </div>
         </template>
         <!-- group / port-group -->
         <template v-else>
           <div v-if="!aliasTooltip.alias.memberIds || !aliasTooltip.alias.memberIds.length"
-            class="text-gray-400 dark:text-neutral-500 text-xs italic">no members</div>
+            class="text-gray-400 dark:text-neutral-500 text-xs italic">{{$t("common.no")}} {{$t("alias.members")}}</div>
           <div v-for="mid in aliasTooltip.alias.memberIds" :key="mid"
             class="text-xs" style="padding:1px 0;">
             {{ _aliasLabel(mid) }}

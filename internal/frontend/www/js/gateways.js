@@ -62,9 +62,9 @@ async loadSystemInterfaces() {
 
 async createGateway() {
       const f = this.gatewayCreate;
-      if (!f.name.trim())      return this.showToast('Gateway name is required', 'error');
-      if (!f.interface)        return this.showToast('Interface is required', 'error');
-      if (!f.gatewayIP.trim()) return this.showToast('Gateway IP is required', 'error');
+      if (!f.name.trim())      return this.showToast(this.$t('gw.nameRequired'), 'error');
+      if (!f.interface)        return this.showToast(this.$t('gw.ifaceRequired'), 'error');
+      if (!f.gatewayIP.trim()) return this.showToast(this.$t('gw.ipRequired'), 'error');
       if (this.gatewayMutationInFlight) return;
       this.gatewayMutationInFlight = true;
       try {
@@ -101,7 +101,7 @@ async createGateway() {
         };
         await this.loadGateways();
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       } finally {
         this.gatewayMutationInFlight = false;
       }
@@ -133,9 +133,9 @@ openGatewayEdit(gw) {
 
 async saveGatewayEdit() {
       const f = this.gatewayEdit;
-      if (!f.name.trim())      return this.showToast('Gateway name is required', 'error');
-      if (!f.interface)        return this.showToast('Interface is required', 'error');
-      if (!f.gatewayIP.trim()) return this.showToast('Gateway IP is required', 'error');
+      if (!f.name.trim())      return this.showToast(this.$t('gw.nameRequired'), 'error');
+      if (!f.interface)        return this.showToast(this.$t('gw.ifaceRequired'), 'error');
+      if (!f.gatewayIP.trim()) return this.showToast(this.$t('gw.ipRequired'), 'error');
       if (this.gatewayMutationInFlight) return;
       this.gatewayMutationInFlight = true;
       try {
@@ -166,7 +166,7 @@ async saveGatewayEdit() {
         const res = await this.api.getGateways();
         this.gateways = res.gateways || [];
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       } finally {
         this.gatewayMutationInFlight = false;
       }
@@ -199,20 +199,20 @@ async toggleGatewayAdminDown(gw) {
         // Revert on error
         const res = await this.api.getGateways();
         this.gateways = res.gateways || [];
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
     // ── Delete Gateway ────────────────────────────────────────────────────────
 
 async deleteGateway(gw) {
-      if (!confirm(`Delete gateway "${gw.name}"?`)) return;
+      if (!confirm(`${this.$t('gw.deleteConfirm')} "${gw.name}"?`)) return;
       try {
         await this.api.deleteGateway({ gatewayId: gw.id });
         const res = await this.api.getGateways();
         this.gateways = res.gateways || [];
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
@@ -220,7 +220,7 @@ async deleteGateway(gw) {
 
 async createGatewayGroup() {
       const f = this.groupCreate;
-      if (!f.name.trim()) return this.showToast('Group name is required', 'error');
+      if (!f.name.trim()) return this.showToast(this.$t('gw.groupNameRequired'), 'error');
       try {
         await this.api.createGatewayGroup({
           name:        f.name.trim(),
@@ -232,7 +232,7 @@ async createGatewayGroup() {
         this.groupCreate = { name: '', trigger: 'packetloss', description: '', gateways: [] };
         await this.loadGatewayGroups();
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
@@ -251,7 +251,7 @@ openGroupEdit(grp) {
 
 async saveGroupEdit() {
       const f = this.groupEdit;
-      if (!f.name.trim()) return this.showToast('Group name is required', 'error');
+      if (!f.name.trim()) return this.showToast(this.$t('gw.groupNameRequired'), 'error');
       try {
         await this.api.updateGatewayGroup({
           groupId:     f.id,
@@ -264,20 +264,20 @@ async saveGroupEdit() {
         const res = await this.api.getGatewayGroups();
         this.gatewayGroups = res.groups || [];
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
     // ── Delete Gateway Group ──────────────────────────────────────────────────
 
 async deleteGatewayGroup(grp) {
-      if (!confirm(`Delete gateway group "${grp.name}"?`)) return;
+      if (!confirm(`${this.$t('gw.deleteGroupConfirm')} "${grp.name}"?`)) return;
       try {
         await this.api.deleteGatewayGroup({ groupId: grp.id });
         const res = await this.api.getGatewayGroups();
         this.gatewayGroups = res.groups || [];
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
@@ -289,7 +289,7 @@ async loadRemotes() {
         const res = await this.api.getRemotes();
         this.remotes = res.remotes || [];
       } catch (err) {
-        this.showToast(`Failed to load remotes: ${err.message}`, 'error');
+        this.showToast(this.$t('gw.loadRemotesFailed') + ': ' + err.message, 'error');
       }
     },
 
@@ -322,7 +322,7 @@ async switchToRemote(remote) {
       try {
         await Promise.all([this.loadTunnelInterfaces(), this.loadSettings()]);
       } catch (err) {
-        this.showToast(`Failed to connect to ${remote.name}: ${err.message}`, 'error');
+        this.showToast(`${this.$t('gw.connectFailed')} ${remote.name}: ${err.message}`, 'error');
         this.switchToLocal();
       }
     },
@@ -372,7 +372,7 @@ async addRemote() {
         this.showRemoteAdd = false;
         this.remoteAddForm = { name: '', url: '', mode: 'login', username: '', password: '', totpCode: '', token: '' };
         this.remoteAddNeedsTOTP = false;
-        this.showToast('Remote server added', 'success');
+        this.showToast(this.$t('toast.remoteAdded'), 'success');
       } catch (err) {
         this.remoteAddError = err.message;
       } finally {
@@ -381,13 +381,13 @@ async addRemote() {
     },
 
 async deleteRemote(remote) {
-      if (!confirm(`Remove remote server "${remote.name}"?`)) return;
+      if (!confirm(`${this.$t('gw.removeRemoteConfirm')} "${remote.name}"?`)) return;
       try {
         await this.api.deleteRemote({ id: remote.id });
         this.remotes = this.remotes.filter(r => r.id !== remote.id);
-        this.showToast('Remote server removed', 'success');
+        this.showToast(this.$t('toast.remoteRemoved'), 'success');
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
@@ -443,7 +443,7 @@ async onSpeedtestServersChange() {
         if (fromIfaces.length) this.speedtestFromIfaceId = fromIfaces[0].id;
         if (toIfaces.length) this.speedtestToIfaceId = toIfaces[0].id;
       } catch (e) {
-        this.speedtestError = 'Failed to load interfaces: ' + (e.message || e);
+        this.speedtestError = this.$t('gw.speedtestIfacesFailed') + ': ' + (e.message || e);
       }
     },
 
@@ -544,12 +544,12 @@ async runSpeedtest() {
       if (this.speedtestRunning) return;
       const { fromId, toId, duration, streams } = this.speedtest;
       if (fromId === toId) {
-        this.speedtestError = 'Source and destination must be different servers.';
+        this.speedtestError = this.$t('gw.speedtestSameServer');
         return;
       }
       const host = this._speedtestPublicHost(fromId);
       if (!host) {
-        this.speedtestError = 'Cannot determine IP address of source server. Set Public IP in Settings.';
+        this.speedtestError = this.$t('gw.speedtestNoPublicIP');
         return;
       }
 
@@ -565,7 +565,7 @@ async runSpeedtest() {
         if (this.speedtest.via === 'manual') {
           const iface = this.speedtestFromIfaces.find(i => i.id === this.speedtestFromIfaceId);
           if (!iface) {
-            this.speedtestError = 'Select a source interface.';
+            this.speedtestError = this.$t('gw.speedtestSelectIface');
             this.speedtestRunning = false;
             return;
           }
@@ -574,7 +574,7 @@ async runSpeedtest() {
         } else if (this.speedtest.via === 'tunnel') {
           const ip = this.speedtest.tunnelIp.trim() || this.speedtestDetectedTunnelIp;
           if (!ip) {
-            this.speedtestError = 'No S2S tunnel found. Switch to Manual or Internet mode.';
+            this.speedtestError = this.$t('gw.speedtestNoS2S');
             this.speedtestRunning = false;
             return;
           }
@@ -599,7 +599,7 @@ async runSpeedtest() {
             if (!pingRes.reachable) {
               this.speedtestPendingHost = resolvedHost;
               this.speedtestPendingVia = via;
-              this.speedtestPingConfirmMsg = `${resolvedHost} is not reachable from the source server (ICMP). The speed test may fail.`;
+              this.speedtestPingConfirmMsg = `${resolvedHost} ${this.$t('gw.speedtestNotReachable')}`;
               this.speedtestPingConfirm = true;
               this.speedtestRunning = false;
               return;
@@ -613,7 +613,7 @@ async runSpeedtest() {
             if (!pingRes.reachable) {
               this.speedtestPendingHost = resolvedHost;
               this.speedtestPendingVia = via;
-              this.speedtestPingConfirmMsg = `${resolvedHost} does not respond to ICMP — it may be blocked by firewall. The test may still work.`;
+              this.speedtestPingConfirmMsg = `${resolvedHost} ${this.$t('gw.speedtestIcmpBlocked')}`;
               this.speedtestPingConfirm = true;
               this.speedtestRunning = false;
               return;
@@ -642,14 +642,14 @@ async runSpeedtest() {
           const rec = await this.api.speedtestGetResult(jobId);
           if (rec.status === 'running') continue;
           if (rec.status === 'error') {
-            this.speedtestError = rec.error || 'Speed test failed.';
+            this.speedtestError = rec.error || this.$t('gw.speedtestFailed');
           } else {
             this.speedtestResult = rec;
           }
           break;
         }
       } catch (err) {
-        this.speedtestError = err.message || 'Speed test failed.';
+        this.speedtestError = err.message || this.$t('gw.speedtestFailed');
       } finally {
         this.speedtestRunning = false;
         this.loadSpeedtestHistory();
@@ -685,12 +685,12 @@ async confirmAndRunSpeedtest() {
           await new Promise(r => setTimeout(r, 2000));
           const rec = await this.api.speedtestGetResult(jobId);
           if (rec.status === 'running') continue;
-          if (rec.status === 'error') this.speedtestError = rec.error || 'Speed test failed.';
+          if (rec.status === 'error') this.speedtestError = rec.error || this.$t('gw.speedtestFailed');
           else this.speedtestResult = rec;
           break;
         }
       } catch (err) {
-        this.speedtestError = err.message || 'Speed test failed.';
+        this.speedtestError = err.message || this.$t('gw.speedtestFailed');
       } finally {
         this.speedtestRunning = false;
         this.loadSpeedtestHistory();
@@ -731,8 +731,8 @@ gatewayStatusColor(status) {
     },
 
 gatewayStatusLabel(status) {
-      const map = { healthy: 'Healthy', degraded: 'Degraded', down: 'Down', unknown: 'Unknown', admin_down: 'Admin Down' };
-      return map[status] || 'Unknown';
+      const map = { healthy: this.$t('gw.statusHealthy'), degraded: this.$t('gw.statusDegraded'), down: this.$t('gw.statusDown'), unknown: this.$t('common.unknown'), admin_down: 'Admin Down' };
+      return map[status] || this.$t('common.unknown');
     },
 
     // Look up gateway name by id (used in group display)

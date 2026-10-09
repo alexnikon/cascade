@@ -8,18 +8,18 @@
 
             <div v-if="gatewaysLoading && !gatewaysLoaded"
               class="content-panel text-center text-gray-500 dark:text-neutral-400 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
-              Loading gateways…
+              {{$t("gw.loading")}}
             </div>
 
             <div v-else-if="gatewaysError && !gatewaysLoaded"
               class="content-panel text-center text-red-600 dark:text-red-400 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
-              Unable to load gateways. Please try again.
+              {{$t("gw.loadError")}}
             </div>
 
             <!-- Empty state -->
             <div v-else-if="gatewaysLoaded && gateways.length === 0"
               class="content-panel text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
-              No gateways configured yet. Create one to start monitoring.
+              {{$t("gw.empty")}}
             </div>
 
             <!-- Gateways table -->
@@ -38,7 +38,7 @@
                     outline: gw.adminDown && gw.realStatus ? '2px solid ' + gatewayStatusColor(gw.realStatus) : 'none',
                     outlineOffset: '2px'
                   }"
-                  :title="gw.adminDown ? 'Admin Down (probe: ' + gatewayStatusLabel(gw.realStatus || 'unknown') + ') — click to restore' : 'Click to set Admin Down'">
+                  :title="gw.adminDown ? $t('gw.adminDownProbe') + gatewayStatusLabel(gw.realStatus || 'unknown') + $t('gw.adminDownRestore') : $t('gw.setAdminDown')">
                 </button>
 
                 <!-- Name -->
@@ -49,7 +49,7 @@
 
                 <!-- Interface -->
                 <span class="gateway-interface text-sm text-gray-500 dark:text-neutral-400">
-                  <span class="gateway-field-label">Interface</span>
+                  <span class="gateway-field-label">{{$t("common.interface")}}</span>
                   <span class="font-mono">{{gw.interface}}</span>
                 </span>
 
@@ -60,7 +60,7 @@
                   <!-- IPv6 health, shown only when it is measured separately -->
                   <span v-if="gw.ipv6Source === 'probe'" class="text-xs"
                     :class="gw.ipv6Status === 'healthy' ? 'text-green-600 dark:text-green-400' : (gw.ipv6Status === 'down' ? 'text-red-500' : 'text-gray-400 dark:text-neutral-500')"
-                    :title="'IPv6 probe: ' + gw.ipv6Status">IPv6 {{gw.ipv6Status}}</span>
+                    :title="$t('gw.ipv6Probe') + gw.ipv6Status">IPv6 {{gw.ipv6Status}}</span>
                 </span>
 
                 <!-- RTT -->
@@ -73,7 +73,7 @@
                 <!-- Packet loss -->
                 <span class="gateway-loss text-sm"
                   :class="gw.packetLoss !== null ? 'text-gray-700 dark:text-neutral-200' : 'text-gray-400 dark:text-neutral-500'">
-                  <span class="gateway-field-label">Loss</span>
+                  <span class="gateway-field-label">{{$t("gw.loss")}}</span>
                   {{gw.packetLoss !== null ? gw.packetLoss + '%' : '—'}}
                 </span>
 
@@ -95,7 +95,7 @@
                 <!-- Status label -->
                 <span class="gateway-status text-sm font-medium"
                   :style="'color:' + gatewayStatusColor(gw.status)">
-                  <span class="gateway-field-label">Status</span>
+                  <span class="gateway-field-label">{{$t("common.status")}}</span>
                   {{gatewayStatusLabel(gw.status)}}
                 </span>
 
@@ -105,7 +105,7 @@
                   <button @click="openGatewayEdit(gw); loadSystemInterfaces();"
                     class="p-2 rounded text-gray-400 dark:text-neutral-400 transition"
                     style="background:transparent;"
-                    title="Edit gateway">
+                    :title="$t('gw.editTitle')">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                     </svg>
@@ -114,7 +114,7 @@
                   <button @click="deleteGateway(gw)"
                     class="p-2 rounded text-gray-400 dark:text-neutral-400 transition"
                     style="background:transparent;"
-                    title="Delete gateway">
+                    :title="$t('gw.deleteTitle')">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
@@ -128,14 +128,14 @@
           <div>
             <!-- Section header -->
             <div class="flex items-center justify-between mb-4">
-              <h2 class="text-xl font-semibold dark:text-neutral-200">Gateway Groups</h2>
+              <h2 class="text-xl font-semibold dark:text-neutral-200">{{$t("gw.groups")}}</h2>
 
             </div>
 
             <!-- Empty state -->
             <div v-if="gatewayGroups.length === 0"
               class="content-panel text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
-              No gateway groups defined yet.
+              {{$t("gw.groupsEmpty")}}
             </div>
 
             <!-- Groups list -->
@@ -149,7 +149,7 @@
                   <div class="flex items-center gap-3">
                     <span class="font-medium dark:text-neutral-200">{{grp.name}}</span>
                     <span class="ui-badge text-xs bg-gray-100 dark:bg-neutral-700 text-gray-500 dark:text-neutral-400 rounded px-2 py-1">
-                      trigger: {{grp.trigger}}
+                      {{$t("gw.trigger")}} {{grp.trigger}}
                     </span>
                     <span v-if="grp.description" class="text-xs text-gray-400 dark:text-neutral-500">
                       {{grp.description}}
@@ -159,14 +159,14 @@
                   <div class="flex gap-1">
                     <button @click="openGroupEdit(grp)"
                       class="p-2 rounded text-gray-400 dark:text-neutral-400 transition"
-                      style="background:transparent;" title="Edit group">
+                      style="background:transparent;" :title="$t('gw.editGroup')">
                       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                       </svg>
                     </button>
                     <button @click="deleteGatewayGroup(grp)"
                       class="p-2 rounded text-gray-400 dark:text-neutral-400 transition"
-                      style="background:transparent;" title="Delete group">
+                      style="background:transparent;" :title="$t('gw.deleteGroup')">
                       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                       </svg>
@@ -180,7 +180,7 @@
                   <div v-for="tier in [...new Set(grp.gateways.map(e => e.tier))].sort()" :key="tier"
                     class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-300">
                     <span class="text-xs text-gray-400 dark:text-neutral-500 font-mono shrink-0" style="min-width:40px;">
-                      Tier {{tier}}:
+                      {{$t("gw.tier")}} {{tier}}:
                     </span>
                     <span v-for="entry in grp.gateways.filter(e => e.tier === tier)" :key="entry.gatewayId"
                       class="flex items-center gap-1">
@@ -191,7 +191,7 @@
                   </div>
                 </div>
                 <div v-else class="text-xs text-gray-400 dark:text-neutral-500">
-                  No gateways in this group.
+                  {{$t("gw.groupEmpty")}}
                 </div>
               </div>
             </div>
@@ -205,7 +205,7 @@
 
               <!-- Header -->
               <div class="modal-header dark:border-neutral-600">
-                <h2 class="text-xl font-medium dark:text-neutral-200">New Gateway</h2>
+                <h2 class="text-xl font-medium dark:text-neutral-200">{{$t("gw.new")}}</h2>
               </div>
 
               <!-- Body -->
@@ -213,17 +213,17 @@
 
                 <!-- Name -->
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
-                  <input v-model="gatewayCreate.name" type="text" placeholder="e.g. VPS-Frankfurt"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.name")}} <span class="text-red-500">*</span></label>
+                  <input v-model="gatewayCreate.name" type="text" :placeholder="$t('gw.namePlaceholder')"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
 
                 <!-- Interface -->
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Interface <span class="text-red-500">*</span></label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.interface")}} <span class="text-red-500">*</span></label>
                   <select v-model="gatewayCreate.interface"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
-                    <option value="">— select interface —</option>
+                    <option value="">{{$t("gw.selectInterface")}}</option>
                     <option v-for="iface in systemInterfaces" :key="iface.name" :value="iface.name">
                       {{ iface.label || iface.name }}{{ iface.operstate ? ' (' + iface.operstate + ')' : '' }}
                     </option>
@@ -233,33 +233,33 @@
                 <!-- Gateway IP + Monitor Address -->
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Gateway IP <span class="text-red-500">*</span></label>
-                    <input v-model="gatewayCreate.gatewayIP" type="text" placeholder="e.g. 192.168.1.1"
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.gatewayIP")}} <span class="text-red-500">*</span></label>
+                    <input v-model="gatewayCreate.gatewayIP" type="text" :placeholder="$t('gw.ipPlaceholder')"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Next-hop IP (for routing)</p>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("gw.nextHop")}}</p>
                   </div>
                   <div>
-                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IP <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
-                    <input v-model="gatewayCreate.monitorAddress" type="text" :placeholder="gatewayCreate.gatewayIP || 'same as Gateway IP'"
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.monitorIP")}} <span class="text-gray-400 text-xs font-normal">({{$t("common.optional")}})</span></label>
+                    <input v-model="gatewayCreate.monitorAddress" type="text" :placeholder="gatewayCreate.gatewayIP || $t('gw.sameAsGatewayIP')"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
-                    <p v-if="gatewayCreate.monitorAddress && gatewayCreate.monitorAddress !== gatewayCreate.gatewayIP && /^(wg|awg)/.test(gatewayCreate.interface)" class="text-xs text-amber-600 mt-1">This target is checked through the tunnel. Internet targets require remote forwarding and egress NAT for this tunnel's source address; client-subnet NAT may not cover it.</p>
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Ping target; blank = Gateway IP</p>
+                    <p v-if="gatewayCreate.monitorAddress && gatewayCreate.monitorAddress !== gatewayCreate.gatewayIP && /^(wg|awg)/.test(gatewayCreate.interface)" class="text-xs text-amber-600 mt-1">{{$t("gw.tunnelWarning")}}</p>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("gw.pingTarget")}}</p>
                   </div>
                 </div>
 
                 <!-- IPv6 (optional) -->
                 <div class="grid grid-cols-2 gap-4">
                   <div>
-                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Gateway IPv6 <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
-                    <input v-model="gatewayCreate.gatewayIPv6" type="text" placeholder="e.g. 2001:db8::1"
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.gatewayIPv6")}} <span class="text-gray-400 text-xs font-normal">({{$t("common.optional")}})</span></label>
+                    <input v-model="gatewayCreate.gatewayIPv6" type="text" :placeholder="$t('gw.ipv6Placeholder')"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">IPv6 next hop; blank = use the interface's own IPv6 address</p>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("gw.ipv6NextHop")}}</p>
                   </div>
                   <div>
-                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IPv6 <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
-                    <input v-model="gatewayCreate.monitorAddressV6" type="text" placeholder="e.g. 2606:4700:4700::1111"
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.monitorIPv6")}} <span class="text-gray-400 text-xs font-normal">({{$t("common.optional")}})</span></label>
+                    <input v-model="gatewayCreate.monitorAddressV6" type="text" :placeholder="$t('gw.ipv6MonitorPlaceholder')"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">ICMPv6 target; blank = IPv6 health follows the IPv4 probe</p>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("gw.icmpv6Target")}}</p>
                   </div>
                 </div>
 
@@ -267,42 +267,42 @@
                 <div class="flex items-center gap-3">
                   <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" v-model="gatewayCreate.monitor" class="w-4 h-4">
-                    <span class="text-sm dark:text-neutral-300">Enable monitoring</span>
+                    <span class="text-sm dark:text-neutral-300">{{$t("gw.enableMonitoring")}}</span>
                   </label>
                 </div>
 
                 <!-- Monitor params (only if enabled) -->
                 <div v-if="gatewayCreate.monitor">
-                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Monitor Parameters</p>
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">{{$t("gw.monitorParams")}}</p>
                   <div class="grid grid-cols-3 gap-3">
                     <div>
-                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">ICMP Interval (s)</label>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.icmpInterval")}}</label>
                       <input v-model.number="gatewayCreate.monitorInterval" type="number" min="1"
                         class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
                     <div>
-                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Window override (s)</label>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.windowOverride")}}</label>
                       <input v-model.number="gatewayCreate.windowSeconds" type="number" min="10"
                         :placeholder="globalSettings.gatewayWindowSeconds"
                         class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
                     <div>
-                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Latency threshold (ms)</label>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.latencyThreshold")}}</label>
                       <input v-model.number="gatewayCreate.latencyThreshold" type="number" min="1"
                         class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
                   </div>
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                    Status by packet loss: ≥{{globalSettings.gatewayHealthyThreshold}}% → Healthy · ≥{{globalSettings.gatewayDegradedThreshold}}% → Degraded · else → Down
+                    {{$t("gw.statusByLoss")}} ≥{{globalSettings.gatewayHealthyThreshold}}% → Healthy · ≥{{globalSettings.gatewayDegradedThreshold}}% → Degraded · {{$t("gw.else")}} → Down
                   </p>
                 </div>
 
                 <!-- Health Decision Rule -->
                 <div v-if="gatewayCreate.monitor">
-                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Health Decision Rule</p>
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">{{$t("gw.healthRule")}}</p>
                   <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <button type="button"
-                      v-for="rule in [{v:'icmp_only',l:'ICMP only'},{v:'http_only',l:'HTTP only'},{v:'all',l:'All (AND)'},{v:'any',l:'Any (OR)'}]"
+                      v-for="rule in [{v:'icmp_only',l:$t('gw.ruleIcmpOnly')},{v:'http_only',l:$t('gw.ruleHttpOnly')},{v:'all',l:$t('gw.ruleAll')},{v:'any',l:$t('gw.ruleAny')}]"
                       :key="rule.v"
                       @click="gatewayCreate.monitorRule = rule.v"
                       class="px-3 py-1 text-xs rounded border dark:border-neutral-500"
@@ -311,13 +311,13 @@
                     </button>
                   </div>
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                    ICMP only — ping only · HTTP only — HTTP only · All — both must pass · Any — either passes
+                    {{$t("gw.healthRuleHint")}}
                   </p>
                 </div>
 
                 <!-- HTTP Probe (when rule requires HTTP) -->
                 <div v-if="gatewayCreate.monitor && gatewayCreate.monitorRule !== 'icmp_only'">
-                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">HTTP Probe</p>
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">{{$t("gw.httpProbe")}}</p>
                   <div style="display:flex; flex-direction:column; gap:8px;">
                     <div>
                       <label class="block text-xs font-medium dark:text-neutral-300 mb-1">URL <span class="text-red-500">*</span></label>
@@ -326,17 +326,17 @@
                     </div>
                     <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
                       <div>
-                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Expected status</label>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.expectedStatus")}}</label>
                         <input v-model.number="gatewayCreate.monitorHttp.expectedStatus" type="number" min="100" max="599"
                           class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
                       <div>
-                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Interval (s)</label>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.interval")}}</label>
                         <input v-model.number="gatewayCreate.monitorHttp.interval" type="number" min="5"
                           class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
                       <div>
-                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Timeout (s)</label>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.timeout")}}</label>
                         <input v-model.number="gatewayCreate.monitorHttp.timeout" type="number" min="1" max="30"
                           class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
@@ -346,8 +346,8 @@
 
                 <!-- Description -->
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Description</label>
-                  <input v-model="gatewayCreate.description" type="text" placeholder="Optional note"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.description")}}</label>
+                  <input v-model="gatewayCreate.description" type="text" :placeholder="$t('gw.optionalNote')"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
               </div>
@@ -357,11 +357,11 @@
                 <div class="flex gap-3 justify-end">
                   <button @click="showGatewayCreate = false"
                     class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
-                    Cancel
+                    {{$t("common.cancel")}}
                   </button>
                   <button @click="createGateway()" :disabled="gatewayMutationInFlight"
                     class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
-                    Create Gateway
+                    {{$t("gw.create")}}
                   </button>
                 </div>
               </div>
@@ -376,23 +376,23 @@
 
               <!-- Header -->
               <div class="modal-header dark:border-neutral-600">
-                <h2 class="text-xl font-medium dark:text-neutral-200">Edit Gateway</h2>
+                <h2 class="text-xl font-medium dark:text-neutral-200">{{$t("gw.edit")}}</h2>
               </div>
 
               <!-- Body -->
               <div class="modal-body">
 
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.name")}} <span class="text-red-500">*</span></label>
                   <input v-model="gatewayEdit.name" type="text"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Interface <span class="text-red-500">*</span></label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.interface")}} <span class="text-red-500">*</span></label>
                   <select v-model="gatewayEdit.interface"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
-                    <option value="">— select interface —</option>
+                    <option value="">{{$t("gw.selectInterface")}}</option>
                     <option v-for="iface in systemInterfaces" :key="iface.name" :value="iface.name">
                       {{ iface.label || iface.name }}{{ iface.operstate ? ' (' + iface.operstate + ')' : '' }}
                     </option>
@@ -402,74 +402,74 @@
                 <!-- Gateway IP + Monitor Address -->
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Gateway IP <span class="text-red-500">*</span></label>
-                    <input v-model="gatewayEdit.gatewayIP" type="text" placeholder="e.g. 192.168.1.1"
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.gatewayIP")}} <span class="text-red-500">*</span></label>
+                    <input v-model="gatewayEdit.gatewayIP" type="text" :placeholder="$t('gw.ipPlaceholder')"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Next-hop IP (for routing)</p>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("gw.nextHop")}}</p>
                   </div>
                   <div>
-                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IP <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
-                    <input v-model="gatewayEdit.monitorAddress" type="text" :placeholder="gatewayEdit.gatewayIP || 'same as Gateway IP'"
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.monitorIP")}} <span class="text-gray-400 text-xs font-normal">({{$t("common.optional")}})</span></label>
+                    <input v-model="gatewayEdit.monitorAddress" type="text" :placeholder="gatewayEdit.gatewayIP || $t('gw.sameAsGatewayIP')"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
-                    <p v-if="gatewayEdit.monitorAddress && gatewayEdit.monitorAddress !== gatewayEdit.gatewayIP && /^(wg|awg)/.test(gatewayEdit.interface)" class="text-xs text-amber-600 mt-1">This target is checked through the tunnel. Internet targets require remote forwarding and egress NAT for this tunnel's source address; client-subnet NAT may not cover it.</p>
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Ping target; blank = Gateway IP</p>
+                    <p v-if="gatewayEdit.monitorAddress && gatewayEdit.monitorAddress !== gatewayEdit.gatewayIP && /^(wg|awg)/.test(gatewayEdit.interface)" class="text-xs text-amber-600 mt-1">{{$t("gw.tunnelWarning")}}</p>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("gw.pingTarget")}}</p>
                   </div>
                 </div>
 
                 <!-- IPv6 (optional) -->
                 <div class="grid grid-cols-2 gap-4">
                   <div>
-                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Gateway IPv6 <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
-                    <input v-model="gatewayEdit.gatewayIPv6" type="text" placeholder="e.g. 2001:db8::1"
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.gatewayIPv6")}} <span class="text-gray-400 text-xs font-normal">({{$t("common.optional")}})</span></label>
+                    <input v-model="gatewayEdit.gatewayIPv6" type="text" :placeholder="$t('gw.ipv6Placeholder')"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">IPv6 next hop; blank = use the interface's own IPv6 address</p>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("gw.ipv6NextHop")}}</p>
                   </div>
                   <div>
-                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Monitor IPv6 <span class="text-gray-400 text-xs font-normal">(optional)</span></label>
-                    <input v-model="gatewayEdit.monitorAddressV6" type="text" placeholder="e.g. 2606:4700:4700::1111"
+                    <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.monitorIPv6")}} <span class="text-gray-400 text-xs font-normal">({{$t("common.optional")}})</span></label>
+                    <input v-model="gatewayEdit.monitorAddressV6" type="text" :placeholder="$t('gw.ipv6MonitorPlaceholder')"
                       class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm font-mono">
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">ICMPv6 target; blank = IPv6 health follows the IPv4 probe</p>
+                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("gw.icmpv6Target")}}</p>
                   </div>
                 </div>
 
                 <div class="flex items-center gap-3">
                   <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" v-model="gatewayEdit.monitor" class="w-4 h-4">
-                    <span class="text-sm dark:text-neutral-300">Enable monitoring</span>
+                    <span class="text-sm dark:text-neutral-300">{{$t("gw.enableMonitoring")}}</span>
                   </label>
                 </div>
 
                 <div v-if="gatewayEdit.monitor">
-                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Monitor Parameters</p>
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">{{$t("gw.monitorParams")}}</p>
                   <div class="grid grid-cols-3 gap-3">
                     <div>
-                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">ICMP Interval (s)</label>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.icmpInterval")}}</label>
                       <input v-model.number="gatewayEdit.monitorInterval" type="number" min="1"
                         class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
                     <div>
-                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Window override (s)</label>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.windowOverride")}}</label>
                       <input v-model.number="gatewayEdit.windowSeconds" type="number" min="10"
                         :placeholder="globalSettings.gatewayWindowSeconds"
                         class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
                     <div>
-                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Latency threshold (ms)</label>
+                      <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.latencyThreshold")}}</label>
                       <input v-model.number="gatewayEdit.latencyThreshold" type="number" min="1"
                         class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
                   </div>
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                    Status by packet loss: ≥{{globalSettings.gatewayHealthyThreshold}}% → Healthy · ≥{{globalSettings.gatewayDegradedThreshold}}% → Degraded · else → Down
+                    {{$t("gw.statusByLoss")}} ≥{{globalSettings.gatewayHealthyThreshold}}% → Healthy · ≥{{globalSettings.gatewayDegradedThreshold}}% → Degraded · {{$t("gw.else")}} → Down
                   </p>
                 </div>
 
                 <!-- Health Decision Rule -->
                 <div v-if="gatewayEdit.monitor">
-                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Health Decision Rule</p>
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">{{$t("gw.healthRule")}}</p>
                   <div style="display:flex; gap:8px; flex-wrap:wrap;">
                     <button type="button"
-                      v-for="rule in [{v:'icmp_only',l:'ICMP only'},{v:'http_only',l:'HTTP only'},{v:'all',l:'All (AND)'},{v:'any',l:'Any (OR)'}]"
+                      v-for="rule in [{v:'icmp_only',l:$t('gw.ruleIcmpOnly')},{v:'http_only',l:$t('gw.ruleHttpOnly')},{v:'all',l:$t('gw.ruleAll')},{v:'any',l:$t('gw.ruleAny')}]"
                       :key="rule.v"
                       @click="gatewayEdit.monitorRule = rule.v"
                       class="px-3 py-1 text-xs rounded border dark:border-neutral-500"
@@ -478,13 +478,13 @@
                     </button>
                   </div>
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                    ICMP only — ping only · HTTP only — HTTP only · All — both must pass · Any — either passes
+                    {{$t("gw.healthRuleHint")}}
                   </p>
                 </div>
 
                 <!-- HTTP Probe (when rule requires HTTP) -->
                 <div v-if="gatewayEdit.monitor && gatewayEdit.monitorRule !== 'icmp_only'">
-                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">HTTP Probe</p>
+                  <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">{{$t("gw.httpProbe")}}</p>
                   <div style="display:flex; flex-direction:column; gap:8px;">
                     <div>
                       <label class="block text-xs font-medium dark:text-neutral-300 mb-1">URL <span class="text-red-500">*</span></label>
@@ -493,17 +493,17 @@
                     </div>
                     <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;">
                       <div>
-                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Expected status</label>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.expectedStatus")}}</label>
                         <input v-model.number="gatewayEdit.monitorHttp.expectedStatus" type="number" min="100" max="599"
                           class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
                       <div>
-                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Interval (s)</label>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.interval")}}</label>
                         <input v-model.number="gatewayEdit.monitorHttp.interval" type="number" min="5"
                           class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
                       <div>
-                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Timeout (s)</label>
+                        <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("gw.timeout")}}</label>
                         <input v-model.number="gatewayEdit.monitorHttp.timeout" type="number" min="1" max="30"
                           class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
@@ -512,8 +512,8 @@
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Description</label>
-                  <input v-model="gatewayEdit.description" type="text" placeholder="Optional note"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.description")}}</label>
+                  <input v-model="gatewayEdit.description" type="text" :placeholder="$t('gw.optionalNote')"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
               </div>
@@ -524,7 +524,7 @@
                 <input type="checkbox" id="gatewayAdminDown" v-model="gatewayEdit.adminDown" class="w-4 h-4">
                 <label for="gatewayAdminDown" class="text-sm font-medium cursor-pointer select-none"
                   style="color:#ef4444;">
-                  Admin Down — disable this gateway (monitoring continues, traffic stops)
+                  {{$t("gw.adminDownLabel")}}
                 </label>
               </div>
 
@@ -533,11 +533,11 @@
                 <div class="flex gap-3 justify-end">
                   <button @click="showGatewayEdit = false"
                     class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
-                    Cancel
+                    {{$t("common.cancel")}}
                   </button>
                   <button @click="saveGatewayEdit()" :disabled="gatewayMutationInFlight"
                     class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
-                    Save Changes
+                    {{$t("common.saveChanges")}}
                   </button>
                 </div>
               </div>
@@ -552,56 +552,56 @@
 
               <!-- Header -->
               <div class="modal-header dark:border-neutral-600">
-                <h2 class="text-xl font-medium dark:text-neutral-200">New Gateway Group</h2>
+                <h2 class="text-xl font-medium dark:text-neutral-200">{{$t("gw.newGroup")}}</h2>
               </div>
 
               <!-- Body -->
               <div class="modal-body">
 
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
-                  <input v-model="groupCreate.name" type="text" placeholder="e.g. WAN_Failover"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.name")}} <span class="text-red-500">*</span></label>
+                  <input v-model="groupCreate.name" type="text" :placeholder="$t('gw.groupNamePlaceholder')"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Trigger</label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.triggerLabel")}}</label>
                   <select v-model="groupCreate.trigger"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
-                    <option value="packetloss">Packet Loss</option>
-                    <option value="latency">Latency</option>
-                    <option value="packetloss_latency">Packet Loss + Latency</option>
+                    <option value="packetloss">{{$t("gw.packetLoss")}}</option>
+                    <option value="latency">{{$t("gw.latency")}}</option>
+                    <option value="packetloss_latency">{{$t("gw.packetLossLatency")}}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Description</label>
-                  <input v-model="groupCreate.description" type="text" placeholder="Optional"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.description")}}</label>
+                  <input v-model="groupCreate.description" type="text" :placeholder="$t('gw.optionalPlaceholder')"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
 
                 <!-- Gateways list -->
                 <div>
                   <div class="flex items-center justify-between mb-2">
-                    <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 tracking-wide">Gateways</p>
+                    <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 tracking-wide">{{$t("common.gateways")}}</p>
                     <button @click="addGroupGatewayEntry(groupCreate)"
-                      class="text-xs text-purple-600 dark:text-purple-400">+ Add</button>
+                      class="text-xs text-purple-600 dark:text-purple-400">+ {{$t("common.add")}}</button>
                   </div>
                   <div style="display:flex; flex-direction:column; gap:8px;">
                     <div v-for="(entry, idx) in groupCreate.gateways" :key="idx"
                       class="flex items-center gap-2">
                       <select v-model="entry.gatewayId"
                         class="flex-1 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                        <option value="">— gateway —</option>
+                        <option value="">{{$t("gw.gatewayPlaceholder")}}</option>
                         <option v-for="gw in gateways" :key="gw.id" :value="gw.id">{{gw.name}}</option>
                       </select>
                       <div>
-                        <label class="text-xs dark:text-neutral-400">Tier</label>
+                        <label class="text-xs dark:text-neutral-400">{{$t("gw.tier")}}</label>
                         <input v-model.number="entry.tier" type="number" min="1" style="width:48px;"
                           class="ml-1 px-1 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
                       <div>
-                        <label class="text-xs dark:text-neutral-400">Wt</label>
+                        <label class="text-xs dark:text-neutral-400">{{$t("gw.weight")}}</label>
                         <input v-model.number="entry.weight" type="number" min="1" style="width:52px;"
                           class="ml-1 px-1 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
@@ -617,11 +617,11 @@
                 <div class="flex gap-3 justify-end">
                   <button @click="showGroupCreate = false"
                     class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
-                    Cancel
+                    {{$t("common.cancel")}}
                   </button>
                   <button @click="createGatewayGroup()"
                     class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
-                    Create Group
+                    {{$t("gw.createGroup")}}
                   </button>
                 </div>
               </div>
@@ -636,56 +636,56 @@
 
               <!-- Header -->
               <div class="modal-header dark:border-neutral-600">
-                <h2 class="text-xl font-medium dark:text-neutral-200">Edit Gateway Group</h2>
+                <h2 class="text-xl font-medium dark:text-neutral-200">{{$t("gw.editGroupTitle")}}</h2>
               </div>
 
               <!-- Body -->
               <div class="modal-body">
 
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.name")}} <span class="text-red-500">*</span></label>
                   <input v-model="groupEdit.name" type="text"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Trigger</label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("gw.triggerLabel")}}</label>
                   <select v-model="groupEdit.trigger"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
-                    <option value="packetloss">Packet Loss</option>
-                    <option value="latency">Latency</option>
-                    <option value="packetloss_latency">Packet Loss + Latency</option>
+                    <option value="packetloss">{{$t("gw.packetLoss")}}</option>
+                    <option value="latency">{{$t("gw.latency")}}</option>
+                    <option value="packetloss_latency">{{$t("gw.packetLossLatency")}}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Description</label>
-                  <input v-model="groupEdit.description" type="text" placeholder="Optional"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.description")}}</label>
+                  <input v-model="groupEdit.description" type="text" :placeholder="$t('gw.optionalPlaceholder')"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
 
                 <!-- Gateways list -->
                 <div>
                   <div class="flex items-center justify-between mb-2">
-                    <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 tracking-wide">Gateways</p>
+                    <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 tracking-wide">{{$t("common.gateways")}}</p>
                     <button @click="addGroupGatewayEntry(groupEdit)"
-                      class="text-xs text-purple-600 dark:text-purple-400">+ Add</button>
+                      class="text-xs text-purple-600 dark:text-purple-400">+ {{$t("common.add")}}</button>
                   </div>
                   <div style="display:flex; flex-direction:column; gap:8px;">
                     <div v-for="(entry, idx) in groupEdit.gateways" :key="idx"
                       class="flex items-center gap-2">
                       <select v-model="entry.gatewayId"
                         class="flex-1 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                        <option value="">— gateway —</option>
+                        <option value="">{{$t("gw.gatewayPlaceholder")}}</option>
                         <option v-for="gw in gateways" :key="gw.id" :value="gw.id">{{gw.name}}</option>
                       </select>
                       <div>
-                        <label class="text-xs dark:text-neutral-400">Tier</label>
+                        <label class="text-xs dark:text-neutral-400">{{$t("gw.tier")}}</label>
                         <input v-model.number="entry.tier" type="number" min="1" style="width:48px;"
                           class="ml-1 px-1 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
                       <div>
-                        <label class="text-xs dark:text-neutral-400">Wt</label>
+                        <label class="text-xs dark:text-neutral-400">{{$t("gw.weight")}}</label>
                         <input v-model.number="entry.weight" type="number" min="1" style="width:52px;"
                           class="ml-1 px-1 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                       </div>
@@ -701,11 +701,11 @@
                 <div class="flex gap-3 justify-end">
                   <button @click="showGroupEdit = false"
                     class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
-                    Cancel
+                    {{$t("common.cancel")}}
                   </button>
                   <button @click="saveGroupEdit()"
                     class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
-                    Save Changes
+                    {{$t("common.saveChanges")}}
                   </button>
                 </div>
               </div>

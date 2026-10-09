@@ -58,7 +58,7 @@ async _reorderFirewallRules(ids) {
         await this.api.reorderFirewallRules(ids);
         await this.loadFirewallRules();
       } catch (err) {
-        this.showToast(err.message || 'Failed to reorder rules', 'error');
+        this.showToast(err.message || this.$t('toast.fwReorderFailed'), 'error');
         await this.loadFirewallRules(); // revert DOM to server state
       }
     },
@@ -68,22 +68,22 @@ async applyFirewallRules() {
       try {
         await this.api.applyFirewallRules();
         this.firewallPending = false;
-        this.showToast('Firewall rules applied', 'success');
+        this.showToast(this.$t('toast.fwApplied'), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to apply firewall rules', 'error');
+        this.showToast(err.message || this.$t('toast.fwApplyFailed'), 'error');
       } finally {
         this.firewallApplying = false;
       }
     },
 
 async discardFirewallChanges() {
-      if (!confirm('Discard all unapplied changes and revert to last applied state?')) return;
+      if (!confirm(this.$t('toast.fwDiscardConfirm'))) return;
       try {
         await this.api.discardFirewallChanges();
         await this.loadFirewallRules();
-        this.showToast('Changes discarded', 'success');
+        this.showToast(this.$t('toast.fwDiscarded'), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to discard changes', 'error');
+        this.showToast(err.message || this.$t('toast.fwDiscardFailed'), 'error');
       }
     },
 
@@ -156,9 +156,9 @@ async createFirewallRule() {
         this.showFirewallCreate = false;
         this._resetFirewallCreate();
         await this.loadFirewallRules();
-        this.showToast('Firewall rule created', 'success');
+        this.showToast(this.$t('toast.fwRuleCreated'), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to create firewall rule', 'error');
+        this.showToast(err.message || this.$t('toast.fwRuleCreateFailed'), 'error');
       }
     },
 
@@ -203,9 +203,9 @@ async saveFirewallEdit() {
         await this.api.updateFirewallRule(payload);
         this.showFirewallEdit = false;
         await this.loadFirewallRules();
-        this.showToast('Firewall rule updated', 'success');
+        this.showToast(this.$t('toast.fwRuleUpdated'), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to update firewall rule', 'error');
+        this.showToast(err.message || this.$t('toast.fwRuleUpdateFailed'), 'error');
       }
     },
 
@@ -214,18 +214,18 @@ async toggleFirewallRule(rule) {
         await this.api.toggleFirewallRule({ id: rule.id, enabled: !rule.enabled });
         await this.loadFirewallRules();
       } catch (err) {
-        this.showToast(err.message || 'Failed to toggle firewall rule', 'error');
+        this.showToast(err.message || this.$t('toast.fwRuleToggleFailed'), 'error');
       }
     },
 
 async deleteFirewallRule(rule) {
-      if (!confirm(`Delete firewall rule "${rule.name}"?`)) return;
+      if (!confirm(this.$t('toast.fwRuleDeleteConfirm', { name: rule.name }))) return;
       try {
         await this.api.deleteFirewallRule({ id: rule.id });
         await this.loadFirewallRules();
-        this.showToast('Firewall rule deleted', 'success');
+        this.showToast(this.$t('toast.fwRuleDeleted'), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to delete firewall rule', 'error');
+        this.showToast(err.message || this.$t('toast.fwRuleDeleteFailed'), 'error');
       }
     },
 
@@ -234,7 +234,7 @@ async moveFirewallRule(rule, direction) {
         await this.api.moveFirewallRule({ id: rule.id, direction });
         await this.loadFirewallRules();
       } catch (err) {
-        this.showToast(err.message || 'Failed to move firewall rule', 'error');
+        this.showToast(err.message || this.$t('toast.fwRuleMoveFailed'), 'error');
       }
     },
 
@@ -260,9 +260,9 @@ async saveSeparator() {
         }
         this.showSeparatorModal = false;
         await this.loadFirewallRules();
-        this.showToast(this.separatorEditId ? 'Separator updated' : 'Separator added', 'success');
+        this.showToast(this.$t(this.separatorEditId ? 'toast.separatorUpdated' : 'toast.separatorAdded'), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to save separator', 'error');
+        this.showToast(err.message || this.$t('toast.separatorSaveFailed'), 'error');
       }
     },
 
@@ -285,12 +285,12 @@ _sepRowStyle(color) {
     },
 
 _firewallEndpointLabel(ep) {
-      if (!ep || ep.type === 'any') return 'Any';
-      const inv = ep.invert ? 'NOT ' : '';
+      if (!ep || ep.type === 'any') return this.$t('fw.any');
+      const inv = ep.invert ? this.$t('fw.notPrefix') : '';
       let label = '';
       if (ep.type === 'alias') label = inv + this._aliasLabel(ep.aliasId);
       else if (ep.type === 'cidr') label = inv + (ep.value || '');
-      else label = 'Any';
+      else label = this.$t('fw.any');
       if (ep.port) label += ':' + ep.port;
       return label;
     },
@@ -298,7 +298,7 @@ _firewallEndpointLabel(ep) {
 _firewallGatewayLabel(rule) {
       if (rule.gatewayGroupId) {
         const g = (this.gatewayGroups || []).find(x => x.id === rule.gatewayGroupId);
-        return g ? `Group: ${g.name}` : '—';
+        return g ? this.$t('fw.groupLabel', { name: g.name }) : '—';
       }
       if (rule.gatewayId) {
         const g = (this.gateways || []).find(x => x.id === rule.gatewayId);

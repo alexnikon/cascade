@@ -3,6 +3,9 @@
 
 'use strict';
 
+import { translateApiError } from './i18n.errors.js';
+import { i18n } from './i18n.js';
+
 export class API {
 
   constructor() {
@@ -67,7 +70,7 @@ export class API {
           : undefined,
       });
     } catch (cause) {
-      const error = new Error('Unable to reach the Cascade server.');
+      const error = new Error(i18n.t('err.unreachable'));
       error.cause = cause;
       throw error;
     }
@@ -92,11 +95,12 @@ export class API {
       json = await res.json();
     } catch (_) {
       // The server returned an empty or non-JSON response body.
-      throw new Error(`Server error ${res.status}: ${res.statusText}`);
+      throw new Error(`${i18n.t('err.serverError')} ${res.status}: ${res.statusText}`);
     }
 
     if (!res.ok && !allowStatus.includes(res.status)) {
-      throw new Error(json.message || json.error || res.statusText);
+      // Translate known backend error messages to Russian; unknown ones pass through.
+      throw new Error(translateApiError(json.message || json.error || res.statusText));
     }
 
     return json;

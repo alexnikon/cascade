@@ -515,9 +515,9 @@ metricsGetGatewayStackedSeries(widgetId, key) {
 
 _updateGatewaySeriesCache(widgetId, key) {
       const period = this.metricsWidgetPeriod[widgetId] || '5m';
-      const healthy   = { name: 'Healthy',    data: [] };
-      const degraded  = { name: 'Degraded',   data: [] };
-      const down      = { name: 'Down',       data: [] };
+      const healthy   = { name: this.$t('gw.statusHealthy'),    data: [] };
+      const degraded  = { name: this.$t('gw.statusDegraded'),   data: [] };
+      const down      = { name: this.$t('gw.statusDown'),       data: [] };
       const adminDown = { name: 'Admin Down', data: [] };
 
       if (period === '5m') {
@@ -643,7 +643,7 @@ metricsGatewayTooltip(widgetId, key, dataPointIndex) {
       const data = this.metricsHistory[`${widgetId}:${key}`] || [];
       const p = data[dataPointIndex];
       const v = p ? Math.round(p.y) : -1;
-      return ['Admin Down', 'Down', 'Degraded', 'Healthy'][v] || 'Unknown';
+      return ['Admin Down', this.$t('gw.statusDown'), this.$t('gw.statusDegraded'), this.$t('gw.statusHealthy')][v] || this.$t('common.unknown');
     },
 
 metricsCloseConfig() {
@@ -746,9 +746,9 @@ async dashSavePeersView(widgetId) {
       try {
         await this.api.putDashboardWidgets(widgets);
         this.dashWidgets.splice(idx, 1, updated);
-        this.showToast('Peers view saved', 'success');
+        this.showToast(this.$t('toast.dashPeersViewSaved'), 'success');
       } catch (err) {
-        this.showToast(`Failed to save peers view: ${err.message}`, 'error');
+        this.showToast(this.$t('toast.dashPeersViewSaveFailed', { error: err.message }), 'error');
       }
     },
 
@@ -764,9 +764,9 @@ async dashResetPeersView(widgetId) {
       try {
         await this.api.putDashboardWidgets(widgets);
         this.dashWidgets.splice(idx, 1, updated);
-        this.showToast('Peers view reset', 'success');
+        this.showToast(this.$t('toast.dashPeersViewReset'), 'success');
       } catch (err) {
-        this.showToast(`Failed to reset peers view: ${err.message}`, 'error');
+        this.showToast(this.$t('toast.dashPeersViewResetFailed', { error: err.message }), 'error');
       }
     },
 

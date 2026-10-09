@@ -5,8 +5,8 @@
 
           <!-- Step 1: Protocol -->
           <div v-if="wizardVPN.step === 1">
-            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:6px;">Simple Client VPN</h2>
-            <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:24px;">Step 1 of 3 — Choose tunneling protocol</p>
+            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:6px;">{{$t("wiz.simpleClientVpn")}}</h2>
+            <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:24px;">{{$t("wiz.step1Protocol")}}</p>
 
             <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:24px;">
               <!-- WireGuard card -->
@@ -21,7 +21,7 @@
                   </div>
                   <div>
                     <div class="font-medium dark:text-neutral-100">WireGuard 1.0</div>
-                    <div class="text-sm text-gray-400 dark:text-neutral-400" style="margin-top:2px;">Standard WireGuard. Fast and widely supported.</div>
+                    <div class="text-sm text-gray-400 dark:text-neutral-400" style="margin-top:2px;">{{$t("wiz.wgDesc")}}</div>
                   </div>
                 </div>
               </div>
@@ -36,8 +36,8 @@
                        :style="wizardVPN.protocol==='amneziawg' ? 'border-color:#7c3aed; background:#7c3aed;' : 'border-color:#9ca3af;'">
                   </div>
                   <div>
-                    <div class="font-medium dark:text-neutral-100">AmneziaWG 2.0 <span class="ui-badge" style="font-size:0.72rem; padding:2px 6px; border-radius:4px; background:#7c3aed; color:#fff; margin-left:4px;">Stealth</span></div>
-                    <div class="text-sm text-gray-400 dark:text-neutral-400" style="margin-top:2px;">Traffic obfuscation — harder to detect and block.</div>
+                    <div class="font-medium dark:text-neutral-100">AmneziaWG 2.0 <span class="ui-badge" style="font-size:0.72rem; padding:2px 6px; border-radius:4px; background:#7c3aed; color:#fff; margin-left:4px;">{{$t("wiz.stealth")}}</span></div>
+                    <div class="text-sm text-gray-400 dark:text-neutral-400" style="margin-top:2px;">{{$t("wiz.awgDesc")}}</div>
                   </div>
                 </div>
               </div>
@@ -46,73 +46,73 @@
             <button @click="wizardVPN.step = 2"
                     class="text-white text-sm rounded-lg font-medium"
                     style="padding:9px 24px; background:#2563eb; border:none; cursor:pointer;">
-              Next →
+              {{$t("common.next")}} →
             </button>
           </div>
 
           <!-- Step 2: Interface name -->
           <div v-if="wizardVPN.step === 2">
-            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:6px;">Simple Client VPN</h2>
-            <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:24px;">Step 2 of 3 — Interface name (optional)</p>
+            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:6px;">{{$t("wiz.simpleClientVpn")}}</h2>
+            <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:24px;">{{$t("wiz.step2IfaceName")}}</p>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Interface Name</label>
+              <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("wiz.interfaceName")}}</label>
               <input v-model="wizardVPN.ifaceName" type="text"
-                     placeholder="Auto-generated (e.g. wg10)"
+                     :placeholder="$t('wiz.ifaceNamePlaceholder')"
                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-              <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Leave blank to auto-assign a name.</p>
+              <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("wiz.leaveBlankHint")}}</p>
             </div>
 
             <div style="display:flex; gap:10px;">
               <button @click="wizardVPN.step = 1"
                       class="text-sm rounded-lg dark:text-neutral-300"
                       style="padding:9px 20px; border:1px solid #d1d5db; cursor:pointer;">
-                ← Back
+                ← {{$t("common.back")}}
               </button>
               <button @click="wizardVPN.step = 3"
                       class="text-white text-sm rounded-lg font-medium"
                       style="padding:9px 24px; background:#2563eb; border:none; cursor:pointer;">
-                Next →
+                {{$t("common.next")}} →
               </button>
             </div>
           </div>
 
           <!-- Step 3: DNS + peer name + run -->
           <div v-if="wizardVPN.step === 3">
-            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:6px;">Simple Client VPN</h2>
-            <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:24px;">Step 3 of 3 — Client settings</p>
+            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:6px;">{{$t("wiz.simpleClientVpn")}}</h2>
+            <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:24px;">{{$t("wiz.step3ClientSettings")}}</p>
 
             <div class="mb-4">
               <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                DNS Servers
-                <span class="text-gray-400 font-normal">(optional)</span>
+                {{$t("wiz.dnsServers")}}
+                <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span>
               </label>
               <input v-model="wizardVPN.dns" type="text"
-                     placeholder="e.g. 1.1.1.1, 8.8.8.8"
+                     :placeholder="$t('wiz.dnsPlaceholder')"
                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
               <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                Written into client <code>.conf</code> files.
-                Leave empty to use the global setting<span v-if="globalSettings.dns"> (<code>{{ globalSettings.dns }}</code>)</span>.
+                {{$t("wiz.dnsHintPrefix")}} <code>.conf</code> {{$t("wiz.dnsHintSuffix")}}
+                {{$t("wiz.dnsGlobalHint")}}<span v-if="globalSettings.dns"> (<code>{{ globalSettings.dns }}</code>)</span>.
               </p>
             </div>
 
             <div class="mb-4">
-              <label class="block text-sm font-medium dark:text-neutral-300 mb-1">First Device Name</label>
+              <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("wiz.firstDeviceName")}}</label>
               <input v-model="wizardVPN.peerName" type="text"
-                     placeholder="My Device"
+                     :placeholder="$t('wiz.myDevice')"
                      class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
             </div>
 
             <!-- Summary -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:20px; font-size:0.85rem;"
                  :style="theme==='dark' ? 'background:#404040; color:#d4d4d4;' : 'background:#f3f4f6; color:#374151;'">
-              <div style="font-weight:600; margin-bottom:8px;">Summary</div>
-              <div>Protocol: <strong>{{ wizardVPN.protocol === 'amneziawg' ? 'AmneziaWG 2.0' : 'WireGuard 1.0' }}</strong></div>
-              <div v-if="wizardVPN.ifaceName">Name: <strong>{{ wizardVPN.ifaceName }}</strong></div>
-              <div v-else>Name: <strong>Auto-assigned</strong></div>
-              <div>Device: <strong>{{ wizardVPN.peerName || 'My Device' }}</strong></div>
+              <div style="font-weight:600; margin-bottom:8px;">{{$t("wiz.summary")}}</div>
+              <div>{{$t("common.protocol")}}: <strong>{{ wizardVPN.protocol === 'amneziawg' ? 'AmneziaWG 2.0' : 'WireGuard 1.0' }}</strong></div>
+              <div v-if="wizardVPN.ifaceName">{{$t("common.name")}}: <strong>{{ wizardVPN.ifaceName }}</strong></div>
+              <div v-else>{{$t("common.name")}}: <strong>{{$t("wiz.autoAssigned")}}</strong></div>
+              <div>{{$t("wiz.deviceLabel")}}: <strong>{{ wizardVPN.peerName || $t('wiz.myDevice') }}</strong></div>
               <div v-if="wizardVPN.protocol === 'amneziawg'" style="margin-top:6px; color:#a78bfa; font-size:0.8rem;">
-                ✦ AWG obfuscation profile will be auto-selected based on your server address.
+                ✦ {{$t("wiz.awgProfileHint")}}
               </div>
             </div>
 
@@ -125,14 +125,14 @@
               <button @click="wizardVPN.step = 2" :disabled="wizardVPN.running"
                       class="text-sm rounded-lg dark:text-neutral-300"
                       style="padding:9px 20px; border:1px solid #d1d5db; cursor:pointer;">
-                ← Back
+                ← {{$t("common.back")}}
               </button>
               <button @click="wizardVPNRun()" :disabled="wizardVPN.running"
                       class="text-white text-sm rounded-lg font-medium"
                       style="padding:9px 24px; border:none; cursor:pointer;"
                       :style="wizardVPN.running ? 'background:#6b7280;' : 'background:#16a34a;'">
-                <span v-if="wizardVPN.running">⏳ Creating...</span>
-                <span v-else>✓ Create VPN</span>
+                <span v-if="wizardVPN.running">⏳ {{$t("wiz.creating")}}</span>
+                <span v-else>✓ {{$t("wiz.createVpn")}}</span>
               </button>
             </div>
           </div>
@@ -140,9 +140,9 @@
           <!-- Step 4: Success -->
           <div v-if="wizardVPN.step === 4" style="text-align:center;">
             <div style="font-size:2.5rem; margin-bottom:8px;">🎉</div>
-            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:6px;">Your VPN is ready!</h2>
+            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:6px;">{{$t("wiz.vpnReady")}}</h2>
             <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:20px;">
-              Interface <strong>{{ wizardVPN.ifaceId }}</strong>
+              {{$t("common.interface")}} <strong>{{ wizardVPN.ifaceId }}</strong>
               · {{ wizardVPN.ifaceAddr }}
               · UDP {{ wizardVPN.ifacePort }}
               <span v-if="wizardVPN.protocol === 'amneziawg'">
@@ -167,17 +167,17 @@
               <button @click="wizardVPNDownload()"
                       class="text-white text-sm rounded-lg font-medium"
                       style="padding:10px 28px; background:#2563eb; border:none; cursor:pointer; width:220px;">
-                ⬇ Download Config
+                ⬇ {{$t("wiz.downloadConfig")}}
               </button>
               <button @click="switchPage('interfaces')"
                       class="text-sm rounded-lg dark:text-neutral-300"
                       style="padding:10px 28px; border:1px solid #d1d5db; cursor:pointer; width:220px;">
-                Go to Interfaces
+                {{$t("wiz.goToInterfaces")}}
               </button>
               <button @click="wizardVPNReset()"
                       class="text-sm text-gray-400 dark:text-neutral-500"
                       style="padding:8px; border:none; background:none; cursor:pointer;">
-                + Create another VPN
+                + {{$t("wiz.createAnotherVpn")}}
               </button>
             </div>
           </div>
@@ -190,7 +190,7 @@
 
           <!-- Step indicator -->
           <div class="wizard-stepper" style="display:flex; gap:6px; margin-bottom:28px; align-items:center;">
-            <template v-for="(lbl, i) in ['Import .conf','Source','Destination','Options','Apply']">
+            <template v-for="(lbl, i) in [$t('wiz.stepImportConf'),$t('common.source'),$t('common.destination'),$t('wiz.options'),$t('common.apply')]">
               <div :key="i" style="display:flex; align-items:center; gap:6px;">
                 <div style="width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; font-weight:700; flex-shrink:0;"
                      :style="wizardUplink.step === i+1
@@ -210,21 +210,21 @@
 
           <!-- ── Step 1: Import .conf ─────────────────────────────────────── -->
           <div v-if="wizardUplink.step === 1">
-            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:4px;">Cascade via WireGuard Uplink</h2>
+            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:4px;">{{$t("wiz.cascadeViaWgUplink")}}</h2>
             <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:24px;">
-              Routes client traffic through an external WireGuard server. Upload the <code>.conf</code> file you received from the upstream provider.
+              {{$t("wiz.uplinkIntroPrefix")}} <code>.conf</code> {{$t("wiz.uplinkIntroSuffix")}}
             </p>
 
             <!-- File upload -->
             <div style="margin-bottom:16px;">
-              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Upload .conf file</label>
+              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("wiz.uploadConfFile")}}</label>
               <input type="file" accept=".conf" @change="wizardUplinkOnFileSelect"
                      style="display:block; font-size:0.85rem; width:100%;" />
             </div>
 
             <!-- Textarea -->
             <div style="margin-bottom:16px;">
-              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Or paste config text</label>
+              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("wiz.orPasteConfig")}}</label>
               <textarea v-model="wizardUplink.confText" @input="wizardUplinkPreview" rows="7"
                         placeholder="[Interface]&#10;PrivateKey = ...&#10;Address = ...&#10;&#10;[Peer]&#10;PublicKey = ...&#10;Endpoint = ..."
                         style="width:100%; font-family:monospace; font-size:0.8rem; border-radius:6px; padding:8px 10px; resize:vertical;"
@@ -234,22 +234,22 @@
             <!-- Preview -->
             <div v-if="wizardUplink.preview" style="border-radius:8px; padding:12px 16px; margin-bottom:16px;"
                  :style="{ background: theme==='dark' ? '#1e3a2f' : '#f0fdf4', border: '1px solid ' + (theme==='dark' ? '#166534' : '#bbf7d0') }">
-              <div class="text-sm font-medium" style="color:#16a34a; margin-bottom:8px;">✓ Config parsed successfully</div>
+              <div class="text-sm font-medium" style="color:#16a34a; margin-bottom:8px;">✓ {{$t("wiz.configParsed")}}</div>
               <div style="display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:0.82rem;">
-                <span :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Protocol</span>
+                <span :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("common.protocol")}}</span>
                 <span class="dark:text-neutral-200">{{ wizardUplink.preview.protocol }}</span>
-                <span :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Address</span>
+                <span :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("common.address")}}</span>
                 <span class="dark:text-neutral-200">{{ wizardUplink.preview.address }}</span>
-                <span v-if="wizardUplink.preview.peerEndpoint" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Endpoint</span>
+                <span v-if="wizardUplink.preview.peerEndpoint" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("common.endpoint")}}</span>
                 <span v-if="wizardUplink.preview.peerEndpoint" class="dark:text-neutral-200">{{ wizardUplink.preview.peerEndpoint }}</span>
-                <span v-if="wizardUplink.preview.peerMonitorIP" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Monitor IP</span>
+                <span v-if="wizardUplink.preview.peerMonitorIP" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("wiz.monitorIp")}}</span>
                 <span v-if="wizardUplink.preview.peerMonitorIP" class="dark:text-neutral-200">{{ wizardUplink.preview.peerMonitorIP }}</span>
               </div>
             </div>
 
             <!-- Interface name -->
             <div style="margin-bottom:24px;">
-              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Interface name</label>
+              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("wiz.interfaceNameLower")}}</label>
               <input v-model="wizardUplink.ifaceName" @input="wizardUplinkOnNameChange" type="text" placeholder="my-uplink"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.9rem;"
                      :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
@@ -262,32 +262,32 @@
                       :style="(!wizardUplink.confText.trim() || !wizardUplink.ifaceName.trim())
                         ? 'background:#9ca3af; color:#fff; cursor:not-allowed;'
                         : 'background:#2563eb; color:#fff;'">
-                Next →
+                {{$t("common.next")}} →
               </button>
             </div>
           </div><!-- /step 1 -->
 
           <!-- ── Step 2: Source ────────────────────────────────────────────── -->
           <div v-if="wizardUplink.step === 2">
-            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:4px;">Source Interfaces</h2>
+            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:4px;">{{$t("wiz.sourceInterfaces")}}</h2>
             <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:20px;">
-              Select which client interfaces will have their traffic routed through this uplink.
+              {{$t("wiz.sourceInterfacesHint")}}
             </p>
 
             <!-- No interfaces -->
             <div v-if="wizardUplinkClientIfaces().length === 0 && !wizardUplink.showInlineCreate"
                  style="border-radius:8px; padding:20px; text-align:center; margin-bottom:16px;"
                  :style="{ background: theme==='dark' ? '#404040' : '#f9fafb', border: '1px dashed ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
-              <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:12px;">No client interfaces yet.</p>
+              <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:12px;">{{$t("wiz.noClientIfaces")}}</p>
               <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button @click="activePage = 'wizard-simple-vpn'"
                         style="padding:7px 16px; border-radius:6px; border:none; cursor:pointer; font-size:0.85rem; background:#7c3aed; color:#fff; font-weight:600;">
-                  Launch Simple VPN Wizard
+                  {{$t("wiz.launchSimpleVpnWizard")}}
                 </button>
                 <button @click="wizardUplink.showInlineCreate = true"
                         style="padding:7px 16px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:600;"
                         :style="{ background: theme==='dark' ? '#525252' : '#f3f4f6', color: theme==='dark' ? '#e5e5e5' : '#374151', border: theme==='dark' ? '1px solid #666' : '1px solid #d1d5db' }">
-                  Create interface here
+                  {{$t("wiz.createIfaceHere")}}
                 </button>
               </div>
             </div>
@@ -316,14 +316,14 @@
               <button @click="wizardUplink.showInlineCreate = true"
                       style="padding:6px 14px; border-radius:6px; font-size:0.82rem; cursor:pointer; font-weight:600;"
                       :style="{ background: 'transparent', border: '1px dashed ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">
-                + Add interface
+                + {{$t("wiz.addInterface")}}
               </button>
             </div>
 
             <!-- Inline create form -->
             <div v-if="wizardUplink.showInlineCreate" style="border-radius:8px; padding:14px 16px; margin-bottom:16px;"
                  :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
-              <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">New interface</div>
+              <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">{{$t("wiz.newIface")}}</div>
               <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
                 <select v-model="wizardUplink.inlineIfaceProto"
                         style="border-radius:6px; padding:6px 10px; font-size:0.85rem; width:110px;"
@@ -332,25 +332,25 @@
                   <option value="amneziawg-2.0">AWG 2.0</option>
 				  <option value="amneziawg-3.1">AWG 3.1</option>
                 </select>
-                <input v-model="wizardUplink.inlineIfaceName" type="text" placeholder="Name (optional)"
+                <input v-model="wizardUplink.inlineIfaceName" type="text" :placeholder="$t('wiz.nameOptional')"
                        style="border-radius:6px; padding:6px 10px; font-size:0.85rem; flex:1; min-width:120px;"
                        :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
-                <input v-model="wizardUplink.inlineIfaceAddr" type="text" placeholder="Address (e.g. 10.8.0.1/24)"
+                <input v-model="wizardUplink.inlineIfaceAddr" type="text" :placeholder="$t('wiz.addressPlaceholder')"
                        style="border-radius:6px; padding:6px 10px; font-size:0.85rem; flex:2; min-width:160px;"
                        :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
-                <input v-model="wizardUplink.inlineIfacePort" type="number" placeholder="Port (auto)"
+                <input v-model="wizardUplink.inlineIfacePort" type="number" :placeholder="$t('wiz.portAuto')"
                        style="border-radius:6px; padding:6px 10px; font-size:0.85rem; width:100px;"
                        :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
               </div>
               <div style="display:flex; gap:8px;">
                 <button @click="wizardUplinkInlineCreate" :disabled="wizardUplink.inlineIfaceCreating"
                         style="padding:6px 16px; border-radius:6px; border:none; cursor:pointer; font-size:0.85rem; font-weight:600; background:#2563eb; color:#fff;">
-                  {{ wizardUplink.inlineIfaceCreating ? 'Creating…' : 'Create' }}
+                  {{ wizardUplink.inlineIfaceCreating ? $t('wiz.creatingEllipsis') : $t('common.create') }}
                 </button>
                 <button @click="wizardUplink.showInlineCreate = false"
                         style="padding:6px 14px; border-radius:6px; border:none; cursor:pointer; font-size:0.85rem;"
                         :style="{ background: theme==='dark' ? '#525252' : '#e5e7eb', color: theme==='dark' ? '#e5e5e5' : '#374151' }">
-                  Cancel
+                  {{$t("common.cancel")}}
                 </button>
               </div>
             </div>
@@ -360,7 +360,7 @@
                  :style="{ background: theme==='dark' ? '#404040' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#e5e7eb') }">
               <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-bottom:8px;">
                 <input type="checkbox" v-model="wizardUplink.createSrcAlias" style="width:16px; height:16px;" />
-                <span class="text-sm font-medium dark:text-neutral-300">Create source alias with selected subnets</span>
+                <span class="text-sm font-medium dark:text-neutral-300">{{$t("wiz.createSrcAliasWithSubnets")}}</span>
               </label>
               <div v-if="wizardUplink.createSrcAlias" style="display:flex; align-items:center; gap:8px;">
                 <input v-model="wizardUplink.srcAliasName" type="text" placeholder="src-my-uplink"
@@ -370,7 +370,7 @@
               <div v-if="wizardUplink.createSrcAlias && wizardUplink.selectedIfaceIds.length > 0"
                    class="text-xs" style="margin-top:6px;"
                    :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">
-                Will contain: {{ wizardUplinkSelectedSubnets().join(', ') }}
+                {{$t("wiz.willContain")}} {{ wizardUplinkSelectedSubnets().join(', ') }}
               </div>
             </div>
 
@@ -378,7 +378,7 @@
               <button @click="wizardUplink.step = 1"
                       style="padding:9px 20px; border-radius:7px; border:none; cursor:pointer; font-size:0.9rem;"
                       :style="{ background: theme==='dark' ? '#404040' : '#f3f4f6', color: theme==='dark' ? '#e5e5e5' : '#374151' }">
-                ← Back
+                ← {{$t("common.back")}}
               </button>
               <button @click="wizardUplink.step = 3"
                       :disabled="wizardUplink.selectedIfaceIds.length === 0"
@@ -386,21 +386,21 @@
                       :style="wizardUplink.selectedIfaceIds.length === 0
                         ? 'background:#9ca3af; color:#fff; cursor:not-allowed;'
                         : 'background:#2563eb; color:#fff;'">
-                Next →
+                {{$t("common.next")}} →
               </button>
             </div>
           </div><!-- /step 2 -->
 
           <!-- ── Step 3: Destination ───────────────────────────────────────── -->
           <div v-if="wizardUplink.step === 3">
-            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:4px;">Destination Traffic</h2>
+            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:4px;">{{$t("wiz.destinationTraffic")}}</h2>
             <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:20px;">
-              Choose which destination traffic will be routed through the uplink.
+              {{$t("wiz.destinationTrafficHint")}}
             </p>
 
             <!-- Type selector -->
             <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
-              <div v-for="(opt, key) in { all: 'All traffic (0.0.0.0/0)', geo: 'GEO — by country', as: 'BGP AS — by ASN' }"
+              <div v-for="(opt, key) in { all: $t('wiz.modeAllTraffic'), geo: $t('wiz.modeGeo'), as: $t('wiz.modeAsn') }"
                    :key="key"
                    @click="wizardUplink.dstType = key"
                    style="display:flex; align-items:center; gap:12px; border-radius:8px; padding:12px 16px; cursor:pointer; border:2px solid;"
@@ -415,7 +415,7 @@
 
             <!-- GEO: country select -->
             <div v-if="wizardUplink.dstType === 'geo'" style="margin-bottom:16px;">
-              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Countries (comma-separated ISO codes)</label>
+              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("wiz.countriesIsoHint")}}</label>
               <input v-model="wizardUplink.dstCountriesRaw" type="text" placeholder="RU, BY, KZ"
                      @input="wizardUplink.dstCountries = wizardUplink.dstCountriesRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.9rem;"
@@ -433,12 +433,12 @@
             <!-- Warning for GEO/AS -->
             <div v-if="wizardUplink.dstType !== 'all'" style="border-radius:6px; padding:10px 14px; margin-bottom:16px; font-size:0.83rem;"
                  :style="{ background: theme==='dark' ? '#422006' : '#fffbeb', border: '1px solid ' + (theme==='dark' ? '#854d0e' : '#fcd34d'), color: theme==='dark' ? '#fbbf24' : '#92400e' }">
-              ⚠ ipset generation fetches data from RIPE NCC / ipdeny and may take 1–3 minutes.
+              ⚠ {{$t("wiz.ipsetWarning")}}
             </div>
 
             <!-- Alias name for GEO/AS -->
             <div v-if="wizardUplink.dstType !== 'all'" style="margin-bottom:16px;">
-              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Destination alias name</label>
+              <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("wiz.destinationAliasName")}}</label>
               <input v-model="wizardUplink.dstAliasName" type="text" placeholder="dst-my-uplink"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.9rem;"
                      :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
@@ -447,26 +447,26 @@
             <!-- Negate -->
             <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-bottom:24px;">
               <input type="checkbox" v-model="wizardUplink.dstNegate" style="width:16px; height:16px;" />
-              <span class="text-sm dark:text-neutral-300">Negate — route all traffic <strong>except</strong> selected destination</span>
+              <span class="text-sm dark:text-neutral-300">{{$t("wiz.negatePrefix")}} <strong>{{$t("wiz.except")}}</strong> {{$t("wiz.selectedDestination")}}</span>
             </label>
 
             <div style="display:flex; justify-content:space-between;">
               <button @click="wizardUplink.step = 2"
                       style="padding:9px 20px; border-radius:7px; border:none; cursor:pointer; font-size:0.9rem;"
                       :style="{ background: theme==='dark' ? '#404040' : '#f3f4f6', color: theme==='dark' ? '#e5e5e5' : '#374151' }">
-                ← Back
+                ← {{$t("common.back")}}
               </button>
               <button @click="wizardUplink.step = 4"
                       style="padding:9px 24px; border-radius:7px; border:none; font-weight:600; cursor:pointer; font-size:0.9rem; background:#2563eb; color:#fff;">
-                Next →
+                {{$t("common.next")}} →
               </button>
             </div>
           </div><!-- /step 3 -->
 
           <!-- ── Step 4: Options ───────────────────────────────────────────── -->
           <div v-if="wizardUplink.step === 4">
-            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:4px;">Options</h2>
-            <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:20px;">Review auto-generated names and configure additional options.</p>
+            <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:4px;">{{$t("wiz.options")}}</h2>
+            <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:20px;">{{$t("wiz.optionsHint")}}</p>
 
             <!-- MSS Clamping -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:12px;"
@@ -474,9 +474,9 @@
               <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
                 <input type="checkbox" v-model="wizardUplink.mssClamp" style="width:16px; height:16px; margin-top:2px;" />
                 <div>
-                  <div class="text-sm font-medium dark:text-neutral-300">MSS Clamping (Auto PMTU)</div>
+                  <div class="text-sm font-medium dark:text-neutral-300">{{$t("wiz.mssClamping")}}</div>
                   <div class="text-xs" style="margin-top:2px;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">
-                    Recommended for tunnel-in-tunnel to prevent TCP fragmentation issues.
+                    {{$t("wiz.mssClampHint")}}
                   </div>
                 </div>
               </label>
@@ -485,44 +485,44 @@
             <!-- Fallback policy -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:16px;"
                  :style="{ background: theme==='dark' ? '#404040' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#e5e7eb') }">
-              <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">Fallback when uplink is down</div>
+              <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">{{$t("wiz.fallbackUplinkDown")}}</div>
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:8px;">
                 <input type="radio" v-model="wizardUplink.fallback" value="drop" style="width:14px; height:14px;" />
-                <span class="text-sm dark:text-neutral-300">Block traffic (secure — no leaks)</span>
+                <span class="text-sm dark:text-neutral-300">{{$t("wiz.blockTrafficSecure")}}</span>
               </label>
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                 <input type="radio" v-model="wizardUplink.fallback" value="allow" style="width:14px; height:14px;" />
-                <span class="text-sm dark:text-neutral-300">Route via default gateway (convenient)</span>
+                <span class="text-sm dark:text-neutral-300">{{$t("wiz.routeViaDefaultGw")}}</span>
               </label>
             </div>
 
             <!-- Auto-generated names -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:24px;"
                  :style="{ background: theme==='dark' ? '#404040' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#e5e7eb') }">
-              <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">Object names (editable)</div>
+              <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">{{$t("wiz.objectNamesEditable")}}</div>
               <div style="display:flex; flex-direction:column; gap:8px;">
                 <div style="display:flex; align-items:center; gap:10px;">
-                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Gateway</span>
+                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("common.gateway")}}</span>
                   <input v-model="wizardUplink.gatewayName" type="text" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
                          :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
-                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Monitor IP</span>
-                  <input v-model="wizardUplink.gatewayMonitorIP" type="text" placeholder="e.g. 10.0.0.1" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
+                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("wiz.monitorIp")}}</span>
+                  <input v-model="wizardUplink.gatewayMonitorIP" type="text" :placeholder="$t('wiz.monitorIpPlaceholder')" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
                          :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
-                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Firewall rule</span>
+                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("wiz.firewallRule")}}</span>
                   <input v-model="wizardUplink.fwRuleName" type="text" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
                          :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
-                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">NAT rule</span>
+                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("wiz.natRule")}}</span>
                   <input v-model="wizardUplink.natRuleName" type="text" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
                          :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                 </div>
                 <div v-if="wizardUplink.createSrcAlias" style="display:flex; align-items:center; gap:10px;">
-                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Source alias</span>
+                  <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("wiz.sourceAlias")}}</span>
                   <input v-model="wizardUplink.srcAliasName" type="text" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
                          :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                 </div>
@@ -533,11 +533,11 @@
               <button @click="wizardUplink.step = 3"
                       style="padding:9px 20px; border-radius:7px; border:none; cursor:pointer; font-size:0.9rem;"
                       :style="{ background: theme==='dark' ? '#404040' : '#f3f4f6', color: theme==='dark' ? '#e5e5e5' : '#374151' }">
-                ← Back
+                ← {{$t("common.back")}}
               </button>
               <button @click="wizardUplink.step = 5; wizardUplinkApply()"
                       style="padding:9px 24px; border-radius:7px; border:none; font-weight:600; cursor:pointer; font-size:0.9rem; background:#16a34a; color:#fff;">
-                Apply →
+                {{$t("common.apply")}} →
               </button>
             </div>
           </div><!-- /step 4 -->
@@ -545,10 +545,10 @@
           <!-- ── Step 5: Apply / Progress ──────────────────────────────────── -->
           <div v-if="wizardUplink.step === 5">
             <h2 class="text-xl font-medium dark:text-neutral-100" style="margin-bottom:4px;">
-              {{ wizardUplink.done ? (wizardUplink.fatalError ? 'Setup Failed' : '✅ Uplink Configured') : 'Applying…' }}
+              {{ wizardUplink.done ? (wizardUplink.fatalError ? $t('wiz.setupFailed') : $t('wiz.uplinkConfigured')) : $t('wiz.applying') }}
             </h2>
             <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:24px;">
-              {{ wizardUplink.done ? '' : 'Creating objects — please wait.' }}
+              {{ wizardUplink.done ? '' : $t('wiz.creatingObjectsWait') }}
             </p>
 
             <!-- Steps list -->
@@ -581,11 +581,11 @@
 
             <!-- Fatal error -->
             <div v-if="wizardUplink.fatalError" style="border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:0.85rem; background:rgba(220,38,38,0.1); border:1px solid #dc2626; color:#f87171;">
-              Fatal: {{ wizardUplink.fatalError }}
+              {{$t("wiz.fatal")}} {{ wizardUplink.fatalError }}
               <div style="margin-top:10px;">
                 <button @click="wizardUplink.step = 1; wizardUplinkInit()"
                         style="padding:6px 14px; border-radius:6px; border:none; cursor:pointer; font-size:0.83rem; background:#dc2626; color:#fff; font-weight:600;">
-                  Start over
+                  {{$t("wiz.startOver")}}
                 </button>
               </div>
             </div>
@@ -594,37 +594,37 @@
             <div v-if="wizardUplink.done && !wizardUplink.fatalError">
               <div style="border-radius:8px; padding:14px 16px; margin-bottom:20px;"
                    :style="{ background: theme==='dark' ? '#1e3a2f' : '#f0fdf4', border: '1px solid ' + (theme==='dark' ? '#166534' : '#bbf7d0') }">
-                <div class="text-sm font-medium" style="color:#16a34a; margin-bottom:10px;">Created objects</div>
+                <div class="text-sm font-medium" style="color:#16a34a; margin-bottom:10px;">{{$t("wiz.createdObjects")}}</div>
                 <div style="display:flex; flex-direction:column; gap:6px; font-size:0.83rem;">
                   <div v-if="wizardUplink.createdIfaceId" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="dark:text-neutral-300">Interface: {{ wizardUplink.ifaceName }}</span>
+                    <span class="dark:text-neutral-300">{{$t("common.interface")}}: {{ wizardUplink.ifaceName }}</span>
                     <button @click="activePage = 'interfaces'; activeInterfaceId = wizardUplink.createdIfaceId"
-                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#16a34a; color:#fff;">Open</button>
+                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#16a34a; color:#fff;">{{$t("wiz.open")}}</button>
                   </div>
                   <div v-if="wizardUplink.createdSrcAliasId" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="dark:text-neutral-300">Alias: {{ wizardUplink.srcAliasName }}</span>
+                    <span class="dark:text-neutral-300">{{$t("common.alias")}}: {{ wizardUplink.srcAliasName }}</span>
                     <button @click="activePage = 'firewall-aliases'"
-                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">Open</button>
+                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">{{$t("wiz.open")}}</button>
                   </div>
                   <div v-if="wizardUplink.createdDstAliasId" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="dark:text-neutral-300">Alias: {{ wizardUplink.dstAliasName }}</span>
+                    <span class="dark:text-neutral-300">{{$t("common.alias")}}: {{ wizardUplink.dstAliasName }}</span>
                     <button @click="activePage = 'firewall-aliases'"
-                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">Open</button>
+                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">{{$t("wiz.open")}}</button>
                   </div>
                   <div v-if="wizardUplink.createdGatewayId" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="dark:text-neutral-300">Gateway: {{ wizardUplink.gatewayName }}</span>
+                    <span class="dark:text-neutral-300">{{$t("common.gateway")}}: {{ wizardUplink.gatewayName }}</span>
                     <button @click="activePage = 'gateways'"
-                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">Open</button>
+                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">{{$t("wiz.open")}}</button>
                   </div>
                   <div v-if="wizardUplink.createdFwRuleId" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="dark:text-neutral-300">Firewall rule: {{ wizardUplink.fwRuleName }}</span>
+                    <span class="dark:text-neutral-300">{{$t("wiz.firewallRule")}}: {{ wizardUplink.fwRuleName }}</span>
                     <button @click="activePage = 'firewall'"
-                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">Open</button>
+                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">{{$t("wiz.open")}}</button>
                   </div>
                   <div v-if="wizardUplink.createdNatRuleId" style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="dark:text-neutral-300">NAT rule: {{ wizardUplink.natRuleName }}</span>
+                    <span class="dark:text-neutral-300">{{$t("wiz.natRule")}}: {{ wizardUplink.natRuleName }}</span>
                     <button @click="activePage = 'nat'"
-                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">Open</button>
+                            style="padding:3px 10px; border-radius:5px; border:none; cursor:pointer; font-size:0.78rem; background:#2563eb; color:#fff;">{{$t("wiz.open")}}</button>
                   </div>
                 </div>
               </div>
@@ -632,11 +632,11 @@
                 <button @click="wizardUplinkInit()"
                         style="padding:9px 20px; border-radius:7px; border:none; cursor:pointer; font-size:0.9rem;"
                         :style="{ background: theme==='dark' ? '#404040' : '#f3f4f6', color: theme==='dark' ? '#e5e5e5' : '#374151' }">
-                  Set up another
+                  {{$t("wiz.setUpAnother")}}
                 </button>
                 <button @click="activePage = 'interfaces'"
                         style="padding:9px 24px; border-radius:7px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#2563eb; color:#fff;">
-                  Go to Interfaces
+                  {{$t("wiz.goToInterfaces")}}
                 </button>
               </div>
             </div>
@@ -651,14 +651,14 @@
              class="dark:text-neutral-200" style="max-width:720px; margin:0 auto; padding:24px 16px;">
 
           <!-- Header -->
-          <h2 class="text-xl font-bold dark:text-white" style="margin-bottom:4px;">Cascade ↔ Cascade S2S</h2>
+          <h2 class="text-xl font-bold dark:text-white" style="margin-bottom:4px;">{{$t("wiz.s2sTitle")}}</h2>
           <p class="text-sm text-gray-500 dark:text-neutral-400" style="margin-bottom:24px;">
-            Create a bidirectional WireGuard tunnel between two Cascade instances and configure routing automatically.
+            {{$t("wiz.s2sIntro")}}
           </p>
 
           <!-- Step progress bar -->
           <div class="wizard-stepper" style="display:flex; align-items:center; margin-bottom:28px; gap:0;">
-            <template v-for="(st, i) in ['Remote','Source','Destination','Options','Apply']" :key="i">
+            <template v-for="(st, i) in [$t('wiz.stepRemote'),$t('common.source'),$t('common.destination'),$t('wiz.options'),$t('common.apply')]" :key="i">
               <div style="display:flex; align-items:center; gap:6px; cursor:pointer;"
                    @click="wizardS2S.step > i+1 && !wizardS2S.applying ? wizardS2S.step = i+1 : null">
                 <div style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:700; flex-shrink:0;"
@@ -674,7 +674,7 @@
 
           <!-- ── Step 1: Remote ──────────────────────────────────────────────── -->
           <div v-if="wizardS2S.step === 1">
-            <h3 class="text-base font-semibold dark:text-white" style="margin-bottom:14px;">Select remote Cascade</h3>
+            <h3 class="text-base font-semibold dark:text-white" style="margin-bottom:14px;">{{$t("wiz.selectRemoteCascade")}}</h3>
 
             <!-- Remotes list -->
             <div v-if="wizardS2S.remotes.length > 0" style="margin-bottom:16px;">
@@ -696,56 +696,56 @@
             </div>
             <div v-else class="text-sm text-gray-400 dark:text-neutral-500" style="margin-bottom:16px; padding:16px; border-radius:8px; text-align:center;"
                  :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: '1px dashed ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
-              No remote servers configured yet.
+              {{$t("wiz.noRemotes")}}
             </div>
 
             <!-- Add remote -->
             <button v-if="!wizardS2S.showAddRemote" @click="wizardS2S.showAddRemote = true"
                     style="padding:8px 16px; border-radius:6px; border:1px dashed #6b7280; cursor:pointer; font-size:0.85rem; background:transparent; margin-bottom:16px;"
-                    :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">+ Add remote server</button>
+                    :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">+ {{$t("wiz.addRemoteServer")}}</button>
 
             <div v-if="wizardS2S.showAddRemote"
                  style="border-radius:8px; padding:16px; margin-bottom:16px;"
                  :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
-              <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:12px;">New remote</div>
+              <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:12px;">{{$t("wiz.newRemote")}}</div>
               <div style="display:flex; flex-direction:column; gap:8px;">
-                <input v-model="wizardS2S.addRemoteName" type="text" placeholder="Name"
+                <input v-model="wizardS2S.addRemoteName" type="text" :placeholder="$t('common.name')"
                        style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
                        :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
-                <input v-model="wizardS2S.addRemoteURL" type="text" placeholder="URL (e.g. https://vpn.example.com)"
+                <input v-model="wizardS2S.addRemoteURL" type="text" :placeholder="$t('wiz.urlPlaceholder')"
                        style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
                        :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                 <div style="display:flex; gap:8px;">
                   <button @click="wizardS2S.addRemoteMode = 'password'"
                           style="flex:1; padding:6px; border-radius:6px; font-size:0.8rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.addRemoteMode === 'password' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">Login / Password</button>
+                          :style="wizardS2S.addRemoteMode === 'password' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">{{$t("wiz.loginPassword")}}</button>
                   <button @click="wizardS2S.addRemoteMode = 'token'"
                           style="flex:1; padding:6px; border-radius:6px; font-size:0.8rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.addRemoteMode === 'token' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">API Token</button>
+                          :style="wizardS2S.addRemoteMode === 'token' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">{{$t("wiz.apiToken")}}</button>
                 </div>
                 <template v-if="wizardS2S.addRemoteMode === 'password'">
-                  <input v-model="wizardS2S.addRemoteUser" type="text" placeholder="Username"
+                  <input v-model="wizardS2S.addRemoteUser" type="text" :placeholder="$t('common.username')"
                          style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
                          :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
-                  <input v-model="wizardS2S.addRemotePass" type="password" placeholder="Password"
+                  <input v-model="wizardS2S.addRemotePass" type="password" :placeholder="$t('common.password')"
                          style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
                          :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                 </template>
-                <input v-else v-model="wizardS2S.addRemoteToken" type="text" placeholder="API token (ws_...)"
+                <input v-else v-model="wizardS2S.addRemoteToken" type="text" :placeholder="$t('wiz.apiTokenPlaceholder')"
                        style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
                        :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                 <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;" class="dark:text-neutral-300">
-                  <input type="checkbox" v-model="wizardS2S.addRemoteSkipTLS" /> Skip TLS verification (self-signed cert)
+                  <input type="checkbox" v-model="wizardS2S.addRemoteSkipTLS" /> {{$t("wiz.skipTlsVerification")}}
                 </label>
               </div>
               <div style="display:flex; gap:8px; margin-top:12px;">
                 <button @click="wizardS2SAddRemote" :disabled="wizardS2S.addRemoteLoading"
                         style="padding:7px 16px; border-radius:6px; border:none; cursor:pointer; font-size:0.85rem; background:#3b82f6; color:#fff; font-weight:600;">
-                  {{ wizardS2S.addRemoteLoading ? 'Connecting…' : 'Add' }}
+                  {{ wizardS2S.addRemoteLoading ? $t('wiz.connecting') : $t('common.add') }}
                 </button>
                 <button @click="wizardS2S.showAddRemote = false"
                         style="padding:7px 16px; border-radius:6px; cursor:pointer; font-size:0.85rem; background:transparent;"
-                        :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Cancel</button>
+                        :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">{{$t("common.cancel")}}</button>
               </div>
             </div>
 
@@ -753,14 +753,14 @@
               <button @click="wizardS2S.step = 2"
                       :disabled="!wizardS2S.remoteId"
                       style="padding:9px 24px; border-radius:8px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#3b82f6; color:#fff;"
-                      :style="!wizardS2S.remoteId ? 'opacity:0.4;cursor:not-allowed;' : ''">Next →</button>
+                      :style="!wizardS2S.remoteId ? 'opacity:0.4;cursor:not-allowed;' : ''">{{$t("common.next")}} →</button>
             </div>
           </div><!-- /step 1 -->
 
           <!-- ── Step 2: Source ──────────────────────────────────────────────── -->
           <div v-if="wizardS2S.step === 2">
-            <h3 class="text-base font-semibold dark:text-white" style="margin-bottom:6px;">Client interfaces (local)</h3>
-            <p class="text-sm text-gray-500 dark:text-neutral-400" style="margin-bottom:16px;">Select which interfaces' client subnets will be routed through the S2S tunnel.</p>
+            <h3 class="text-base font-semibold dark:text-white" style="margin-bottom:6px;">{{$t("wiz.clientIfacesLocal")}}</h3>
+            <p class="text-sm text-gray-500 dark:text-neutral-400" style="margin-bottom:16px;">{{$t("wiz.clientIfacesLocalHint")}}</p>
 
             <div v-for="iface in wizardS2SClientIfaces()" :key="iface.id"
                  @click="wizardS2SToggleIface(iface.id)"
@@ -769,38 +769,38 @@
               <input type="checkbox" :checked="wizardS2S.selectedIfaceIds.includes(iface.id)" @click.stop style="pointer-events:none;" />
               <div>
                 <div class="text-sm font-semibold dark:text-neutral-100">{{ iface.name || iface.id }}</div>
-                <div class="text-xs text-gray-400 dark:text-neutral-500">{{ iface.address }} — subnet: {{ wizardS2SIfaceSubnet(iface) }}</div>
+                <div class="text-xs text-gray-400 dark:text-neutral-500">{{ iface.address }} — {{$t("wiz.subnetLabel")}} {{ wizardS2SIfaceSubnet(iface) }}</div>
               </div>
             </div>
             <div v-if="wizardS2SClientIfaces().length === 0"
                  class="text-sm text-gray-400 dark:text-neutral-500" style="padding:16px; border-radius:8px; text-align:center; margin-bottom:16px;"
                  :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: '1px dashed ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
-              No client interfaces. Create one in Interfaces first.
+              {{$t("wiz.noClientIfacesS2s")}}
             </div>
 
             <div style="display:flex; align-items:center; gap:10px; margin-top:16px; margin-bottom:20px; flex-wrap:wrap;">
               <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;" class="dark:text-neutral-300">
-                <input type="checkbox" v-model="wizardS2S.createSrcAlias" /> Create source alias
+                <input type="checkbox" v-model="wizardS2S.createSrcAlias" /> {{$t("wiz.createSrcAlias")}}
               </label>
-              <input v-if="wizardS2S.createSrcAlias" v-model="wizardS2S.srcAliasName" type="text" placeholder="Alias name"
+              <input v-if="wizardS2S.createSrcAlias" v-model="wizardS2S.srcAliasName" type="text" :placeholder="$t('wiz.aliasNamePlaceholder')"
                      style="border-radius:6px; padding:6px 10px; font-size:0.85rem; flex:1; min-width:140px;"
                      :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
             </div>
 
             <div style="display:flex; justify-content:space-between;">
               <button @click="wizardS2S.step = 1" style="padding:9px 20px; border-radius:8px; cursor:pointer; font-size:0.85rem; background:transparent;"
-                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Back</button>
-              <button @click="wizardS2S.step = 3" style="padding:9px 24px; border-radius:8px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#3b82f6; color:#fff;">Next →</button>
+                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← {{$t("common.back")}}</button>
+              <button @click="wizardS2S.step = 3" style="padding:9px 24px; border-radius:8px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#3b82f6; color:#fff;">{{$t("common.next")}} →</button>
             </div>
           </div><!-- /step 2 -->
 
           <!-- ── Step 3: Destination ─────────────────────────────────────────── -->
           <div v-if="wizardS2S.step === 3">
-            <h3 class="text-base font-semibold dark:text-white" style="margin-bottom:6px;">Traffic destination</h3>
-            <p class="text-sm text-gray-500 dark:text-neutral-400" style="margin-bottom:16px;">Which traffic should be routed through the remote Cascade?</p>
+            <h3 class="text-base font-semibold dark:text-white" style="margin-bottom:6px;">{{$t("wiz.trafficDestination")}}</h3>
+            <p class="text-sm text-gray-500 dark:text-neutral-400" style="margin-bottom:16px;">{{$t("wiz.trafficDestinationHint")}}</p>
 
             <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
-              <label v-for="opt in [{v:'all',l:'All traffic'},{v:'geo',l:'By country (GEO)'},{v:'as',l:'By ASN'}]" :key="opt.v"
+              <label v-for="opt in [{v:'all',l:$t('wiz.modeAllTrafficShort')},{v:'geo',l:$t('wiz.modeGeoShort')},{v:'as',l:$t('wiz.modeAsnShort')}]" :key="opt.v"
                      style="display:flex; align-items:flex-start; gap:10px; padding:12px 16px; border-radius:8px; cursor:pointer; border:2px solid;"
                      :style="{ borderColor: wizardS2S.dstType === opt.v ? '#3b82f6' : (theme==='dark' ? '#404040' : '#e5e7eb'), background: theme==='dark' ? '#2a2a2a' : '#f9fafb' }">
                 <input type="radio" :value="opt.v" v-model="wizardS2S.dstType" style="margin-top:2px;" />
@@ -809,58 +809,58 @@
             </div>
 
             <div v-if="wizardS2S.dstType === 'geo'" style="margin-bottom:16px;">
-              <label class="text-sm dark:text-neutral-300" style="display:block; margin-bottom:6px;">Countries (comma-separated ISO codes)</label>
-              <input v-model="wizardS2S.dstCountriesRaw" type="text" placeholder="e.g. RU,BY,KZ"
+              <label class="text-sm dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("wiz.countriesIsoHint")}}</label>
+              <input v-model="wizardS2S.dstCountriesRaw" type="text" :placeholder="$t('wiz.countriesPlaceholder')"
                      @input="wizardS2S.dstCountries = wizardS2S.dstCountriesRaw.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean)"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.85rem;"
                      :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
             </div>
             <div v-if="wizardS2S.dstType === 'as'" style="margin-bottom:16px;">
-              <label class="text-sm dark:text-neutral-300" style="display:block; margin-bottom:6px;">ASN (e.g. AS12345)</label>
+              <label class="text-sm dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("wiz.asnLabel")}}</label>
               <input v-model="wizardS2S.dstASN" type="text" placeholder="AS12345"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.85rem;"
                      :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
             </div>
             <div v-if="wizardS2S.dstType !== 'all'" style="margin-bottom:16px;">
               <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;" class="dark:text-neutral-300">
-                <input type="checkbox" v-model="wizardS2S.dstNegate" /> Invert (route everything EXCEPT selected)
+                <input type="checkbox" v-model="wizardS2S.dstNegate" /> {{$t("wiz.invertExcept")}}
               </label>
             </div>
 
             <div style="display:flex; justify-content:space-between;">
               <button @click="wizardS2S.step = 2" style="padding:9px 20px; border-radius:8px; cursor:pointer; font-size:0.85rem; background:transparent;"
-                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Back</button>
-              <button @click="wizardS2S.step = 4" style="padding:9px 24px; border-radius:8px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#3b82f6; color:#fff;">Next →</button>
+                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← {{$t("common.back")}}</button>
+              <button @click="wizardS2S.step = 4" style="padding:9px 24px; border-radius:8px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#3b82f6; color:#fff;">{{$t("common.next")}} →</button>
             </div>
           </div><!-- /step 3 -->
 
           <!-- ── Step 4: Options ─────────────────────────────────────────────── -->
           <div v-if="wizardS2S.step === 4">
             <div class="mb-4 text-sm dark:text-neutral-300">
-              <label class="block mb-2">Gateway monitoring</label>
+              <label class="block mb-2">{{$t("wiz.gatewayMonitoring")}}</label>
               <select v-model="wizardS2S.monitorMode" @change="wizardS2S.monitorMode === 'internet' && wizardS2SLoadEgress()" class="w-full p-2 rounded border dark:bg-neutral-700">
-                <option value="tunnel">Tunnel peer (default)</option>
-                <option value="internet">Internet through remote gateway</option>
+                <option value="tunnel">{{$t("wiz.tunnelPeerDefault")}}</option>
+                <option value="internet">{{$t("wiz.internetThroughRemoteGw")}}</option>
               </select>
-              <p v-if="wizardS2S.monitorMode !== 'internet'" class="mt-2">Checks the remote tunnel IP. This does not test internet access.</p>
+              <p v-if="wizardS2S.monitorMode !== 'internet'" class="mt-2">{{$t("wiz.monitorTunnelHint")}}</p>
               <div v-else class="mt-3">
-                <label class="block">Monitor IPv4 address</label>
+                <label class="block">{{$t("wiz.monitorIpv4Address")}}</label>
                 <input v-model="wizardS2S.monitorIP" placeholder="1.1.1.1" class="w-full p-2 mb-2 rounded border dark:bg-neutral-700">
-                <label class="block">Remote internet interface</label>
+                <label class="block">{{$t("wiz.remoteInternetIface")}}</label>
                 <select v-model="wizardS2S.remoteEgress" class="w-full p-2 rounded border dark:bg-neutral-700">
-                  <option value="">Select interface</option>
+                  <option value="">{{$t("wiz.selectInterface")}}</option>
                   <option v-for="iface in wizardS2S.remoteEgressInterfaces" :key="iface.name" :value="iface.name">{{ iface.name }}</option>
                 </select>
-                <button type="button" @click="wizardS2SLoadEgress()" class="mt-2 text-blue-500">Refresh interfaces</button>
-                <p class="mt-2">Creates a separate NAT rule for the local tunnel address on this remote interface. Client NAT is preserved. Setup succeeds only after the monitor target replies through S2S.</p>
+                <button type="button" @click="wizardS2SLoadEgress()" class="mt-2 text-blue-500">{{$t("wiz.refreshInterfaces")}}</button>
+                <p class="mt-2">{{$t("wiz.remoteEgressHint")}}</p>
               </div>
             </div>
-            <h3 class="text-base font-semibold dark:text-white" style="margin-bottom:16px;">Options</h3>
+            <h3 class="text-base font-semibold dark:text-white" style="margin-bottom:16px;">{{$t("wiz.options")}}</h3>
 
             <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:24px;">
               <!-- Protocol -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">S2S protocol</label>
+                <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("wiz.s2sProtocol")}}</label>
                 <div style="display:flex; gap:8px;">
                   <button @click="wizardS2S.protocol = 'wireguard'"
                           style="flex:1; padding:8px; border-radius:6px; font-size:0.85rem; cursor:pointer; border:2px solid;"
@@ -876,56 +876,56 @@
               <!-- MSS clamping -->
               <label style="display:flex; align-items:center; gap:10px; cursor:pointer;" class="dark:text-neutral-300">
                 <input type="checkbox" v-model="wizardS2S.mssClamp" />
-                <span class="text-sm">Enable MSS clamping on S2S interface (recommended)</span>
+                <span class="text-sm">{{$t("wiz.enableMssClamping")}}</span>
               </label>
               <!-- Fallback -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Fallback when remote is unreachable</label>
+                <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("wiz.fallbackRemoteUnreachable")}}</label>
                 <div style="display:flex; gap:8px;">
                   <button @click="wizardS2S.fallback = 'drop'"
                           style="flex:1; padding:7px; border-radius:6px; font-size:0.85rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.fallback === 'drop' ? 'border-color:#ef4444; background:#fef2f2; color:#b91c1c;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">Drop (secure)</button>
+                          :style="wizardS2S.fallback === 'drop' ? 'border-color:#ef4444; background:#fef2f2; color:#b91c1c;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">{{$t("wiz.dropSecure")}}</button>
                   <button @click="wizardS2S.fallback = 'allow'"
                           style="flex:1; padding:7px; border-radius:6px; font-size:0.85rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.fallback === 'allow' ? 'border-color:#10b981; background:#f0fdf4; color:#065f46;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">Allow (failover)</button>
+                          :style="wizardS2S.fallback === 'allow' ? 'border-color:#10b981; background:#f0fdf4; color:#065f46;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">{{$t("wiz.allowFailover")}}</button>
                 </div>
               </div>
               <!-- Names -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:8px;">Generated object names</label>
+                <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:8px;">{{$t("wiz.generatedObjectNames")}}</label>
                 <div style="display:flex; flex-direction:column; gap:6px;">
                   <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Local S2S iface</span>
+                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">{{$t("wiz.localS2sIface")}}</span>
                     <input v-model="wizardS2S.localIfaceName" @input="wizardS2SOnNameChange" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
                            :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Remote S2S iface</span>
+                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">{{$t("wiz.remoteS2sIface")}}</span>
                     <input v-model="wizardS2S.remoteIfaceName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
                            :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                   </div>
                   <div v-if="wizardS2S.createSrcAlias" style="display:flex; align-items:center; gap:8px;">
-                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Source alias</span>
+                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">{{$t("wiz.sourceAlias")}}</span>
                     <input v-model="wizardS2S.srcAliasName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
                            :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                   </div>
                   <div v-if="wizardS2S.dstType !== 'all'" style="display:flex; align-items:center; gap:8px;">
-                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Dest alias</span>
+                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">{{$t("wiz.destAlias")}}</span>
                     <input v-model="wizardS2S.dstAliasName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
                            :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Gateway</span>
+                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">{{$t("common.gateway")}}</span>
                     <input v-model="wizardS2S.gatewayName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
                            :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">PBR rule</span>
+                    <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">{{$t("wiz.pbrRule")}}</span>
                     <input v-model="wizardS2S.fwRuleName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
                            :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
@@ -936,10 +936,10 @@
 
             <div style="display:flex; justify-content:space-between;">
               <button @click="wizardS2S.step = 3" style="padding:9px 20px; border-radius:8px; cursor:pointer; font-size:0.85rem; background:transparent;"
-                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Back</button>
+                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← {{$t("common.back")}}</button>
               <button @click="wizardS2S.step = 5; wizardS2SApply()"
                       style="padding:9px 24px; border-radius:8px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#10b981; color:#fff;">
-                Apply ✓
+                {{$t("common.apply")}} ✓
               </button>
             </div>
           </div><!-- /step 4 -->
@@ -953,19 +953,19 @@
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
                 </svg>
-                Configuring…
+                {{$t("wiz.configuring")}}
               </span>
             </h3>
             <div v-else style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
               <div style="width:32px; height:32px; border-radius:50%; background:#10b981; display:flex; align-items:center; justify-content:center;">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
               </div>
-              <h3 class="text-base font-semibold" style="color:#10b981;">S2S Tunnel Configured</h3>
+              <h3 class="text-base font-semibold" style="color:#10b981;">{{$t("wiz.s2sTunnelConfigured")}}</h3>
             </div>
 
             <!-- Fatal error -->
             <div v-if="wizardS2S.fatalError" style="padding:14px 16px; border-radius:8px; background:#fef2f2; border:1px solid #fca5a5; margin-bottom:16px;">
-              <div class="text-sm font-semibold" style="color:#b91c1c;">Fatal error</div>
+              <div class="text-sm font-semibold" style="color:#b91c1c;">{{$t("wiz.fatalError")}}</div>
               <div class="text-sm" style="color:#7f1d1d; margin-top:4px;">{{ wizardS2S.fatalError }}</div>
             </div>
 
@@ -997,30 +997,30 @@
             <!-- Created objects -->
             <div v-if="wizardS2S.done"
                  style="padding:16px; border-radius:10px; border:1px solid #10b981; background:rgba(16,185,129,0.07); margin-bottom:20px;">
-              <div class="text-sm font-semibold" style="color:#10b981; margin-bottom:12px;">Created objects</div>
+              <div class="text-sm font-semibold" style="color:#10b981; margin-bottom:12px;">{{$t("wiz.createdObjects")}}</div>
               <div v-if="wizardS2S.createdLocalIfaceId" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                <span class="text-sm dark:text-neutral-200">Local interface: {{ wizardS2S.localIfaceName }}</span>
+                <span class="text-sm dark:text-neutral-200">{{$t("wiz.localInterface")}}: {{ wizardS2S.localIfaceName }}</span>
                 <button @click="activePage = 'interfaces'; activeInterfaceId = wizardS2S.createdLocalIfaceId"
-                        style="padding:5px 14px; border-radius:6px; border:none; cursor:pointer; font-size:0.8rem; font-weight:600; background:#10b981; color:#fff;">Open</button>
+                        style="padding:5px 14px; border-radius:6px; border:none; cursor:pointer; font-size:0.8rem; font-weight:600; background:#10b981; color:#fff;">{{$t("wiz.open")}}</button>
               </div>
               <div v-if="wizardS2S.createdGatewayId" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                <span class="text-sm dark:text-neutral-200">Gateway: {{ wizardS2S.gatewayName }}</span>
+                <span class="text-sm dark:text-neutral-200">{{$t("common.gateway")}}: {{ wizardS2S.gatewayName }}</span>
                 <button @click="activePage = 'gateways'"
-                        style="padding:5px 14px; border-radius:6px; border:none; cursor:pointer; font-size:0.8rem; font-weight:600; background:#6366f1; color:#fff;">Open</button>
+                        style="padding:5px 14px; border-radius:6px; border:none; cursor:pointer; font-size:0.8rem; font-weight:600; background:#6366f1; color:#fff;">{{$t("wiz.open")}}</button>
               </div>
               <div v-if="wizardS2S.createdFwRuleId" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                <span class="text-sm dark:text-neutral-200">PBR rule: {{ wizardS2S.fwRuleName }}</span>
+                <span class="text-sm dark:text-neutral-200">{{$t("wiz.pbrRule")}}: {{ wizardS2S.fwRuleName }}</span>
                 <button @click="activePage = 'firewall'"
-                        style="padding:5px 14px; border-radius:6px; border:none; cursor:pointer; font-size:0.8rem; font-weight:600; background:#6366f1; color:#fff;">Open</button>
+                        style="padding:5px 14px; border-radius:6px; border:none; cursor:pointer; font-size:0.8rem; font-weight:600; background:#6366f1; color:#fff;">{{$t("wiz.open")}}</button>
               </div>
             </div>
 
             <div v-if="wizardS2S.done" style="display:flex; gap:10px; flex-wrap:wrap;">
               <button @click="wizardS2SInit()"
                       style="padding:9px 20px; border-radius:8px; cursor:pointer; font-size:0.85rem; font-weight:600; background:transparent;"
-                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Run again</button>
+                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← {{$t("wiz.runAgain")}}</button>
               <button @click="activePage = 'interfaces'"
-                      style="padding:9px 20px; border-radius:8px; border:none; cursor:pointer; font-size:0.85rem; font-weight:600; background:#3b82f6; color:#fff;">Go to Interfaces</button>
+                      style="padding:9px 20px; border-radius:8px; border:none; cursor:pointer; font-size:0.85rem; font-weight:600; background:#3b82f6; color:#fff;">{{$t("wiz.goToInterfaces")}}</button>
             </div>
           </div><!-- /step 5 -->
 

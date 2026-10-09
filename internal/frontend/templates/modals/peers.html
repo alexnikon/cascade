@@ -7,7 +7,7 @@
           <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-md">
             <div class="modal-header dark:border-neutral-600">
               <h2 class="text-xl font-medium dark:text-neutral-200">
-				{{ templateEditTarget ? 'Edit Template' : 'New template' }}
+				{{ templateEditTarget ? $t('peer.editTemplate') : $t('peer.newTemplate') }}
               </h2>
             </div>
 
@@ -16,18 +16,18 @@
               <!-- Name + Default -->
               <div class="flex gap-3 items-end">
                 <div class="flex-grow">
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name <span class="text-red-500">*</span></label>
-                  <input v-model="templateForm.name" type="text" placeholder="e.g. My Obfuscation Profile"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.name")}} <span class="text-red-500">*</span></label>
+                  <input v-model="templateForm.name" type="text" :placeholder="$t('peer.templateNameExample')"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
                 <label class="flex items-center gap-2 mb-2 cursor-pointer whitespace-nowrap">
                   <input type="checkbox" v-model="templateForm.isDefault" class="w-4 h-4">
-                  <span class="text-sm dark:text-neutral-300">Default</span>
+                  <span class="text-sm dark:text-neutral-300">{{$t("common.default")}}</span>
                 </label>
               </div>
 
 			  <div>
-				<label class="block text-sm font-medium dark:text-neutral-300 mb-1">Protocol version</label>
+				<label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("peer.protocolVersion")}}</label>
 				<select v-model="templateForm.protocolVersion" :disabled="!!templateEditTarget" class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
 				  <option value="3.1">AWG 3.1</option>
 				  <option value="2.0">AWG 2.0</option>
@@ -38,18 +38,18 @@
               <!-- Host (SNI) -->
               <div>
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                  Custom Host <span class="text-gray-400 dark:text-neutral-500 font-normal">(SNI, optional)</span>
+                  {{$t("peer.customHost")}} <span class="text-gray-400 dark:text-neutral-500 font-normal">(SNI, {{$t("common.optional")}})</span>
                 </label>
-                <input v-model="templateForm.host" type="text" placeholder="e.g. 1.2.3.4 or example.com"
+                <input v-model="templateForm.host" type="text" :placeholder="$t('peer.customHostPh')"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  Self-stealing SNI — enter your server's IP or domain. AWG traffic will appear as TLS to this host.
+                  {{$t("peer.selfStealingSni")}}
                 </p>
               </div>
 
               <!-- Jc / Jmin / Jmax -->
               <div>
-                <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Junk Parameters</p>
+                <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">{{$t("peer.junkParams")}}</p>
                 <div class="grid grid-cols-3 gap-3">
                   <div>
                     <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Jc</label>
@@ -71,7 +71,7 @@
 
               <!-- S1-S4 -->
               <div>
-                <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Size Parameters</p>
+                <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">{{$t("peer.sizeParams")}}</p>
                 <div class="grid grid-cols-4 gap-3">
                   <div v-for="k in ['s1','s2','s3','s4']" :key="k">
                     <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{ k.toUpperCase() }}</label>
@@ -85,16 +85,16 @@
               <div>
                 <div class="flex items-center mb-2">
                   <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 tracking-wide flex-grow">
-                    Hash Ranges (H1–H4)
+                    {{$t("peer.hashRanges")}}
                   </p>
                   <button @click="randomiseTemplateH()"
                     class="text-xs text-purple-600 dark:text-purple-400 hover:underline">
-                    Randomise
+                    {{$t("peer.randomise")}}
                   </button>
                 </div>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mb-2">
-                  Format: <code class="font-mono">start-end</code> (e.g. <code class="font-mono">5000000-55000000</code>).
-                  Re-randomised on every template apply.
+                  {{$t("peer.formatLabel")}} <code class="font-mono">start-end</code> ({{$t("peer.eg")}} <code class="font-mono">5000000-55000000</code>).
+                  {{$t("peer.rerandomised")}}
                 </p>
                 <div class="grid grid-cols-2 gap-3">
                   <div v-for="k in ['h1','h2','h3','h4']" :key="k">
@@ -108,34 +108,34 @@
               <!-- I1-I5 -->
               <div>
                 <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">
-                  Imitation Parameters (I1–I5)
+                  {{$t("peer.imitationParams")}}
                 </p>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mb-2">
-                  Optional. Full obfuscation: I1 starts with <code class="font-mono">&lt;r 2&gt; &lt;b 0x...&gt;</code>.
+                  {{$t("peer.imitationHint")}} <code class="font-mono">&lt;r 2&gt; &lt;b 0x...&gt;</code>.
                 </p>
                 <div style="display:flex; flex-direction:column; gap:8px;">
                   <div v-for="k in ['i1','i2','i3','i4','i5']" :key="k" class="flex items-center gap-2">
                     <label class="text-xs font-medium dark:text-neutral-300 w-6 flex-shrink-0">{{ k.toUpperCase() }}</label>
-                    <input v-model="templateForm[k]" type="text" :placeholder="k === 'i1' ? '<r 2> <b 0x...>' : 'optional'"
+                    <input v-model="templateForm[k]" type="text" :placeholder="k === 'i1' ? '<r 2> <b 0x...>' : $t('common.optional')"
                       class="flex-1 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono">
                   </div>
                 </div>
               </div>
 
 			  <div v-if="templateForm.protocolVersion === '3.1'">
-				<p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">AWG 3.1 transport protection</p>
+				<p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">{{$t("peer.transportProtection")}}</p>
 				<label class="block text-xs font-medium dark:text-neutral-300 mb-1">HeaderProtectionKey</label>
 				<input v-model="templateForm.headerProtectionKey" class="w-full px-2 py-1 text-xs border rounded font-mono dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
 				<div class="grid grid-cols-2 gap-2 mt-2">
-				  <label v-for="field in [{k:'contentPaddingAddition',l:'Content padding'},{k:'rekeyAfterTime',l:'Rekey after'},{k:'rekeyTimeout',l:'Rekey timeout'},{k:'rejectAfterTime',l:'Reject after'},{k:'keepaliveTimeout',l:'Keepalive timeout'},{k:'maxHandshakeAttempts',l:'Handshake attempts'}]" :key="field.k" class="text-xs dark:text-neutral-300">
+				  <label v-for="field in [{k:'contentPaddingAddition',l:$t('peer.fldContentPadding')},{k:'rekeyAfterTime',l:$t('peer.fldRekeyAfter')},{k:'rekeyTimeout',l:$t('peer.fldRekeyTimeout')},{k:'rejectAfterTime',l:$t('peer.fldRejectAfter')},{k:'keepaliveTimeout',l:$t('peer.fldKeepaliveTimeout')},{k:'maxHandshakeAttempts',l:$t('peer.fldHandshakeAttempts')}]" :key="field.k" class="text-xs dark:text-neutral-300">
 					{{ field.l }} <input v-model="templateForm[field.k]" placeholder="min-max" class="w-full px-2 py-1 mt-1 border rounded font-mono dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
 				  </label>
 				</div>
 				<div class="flex gap-4 mt-2 text-xs dark:text-neutral-300">
-				  <label><input type="checkbox" v-model="templateForm.randomTrailers"> Random trailers</label>
-				  <label><input type="checkbox" v-model="templateForm.disableCookies"> Disable cookies</label>
+				  <label><input type="checkbox" v-model="templateForm.randomTrailers"> {{$t("peer.randomTrailers")}}</label>
+				  <label><input type="checkbox" v-model="templateForm.disableCookies"> {{$t("peer.disableCookies")}}</label>
 				</div>
-				<p class="text-xs text-gray-400 mt-2">S1-S4 must be at least 12; ranges use min-max format.</p>
+				<p class="text-xs text-gray-400 mt-2">{{$t("peer.s1s4Note")}}</p>
 			  </div>
 
             </div><!-- /content area -->
@@ -144,12 +144,12 @@
               <div class="flex gap-3 justify-end">
                 <button @click="showTemplateModal = false"
                   class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded hover:bg-gray-50 dark:hover:bg-neutral-600 dark:text-neutral-200 transition text-sm">
-                  Cancel
+                  {{$t("common.cancel")}}
                 </button>
                 <button @click="saveTemplate()"
                   :disabled="!templateForm.name"
                   class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded transition text-sm font-medium">
-                  {{ templateEditTarget ? 'Save Changes' : 'Create Template' }}
+                  {{ templateEditTarget ? $t('common.saveChanges') : $t('peer.createTemplate') }}
                 </button>
               </div>
             </div>
@@ -166,13 +166,13 @@
 				<div>
 				  <div class="flex items-center" style="gap:9px;">
 				    <span aria-hidden="true" style="font-size:1.2rem; line-height:1;">⚡</span>
-				    <h2 class="text-lg font-semibold dark:text-neutral-100">Generate AmneziaWG Profile</h2>
+				    <h2 class="text-lg font-semibold dark:text-neutral-100">{{$t("peer.generateTitle")}}</h2>
 				  </div>
 				  <p class="text-sm text-gray-500 dark:text-neutral-400" style="margin-top:5px; line-height:1.45;">
-				    Create a balanced obfuscation profile from tested protocol signatures.
+				    {{$t("peer.generateDesc")}}
 				  </p>
 				</div>
-                <button type="button" @click="showGenerateModal = false" aria-label="Close profile generator"
+                <button type="button" @click="showGenerateModal = false" :aria-label="$t('peer.closeGenerator')"
                   class="text-gray-400 hover:text-gray-600 dark:hover:text-neutral-200"
                   style="padding:4px; flex-shrink:0;">
                   <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -183,7 +183,7 @@
             </div>
             <div class="awg-generator-body dark:text-neutral-200">
 			  <div class="awg-generator-field">
-				<label>AWG version</label>
+				<label>{{$t("peer.awgVersion")}}</label>
 				<div class="awg-generator-segmented">
 				  <button type="button" @click="generateForm.protocolVersion='3.1'" :class="{ 'is-active': generateForm.protocolVersion === '3.1' }" :aria-pressed="generateForm.protocolVersion === '3.1'">AWG 3.1</button>
 				  <button type="button" @click="generateForm.protocolVersion='2.0'" :class="{ 'is-active': generateForm.protocolVersion === '2.0' }" :aria-pressed="generateForm.protocolVersion === '2.0'">AWG 2.0</button>
@@ -191,10 +191,10 @@
 			  </div>
               <div class="awg-generator-grid">
               <div class="awg-generator-field">
-                <label>Protocol profile</label>
+                <label>{{$t("peer.protocolProfile")}}</label>
                 <select v-model="generateForm.profile"
                   class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
-                  <option value="random">Random (any profile)</option>
+                  <option value="random">{{$t("peer.profileRandom")}}</option>
                   <option value="quic_initial">QUIC Initial (RFC 9000)</option>
                   <option value="quic_0rtt">QUIC 0-RTT</option>
                   <option value="tls_client_hello">TLS 1.3 ClientHello</option>
@@ -208,7 +208,7 @@
                 </select>
               </div>
               <div class="awg-generator-field">
-                <label>Intensity</label>
+                <label>{{$t("peer.intensity")}}</label>
                 <div class="awg-generator-segmented">
                   <button type="button" v-for="lvl in ['low','medium','high']" :key="lvl"
                     @click="generateForm.intensity = lvl"
@@ -221,17 +221,17 @@
               </div>
               <div class="awg-generator-grid">
               <div class="awg-generator-field">
-                <label>Custom host <span class="text-gray-400 font-normal">(optional)</span></label>
-                <input v-model="generateForm.host" type="text" placeholder="e.g. yandex.ru"
+                <label>{{$t("peer.customHostLabel")}} <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span></label>
+                <input v-model="generateForm.host" type="text" :placeholder="$t('peer.hostPh')"
                   autocomplete="off" spellcheck="false"
                   class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
-                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Used for SNI; leave empty to choose randomly.</p>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("peer.usedForSni")}}</p>
               </div>
               <div class="awg-generator-field" v-show="generateForm.profile !== 'sip' && generateForm.profile !== 'dns_query'">
-                <label>Browser fingerprint <span class="text-gray-400 font-normal">(optional)</span></label>
+                <label>{{$t("peer.browserFingerprint")}} <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span></label>
                 <select v-model="generateForm.browser"
                   class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
-                  <option value="">None (protocol defaults)</option>
+                  <option value="">{{$t("peer.noneProtocolDefaults")}}</option>
                   <option value="chrome">Chrome</option>
                   <option value="firefox">Firefox</option>
                   <option value="safari">Safari</option>
@@ -239,12 +239,12 @@
                   <option value="yandex_desktop">Yandex Browser (Desktop)</option>
                   <option value="yandex_mobile">Yandex Browser (Mobile)</option>
                 </select>
-                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Matches common QUIC/TLS packet sizes.</p>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("peer.matchesQuicTls")}}</p>
               </div>
               </div>
               <div v-if="generatedParams" class="awg-generator-preview text-xs font-mono" style="display:flex; flex-direction:column; gap:6px;">
                 <div class="text-gray-500 dark:text-neutral-400 font-sans text-xs font-medium mb-1">
-                  Preview — Profile: <span class="text-yellow-600 dark:text-yellow-400">{{ generatedParams.profile }}</span>
+                  {{$t("peer.previewProfile")}} <span class="text-yellow-600 dark:text-yellow-400">{{ generatedParams.profile }}</span>
                 </div>
                 <div class="flex flex-wrap gap-x-4 gap-y-1">
                   <span><span class="text-gray-400">Jc=</span>{{ generatedParams.jc }}</span>
@@ -266,18 +266,18 @@
                 <div class="break-all"><span class="text-gray-400">I1=</span>{{ generatedParams.i1 }}</div>
               </div>
               <div v-if="generatedParams" style="display:flex; flex-direction:column; gap:10px;">
-                <label class="text-sm font-medium" for="generated-template-name">Template name</label>
-                <input v-model="generateForm.saveName" type="text" placeholder="Template name..."
+                <label class="text-sm font-medium" for="generated-template-name">{{$t("peer.templateName")}}</label>
+                <input v-model="generateForm.saveName" type="text" :placeholder="$t('peer.templateNamePh')"
                   id="generated-template-name" autocomplete="off"
                   class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
                 <div class="awg-generator-actions">
                   <button type="button" @click="useGeneratedInForm()"
                     class="py-2 border border-purple-400 text-purple-600 dark:text-purple-400 dark:border-purple-500 rounded text-sm transition">
-                    Edit details
+                    {{$t("peer.editDetails")}}
                   </button>
                   <button type="button" @click="saveGeneratedTemplate()" :disabled="!generateForm.saveName.trim() || savingGeneratedTemplate"
                     class="py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded text-sm font-medium transition">
-                    {{ savingGeneratedTemplate ? 'Saving...' : 'Save & Close' }}
+                    {{ savingGeneratedTemplate ? $t('common.saving') : $t('peer.saveClose') }}
                   </button>
                 </div>
               </div>
@@ -293,7 +293,7 @@
                 <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
-                {{ generatingParams ? 'Generating...' : (generatedParams ? 'Regenerate profile' : 'Generate profile') }}
+                {{ generatingParams ? $t('peer.generating') : (generatedParams ? $t('peer.regenerateProfile') : $t('peer.generateProfile')) }}
               </button>
             </div>
           </div>
@@ -306,9 +306,9 @@
 
           <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-sm">
             <div class="modal-header dark:border-neutral-600">
-              <h2 class="text-2xl font-medium dark:text-neutral-200">{{ peerCreate.peerType === 'client' ? 'Add Client' : 'Add Peer' }}</h2>
+              <h2 class="text-2xl font-medium dark:text-neutral-200">{{ peerCreate.peerType === 'client' ? $t('peer.addClient') : $t('peer.addPeer') }}</h2>
               <p v-if="selectedInterface" class="text-sm text-gray-500 dark:text-neutral-400">
-                Adding to {{ selectedInterface.name }} ({{ selectedInterface.id }})
+                {{$t("peer.addingTo")}} {{ selectedInterface.name }} ({{ selectedInterface.id }})
               </p>
             </div>
 
@@ -324,7 +324,7 @@
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                   </svg>
-                  Client
+                  {{$t("common.client")}}
                 </button>
                 <button @click="peerCreate.peerType = 'interconnect'"
                   :class="peerCreate.peerType === 'interconnect'
@@ -334,7 +334,7 @@
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
                   </svg>
-                  Interconnect
+                  {{$t("peer.interconnect")}}
                 </button>
               </div>
 
@@ -348,7 +348,7 @@
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
                   </svg>
-                  Generate Keys
+                  {{$t("peer.generateKeys")}}
                 </button>
                 <button @click="peerCreate.mode = 'manual'"
                   :class="peerCreate.mode === 'manual'
@@ -358,15 +358,15 @@
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                   </svg>
-                  Enter Manually
+                  {{$t("peer.enterManually")}}
                 </button>
               </div>
 
               <div class="mb-4">
-                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{ peerCreate.peerType === 'client' ? 'Client Name' : 'Peer Name' }}</label>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{ peerCreate.peerType === 'client' ? $t('peer.clientName') : $t('peer.peerName') }}</label>
                 <input v-model="peerCreate.name"
                   type="text"
-                  placeholder="e.g., Phone, Laptop, Office-A"
+                  :placeholder="$t('peer.namePhDevices')"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
               </div>
 
@@ -376,63 +376,63 @@
                 <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
-                <span v-if="peerCreate.peerType === 'client'">Keys and IP will be generated automatically. Enable "Show QR" below to scan the config immediately after creation.</span>
-                <span v-else>Keys will be generated on the server. After creation, download the config to configure the remote side manually.</span>
+                <span v-if="peerCreate.peerType === 'client'">{{$t("peer.keysIpHint")}}</span>
+                <span v-else>{{$t("peer.keysServerHint")}}</span>
               </div>
 
               <!-- Manual mode: Public Key field -->
               <div v-if="peerCreate.mode === 'manual'" class="mb-4">
-                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Public Key</label>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.publicKey")}}</label>
                 <input v-model="peerCreate.publicKey"
                   type="text"
-                  placeholder="base64-encoded public key (44 chars)"
+                  :placeholder="$t('peer.publicKeyPh')"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
               </div>
 
               <!-- AllowedIPs: required for interconnect, optional for client+generate -->
               <div class="mb-4" v-if="peerCreate.peerType === 'interconnect' || peerCreate.mode === 'manual'">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                  Allowed IPs
+                  {{$t("common.allowedIPs")}}
                   <span v-if="peerCreate.peerType === 'interconnect'" class="text-red-500">*</span>
-                  <span v-else class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span>
+                  <span v-else class="text-gray-400 dark:text-neutral-500 font-normal">({{$t("common.optional")}})</span>
                 </label>
                 <input v-model="peerCreate.allowedIPs"
                   type="text"
-                  :placeholder="peerCreate.peerType === 'interconnect' ? 'e.g., 192.168.2.0/24 (remote subnet)' : 'e.g., 10.100.0.2/32 (leave empty for auto-assign)'"
+                  :placeholder="peerCreate.peerType === 'interconnect' ? $t('peer.allowedIPsPhInterconnect') : $t('peer.allowedIPsPhClient')"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                 <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1" v-if="peerCreate.peerType === 'interconnect'">
-                  Hub will route traffic for this subnet through the interconnect tunnel.
+                  {{$t("peer.hubRoutesSubnet")}}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1" v-else>
-                  Hub will route traffic to this peer's VPN IP. Leave empty to auto-assign a /32 address.
+                  {{$t("peer.hubRoutesPeerIp")}}
                 </p>
               </div>
 
               <div class="mb-4">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                  Endpoint
-                  <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span>
+                  {{$t("common.endpoint")}}
+                  <span class="text-gray-400 dark:text-neutral-500 font-normal">({{$t("common.optional")}})</span>
                 </label>
                 <input v-model="peerCreate.endpoint"
                   type="text"
-                  :placeholder="peerCreate.peerType === 'interconnect' ? 'e.g., office-b.example.com:51820' : 'e.g., peer.example.com:51820'"
+                  :placeholder="peerCreate.peerType === 'interconnect' ? $t('peer.endpointPhInterconnect') : $t('peer.endpointPhPeer')"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                 <p v-if="peerCreate.peerType === 'interconnect'" class="text-xs text-gray-500 dark:text-neutral-400 mt-1">
-                  Remote side address. Leave empty if the remote side initiates the connection.
+                  {{$t("peer.remoteSideAddress")}}
                 </p>
               </div>
 
               <div class="mb-4">
-                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Client Allowed IPs <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span></label>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("peer.clientAllowedIPs")}} <span class="text-gray-400 dark:text-neutral-500 font-normal">({{$t("common.optional")}})</span></label>
                 <input v-model="peerCreate.clientAllowedIPs"
                   type="text"
-                  placeholder="default: 0.0.0.0/0, ::/0 (all traffic)"
+                  :placeholder="$t('peer.clientAllowedIPsPh')"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1">What the remote side routes through VPN (in client config). Leave empty for default.</p>
+                <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1">{{$t("peer.clientAllowedIPsHint")}}</p>
               </div>
 
               <div class="mb-4">
-                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Persistent Keepalive</label>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.persistentKeepalive")}}</label>
                 <input v-model.number="peerCreate.persistentKeepalive"
                   type="number"
                   placeholder="25"
@@ -441,23 +441,23 @@
 
               <div v-if="peerCreate.peerType === 'client'" class="mb-4">
                 <div class="flex items-center justify-between mb-1">
-                  <label class="block text-sm font-medium dark:text-neutral-300">Client Group</label>
+                  <label class="block text-sm font-medium dark:text-neutral-300">{{$t("peer.clientGroup")}}</label>
                   <button @click="inlineGroupShow = !inlineGroupShow; inlineGroupInput = ''"
-                    title="Create new group"
+                    :title="$t('peer.createGroup')"
                     class="flex items-center justify-center w-5 h-5 rounded text-white text-sm font-bold leading-none"
                     style="background:#16a34a; flex-shrink:0;">+</button>
                 </div>
                 <div v-if="inlineGroupShow" class="flex gap-2 mb-2">
                   <input v-model="inlineGroupInput"
                     type="text"
-                    placeholder="New group name"
+                    :placeholder="$t('peer.groupNamePh')"
                     @keyup.enter="createInlineClientGroup('manual')"
                     @keyup.esc="inlineGroupShow = false; inlineGroupInput = ''"
                     class="flex-1 px-2 py-1 border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
                     ref="inlineGroupInputManual">
                   <button @click="createInlineClientGroup('manual')"
                     class="px-2 py-1 rounded text-white text-sm"
-                    style="background:#16a34a;">Add</button>
+                    style="background:#16a34a;">{{$t("common.add")}}</button>
                 </div>
                 <select v-model="peerCreate.groupId"
                   class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
@@ -470,14 +470,14 @@
             <!-- Expiry date (client peers only) -->
             <div v-if="peerCreate.peerType === 'client'" class="modal-section dark:border-neutral-600">
               <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                Expiry date <span class="font-normal text-gray-400">(optional — peer will be disabled after this date)</span>
+                {{$t("peer.expiryDate")}} <span class="font-normal text-gray-400">{{$t("peer.expiryHint")}}</span>
               </label>
               <div class="flex gap-2">
                 <input v-model="peerCreate.expiredAt" type="date"
                   class="flex-1 border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                   style="padding:8px 12px;">
                 <button v-if="peerCreate.expiredAt" type="button" @click="peerCreate.expiredAt = ''"
-                  class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">Clear</button>
+                  class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">{{$t("common.clear")}}</button>
               </div>
             </div>
 
@@ -487,20 +487,20 @@
                   class="flex items-center gap-2 text-sm cursor-pointer select-none"
                   :style="{ color: theme === 'dark' ? '#d4d4d4' : '#374151' }">
                   <input type="checkbox" v-model="peerCreate.showQR" class="rounded">
-                  Show QR after create
+                  {{$t("peer.showQrAfterCreate")}}
                 </label>
                 <div v-else></div>
                 <div class="flex gap-3">
                   <button @click="showPeerCreate = false"
                     class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded hover:bg-gray-50 dark:hover:bg-neutral-600 dark:text-neutral-200 transition">
-                    Cancel
+                    {{$t("common.cancel")}}
                   </button>
                   <button @click="createPeer" :disabled="peerMutationInFlight"
                     class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition">
-                    <span v-if="peerCreate.peerType === 'client' && peerCreate.mode === 'generate'">{{ peerCreate.showQR ? 'Create & Show QR' : 'Create' }}</span>
-                    <span v-else-if="peerCreate.peerType === 'client'">Add Client</span>
-                    <span v-else-if="peerCreate.mode === 'generate'">Generate Keys & Create</span>
-                    <span v-else>Add Interconnect Peer</span>
+                    <span v-if="peerCreate.peerType === 'client' && peerCreate.mode === 'generate'">{{ peerCreate.showQR ? $t('peer.createShowQR') : $t('common.create') }}</span>
+                    <span v-else-if="peerCreate.peerType === 'client'">{{$t("peer.addClient")}}</span>
+                    <span v-else-if="peerCreate.mode === 'generate'">{{$t("peer.generateKeysCreate")}}</span>
+                    <span v-else>{{$t("peer.addInterconnectPeer")}}</span>
                   </button>
                 </div>
               </div>
@@ -514,50 +514,50 @@
          >
           <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-xs">
             <div class="modal-header dark:border-neutral-600">
-              <h2 class="text-xl font-medium dark:text-neutral-200">New Client</h2>
+              <h2 class="text-xl font-medium dark:text-neutral-200">{{$t("peer.newClient")}}</h2>
               <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">
-                IP will be assigned automatically. Keys will be generated on server.
+                {{$t("peer.quickCreateHint")}}
               </p>
             </div>
             <div style="padding:16px 24px 24px;">
               <div class="mb-4">
-                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name</label>
-                <input v-model="peerCreateName" type="text" placeholder="e.g., Phone, Laptop"
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.name")}}</label>
+                <input v-model="peerCreateName" type="text" :placeholder="$t('peer.namePhQuick')"
                   v-on:keyup.enter="createQuickPeer"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
               </div>
               <div class="mb-4">
-                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Expiry date and time <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span></label>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("peer.expiryDateTime")}} <span class="text-gray-400 dark:text-neutral-500 font-normal">({{$t("common.optional")}})</span></label>
                 <div class="flex gap-2">
                   <input v-model="peerCreateExpiredDate" type="datetime-local" step="60"
                     class="flex-1 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                   <button v-if="peerCreateExpiredDate" type="button" @click="peerCreateExpiredDate = ''"
-                    class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">Clear</button>
+                    class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">{{$t("common.clear")}}</button>
                 </div>
               </div>
               <div class="mb-4">
                 <div class="flex items-center justify-between" style="margin-bottom:4px;">
-                  <label class="block text-sm font-medium dark:text-neutral-300">Client Group</label>
+                  <label class="block text-sm font-medium dark:text-neutral-300">{{$t("peer.clientGroup")}}</label>
                   <button @click="inlineGroupShowQuick = !inlineGroupShowQuick; inlineGroupInput = ''"
-                    title="Create new group"
+                    :title="$t('peer.createGroup')"
                     class="flex items-center justify-center w-5 h-5 rounded text-white text-sm font-bold leading-none"
                     style="background:#16a34a; flex-shrink:0;">+</button>
                 </div>
                 <div v-if="inlineGroupShowQuick" class="flex gap-2 mb-2">
                   <input v-model="inlineGroupInput"
                     type="text"
-                    placeholder="New group name"
+                    :placeholder="$t('peer.groupNamePh')"
                     @keyup.enter="createInlineClientGroup('quick')"
                     @keyup.esc="inlineGroupShowQuick = false; inlineGroupInput = ''"
                     class="flex-1 px-2 py-1 border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                   <button @click="createInlineClientGroup('quick')"
                     class="px-2 py-1 rounded text-white text-sm"
-                    style="background:#16a34a;">Add</button>
+                    style="background:#16a34a;">{{$t("common.add")}}</button>
                 </div>
                 <select v-model="peerCreateGroupId"
                   class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                   style="padding:8px 12px;">
-                  <option v-if="clientGroups.length === 0" value="" disabled>Loading groups…</option>
+                  <option v-if="clientGroups.length === 0" value="" disabled>{{$t("peer.loadingGroups")}}</option>
                   <option v-for="g in clientGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
                 </select>
               </div>
@@ -567,16 +567,16 @@
                 <label class="flex items-center gap-2 text-sm cursor-pointer select-none"
                   :style="{ color: theme === 'dark' ? '#d4d4d4' : '#374151' }">
                   <input type="checkbox" v-model="peerCreateShowQR" class="rounded">
-                  Show QR after create
+                  {{$t("peer.showQrAfterCreate")}}
                 </label>
                 <div class="flex gap-3">
                   <button @click="showQuickPeerCreate = false"
                     class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded hover:bg-gray-50 dark:hover:bg-neutral-600 dark:text-neutral-200 transition text-sm">
-                    Cancel
+                    {{$t("common.cancel")}}
                   </button>
                   <button @click="createQuickPeer" :disabled="!peerCreateName || peerMutationInFlight"
                     class="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded transition text-sm font-medium">
-                    {{ peerCreateShowQR ? 'Create & Show QR' : 'Create' }}
+                    {{ peerCreateShowQR ? $t('peer.createShowQR') : $t('common.create') }}
                   </button>
                 </div>
               </div>
@@ -601,10 +601,10 @@
                     </svg>
                   </div>
                   <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-neutral-200">{{ peerDelete && peerDelete.peerType === 'interconnect' ? 'Delete Peer' : 'Delete Client' }}</h3>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-neutral-200">{{ peerDelete && peerDelete.peerType === 'interconnect' ? $t('peer.deletePeer') : $t('peer.deleteClient') }}</h3>
                     <div class="mt-2">
                       <p class="text-sm text-gray-500 dark:text-neutral-300">
-                        Are you sure you want to delete <strong>{{peerDelete.name}}</strong>? This action cannot be undone.
+                        {{$t("peer.deleteConfirm")}} <strong>{{peerDelete.name}}</strong>? {{$t("common.cannotBeUndone")}}
                       </p>
                     </div>
                   </div>
@@ -613,11 +613,11 @@
               <div class="bg-gray-50 dark:bg-neutral-600 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button type="button" @click="confirmDeletePeer()"
                   class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 dark:bg-red-600 text-base font-medium text-white dark:text-white hover:bg-red-700 dark:hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
-                  {{ peerDelete && peerDelete.peerType === 'interconnect' ? 'Delete Peer' : 'Delete Client' }}
+                  {{ peerDelete && peerDelete.peerType === 'interconnect' ? $t('peer.deletePeer') : $t('peer.deleteClient') }}
                 </button>
                 <button type="button" @click="peerDelete = null"
                   class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-neutral-500 shadow-sm px-4 py-2 bg-white dark:bg-neutral-500 text-base font-medium text-gray-700 dark:text-neutral-50 hover:bg-gray-50 dark:hover:bg-neutral-600 dark:hover:border-neutral-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
-                  Cancel
+                  {{$t("common.cancel")}}
                 </button>
               </div>
             </div>
@@ -641,13 +641,13 @@
                     </svg>
                   </div>
                   <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-neutral-200">Delete Interface</h3>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-neutral-200">{{$t("modal.deleteInterface")}}</h3>
                     <div class="mt-2">
                       <p class="text-sm text-gray-500 dark:text-neutral-300">
-                        Are you sure you want to delete interface <strong>{{interfaceDelete.name}} ({{interfaceDelete.id}})</strong>?
+                        {{$t("modal.deleteInterfaceConfirm")}} <strong>{{interfaceDelete.name}} ({{interfaceDelete.id}})</strong>?
                       </p>
                       <p class="text-sm text-red-600 dark:text-red-400 mt-1">
-                        This will permanently delete the interface and <strong>all {{ interfaceDelete.disableRoutes ? 'peers' : 'clients' }} ({{ interfaceDelete.peerCount || 0 }})</strong>. This action cannot be undone.
+                        {{$t("modal.deleteInterfaceWarning")}} <strong>{{$t("modal.allLower")}} {{ interfaceDelete.disableRoutes ? $t('modal.peersLower') : $t('modal.clientsLower') }} ({{ interfaceDelete.peerCount || 0 }})</strong>. {{$t("common.cannotBeUndone")}}
                       </p>
                     </div>
                   </div>
@@ -656,11 +656,11 @@
               <div class="bg-gray-50 dark:bg-neutral-600 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button type="button" @click="confirmDeleteInterface()"
                   class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 dark:bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
-                  Delete Interface
+                  {{$t("modal.deleteInterface")}}
                 </button>
                 <button type="button" @click="interfaceDelete = null"
                   class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-neutral-500 shadow-sm px-4 py-2 bg-white dark:bg-neutral-500 text-base font-medium text-gray-700 dark:text-neutral-50 hover:bg-gray-50 dark:hover:bg-neutral-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
-                  Cancel
+                  {{$t("common.cancel")}}
                 </button>
               </div>
             </div>
@@ -676,9 +676,9 @@
             <!-- Header -->
             <div class="modal-header flex items-center justify-between">
               <div>
-                <h3 class="text-base font-semibold dark:text-neutral-100">{{ peerEditForm._peer && peerEditForm._peer.peerType === 'interconnect' ? 'Edit Peer' : 'Edit Client' }}</h3>
+                <h3 class="text-base font-semibold dark:text-neutral-100">{{ peerEditForm._peer && peerEditForm._peer.peerType === 'interconnect' ? $t('peer.editPeer') : $t('peer.editClient') }}</h3>
                 <p class="text-xs text-gray-500 dark:text-neutral-400" style="margin-top:2px;">
-                  {{ peerEditForm._peer.peerType === 'interconnect' ? 'S2S Interconnect' : 'Client' }}
+                  {{ peerEditForm._peer.peerType === 'interconnect' ? $t('peer.s2sInterconnect') : $t('common.client') }}
                   · {{ peerEditForm._peer.publicKey ? peerEditForm._peer.publicKey.slice(0,16) + '…' : '' }}
                 </p>
               </div>
@@ -696,87 +696,87 @@
 
               <!-- Name -->
               <div>
-                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Name</label>
-                <input v-model="peerEditForm.name" type="text" :placeholder="peerEditForm._peer && peerEditForm._peer.peerType === 'interconnect' ? 'Peer name' : 'Client name'"
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">{{$t("common.name")}}</label>
+                <input v-model="peerEditForm.name" type="text" :placeholder="peerEditForm._peer && peerEditForm._peer.peerType === 'interconnect' ? $t('peer.peerNamePh') : $t('peer.clientNamePh')"
                   class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
               </div>
 
               <!-- Endpoint (interconnect only) -->
               <div v-if="peerEditForm._peer.peerType === 'interconnect'">
-                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Endpoint</label>
-                <input v-model="peerEditForm.endpoint" type="text" placeholder="IP:port (e.g. 1.2.3.4:51820)"
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">{{$t("common.endpoint")}}</label>
+                <input v-model="peerEditForm.endpoint" type="text" :placeholder="$t('peer.endpointPh')"
                   class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono"/>
                 <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
-                  Remote side address. Leave empty if the remote side initiates the connection.
+                  {{$t("peer.remoteSideAddress")}}
                 </p>
               </div>
 
               <!-- AllowedIPs (interconnect — editable) -->
               <div v-if="peerEditForm._peer.peerType === 'interconnect'">
-                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Allowed IPs</label>
-                <input v-model="peerEditForm.allowedIPs" type="text" placeholder="e.g. 10.100.1.1/32"
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">{{$t("common.allowedIPs")}}</label>
+                <input v-model="peerEditForm.allowedIPs" type="text" :placeholder="$t('peer.allowedIPsPh')"
                   class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono"/>
                 <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
-                  CIDRs routed through this peer.
+                  {{$t("peer.cidrsRouted")}}
                 </p>
               </div>
 
               <!-- AllowedIPs (client — read-only) -->
               <div v-if="peerEditForm._peer.peerType !== 'interconnect'">
-                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Address <span class="text-gray-400 font-normal">(read-only)</span></label>
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">{{$t("common.address")}} <span class="text-gray-400 font-normal">{{$t("peer.readOnly")}}</span></label>
                 <input :value="peerEditForm.allowedIPs" type="text" disabled
                   class="w-full border border-gray-200 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-400 text-gray-400 rounded px-3 py-2 text-sm font-mono"/>
               </div>
 
               <!-- Client Allowed IPs (client only) -->
               <div v-if="peerEditForm._peer.peerType !== 'interconnect'">
-                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Client Allowed IPs</label>
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">{{$t("peer.clientAllowedIPs")}}</label>
                 <select v-model="peerEditForm.clientAllowedIPsMode"
                   class="w-full px-3 py-2 mb-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
-                  <option value="manual">Manual AllowedIPs</option>
-                  <option value="exclude-ipset">Exclude ipset alias</option>
+                  <option value="manual">{{$t("common.allowedIPsManual")}}</option>
+                  <option value="exclude-ipset">{{$t("common.allowedIPsExcludeIpset")}}</option>
                 </select>
                 <select v-if="peerEditForm.clientAllowedIPsMode === 'exclude-ipset'" v-model="peerEditForm.clientAllowedIPsAliasId"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
-                  <option disabled value="">Select an ipset alias</option>
-                  <option v-for="alias in aliases.filter(a => a.type === 'ipset')" :key="alias.id" :value="alias.id">{{ alias.name }} ({{ alias.entryCount }} excluded IPv4 entries)</option>
+                  <option disabled value="">{{$t("common.selectIpsetAlias")}}</option>
+                  <option v-for="alias in aliases.filter(a => a.type === 'ipset')" :key="alias.id" :value="alias.id">{{ alias.name }} ({{ alias.entryCount }} {{$t("common.excludedIpv4Entries")}})</option>
                 </select>
                 <p v-if="peerEditForm.clientAllowedIPsMode === 'exclude-ipset'" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  All IPv4 except this alias uses the VPN. All IPv6 uses the VPN. Export uses the current alias contents; download and re-import after changes. Cascade DNS keeps its VPN route.
+                  {{$t("common.excludeIpsetHint")}}
                 </p>
                 <input v-if="peerEditForm.clientAllowedIPsMode !== 'exclude-ipset'" v-model="peerEditForm.clientAllowedIPs" type="text" placeholder="e.g. 0.0.0.0/0, ::/0"
                   class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono"/>
                 <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
-                  Routes pushed to the client in its WireGuard config.
+                  {{$t("peer.routesPushed")}}
                 </p>
               </div>
 
               <!-- Bandwidth limits (client only) -->
               <div v-if="peerEditForm._peer.peerType !== 'interconnect'">
                 <label class="block text-sm font-medium mb-1 dark:text-neutral-200">
-                  Bandwidth Limit
-                  <span class="text-gray-400 font-normal">(Mbit/s, 0 = unlimited)</span>
+                  {{$t("peer.bandwidthLimit")}}
+                  <span class="text-gray-400 font-normal">{{$t("peer.bandwidthHint")}}</span>
                 </label>
                 <div style="display:flex; gap:8px; align-items:flex-end;">
                   <div style="flex:1;">
-                    <label class="block text-xs mb-1" style="color:#dc2626;">↓ Download</label>
+                    <label class="block text-xs mb-1" style="color:#dc2626;">{{$t("peer.rateDown")}}</label>
                     <input v-model.number="peerEditForm.rateDown" type="number" min="0" step="0.1" placeholder="0"
                       class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
                   </div>
                   <div style="flex:1;">
-                    <label class="block text-xs mb-1" style="color:#16a34a;">↑ Upload</label>
+                    <label class="block text-xs mb-1" style="color:#16a34a;">{{$t("peer.rateUp")}}</label>
                     <input v-model.number="peerEditForm.rateUp" type="number" min="0" step="0.1" placeholder="0"
                       class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
                   </div>
                 </div>
                 <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px;">
-                  Examples: 10 = 10 Mbit/s, 0.5 = 500 Kbit/s. WireGuard overhead compensated automatically.
+                  {{$t("peer.bandwidthExamples")}}
                 </p>
               </div>
 
               <!-- Client Group (client only) -->
               <div v-if="peerEditForm._peer.peerType !== 'interconnect'">
-                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Client Group</label>
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">{{$t("peer.clientGroup")}}</label>
                 <select v-model="peerEditForm.groupId"
                   class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
                   <option v-for="g in clientGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
@@ -786,19 +786,19 @@
               <!-- Expiry date (client peers only) -->
               <div v-if="peerEditForm._peer && peerEditForm._peer.peerType !== 'interconnect'">
                 <label class="block text-sm font-medium mb-1 dark:text-neutral-200">
-                  Expiry date and time <span class="text-gray-400 font-normal">(optional — clear to remove)</span>
+                  {{$t("peer.expiryDateTime")}} <span class="text-gray-400 font-normal">{{$t("peer.expiryHintClear")}}</span>
                 </label>
                 <div class="flex gap-2">
                   <input v-model="peerEditForm.expiredAt" type="datetime-local" step="60"
                     class="flex-1 border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
                   <button v-if="peerEditForm.expiredAt" type="button" @click="peerEditForm.expiredAt = ''"
-                    class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">Clear</button>
+                    class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">{{$t("common.clear")}}</button>
                 </div>
               </div>
 
               <!-- Persistent Keepalive -->
               <div>
-                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Persistent Keepalive <span class="text-gray-400 font-normal">(seconds, 0 = off)</span></label>
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">{{$t("common.persistentKeepalive")}} <span class="text-gray-400 font-normal">{{$t("peer.secondsOff")}}</span></label>
                 <input v-model.number="peerEditForm.persistentKeepalive" type="number" min="0" max="65535" placeholder="0"
                   class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
               </div>
@@ -809,12 +809,12 @@
             <div class="modal-footer">
               <button @click="showPeerEditModal = false"
                 class="btn border border-gray-300 dark:border-neutral-500 dark:text-neutral-200 rounded text-sm">
-                Cancel
+                {{$t("common.cancel")}}
               </button>
               <button @click="savePeerEdit()" :disabled="peerMutationInFlight"
                 class="btn bg-purple-600 text-white rounded text-sm font-medium"
                 style="background:#7c3aed;">
-                Save
+                {{$t("common.save")}}
               </button>
             </div>
 

@@ -28,17 +28,17 @@
                           <option value="7d">7d</option>
                           <option value="30d">30d</option>
                         </select>
-                        <button @click="metricsOpenConfig(w.id)" title="Configure graphs"
+                        <button @click="metricsOpenConfig(w.id)" :title="$t('gw.configureGraphs')"
                           style="opacity:0.6; background:none; border:none; cursor:pointer; padding:0 3px; line-height:1; color:inherit; font-size:0.85rem;">⚙</button>
                       </template>
                       <template v-if="w.type !== 'monitoring'">
-                        <button @click="dashAdjustFontScale(w.id, -0.1)" title="Smaller text"
+                        <button @click="dashAdjustFontScale(w.id, -0.1)" :title="$t('dash.smallerText')"
                           style="opacity:0.55; background:none; border:none; cursor:pointer; padding:0 2px; line-height:1; color:inherit; font-size:0.8rem;">−</button>
                         <span style="opacity:0.4; font-size:0.65rem; min-width:2.2em; text-align:center;">{{ Math.round((w.fontScale||1)*100) }}%</span>
-                        <button @click="dashAdjustFontScale(w.id, +0.1)" title="Larger text"
+                        <button @click="dashAdjustFontScale(w.id, +0.1)" :title="$t('dash.largerText')"
                           style="opacity:0.55; background:none; border:none; cursor:pointer; padding:0 2px; line-height:1; color:inherit; font-size:0.8rem;">+</button>
                       </template>
-                      <button @click="dashRemoveWidget(w.id)" title="Remove widget"
+                      <button @click="dashRemoveWidget(w.id)" :title="$t('dash.removeWidget')"
                         style="opacity:0.5; background:none; border:none; cursor:pointer; padding:0; line-height:1; color:inherit; margin-left:2px;">✕</button>
                     </div>
                   </div>
@@ -48,20 +48,20 @@
                     <template v-if="w.type === 'server-info'">
                       <div v-if="dashSystemInfo" style="display:flex; flex-direction:column; gap:8px;">
                         <div class="flex items-center justify-between text-sm">
-                          <span class="text-gray-500 dark:text-neutral-400">Hostname</span>
+                          <span class="text-gray-500 dark:text-neutral-400">{{$t("dash.hostname")}}</span>
                           <span class="font-mono font-medium dark:text-neutral-200">{{ dashSystemInfo.hostname }}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm">
-                          <span class="text-gray-500 dark:text-neutral-400">Uptime</span>
+                          <span class="text-gray-500 dark:text-neutral-400">{{$t("dash.uptime")}}</span>
                           <span class="font-medium dark:text-neutral-200">{{ dashSystemInfo.uptime }}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm">
-                          <span class="text-gray-500 dark:text-neutral-400">Load avg</span>
+                          <span class="text-gray-500 dark:text-neutral-400">{{$t("dash.loadAvg")}}</span>
                           <span class="font-mono dark:text-neutral-200">{{ dashSystemInfo.load1 }} / {{ dashSystemInfo.load5 }} / {{ dashSystemInfo.load15 }}</span>
                         </div>
                         <div style="margin-top:4px;">
                           <div class="flex items-center justify-between text-sm mb-1">
-                            <span class="text-gray-500 dark:text-neutral-400">Memory</span>
+                            <span class="text-gray-500 dark:text-neutral-400">{{$t("dash.memory")}}</span>
                             <span class="dark:text-neutral-200">{{ dashFmtBytes(dashSystemInfo.memUsed * 1024) }} / {{ dashFmtBytes(dashSystemInfo.memTotal * 1024) }} ({{ dashSystemInfo.memPct }}%)</span>
                           </div>
                           <div style="height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden;">
@@ -69,20 +69,20 @@
                           </div>
                         </div>
                       </div>
-                      <div v-else class="text-sm text-gray-400 dark:text-neutral-500">Loading…</div>
+                      <div v-else class="text-sm text-gray-400 dark:text-neutral-500">{{$t("common.loading")}}</div>
                     </template>
 
                     <!-- ── gateways ── -->
                     <template v-else-if="w.type === 'gateways'">
-                      <div v-if="gatewaysLoading && !gatewaysLoaded" class="text-sm text-gray-400 dark:text-neutral-500">Loading…</div>
-                      <div v-else-if="gatewaysError && !gatewaysLoaded" class="text-sm text-red-600 dark:text-red-400">Unable to load gateways.</div>
-                      <div v-else-if="gatewaysLoaded && gateways.length === 0" class="text-sm text-gray-400 dark:text-neutral-500">No gateways</div>
+                      <div v-if="gatewaysLoading && !gatewaysLoaded" class="text-sm text-gray-400 dark:text-neutral-500">{{$t("common.loading")}}</div>
+                      <div v-else-if="gatewaysError && !gatewaysLoaded" class="text-sm text-red-600 dark:text-red-400">{{$t("dash.loadGatewaysError")}}</div>
+                      <div v-else-if="gatewaysLoaded && gateways.length === 0" class="text-sm text-gray-400 dark:text-neutral-500">{{$t("dash.noGateways")}}</div>
                       <div v-else v-for="gw in gateways" :key="gw.id"
                         class="flex items-center gap-2 text-sm"
                         style="padding:4px 0; border-bottom:1px solid #f3f4f6;"
                         :style="{ 'border-bottom-color': theme === 'dark' ? '#525252' : '#f3f4f6' }">
                         <span @click="toggleGatewayAdminDown(gw)"
-                          :title="gw.adminDown ? 'Admin Down — click to bring up' : 'Healthy — click to set Admin Down'"
+                          :title="gw.adminDown ? $t('dash.adminDownUp') : $t('dash.healthyAdminDown')"
                           style="width:10px; height:10px; border-radius:50%; cursor:pointer; flex-shrink:0; display:inline-block; transition:background 0.2s;"
                           :style="{
                             background: gatewayStatusColor(gw.status),
@@ -101,26 +101,26 @@
                         <div style="flex:1; min-width:80px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
                           :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
                           <div class="text-2xl font-bold dark:text-neutral-100">{{ allPeers.length }}</div>
-                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Total Peers</div>
+                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">{{$t("dash.totalPeers")}}</div>
                         </div>
                         <div style="flex:1; min-width:80px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
                           :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
                           <div class="text-2xl font-bold" style="color:#22c55e;">{{ allPeers.filter(p => p.latestHandshakeAt && (Date.now() - new Date(p.latestHandshakeAt).getTime()) < 3 * 60 * 1000).length }}</div>
-                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Connected</div>
+                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">{{$t("common.connected")}}</div>
                         </div>
                         <div style="flex:1; min-width:80px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
                           :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
                           <div class="text-2xl font-bold dark:text-neutral-100">{{ tunnelInterfaces.length }}</div>
-                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Interfaces</div>
+                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">{{$t("common.interfaces")}}</div>
                         </div>
                       </div>
                     </template>
 
                     <!-- ── interfaces ── -->
                     <template v-else-if="w.type === 'interfaces'">
-                      <div v-if="interfacesLoading && !interfacesLoaded" class="text-sm text-gray-400 dark:text-neutral-500">Loading…</div>
-                      <div v-else-if="interfacesError && !interfacesLoaded" class="text-sm text-red-600 dark:text-red-400">Unable to load interfaces.</div>
-                      <div v-else-if="interfacesLoaded && tunnelInterfaces.length === 0" class="text-sm text-gray-400 dark:text-neutral-500">No interfaces</div>
+                      <div v-if="interfacesLoading && !interfacesLoaded" class="text-sm text-gray-400 dark:text-neutral-500">{{$t("common.loading")}}</div>
+                      <div v-else-if="interfacesError && !interfacesLoaded" class="text-sm text-red-600 dark:text-red-400">{{$t("dash.loadInterfacesError")}}</div>
+                      <div v-else-if="interfacesLoaded && tunnelInterfaces.length === 0" class="text-sm text-gray-400 dark:text-neutral-500">{{$t("dash.noInterfaces")}}</div>
                       <div v-else v-for="iface in tunnelInterfaces" :key="iface.id"
                         style="padding:5px 0; border-bottom:1px solid #f3f4f6;"
                         :style="{ 'border-bottom-color': theme==='dark'?'#525252':'#f3f4f6' }">
@@ -128,7 +128,7 @@
                         <!-- Row 1: status + name + badges -->
                         <div style="display:flex; align-items:center; gap:6px; font-size:0.72rem;">
                           <!-- read-only status dot -->
-                          <span :title="iface.enabled ? 'Up' : 'Down'"
+                          <span :title="iface.enabled ? $t('common.ifaceUp') : $t('common.ifaceDown')"
                             style="width:10px; height:10px; border-radius:50%; flex-shrink:0; display:inline-block;"
                             :style="{ background: iface.enabled ? '#22c55e' : '#ef4444' }"></span>
 
@@ -161,7 +161,7 @@
                           <span class="ui-badge" v-if="iface.mss !== 0"
                             style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
                             :style="{ background: theme==='dark'?'rgba(245,158,11,0.2)':'rgba(245,158,11,0.1)', color: theme==='dark'?'#fbbf24':'#d97706' }">
-                            {{ iface.mss === -1 ? 'MSS auto' : 'MSS ' + iface.mss }}
+                            {{ iface.mss === -1 ? $t('dash.mssAuto') : 'MSS ' + iface.mss }}
                           </span>
 
                         </div>
@@ -171,7 +171,7 @@
                           <span>{{ iface.address }}</span>
                           <span style="color:#ef4444;">↓{{ dashFmtBytes(allPeers.filter(p=>p.interfaceId===iface.id).reduce((s,p)=>s+(p.totalRx||0),0)) }}</span>
                           <span style="color:#22c55e;">↑{{ dashFmtBytes(allPeers.filter(p=>p.interfaceId===iface.id).reduce((s,p)=>s+(p.totalTx||0),0)) }}</span>
-                          <span>{{ iface.peerCount||0 }} peers</span>
+                          <span>{{ iface.peerCount||0 }} {{$t("dash.peersCount")}}</span>
                         </div>
                       </div>
                     </template>
@@ -182,12 +182,12 @@
                         <div style="flex:1; min-width:100px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
                           :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
                           <div class="text-xl font-bold" :style="{ color: theme === 'dark' ? '#fecaca' : '#ef4444' }">{{ dashFmtBytes(allPeers.reduce((s,p) => s + (p.totalRx||0), 0)) }}</div>
-                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Total Received</div>
+                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">{{$t("dash.totalReceived")}}</div>
                         </div>
                         <div style="flex:1; min-width:100px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
                           :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
                           <div class="text-xl font-bold" :style="{ color: theme === 'dark' ? '#86efac' : '#22c55e' }">{{ dashFmtBytes(allPeers.reduce((s,p) => s + (p.totalTx||0), 0)) }}</div>
-                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Total Sent</div>
+                          <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">{{$t("dash.totalSent")}}</div>
                         </div>
                       </div>
                     </template>
@@ -199,18 +199,18 @@
                         <!-- Outbound NAT section -->
                         <div style="padding:6px 12px 4px; flex-shrink:0;">
                           <div style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#9ca3af; margin-bottom:4px;">
-                            Outbound
+                            {{$t("dash.outbound")}}
                             <span style="font-weight:400; font-size:0.65rem; margin-left:4px;">
                               ({{ natRules.filter(r => r.enabled).length }}/{{ natRules.length }})
                             </span>
                           </div>
-                          <div v-if="natRules.length === 0" style="font-size:0.72rem; color:#9ca3af; padding:4px 0;">No rules</div>
+                          <div v-if="natRules.length === 0" style="font-size:0.72rem; color:#9ca3af; padding:4px 0;">{{$t("dash.noRules")}}</div>
                           <div v-for="rule in natRules" :key="rule.id"
                             style="display:flex; align-items:center; gap:6px; padding:3px 0; border-bottom:1px solid #f3f4f6; font-size:0.72rem;"
                             :style="{ 'border-bottom-color': theme==='dark'?'#525252':'#f3f4f6', opacity: rule.enabled ? 1 : 0.5 }">
                             <!-- toggle circle -->
                             <span @click="toggleNatRule(rule)"
-                              :title="rule.enabled ? 'Disable' : 'Enable'"
+                              :title="rule.enabled ? $t('common.disable') : $t('common.enable')"
                               style="width:10px; height:10px; border-radius:50%; cursor:pointer; flex-shrink:0; display:inline-block; transition:background 0.2s;"
                               :style="{ background: rule.enabled ? '#16a34a' : '#9ca3af' }"></span>
                             <!-- rule info -->
@@ -223,7 +223,7 @@
                               <span style="font-size:0.65rem; font-family:monospace; color:#9ca3af; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">
                                 <span v-if="rule.sourceAliasId">{{ (aliases.find(a => a.id === rule.sourceAliasId) || {}).name || rule.sourceAliasId }}</span>
                                 <span v-else-if="rule.source">{{ rule.source }}</span>
-                                <span v-else style="font-style:italic;">any</span>
+                                <span v-else style="font-style:italic;">{{$t("dash.any")}}</span>
                                 <span style="margin:0 4px; opacity:0.5;">→</span>
                                 <span>{{ rule.outInterface }}</span>
                               </span>
@@ -236,7 +236,7 @@
                               {{ rule.type }}
                             </span>
                             <!-- auto badge -->
-                            <span class="ui-badge" v-if="rule.auto" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:rgba(107,114,128,0.1); color:#9ca3af;">auto</span>
+                            <span class="ui-badge" v-if="rule.auto" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:rgba(107,114,128,0.1); color:#9ca3af;">{{$t("common.auto")}}</span>
                           </div>
                         </div>
 
@@ -247,18 +247,18 @@
                         <!-- Port Forwarding (DNAT) section -->
                         <div style="padding:6px 12px 4px; flex:1; overflow-y:auto;">
                           <div style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#9ca3af; margin-bottom:4px;">
-                            Port Forwarding
+                            {{$t("nav.portForwarding")}}
                             <span style="font-weight:400; font-size:0.65rem; margin-left:4px;">
                               ({{ dnatRules.filter(r => r.enabled).length }}/{{ dnatRules.length }})
                             </span>
                           </div>
-                          <div v-if="dnatRules.length === 0" style="font-size:0.72rem; color:#9ca3af; padding:4px 0;">No rules</div>
+                          <div v-if="dnatRules.length === 0" style="font-size:0.72rem; color:#9ca3af; padding:4px 0;">{{$t("dash.noRules")}}</div>
                           <div v-for="rule in dnatRules" :key="rule.id"
                             style="display:flex; align-items:center; gap:6px; padding:3px 0; border-bottom:1px solid #f3f4f6; font-size:0.72rem;"
                             :style="{ 'border-bottom-color': theme==='dark'?'#525252':'#f3f4f6', opacity: rule.enabled ? 1 : 0.5 }">
                             <!-- toggle circle -->
                             <span @click="toggleDnat(rule)"
-                              :title="rule.enabled ? 'Disable' : 'Enable'"
+                              :title="rule.enabled ? $t('common.disable') : $t('common.enable')"
                               style="width:10px; height:10px; border-radius:50%; cursor:pointer; flex-shrink:0; display:inline-block; transition:background 0.2s;"
                               :style="{ background: rule.enabled ? '#16a34a' : '#9ca3af' }"></span>
                             <!-- rule info -->
@@ -293,24 +293,24 @@
                             class="dash-peers-select"
                             style="font-size:0.72rem; border:1px solid #e5e7eb; border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
                             :style="{ 'border-color': theme==='dark' ? '#525252':'#e5e7eb', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
-                            <option value="">All peers</option>
-                            <option value="__clients__">All clients</option>
-                            <option value="__s2s__">All S2S</option>
+                            <option value="">{{$t("dash.allPeers")}}</option>
+                            <option value="__clients__">{{$t("dash.allClients")}}</option>
+                            <option value="__s2s__">{{$t("dash.allS2s")}}</option>
                             <option v-for="iface in tunnelInterfaces" :key="iface.id" :value="iface.id">{{ iface.name }}</option>
                           </select>
                           <select v-model="dashPeersGetState(w.id).sort"
                             class="dash-peers-select"
                             style="font-size:0.72rem; border:1px solid #e5e7eb; border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
                             :style="{ 'border-color': theme==='dark' ? '#525252':'#e5e7eb', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
-                            <option value="name">Sort: Name</option>
-                            <option value="traffic">Sort: Traffic</option>
-                            <option value="seen">Sort: Last seen</option>
+                            <option value="name">{{$t("dash.sortName")}}</option>
+                            <option value="traffic">{{$t("dash.sortTraffic")}}</option>
+                            <option value="seen">{{$t("dash.sortLastSeen")}}</option>
                           </select>
                           <button type="button"
                             @click="dashPeersViewDirty(w.id) ? dashSavePeersView(w.id) : dashResetPeersView(w.id)"
                             class="dash-peers-view-action"
                             :class="{ 'is-dirty': dashPeersViewDirty(w.id) }"
-                            :title="dashPeersViewDirty(w.id) ? 'Save filter and sort' : 'Reset filter and sort'">{{ dashPeersViewDirty(w.id) ? 'Save' : 'Reset' }}</button>
+                            :title="dashPeersViewDirty(w.id) ? $t('dash.saveFilterSort') : $t('dash.resetFilterSort')">{{ dashPeersViewDirty(w.id) ? $t('common.save') : $t('common.reset') }}</button>
                         </div>
 
                         <!-- scrollable peer list -->
@@ -318,7 +318,7 @@
                           <div v-if="dashFilteredPeers(w.id).length === 0"
                             class="text-sm text-gray-400 dark:text-neutral-500"
                             style="padding:16px 0; text-align:center;">
-                            No peers
+                            {{$t("dash.noPeers")}}
                           </div>
                           <div v-for="peer in dashFilteredPeers(w.id)" :key="peer.id"
                             style="display:flex; align-items:center; gap:6px; padding:5px 0; border-bottom:1px solid #f3f4f6;"
@@ -340,16 +340,16 @@
                                 <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId)"
                                   style="font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:2px; font-weight:600;"
                                   :style="{ background: theme==='dark'?'rgba(34,197,94,0.18)':'rgba(34,197,94,0.1)', color: theme==='dark'?'#4ade80':'#16a34a' }"
-                                  :title="'Group: ' + peerGroupName(peer.groupId)">{{ peerGroupName(peer.groupId) }}</span>
+                                  :title="$t('common.group') + ': ' + peerGroupName(peer.groupId)">{{ peerGroupName(peer.groupId) }}</span>
                                 <!-- handshake time -->
                                 <span style="font-size:0.6rem; font-weight:400; margin-left:4px; opacity:0.7; display:inline-flex; align-items:center; gap:2px;"
-                                  :title="peer.latestHandshakeAt ? 'Last handshake: ' + new Date(peer.latestHandshakeAt).toLocaleString() : 'Never connected'">
-                                  🤝{{ peer.latestHandshakeAt ? dashTimeShort(peer.latestHandshakeAt) : 'Never' }}
+                                  :title="peer.latestHandshakeAt ? $t('common.lastHandshake') + ': ' + new Date(peer.latestHandshakeAt).toLocaleString() : $t('dash.neverConnected')">
+                                  🤝{{ peer.latestHandshakeAt ? dashTimeShort(peer.latestHandshakeAt) : $t('common.never') }}
                                 </span>
                                 <!-- expiry badge -->
                                 <span class="ui-badge" v-if="peer.expiredAt"
                                   style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; margin-left:2px;"
-                                  :title="'Expires: ' + new Date(peer.expiredAt).toLocaleDateString('ru-RU')"
+                                  :title="$t('dash.expires') + ' ' + new Date(peer.expiredAt).toLocaleDateString('ru-RU')"
                                   :style="new Date(peer.expiredAt) < new Date()
                                     ? { background: 'rgba(239,68,68,0.15)', color: '#ef4444' }
                                     : (new Date(peer.expiredAt) - new Date() < 7*24*3600*1000)
@@ -379,7 +379,7 @@
                     <!-- ── monitoring ── -->
                     <template v-else-if="w.type === 'monitoring'">
                       <div v-if="!(w.graphs||[]).length" style="display:flex; align-items:center; justify-content:center; height:60px;">
-                        <span class="text-xs text-gray-400 dark:text-neutral-500">Click ⚙ to add graphs</span>
+                        <span class="text-xs text-gray-400 dark:text-neutral-500">{{$t("dash.clickToAddGraphs")}}</span>
                       </div>
                       <div v-for="key in (w.graphs||[])" :key="key" style="position:relative; margin-bottom:2px;">
                         <span style="position:absolute; top:4px; left:36px; z-index:1; font-size:9px; font-weight:600; pointer-events:none;"
@@ -413,7 +413,7 @@
                     </template>
 
                     <template v-else>
-                      <div class="text-sm text-gray-400 dark:text-neutral-500">Unknown widget type: {{ w.type }}</div>
+                      <div class="text-sm text-gray-400 dark:text-neutral-500">{{$t("dash.unknownWidgetType")}} {{ w.type }}</div>
                     </template>
 
                   </div>

@@ -11,7 +11,7 @@
             <div v-if="!diagWidgets.length"
               class="text-sm text-gray-400 dark:text-neutral-500"
               style="padding:60px 0; text-align:center;">
-              No graphs yet — click <strong>+ Add Graph</strong> to create one.
+              {{$t("diag.noGraphsYet")}} <strong>+ {{$t("diag.addGraph")}}</strong> {{$t("routing.emptyToCreate")}}
             </div>
 
             <!-- GridStack grid -->
@@ -22,7 +22,7 @@
                 <div class="grid-stack-item-content content-panel">
                   <div class="dash-card">
                     <div class="dash-card-header">
-                      <span>{{ w.title || 'Graph' }}</span>
+                      <span>{{ w.title || $t('diag.graph') }}</span>
                       <div style="display:flex; align-items:center; gap:4px;">
                         <select :value="metricsWidgetPeriod[w.id]||'5m'" @change="metricsOnPeriodChange(w.id, $event.target.value)"
                           class="text-xs dark:text-neutral-300 rounded"
@@ -35,16 +35,16 @@
                           <option value="7d">7d</option>
                           <option value="30d">30d</option>
                         </select>
-                        <button @click="metricsOpenConfig(w.id)" title="Configure graph"
+                        <button @click="metricsOpenConfig(w.id)" :title="$t('gw.configureGraphs')"
                           style="opacity:0.6; background:none; border:none; cursor:pointer; padding:0 3px; line-height:1; color:inherit; font-size:0.85rem;">⚙</button>
-                        <button @click="diagRemoveWidget(w.id)" title="Remove"
+                        <button @click="diagRemoveWidget(w.id)" :title="$t('common.remove')"
                           style="opacity:0.5; background:none; border:none; cursor:pointer; padding:0; line-height:1; color:inherit; margin-left:2px;">✕</button>
                       </div>
                     </div>
                     <div class="dash-card-body" :style="{ fontSize: (w.fontScale||1) + 'rem' }">
                       <!-- No graphs configured -->
                       <div v-if="!(w.graphs||[]).length" style="display:flex; align-items:center; justify-content:center; height:60px;">
-                        <span class="text-xs text-gray-400 dark:text-neutral-500">Click ⚙ to add metrics</span>
+                        <span class="text-xs text-gray-400 dark:text-neutral-500">{{$t("diag.clickToAddMetrics")}}</span>
                       </div>
                       <!-- Charts -->
                       <div v-for="key in (w.graphs||[])" :key="key" style="position:relative; margin-bottom:2px;">
@@ -100,20 +100,20 @@
               <div class="diag-utility-fields" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px; align-items:flex-end;">
                 <div style="flex:2; min-width:180px;">
                   <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
-                    :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Destination *</label>
+                    :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("common.destination")}} *</label>
                   <input v-model="pingHost" @keyup.enter="!pingRunning && pingStart()"
-                    placeholder="8.8.8.8 or hostname"
+                    :placeholder="$t('diag.hostPlaceholder')"
                     class="rounded"
                     style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid;"
                     :style="{ background: theme==='dark'?'#1a1a1a':'#fff', color: theme==='dark'?'#f5f5f5':'#111827', borderColor: theme==='dark'?'#525252':'#d1d5db' }" />
                 </div>
                 <div style="flex:2; min-width:160px;">
                   <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
-                    :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Source interface</label>
+                    :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("diag.sourceInterface")}}</label>
                   <select v-model="pingSource" class="rounded"
                     style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid;"
                     :style="{ background: theme==='dark'?'#1a1a1a':'#fff', color: theme==='dark'?'#f5f5f5':'#111827', borderColor: theme==='dark'?'#525252':'#d1d5db' }">
-                    <option value="">Auto (by routing table)</option>
+                    <option value="">{{$t("diag.autoByRouting")}}</option>
                     <option v-for="iface in pingRouterIfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}{{ iface.addrs && iface.addrs.length ? ' (' + iface.addrs[0] + ')' : '' }}</option>
                   </select>
                 </div>
@@ -123,7 +123,7 @@
               <div class="diag-utility-fields" style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px; align-items:flex-end;">
                 <div style="flex:1; min-width:80px;">
                   <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
-                    :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Count</label>
+                    :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("diag.count")}}</label>
                   <input v-model.number="pingCount" type="number" min="1" max="20"
                     class="rounded"
                     style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid;"
@@ -131,7 +131,7 @@
                 </div>
                 <div style="flex:1; min-width:100px;">
                   <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
-                    :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Payload size (bytes)</label>
+                    :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("diag.payloadSize")}}</label>
                   <input v-model.number="pingSize" type="number" min="0" max="65507" placeholder="56"
                     class="rounded"
                     style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid;"
@@ -160,12 +160,12 @@
                   class="text-sm text-white rounded"
                   style="padding:7px 20px; border:none; cursor:pointer; font-weight:500;"
                   :style="{ background: pingRunning || !pingHost.trim() ? '#6b7280' : '#2563eb', cursor: pingRunning || !pingHost.trim() ? 'not-allowed' : 'pointer' }">
-                  {{ pingRunning ? 'Pinging…' : 'Ping' }}
+                  {{ pingRunning ? $t('diag.pinging') : 'Ping' }}
                 </button>
                 <button v-if="pingRunning" @click="pingStop"
                   class="text-sm rounded"
                   style="padding:7px 16px; border:none; cursor:pointer; font-weight:500; background:#ef4444; color:#fff;">
-                  Stop
+                  {{$t("common.stop")}}
                 </button>
               </div>
 
@@ -181,9 +181,9 @@
               <!-- Destination -->
               <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
-                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Destination *</label>
+                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("common.destination")}} *</label>
                 <input v-model="traceHost" @keyup.enter="!traceRunning && traceStart()"
-                  placeholder="8.8.8.8 or hostname"
+                  :placeholder="$t('diag.hostPlaceholder')"
                   class="rounded"
                   style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid; box-sizing:border-box;"
                   :style="{ background: theme==='dark'?'#1a1a1a':'#fff', color: theme==='dark'?'#f5f5f5':'#111827', borderColor: theme==='dark'?'#525252':'#d1d5db' }" />
@@ -192,11 +192,11 @@
               <!-- Source interface -->
               <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
-                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Source interface</label>
+                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("diag.sourceInterface")}}</label>
                 <select v-model="traceSource" class="rounded"
                   style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid;"
                   :style="{ background: theme==='dark'?'#1a1a1a':'#fff', color: theme==='dark'?'#f5f5f5':'#111827', borderColor: theme==='dark'?'#525252':'#d1d5db' }">
-                  <option value="">Auto (by routing table)</option>
+                  <option value="">{{$t("diag.autoByRouting")}}</option>
                   <option v-for="iface in pingRouterIfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}{{ iface.addrs && iface.addrs.length ? ' (' + iface.addrs[0] + ')' : '' }}</option>
                 </select>
               </div>
@@ -204,7 +204,7 @@
               <!-- Type -->
               <div style="margin-bottom:16px;">
                 <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:8px;"
-                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Protocol</label>
+                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("common.protocol")}}</label>
                 <div style="display:flex; gap:16px;">
                   <label v-for="t in [{v:'udp',l:'UDP'},{v:'icmp',l:'ICMP'},{v:'tcp',l:'TCP'}]" :key="t.v"
                     style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.875rem;"
@@ -221,12 +221,12 @@
                   class="text-sm text-white rounded"
                   style="padding:7px 20px; border:none; cursor:pointer; font-weight:500;"
                   :style="{ background: traceRunning || !traceHost.trim() ? '#6b7280' : '#2563eb', cursor: traceRunning || !traceHost.trim() ? 'not-allowed' : 'pointer' }">
-                  {{ traceRunning ? 'Tracing…' : 'Traceroute' }}
+                  {{ traceRunning ? $t('diag.tracing') : 'Traceroute' }}
                 </button>
                 <button v-if="traceRunning" @click="traceStop"
                   class="text-sm rounded"
                   style="padding:7px 16px; border:none; cursor:pointer; font-weight:500; background:#ef4444; color:#fff;">
-                  Stop
+                  {{$t("common.stop")}}
                 </button>
               </div>
 
@@ -242,11 +242,11 @@
               <!-- Interface -->
               <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
-                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Interface *</label>
+                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("common.interface")}} *</label>
                 <select v-model="tcpdumpIface" class="rounded"
                   style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid;"
                   :style="{ background: theme==='dark'?'#1a1a1a':'#fff', color: theme==='dark'?'#f5f5f5':'#111827', borderColor: theme==='dark'?'#525252':'#d1d5db' }">
-                  <option value="">— select interface —</option>
+                  <option value="">{{$t("gw.selectInterface")}}</option>
                   <option v-for="iface in pingRouterIfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}{{ iface.addrs && iface.addrs.length ? ' (' + iface.addrs[0] + ')' : '' }}</option>
                 </select>
               </div>
@@ -254,7 +254,7 @@
               <!-- Filter -->
               <div style="margin-bottom:16px;">
                 <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
-                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">BPF Filter</label>
+                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("diag.bpfFilter")}}</label>
                 <input v-model="tcpdumpFilter" @keyup.enter="!tcpdumpRunning && tcpdumpIface && tcpdumpStart()"
                   placeholder="host 8.8.8.8 and port 53"
                   class="rounded"
@@ -267,7 +267,7 @@
                 <input type="checkbox" id="tcpdumpSaveChk" v-model="tcpdumpSave" :disabled="tcpdumpRunning"
                   style="width:15px; height:15px; cursor:pointer;" />
                 <label for="tcpdumpSaveChk" style="font-size:0.8rem; cursor:pointer;"
-                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Save PCAP</label>
+                  :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{$t("diag.savePcap")}}</label>
               </div>
 
               <!-- Action buttons -->
@@ -276,17 +276,17 @@
                   class="text-sm text-white rounded"
                   style="padding:7px 20px; border:none; cursor:pointer; font-weight:500;"
                   :style="{ background: tcpdumpRunning || !tcpdumpIface ? '#6b7280' : '#2563eb', cursor: tcpdumpRunning || !tcpdumpIface ? 'not-allowed' : 'pointer' }">
-                  {{ tcpdumpRunning ? 'Capturing…' : 'Start' }}
+                  {{ tcpdumpRunning ? $t('diag.capturing') : $t('common.start') }}
                 </button>
                 <button v-if="tcpdumpRunning" @click="tcpdumpStop"
                   class="text-sm rounded"
                   style="padding:7px 16px; border:none; cursor:pointer; font-weight:500; background:#ef4444; color:#fff;">
-                  Stop
+                  {{$t("common.stop")}}
                 </button>
                 <button v-if="tcpdumpDownloadReady" @click="tcpdumpDownload"
                   class="text-sm rounded"
                   style="padding:7px 16px; border:none; cursor:pointer; font-weight:500; background:#16a34a; color:#fff;">
-                  ↓ Download .pcap
+                  ↓ {{$t("common.download")}} .pcap
                 </button>
               </div>
 
@@ -301,7 +301,7 @@
                   class="text-sm rounded"
                   style="padding:4px 12px; border:none; cursor:pointer; font-weight:500;"
                   :style="{ background: theme==='dark'?'#404040':'#e5e7eb', color: theme==='dark'?'#d4d4d4':'#374151' }">
-                  Clear
+                  {{$t("common.clear")}}
                 </button>
               </div>
               <pre class="diag-utility-terminal ping-terminal rounded"

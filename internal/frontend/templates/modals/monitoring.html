@@ -5,24 +5,24 @@
       <div class="bg-white dark:bg-neutral-700 rounded-lg" style="max-width:420px; margin:0 auto;">
         <div style="padding:20px 24px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #e5e7eb;"
           :style="{ 'border-bottom-color': theme==='dark'?'#525252':'#e5e7eb' }">
-          <h3 class="font-semibold text-base dark:text-neutral-100">Configure Graphs</h3>
+          <h3 class="font-semibold text-base dark:text-neutral-100">{{$t("gw.configureGraphs")}}</h3>
           <button @click="metricsCloseConfig()" class="text-gray-400 hover:text-gray-600 dark:hover:text-neutral-200" style="font-size:1.25rem; line-height:1;">✕</button>
         </div>
         <div style="padding:20px 24px;">
           <!-- Widget title -->
           <div style="margin-bottom:16px;">
-            <label class="text-xs font-semibold text-gray-400 dark:text-neutral-500" style="display:block; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">Widget Title</label>
-            <input v-model="metricsTitleDraft" type="text" placeholder="e.g. Server Load" maxlength="40"
+            <label class="text-xs font-semibold text-gray-400 dark:text-neutral-500" style="display:block; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px;">{{$t("gw.widgetTitle")}}</label>
+            <input v-model="metricsTitleDraft" type="text" :placeholder="$t('gw.widgetTitlePlaceholder')" maxlength="40"
               class="text-sm dark:text-neutral-100 dark:bg-neutral-600 rounded"
               style="width:100%; padding:7px 10px; border:1px solid #d1d5db; outline:none;"
               :style="{ 'border-color': theme==='dark'?'#525252':'#d1d5db', 'background': theme==='dark'?'#525252':'#fff' }">
           </div>
 
-          <p class="text-xs text-gray-500 dark:text-neutral-400" style="margin-bottom:14px;">Select metrics to display in this widget. Each appears as a separate chart.</p>
+          <p class="text-xs text-gray-500 dark:text-neutral-400" style="margin-bottom:14px;">{{$t("gw.selectMetrics")}}</p>
 
           <!-- System -->
           <div style="margin-bottom:12px;">
-            <div class="text-xs font-semibold text-gray-400 dark:text-neutral-500" style="text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">System</div>
+            <div class="text-xs font-semibold text-gray-400 dark:text-neutral-500" style="text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">{{$t("gw.system")}}</div>
             <label v-for="key in ['cpu','mem']" :key="key" style="display:flex; align-items:center; gap:10px; padding:6px 0; cursor:pointer;">
               <input type="checkbox" :checked="metricsConfigDraft.includes(key)" @change="metricsToggleGraph(key)" style="width:15px; height:15px; cursor:pointer;">
               <span class="text-sm dark:text-neutral-200" style="flex:1;">{{ metricsKeyLabel(key) }}</span>
@@ -32,7 +32,7 @@
 
           <!-- Network interfaces -->
           <div v-if="metricsSnapshot && metricsSnapshot.interfaces && metricsSnapshot.interfaces.length" style="margin-bottom:12px;">
-            <div class="text-xs font-semibold text-gray-400 dark:text-neutral-500" style="text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">Network Interfaces</div>
+            <div class="text-xs font-semibold text-gray-400 dark:text-neutral-500" style="text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">{{$t("gw.networkInterfaces")}}</div>
             <template v-for="iface in (metricsSnapshot.interfaces || [])">
               <label v-for="dir in ['rx','tx']" :key="iface+':'+dir" style="display:flex; align-items:center; gap:10px; padding:6px 0; cursor:pointer;">
                 <input type="checkbox" :checked="metricsConfigDraft.includes('net:'+iface+':'+dir)" @change="metricsToggleGraph('net:'+iface+':'+dir)" style="width:15px; height:15px; cursor:pointer;">
@@ -41,12 +41,12 @@
               </label>
             </template>
           </div>
-          <div v-else class="text-xs text-gray-400 dark:text-neutral-500" style="margin-bottom:12px;">No metrics data yet — wait a few seconds</div>
+          <div v-else class="text-xs text-gray-400 dark:text-neutral-500" style="margin-bottom:12px;">{{$t("gw.noMetrics")}}</div>
 
           <!-- Gateways -->
           <div v-if="metricsSnapshot && metricsSnapshot.gateways && Object.keys(metricsSnapshot.gateways).length">
-            <div class="text-xs font-semibold text-gray-400 dark:text-neutral-500" style="text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">Gateways</div>
-            <div class="text-xs text-gray-400 dark:text-neutral-500" style="margin-bottom:6px;">Color: 🟢 healthy · 🟡 degraded · 🔴 down · ⚫ admin down</div>
+            <div class="text-xs font-semibold text-gray-400 dark:text-neutral-500" style="text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">{{$t("common.gateways")}}</div>
+            <div class="text-xs text-gray-400 dark:text-neutral-500" style="margin-bottom:6px;">{{$t("gw.colorLegend")}}</div>
             <label v-for="(status, id) in (metricsSnapshot.gateways || {})" :key="id" style="display:flex; align-items:center; gap:10px; padding:6px 0; cursor:pointer;">
               <input type="checkbox" :checked="metricsConfigDraft.includes('gateway:'+id)" @change="metricsToggleGraph('gateway:'+id)" style="width:15px; height:15px; cursor:pointer;">
               <span class="text-sm dark:text-neutral-200" style="flex:1;">{{ metricsKeyLabel('gateway:'+id) }}</span>
@@ -56,10 +56,10 @@
         <div style="padding:12px 24px 20px; display:flex; justify-content:flex-end; gap:10px;">
           <button @click="metricsCloseConfig()"
             class="text-sm text-gray-500 dark:text-neutral-400 hover:text-gray-700"
-            style="padding:8px 16px; border:none; background:none; cursor:pointer;">Cancel</button>
+            style="padding:8px 16px; border:none; background:none; cursor:pointer;">{{$t("common.cancel")}}</button>
           <button @click="metricsSaveConfig()"
             class="text-sm text-white rounded"
-            style="padding:8px 20px; background:#2563eb; border:none; cursor:pointer;">Save</button>
+            style="padding:8px 20px; background:#2563eb; border:none; cursor:pointer;">{{$t("common.save")}}</button>
         </div>
       </div>
     </div>

@@ -100,13 +100,13 @@ restoreConfig(e) {
         file.text()
           .then((content) => {
             this.api.restoreConfiguration(content)
-              .then((_result) => this.showToast('The configuration was updated.'))
+              .then((_result) => this.showToast(this.$t('toast.configUpdated')))
               .catch((err) => this.showToast(err.message || err.toString(), 'error'))
               .finally(() => this.refresh().catch(console.error));
           })
           .catch((err) => this.showToast(err.message || err.toString(), 'error'));
       } else {
-        this.showToast('Failed to load your file!', 'error');
+        this.showToast(this.$t('toast.fileLoadFailed'), 'error');
       }
     },
 };

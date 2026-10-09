@@ -27,25 +27,25 @@ async createTunnelInterface() {
       this.interfaceMutationInFlight = true;
       try {
         if (!this.interfaceCreate.name) {
-          this.showToast('Please enter interface name', 'error');
+          this.showToast(this.$t('iface.enterName'), 'error');
           return;
         }
 
         // Tunnel Address is required for peer allocation and routing hooks.
         if (!this.interfaceCreate.address || !this.interfaceCreate.address.includes('/')) {
-          this.showToast('Please enter Tunnel Address in CIDR format (e.g. 10.100.0.1/24)', 'error');
+          this.showToast(this.$t('iface.enterTunnelAddress'), 'error');
           return;
         }
 
         if (this.interfaceCreate.protocol.startsWith('amneziawg-')) {
           if (!this.interfaceCreate.settings.h1 || !this.interfaceCreate.settings.h2 ||
               !this.interfaceCreate.settings.h3 || !this.interfaceCreate.settings.h4) {
-            this.showToast('Please set H1-H4 parameters for AmneziaWG', 'error');
+            this.showToast(this.$t('iface.setH1H4'), 'error');
             return;
           }
         }
 		if (this.interfaceCreate.protocol === 'amneziawg-3.1' && !this.globalSettings.awg3Supported) {
-		  this.showToast(this.globalSettings.awg3SupportError || 'This runtime does not support AWG 3.1', 'error');
+		  this.showToast(this.globalSettings.awg3SupportError || this.$t('toast.awg31Unsupported'), 'error');
 		  return;
 		}
 
@@ -76,7 +76,7 @@ async createTunnelInterface() {
         }
       } catch (err) {
         console.error('Failed to create interface:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       } finally {
         this.interfaceMutationInFlight = false;
       }
@@ -112,17 +112,17 @@ async quickCreateTunnelInterface() {
 		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : '');
 
         if (data.started) {
-          this.showToast(`✅ ${iface.id} created & started\n${addr} · UDP ${port}${proto}`, 'success');
+          this.showToast(`✅ ${iface.id}${this.$t('toast.ifaceCreatedStarted')}\n${addr} · UDP ${port}${proto}`, 'success');
           this.activeInterfaceId = iface.id;
         } else {
           this.showToast(
-            `⚠️ ${iface.id} created but failed to start\n${data.startError || 'Unknown error'}`,
+            `⚠️ ${iface.id}${this.$t('toast.ifaceStartFailed')}\n${data.startError || this.$t('common.unknownError')}`,
             'error'
           );
         }
       } catch (err) {
         console.error('Quick create failed:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       } finally {
         this.interfaceMutationInFlight = false;
       }
@@ -148,8 +148,8 @@ onConfFileSelected(event) {
 async doImportConf() {
       const name = (this.importConfForm.name || '').trim();
       const conf = (this.importConfForm.conf || '').trim();
-      if (!name) { this.showToast('Please enter a name', 'error'); return; }
-      if (!conf)  { this.showToast('Please paste the .conf content', 'error'); return; }
+      if (!name) { this.showToast(this.$t('iface.nameRequired'), 'error'); return; }
+      if (!conf)  { this.showToast(this.$t('iface.pasteConf'), 'error'); return; }
 
       this.importConfWarning = '';
       try {
@@ -169,21 +169,21 @@ async doImportConf() {
           this.showToast(`⚠️ ${res.conflictWarning}`, 'error');
         }
         if (res.started) {
-          const extra = isServer ? ` · ${res.peersCreated} peers` : '';
-          this.showToast(`✅ ${iface.id} imported & started · ${iface.address}${proto}${extra}`);
+          const extra = isServer ? ` · ${res.peersCreated}${this.$t('toast.peersSuffix')}` : '';
+          this.showToast(`✅ ${iface.id}${this.$t('toast.ifaceImportedStarted')} · ${iface.address}${proto}${extra}`);
           this.activeInterfaceId = iface.id;
         } else {
           this.showToast(
-            `⚠️ ${iface.id} imported but failed to start\n${res.startError || 'Unknown error'}`,
+            `⚠️ ${iface.id}${this.$t('toast.ifaceImportFailed')}\n${res.startError || this.$t('common.unknownError')}`,
             'error'
           );
         }
         if (isServer && (res.peersFailed || []).length > 0) {
-          this.showToast(`⚠️ Failed to import peers: ${res.peersFailed.join(', ')}`, 'error');
+          this.showToast(`⚠️ ${this.$t('toast.importPeersFailed')} ${res.peersFailed.join(', ')}`, 'error');
         }
       } catch (err) {
         console.error('Import conf failed:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
@@ -228,16 +228,16 @@ async doExportInterface() {
         URL.revokeObjectURL(url);
         this.showExportInterface = false;
       } catch (err) {
-        this.showToast(`Export failed: ${err.message}`, 'error');
+        this.showToast(this.$t('iface.exportFailed') + ': ' + err.message, 'error');
       }
     },
 
 async doImportInterface() {
       const json = (this.importBackupForm.json || '').trim();
       const port = parseInt(this.importBackupForm.listenPort, 10);
-      if (!json)        { this.showToast('Please select a backup file', 'error'); return; }
+      if (!json)        { this.showToast(this.$t('iface.selectBackupFile'), 'error'); return; }
       if (!port || port < 1 || port > 65535) {
-        this.showToast('Please enter a valid UDP port (1–65535)', 'error'); return;
+        this.showToast(this.$t('iface.enterValidPort'), 'error'); return;
       }
       try {
         const res = await this.api.importTunnelInterface({ json, listenPort: port });
@@ -249,12 +249,12 @@ async doImportInterface() {
         const iface = res.interface || {};
 		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1');
         const msg = res.started
-          ? `✅ Interface restored: ${iface.id} · ${iface.address}${proto} · ${res.peersCreated} peers`
-          : `⚠️ Interface restored but failed to start: ${res.startError || ''}`;
+          ? `✅ ${this.$t('toast.ifaceRestored')} ${iface.id} · ${iface.address}${proto} · ${res.peersCreated}${this.$t('toast.peersSuffix')}`
+          : `⚠️ ${this.$t('toast.ifaceRestoreFailed')} ${res.startError || ''}`;
         this.showToast(msg, res.started ? 'success' : 'error');
         if (res.started) this.activeInterfaceId = iface.id;
       } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
@@ -266,10 +266,10 @@ async generateAndFillInterfaceParams() {
         const protocolVersion = this.interfaceCreate.protocol === 'amneziawg-2.0' ? '2.0' : '3.1';
         const { params } = await this.api.generateTemplate({ profile: 'random', intensity: 'medium', protocolVersion });
         Object.assign(this.interfaceCreate.settings, params);
-        this.showToast(`AWG ${protocolVersion} parameters generated`, 'success');
+        this.showToast(`AWG ${protocolVersion}${this.$t('toast.awgParamsGenerated')}`, 'success');
       } catch (err) {
         console.error('generateAndFillInterfaceParams failed:', err);
-        this.showToast(`Failed to generate params: ${err.message}`, 'error');
+        this.showToast(this.$t('iface.generateParamsFailed') + ': ' + err.message, 'error');
       }
     },
 
@@ -306,19 +306,19 @@ async checkForUpdates() {
           this.versionInfo = await res.json();
           this.updateBannerDismissed = false;
           if (this.versionInfo.error) {
-            this.showToast(`Update check failed: ${this.versionInfo.error}`, 'error');
+            this.showToast(this.$t('iface.updateCheckFailed') + ': ' + this.versionInfo.error, 'error');
           } else if (!this.versionInfo.latestVersion) {
-            this.showToast('No releases published yet', 'info', 4000);
+            this.showToast(this.$t('iface.noReleases'), 'info', 4000);
           } else if (this.versionInfo.updateStatus === 'unknown') {
-            this.showToast(`Latest release: ${this.versionInfo.latestVersion}. Current development build cannot be compared.`, 'info', 6000);
+            this.showToast(`${this.$t('iface.latestRelease')} ${this.versionInfo.latestVersion}. ${this.$t('iface.devBuildNoCompare')}`, 'info', 6000);
           } else if (this.versionInfo.updateAvailable) {
-            this.showToast(`Update available: ${this.versionInfo.latestVersion}`, 'info', 6000);
+            this.showToast(`${this.$t('iface.updateAvailable')} ${this.versionInfo.latestVersion}`, 'info', 6000);
           } else {
-            this.showToast("You're up to date", 'success', 4000);
+            this.showToast(this.$t('iface.upToDate'), 'success', 4000);
           }
         }
       } catch (_) {
-        this.showToast('Update check failed', 'error');
+        this.showToast(this.$t('iface.updateCheckFailed'), 'error');
       } finally {
         this.updateChecking = false;
       }
@@ -332,7 +332,7 @@ async loadVersionInfo() {
           this.versionInfo = await res.json();
           this.updateBannerDismissed = false;
           if (this.versionInfo.updateAvailable && !(prev && prev.updateAvailable)) {
-            this.showToast(`Update available: ${this.versionInfo.latestVersion}`, 'info', 6000);
+            this.showToast(`${this.$t('iface.updateAvailable')} ${this.versionInfo.latestVersion}`, 'info', 6000);
           }
         }
       } catch (_) {
@@ -391,7 +391,7 @@ onEditInterfaceTemplateSelect(templateId) {
       if (!tmpl) return;
 	  const version = this.interfaceEdit.protocol === 'amneziawg-3.1' ? '3.1' : '2.0';
 	  if ((tmpl.protocolVersion || '2.0') !== version) {
-		this.showToast(`This template is for AWG ${tmpl.protocolVersion || '2.0'}`, 'error');
+		this.showToast(`${this.$t('iface.templateForAwg')} ${tmpl.protocolVersion || '2.0'}`, 'error');
 		return;
 	  }
       this.interfaceEdit.settings = {
@@ -412,14 +412,14 @@ onEditInterfaceTemplateSelect(templateId) {
 async saveInterfaceEdit() {
       const { id, name, address, listenPort, disableRoutes, natDisabled, domainAliasDNS, dns, publicHost, mtu, mss, protocol, settings } = this.interfaceEdit;
 
-      if (!name) { this.showToast('Please enter a name', 'error'); return; }
+      if (!name) { this.showToast(this.$t('iface.nameRequired'), 'error'); return; }
       if (!address || !address.includes('/')) {
-        this.showToast('Please enter Tunnel Address in CIDR format (e.g. 10.100.0.1/24)', 'error');
+        this.showToast(this.$t('iface.enterTunnelAddress'), 'error');
         return;
       }
 	  if (protocol.startsWith('amneziawg-')) {
 	    if (!settings.h1 || !settings.h2 || !settings.h3 || !settings.h4) {
-		  this.showToast('Please set H1-H4 parameters for AmneziaWG', 'error');
+		  this.showToast(this.$t('iface.setH1H4'), 'error');
           return;
         }
       }
@@ -447,10 +447,10 @@ async saveInterfaceEdit() {
         const res = await this.api.updateTunnelInterface({ interfaceId: id, ...payload });
         this._applyInterfaceUpdate(res);
         this.showInterfaceEdit = false;
-        this.showToast(`Interface "${name}" updated successfully`);
+        this.showToast(`${this.$t('iface.namePrefix')}${name}${this.$t('iface.updatedSuffix')}`);
       } catch (err) {
         console.error('saveInterfaceEdit failed:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       } finally {
         this.interfaceMutationInFlight = false;
       }
@@ -474,10 +474,10 @@ async confirmDeleteInterface() {
         await this.loadTunnelInterfaces();
         this.loadNatInterfaces();
         this.loadFirewallInterfaces();
-        this.showToast(`Interface "${iface.name}" deleted`);
+        this.showToast(`${this.$t('iface.namePrefix')}${iface.name}${this.$t('iface.deletedSuffix')}`);
       } catch (err) {
         console.error('Delete failed:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
@@ -505,7 +505,7 @@ async startTunnelInterface(iface) {
         this.loadFirewallInterfaces();
       } catch (err) {
         console.error('Start failed:', err);
-        this.showToast(`Start failed: ${err.message}`, 'error');
+        this.showToast(this.$t('iface.startFailed') + ': ' + err.message, 'error');
       } finally {
         this.loadingInterfaceId = null;
       }
@@ -521,7 +521,7 @@ async stopTunnelInterface(iface) {
         this.loadFirewallInterfaces();
       } catch (err) {
         console.error('Stop failed:', err);
-        this.showToast(`Stop failed: ${err.message}`, 'error');
+        this.showToast(this.$t('iface.stopFailed') + ': ' + err.message, 'error');
       } finally {
         this.loadingInterfaceId = null;
       }
@@ -537,7 +537,7 @@ async restartTunnelInterface(iface) {
         this.loadFirewallInterfaces();
       } catch (err) {
         console.error('Restart failed:', err);
-        this.showToast(`Restart failed: ${err.message}`, 'error');
+        this.showToast(this.$t('iface.restartFailed') + ': ' + err.message, 'error');
       } finally {
         this.loadingInterfaceId = null;
       }
@@ -550,7 +550,7 @@ async loadInterfacePeers(interfaceId) {
 
 async createPeer() {
       if (!this.activeInterfaceId) {
-        this.showToast('No interface selected', 'error');
+        this.showToast(this.$t('iface.noSelection'), 'error');
         return;
       }
 
@@ -558,16 +558,16 @@ async createPeer() {
 
       // Validation
       if (!name || name.trim() === '') {
-        this.showToast('Please enter a name', 'error');
+        this.showToast(this.$t('iface.nameRequired'), 'error');
         return;
       }
       if (mode === 'manual' && !publicKey) {
-        this.showToast('Please enter the public key', 'error');
+        this.showToast(this.$t('iface.enterPublicKey'), 'error');
         return;
       }
       // Interconnect requires explicit AllowedIPs (it routes a subnet, not just /32)
       if (peerType === 'interconnect' && !allowedIPs) {
-        this.showToast('Please enter Allowed IPs for the interconnect peer (e.g., 192.168.2.0/24)', 'error');
+        this.showToast(this.$t('iface.enterAllowedIPs'), 'error');
         return;
       }
 
@@ -614,19 +614,19 @@ async createPeer() {
         if (showQR && mode === 'generate' && peerType === 'client' && peerId) {
           this.qrcode = this.peerQrUrl(interfaceId, peerId);
         } else {
-          this.showToast(peerType === 'client' ? 'Client created!' : 'Peer created!');
+          this.showToast(peerType === 'client' ? this.$t('toast.clientCreated') : this.$t('toast.peerCreated'));
         }
       } catch (err) {
         console.error('Failed to create peer:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       } finally {
         this.peerMutationInFlight = false;
       }
     },
 
 async deletePeer(peer) {
-      const label = peer.peerType === 'interconnect' ? 'peer' : 'client';
-      if (!confirm(`Delete ${label} "${peer.name}"?`)) return;
+      const label = peer.peerType === 'interconnect' ? this.$t('iface.peerLower') : this.$t('iface.clientLower');
+      if (!confirm(`${this.$t('common.delete')} ${label} "${peer.name}"?`)) return;
       try {
         await this.api.deleteTunnelInterfacePeer({
           interfaceId: this.selectedInterface.id,
@@ -634,10 +634,10 @@ async deletePeer(peer) {
         });
         await this.loadInterfacePeers(this.selectedInterface.id);
         await this.loadTunnelInterfaces();
-        this.showToast(peer.peerType === 'interconnect' ? 'Peer deleted!' : 'Client deleted!');
+        this.showToast(peer.peerType === 'interconnect' ? this.$t('toast.peerDeleted') : this.$t('toast.clientDeleted'));
       } catch (err) {
         console.error('Delete failed:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 
@@ -655,7 +655,7 @@ async downloadPeerConfig(peer) {
         window.URL.revokeObjectURL(url);
       } catch (err) {
         console.error('Download failed:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('common.failed') + ': ' + err.message, 'error');
       }
     },
 

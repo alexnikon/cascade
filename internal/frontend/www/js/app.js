@@ -112,40 +112,12 @@ new Vue({
     mobileNavOpen: false,
     isCompactViewport: window.matchMedia('(max-width: 1023px)').matches,
     compactMediaQuery: null,
-    sidebarMenu: [
-      { id: 'dashboard',        label: 'Dashboard' },
-      { id: 'interfaces',       label: 'Interfaces' },
-      { id: 'gateways',         label: 'Gateways' },
-      { id: 'routing',          label: 'Routing' },
-      { id: 'nat',              label: 'NAT' },
-      { id: '_header_firewall', label: 'Firewall', type: 'header' },
-      { id: 'firewall-aliases', label: 'Aliases' },
-      { id: 'firewall',         label: 'Rules' },
-      { id: 'diagnostics',      label: 'Diagnostics' },
-      { id: 'remotes',          label: 'Remotes' },
-      { id: 'settings',         label: 'Settings' },
-      { id: 'administration',   label: 'Administration' },
-      { id: '_header_wizards',  label: 'Wizards', type: 'header' },
-      { id: 'wizard-simple-vpn', label: 'Simple Client VPN' },
-      { id: 'wizard-uplink-vpn', label: 'Cascade via WireGuard Uplink' },
-      { id: 'wizard-cascade-s2s', label: 'Cascade ↔ Cascade S2S' },
-    ],
 
     // ── Dashboard ──────────────────────────────────────────────────────────────
     dashWidgets: [],          // [{id, type, x, y, w, h}]
     dashGrid: null,           // GridStack instance
     dashShowAddMenu: false,
     dashSystemInfo: null,
-    dashAvailableWidgetTypes: [
-      { type: 'server-info',    label: 'Server Info',     icon: '🖥️' },
-      { type: 'interfaces',     label: 'Interfaces',      icon: '🔌' },
-      { type: 'gateways',       label: 'Gateways',        icon: '📡' },
-      { type: 'peers-summary',  label: 'Peers Summary',   icon: '👥' },
-      { type: 'peers',          label: 'Peers',           icon: '🔗' },
-      { type: 'nat',            label: 'NAT',             icon: '🔀' },
-      { type: 'traffic',        label: 'Traffic',         icon: '📊' },
-      { type: 'monitoring',     label: 'Monitoring',      icon: '📈' },
-    ],
     dashPeersState: {},   // per-widget: { [widgetId]: { iface: '', sort: 'name' } }
 
     // ── Monitoring widget ──────────────────────────────────────────────────────
@@ -469,7 +441,7 @@ new Vue({
 	  protocol: 'amneziawg',  // 'wireguard' | 'amneziawg'
       ifaceName: '',
       dns: '',
-      peerName: 'My Device',
+      peerName: '',
       running: false,
       error: '',
       ifaceId: '',
@@ -761,16 +733,6 @@ new Vue({
     showSeparatorModal: false,
     separatorEditId: null,    // null = new, string = edit existing
     separatorEdit: { name: '', color: '' },
-    separatorColors: [
-      { value: '',         label: 'Default', swatch: '#6b7280' },
-      { value: 'red',      label: 'Red',     swatch: '#ef4444' },
-      { value: 'orange',   label: 'Orange',  swatch: '#f97316' },
-      { value: 'yellow',   label: 'Yellow',  swatch: '#eab308' },
-      { value: 'green',    label: 'Green',   swatch: '#22c55e' },
-      { value: 'cyan',     label: 'Cyan',    swatch: '#06b6d4' },
-      { value: 'blue',     label: 'Blue',    swatch: '#3b82f6' },
-      { value: 'purple',   label: 'Purple',  swatch: '#a855f7' },
-    ],
     showFirewallEdit: false,
     firewallCreate: {
       name: '',
@@ -948,10 +910,10 @@ new Vue({
     // window after a remote goes down.
     this.api._onRemoteError = (status, path) => {
       if (!this.activeRemoteId) return; // already local, ignore
-      const remoteName = (this.activeRemote && this.activeRemote.name) || 'Remote server';
+      const remoteName = (this.activeRemote && this.activeRemote.name) || this.$t('remote.serverFallback');
       this.switchToLocal();
-      const reason = status === 401 ? 'authentication failed' : `error ${status}`;
-      this.showToast(`${remoteName} disconnected (${reason}). Switched back to local.`, 'error');
+      const reason = status === 401 ? this.$t('toast.authFailed') : `error ${status}`;
+      this.showToast(`${remoteName} ${this.$t('toast.disconnected')} (${reason}). ${this.$t('toast.switchedToLocal')}`, 'error');
     };
 
     this.api.getSession()
@@ -1131,6 +1093,57 @@ new Vue({
     },
   },
   computed: {
+    // ── Localized label catalogues ──────────────────────────────────────────
+    // These live in `computed` rather than `data` because `this.$t()` is not
+    // available inside the `data` initialiser. vue-i18n tracks the active locale
+    // reactively, so labels follow a language switch without a reload.
+    sidebarMenu() {
+      return [
+        { id: 'dashboard',          label: this.$t('nav.dashboard') },
+        { id: 'interfaces',         label: this.$t('nav.interfaces') },
+        { id: 'gateways',           label: this.$t('nav.gateways') },
+        { id: 'routing',            label: this.$t('nav.routing') },
+        { id: 'nat',                label: this.$t('nav.nat') },
+        { id: '_header_firewall',   label: this.$t('nav.firewall'), type: 'header' },
+        { id: 'firewall-aliases',   label: this.$t('nav.aliases') },
+        { id: 'firewall',           label: this.$t('nav.rules') },
+        { id: 'diagnostics',        label: this.$t('nav.diagnostics') },
+        { id: 'remotes',            label: this.$t('nav.remotes') },
+        { id: 'settings',           label: this.$t('nav.settings') },
+        { id: 'administration',     label: this.$t('nav.administration') },
+        { id: '_header_wizards',    label: this.$t('nav.wizards'), type: 'header' },
+        { id: 'wizard-simple-vpn',  label: this.$t('nav.wizardSimpleVpn') },
+        { id: 'wizard-uplink-vpn',  label: this.$t('nav.wizardUplink') },
+        { id: 'wizard-cascade-s2s', label: this.$t('nav.wizardS2s') },
+      ];
+    },
+
+    dashAvailableWidgetTypes() {
+      return [
+        { type: 'server-info',   label: this.$t('dash.wServerInfo'),   icon: '🖥️' },
+        { type: 'interfaces',    label: this.$t('dash.wInterfaces'),   icon: '🔌' },
+        { type: 'gateways',      label: this.$t('dash.wGateways'),     icon: '📡' },
+        { type: 'peers-summary', label: this.$t('dash.wPeersSummary'), icon: '👥' },
+        { type: 'peers',         label: this.$t('dash.wPeers'),        icon: '🔗' },
+        { type: 'nat',           label: this.$t('dash.wNat'),          icon: '🔀' },
+        { type: 'traffic',       label: this.$t('dash.wTraffic'),      icon: '📊' },
+        { type: 'monitoring',    label: this.$t('dash.wMonitoring'),   icon: '📈' },
+      ];
+    },
+
+    separatorColors() {
+      return [
+        { value: '',       label: this.$t('sep.colorDefault'), swatch: '#6b7280' },
+        { value: 'red',    label: this.$t('sep.colorRed'),     swatch: '#ef4444' },
+        { value: 'orange', label: this.$t('sep.colorOrange'),  swatch: '#f97316' },
+        { value: 'yellow', label: this.$t('sep.colorYellow'),  swatch: '#eab308' },
+        { value: 'green',  label: this.$t('sep.colorGreen'),   swatch: '#22c55e' },
+        { value: 'cyan',   label: this.$t('sep.colorCyan'),    swatch: '#06b6d4' },
+        { value: 'blue',   label: this.$t('sep.colorBlue'),    swatch: '#3b82f6' },
+        { value: 'purple', label: this.$t('sep.colorPurple'),  swatch: '#a855f7' },
+      ];
+    },
+
     // Browser tab title: routerName if set, otherwise hostname, otherwise 'Cascade'.
     pageTitle() {
       return this.globalSettings.routerName || this.globalSettings.hostname || 'Cascade';
@@ -1141,7 +1154,7 @@ new Vue({
     },
 
     sectionTitle() {
-      const titles = { 'firewall-aliases': 'Firewall Aliases', firewall: 'Firewall Rules', remotes: 'Remote Servers' };
+      const titles = { 'firewall-aliases': this.$t('nav.firewallAliases'), firewall: this.$t('nav.firewallRules'), remotes: this.$t('nav.remoteServers') };
       return titles[this.activePage] || this.activePageLabel;
     },
 
@@ -1158,7 +1171,7 @@ new Vue({
 
     // Label shown in the server switcher dropdown.
     activeServerLabel() {
-      return this.activeRemote ? this.activeRemote.name : (this.localServerName || this.pageTitle || 'Local');
+      return this.activeRemote ? this.activeRemote.name : (this.localServerName || this.pageTitle || this.$t('remote.local'));
     },
     // MSS clamping mode derived from the sentinel int value in interfaceEdit.mss.
     // Used to drive the select dropdown in Edit Interface modal.

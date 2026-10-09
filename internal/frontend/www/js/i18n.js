@@ -1,5 +1,7 @@
 'use strict';
 
+import { extraMessages } from './i18n.generated.js';
+
 const messages = { // eslint-disable-line no-unused-vars
   en: {
     name: 'Name',
@@ -652,6 +654,13 @@ const messages = { // eslint-disable-line no-unused-vars
     donate: 'दान करें',
   },
 };
+
+// Merge the generated localization catalogue (i18n.generated.js) on top of the
+// legacy inline keys. Generated namespaces are added; legacy keys stay as-is so
+// existing call sites keep working. Regenerate with .dsh/ru/merge_i18n.py.
+for (const locale of Object.keys(extraMessages)) {
+  messages[locale] = Object.assign({}, messages[locale], extraMessages[locale]);
+}
 
 export const i18n = new VueI18n({
   locale: localStorage.getItem('lang') || 'en',

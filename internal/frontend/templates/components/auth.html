@@ -9,43 +9,43 @@
           <div class="auth-brand">
             <img src="./img/cascade_favicon.svg" class="auth-brand-mark" alt="" aria-hidden="true" />
             <div>
-              <h1 id="setup-title" class="auth-title">Welcome to Cascade</h1>
-              <p class="auth-subtitle">Create your administrator account to secure access to this panel.</p>
+              <h1 id="setup-title" class="auth-title">{{$t("auth.welcome")}}</h1>
+              <p class="auth-subtitle">{{$t("auth.createAdminSubtitle")}}</p>
             </div>
           </div>
 
           <div class="auth-field">
-            <label for="first-run-username">Username</label>
+            <label for="first-run-username">{{$t("common.username")}}</label>
             <input id="first-run-username" v-model="firstRunForm.username" type="text" name="username"
               autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="admin"
               :disabled="firstRunSaving || restorePreviewLoading || systemRestoring" required />
           </div>
 
           <div class="auth-field">
-            <label for="first-run-password">Password</label>
+            <label for="first-run-password">{{$t("common.password")}}</label>
             <input id="first-run-password" v-model="firstRunForm.password" type="password" name="password"
-              autocomplete="new-password" placeholder="Minimum 8 characters"
+              autocomplete="new-password" :placeholder="$t('auth.passwordMinPlaceholder')"
               :disabled="firstRunSaving || restorePreviewLoading || systemRestoring" required />
           </div>
 
           <div class="auth-field">
-            <label for="first-run-password-confirm">Confirm Password</label>
+            <label for="first-run-password-confirm">{{$t("auth.confirmPassword")}}</label>
             <input id="first-run-password-confirm" v-model="firstRunForm.passwordConfirm" type="password"
-              name="password-confirm" autocomplete="new-password" placeholder="Repeat password"
+              name="password-confirm" autocomplete="new-password" :placeholder="$t('auth.repeatPasswordPlaceholder')"
               :disabled="firstRunSaving || restorePreviewLoading || systemRestoring" required />
           </div>
 
           <button type="submit" :disabled="firstRunSaving || restorePreviewLoading || systemRestoring" class="auth-primary">
-            <span v-if="!firstRunSaving">Create Admin Account</span>
+            <span v-if="!firstRunSaving">{{$t("auth.createAdminAccount")}}</span>
             <svg v-else class="w-5 animate-spin mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-              fill="currentColor" aria-label="Creating account">
+              fill="currentColor" :aria-label="$t('auth.creatingAccount')">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor"
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </button>
 
-          <div class="auth-divider" aria-hidden="true"><span>or</span></div>
+          <div class="auth-divider" aria-hidden="true"><span>{{$t("auth.or")}}</span></div>
           <input ref="firstRunRestoreInput" type="file" class="hidden"
             accept=".tar.gz,.gz,.enc"
             :disabled="firstRunSaving || restorePreviewLoading || systemRestoring"
@@ -53,13 +53,13 @@
           <button type="button" class="auth-secondary"
             :disabled="firstRunSaving || restorePreviewLoading || systemRestoring"
             @click="$refs.firstRunRestoreInput.click()">
-            <span v-if="restorePreviewLoading">Analyzing backup…</span>
-            <span v-else-if="systemRestoring">Restoring…</span>
-            <span v-else>Restore from Backup</span>
+            <span v-if="restorePreviewLoading">{{$t("auth.analyzingBackup")}}</span>
+            <span v-else-if="systemRestoring">{{$t("auth.restoring")}}</span>
+            <span v-else>{{$t("settings.restoreFromBackup")}}</span>
           </button>
 
           <p class="auth-subtitle text-center" style="margin-top:10px;">
-            Create a new administrator or restore an existing Cascade installation.
+            {{$t("auth.firstRunHint")}}
           </p>
         </form>
       </div>
@@ -73,20 +73,20 @@
           <div class="auth-brand">
             <img src="./img/cascade_favicon.svg" class="auth-brand-mark" alt="" aria-hidden="true" />
             <div>
-              <h1 class="auth-title">Sign in to Cascade</h1>
-              <p class="auth-subtitle">Manage your VPN securely</p>
+              <h1 class="auth-title">{{$t("auth.signInTitle")}}</h1>
+              <p class="auth-subtitle">{{$t("auth.subtitle")}}</p>
             </div>
           </div>
 
           <!-- Username field -->
           <div class="auth-field">
-            <label for="login-username">Username</label>
-            <input id="login-username" ref="loginUsername" type="text" name="username" placeholder="Username" v-model="username"
+            <label for="login-username">{{$t("common.username")}}</label>
+            <input id="login-username" ref="loginUsername" type="text" name="username" :placeholder="$t('common.username')" v-model="username"
               autocomplete="username" autocapitalize="none" spellcheck="false" required />
           </div>
 
           <div class="auth-field">
-            <label for="login-password">Password</label>
+            <label for="login-password">{{$t("common.password")}}</label>
             <input id="login-password" type="password" name="password" :placeholder="$t('password')" v-model="password"
               autocomplete="current-password" required />
           </div>
@@ -127,18 +127,18 @@
           <div class="auth-brand">
             <img src="./img/cascade_favicon.svg" class="auth-brand-mark" alt="" aria-hidden="true" />
             <div>
-              <h1 class="auth-title">Verification code</h1>
-              <p class="auth-subtitle">Use the code saved for this Cascade login</p>
+              <h1 class="auth-title">{{$t("auth.verificationCode")}}</h1>
+              <p class="auth-subtitle">{{$t("auth.totpHint")}}</p>
             </div>
           </div>
           <div class="auth-field">
-            <label for="totp-code">One-time code</label>
+            <label for="totp-code">{{$t("auth.oneTimeCode")}}</label>
             <input id="totp-code" ref="loginTOTP" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
               v-model="totpCode" @keyup.enter="loginStep2"
               class="text-center tracking-widest font-mono text-lg" />
           </div>
           <button type="button" @click="loginStep2" :disabled="authenticating" class="auth-primary">
-            <span v-if="!authenticating">Verify</span>
+            <span v-if="!authenticating">{{$t("auth.verify")}}</span>
             <svg v-else class="w-5 animate-spin mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -146,7 +146,7 @@
           </button>
           <button type="button" @click="totpRequired = false; totpCode = ''"
             class="w-full py-2 text-sm text-gray-500 dark:text-neutral-400 hover:text-gray-700 transition" style="margin-top:8px;">
-            ← Back
+            ← {{$t("common.back")}}
           </button>
         </div>
       </div>

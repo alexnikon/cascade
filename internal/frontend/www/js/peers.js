@@ -10,7 +10,7 @@ async createQuickPeer() {
 
       const expiredAt = this.expiryDateTimeToUTC(this.peerCreateExpiredDate);
       if (this.peerCreateExpiredDate && !expiredAt) {
-        this.showToast('Invalid expiry date and time', 'error');
+        this.showToast(this.$t('toast.peerInvalidExpiry'), 'error');
         return;
       }
       if (this.peerMutationInFlight) return;
@@ -47,11 +47,11 @@ async createQuickPeer() {
         if (showQR && peerId) {
           this.qrcode = this.peerQrUrl(this.activeInterfaceId, peerId);
         } else {
-          this.showToast('Client created!');
+          this.showToast(this.$t('toast.clientCreated'));
         }
       } catch (err) {
         console.error('Failed to create peer:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
+        this.showToast(this.$t('toast.peerCreateFailed', { error: err.message }), 'error');
       } finally {
         this.peerMutationInFlight = false;
       }
@@ -98,8 +98,8 @@ async _refreshPeersOrAll(opts = {}) {
 
 async resetPeerTraffic(peer) {
       if (this.peerTrafficResetInFlight || !['client', 'interconnect'].includes(peer.peerType)) return;
-      const label = peer.peerType === 'interconnect' ? 'S2S peer' : 'client';
-      if (!window.confirm(`Reset traffic counters for ${label} "${peer.name}"?`)) return;
+      const label = peer.peerType === 'interconnect' ? this.$t('peer.nounS2s') : this.$t('peer.nounClient');
+      if (!window.confirm(this.$t('toast.peerResetTrafficConfirm', { label, name: peer.name }))) return;
       const remoteId = this.activeRemoteId;
       const interfaceId = this._peerIfaceId(peer);
       this.peerTrafficResetInFlight = true;
@@ -111,7 +111,7 @@ async resetPeerTraffic(peer) {
         if (remoteId !== this.activeRemoteId) return;
         this.$delete(this.peersPersist, peer.id);
         await this._refreshPeersOrAll();
-        this.showToast(`${peer.peerType === 'interconnect' ? 'S2S peer' : 'Client'} traffic counters reset`);
+        this.showToast(this.$t('toast.trafficCountersReset', { role: peer.peerType === 'interconnect' ? this.$t('peer.nounS2s') : this.$t('peer.nounClient') }));
       } catch (err) {
         this.showToast(err.message || err.toString(), 'error');
       } finally {
@@ -171,7 +171,7 @@ async showPeerOneTimeLink(peer) {
         if (token) {
           const url = `${location.protocol}//${location.host}/cnf/${token}`;
           await navigator.clipboard.writeText(url);
-          this.showToast('One-time link copied to clipboard', 'success');
+          this.showToast(this.$t('toast.oneTimeLinkCopied'), 'success');
         }
         await this._refreshPeersOrAll();
       } catch (err) {
@@ -194,7 +194,7 @@ async confirmDeletePeer() {
           this.loadClientGroups();
           this.loadAliases();
         }
-        this.showToast(`${label} deleted!`);
+        this.showToast(this.$t(label === 'Client' ? 'toast.clientDeleted' : 'toast.peerDeleted'));
       } catch (err) {
         this.showToast(err.message || err.toString(), 'error');
       }
@@ -280,7 +280,7 @@ async savePeerEdit() {
       } else {
         const expiredAt = this.expiryDateTimeToUTC(this.peerEditForm.expiredAt);
         if (this.peerEditForm.expiredAt && !expiredAt) {
-          this.showToast('Invalid expiry date and time', 'error');
+          this.showToast(this.$t('toast.peerInvalidExpiry'), 'error');
           return;
         }
         updates.clientAllowedIPs = this.peerEditForm.clientAllowedIPs;
@@ -305,7 +305,7 @@ async savePeerEdit() {
           this.loadClientGroups();
           this.loadAliases();
         }
-        this.showToast(isInterconnect ? 'Peer updated' : 'Client updated', 'success');
+        this.showToast(this.$t(isInterconnect ? 'toast.peerUpdated' : 'toast.clientUpdated'), 'success');
       } catch (err) {
         this.showToast(err.message || err.toString(), 'error');
       } finally {

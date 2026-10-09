@@ -28,7 +28,7 @@
                       <div class="text-gray-700 dark:text-neutral-200 group text-sm md:text-base"
                         :title="$t('createdOn') + dateTime(new Date(client.createdAt))">
                         <span v-if="client.latestHandshakeAt && ((new Date() - new Date(client.latestHandshakeAt) < 1000 * 60 * 10))"
-                          class="peer-online-indicator" title="Recently connected"></span>
+                          class="peer-online-indicator" :title="$t('admin.recentlyConnected')"></span>
 
                         <!-- Show -->
                         <input v-show="clientEditNameId === client.id" v-model="clientEditName"
@@ -104,7 +104,7 @@
                         <!-- Public IP -->
                         <span v-if="client.endpoint"
                           class="text-gray-400 dark:text-neutral-500 whitespace-nowrap"
-                          :title="'Public IP: ' + peerPublicIP(client.endpoint)">
+                          :title="$t('settings.publicIp') + ': ' + peerPublicIP(client.endpoint)">
                           · {{peerPublicIP(client.endpoint)}}
                         </span>
                       </div>
@@ -308,8 +308,8 @@
                 </svg>
               </button>
               <img :src="qrcode" @load="qrcodeError = false" @error="qrcodeError = true" />
-              <p v-if="qrcodeError" class="text-sm mt-3 dark:text-neutral-200">QR unavailable. Large configurations may exceed QR capacity; download the .conf file.</p>
-              <a :href="qrcode.replace(/qrcode\.svg.*$/, 'config')" download class="block mt-3 text-sm text-blue-600 dark:text-blue-400">Download .conf</a>
+              <p v-if="qrcodeError" class="text-sm mt-3 dark:text-neutral-200">{{$t("admin.qrUnavailable")}}</p>
+              <a :href="qrcode.replace(/qrcode\.svg.*$/, 'config')" download class="block mt-3 text-sm text-blue-600 dark:text-blue-400">{{$t("admin.downloadConf")}}</a>
             </div>
           </div>
         </div>
@@ -377,7 +377,7 @@
                             class="rounded p-2 border-2 dark:bg-neutral-700 dark:text-neutral-200 border-gray-100 dark:border-neutral-600 focus:border-gray-200 focus:dark:border-neutral-500 dark:placeholder:text-neutral-400 outline-none flex-1"
                             type="date" v-model.trim="clientExpiredDate" :placeholder="$t('expireDate')" name="expireDate"/>
                           <button v-if="clientExpiredDate" type="button" @click="clientExpiredDate = ''"
-                            class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">Clear</button>
+                            class="px-3 text-xs border rounded dark:border-neutral-600 dark:text-neutral-300">{{$t("common.clear")}}</button>
                         </span>
                       </p>
                     </div>

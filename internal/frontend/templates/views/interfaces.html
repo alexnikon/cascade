@@ -10,30 +10,30 @@
           <div v-if="!activeInterfaceId">
             <div v-if="interfacesLoading && !interfacesLoaded"
               class="text-center text-gray-500 dark:text-neutral-400" style="padding: 60px 0;">
-              <p class="text-lg">Loading interfaces…</p>
+              <p class="text-lg">{{$t("iface.loading")}}</p>
             </div>
             <div v-else-if="interfacesError && !interfacesLoaded"
               class="text-center text-red-600 dark:text-red-400" style="padding: 60px 0;">
-              <p class="text-lg">Unable to load interfaces. Please try again.</p>
+              <p class="text-lg">{{$t("iface.loadError")}}</p>
             </div>
             <!-- No interfaces at all -->
             <div v-else-if="interfacesLoaded && tunnelInterfaces.length === 0"
               class="text-center text-gray-500 dark:text-neutral-400" style="padding: 60px 0;">
-              <p class="text-lg">No interfaces yet. Click <strong>+</strong> to create one.</p>
+              <p class="text-lg">{{$t("iface.emptyPrefix")}} <strong>+</strong>{{$t("iface.emptySuffix")}}</p>
             </div>
             <!-- Interfaces exist: show all peers from all interfaces -->
             <div v-else>
               <div v-if="allPeersLoading && !allPeersLoaded"
                 class="text-center text-gray-500 dark:text-neutral-400" style="padding: 60px 0;">
-                <p>Loading peers…</p>
+                <p>{{$t("peer.loading")}}</p>
               </div>
               <div v-else-if="allPeersError && !allPeersLoaded"
                 class="text-center text-red-600 dark:text-red-400" style="padding: 60px 0;">
-                <p>Unable to load peers. Please try again.</p>
+                <p>{{$t("peer.loadError")}}</p>
               </div>
               <div v-else-if="allPeersLoaded && allPeers.length === 0"
                 class="text-center text-gray-500 dark:text-neutral-400" style="padding: 60px 0;">
-                <p>No clients or peers across all interfaces.</p>
+                <p>{{$t("iface.noneAcrossInterfaces")}}</p>
               </div>
               <div v-else class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
                 <div v-for="peer in allPeers" :key="peer.id + '/' + peer.interfaceId"
@@ -46,10 +46,10 @@
                       <div class="flex flex-col xxs:flex-row w-full gap-2">
                         <div class="flex flex-col flex-grow gap-1">
                           <div class="text-gray-700 dark:text-neutral-200 group text-sm md:text-base"
-                            :title="peer.createdAt ? 'Created: ' + dateTime(new Date(peer.createdAt)) : ''">
+                            :title="peer.createdAt ? $t('peer.created') + dateTime(new Date(peer.createdAt)) : ''">
                             <span class="peer-online-indicator"
                               :style="{ background: peer.enabled === true && peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? '#22c55e' : '#9ca3af' }"
-                              :title="peer.enabled === false ? 'Disabled' : (peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? 'Recently connected' : (peer.latestHandshakeAt ? 'Inactive' : 'Never connected'))"></span>
+                              :title="peer.enabled === false ? $t('common.disabled') : (peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? $t('peer.recentlyConnected') : (peer.latestHandshakeAt ? $t('common.inactive') : $t('peer.neverConnected')))"></span>
                             <input v-show="peerEditNameId === peer.id" v-model="peerEditName"
                               v-on:keyup.enter="updatePeerName(peer, peerEditName); peerEditName = null; peerEditNameId = null;"
                               v-on:keyup.escape="peerEditName = null; peerEditNameId = null;"
@@ -68,19 +68,19 @@
                             <!-- Client group badge -->
                             <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId) && peerEditNameId !== peer.id"
                               style="margin-left:4px;font-size:0.65rem;padding:1px 6px;background:rgba(124,58,237,0.1);color:#7c3aed;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
-                              :title="'Group: ' + peerGroupName(peer.groupId)">
+                              :title="$t('peer.groupPrefix') + peerGroupName(peer.groupId)">
                               {{peerGroupName(peer.groupId)}}
                             </span>
                             <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateDown > 0 && peerEditNameId !== peer.id"
                               style="margin-left:4px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                               :style="peerEffectiveRate(peer).fromGroup ? {background:'rgba(99,102,241,0.1)',color:'#4338ca'} : {background:'rgba(220,38,38,0.1)',color:'#dc2626'}"
-                              :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Download limit: ') + formatRate(peerEffectiveRate(peer).rateDown) + 'bit/s'">
+                              :title="(peerEffectiveRate(peer).fromGroup?$t('peer.groupLimit'):$t('peer.downloadLimit')) + formatRate(peerEffectiveRate(peer).rateDown) + 'bit/s'">
                               <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↓{{formatRate(peerEffectiveRate(peer).rateDown)}}
                             </span>
                             <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateUp > 0 && peerEditNameId !== peer.id"
                               style="margin-left:4px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                               :style="peerEffectiveRate(peer).fromGroup ? {background:'rgba(99,102,241,0.1)',color:'#4338ca'} : {background:'rgba(22,163,74,0.1)',color:'#16a34a'}"
-                              :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Upload limit: ') + formatRate(peerEffectiveRate(peer).rateUp) + 'bit/s'">
+                              :title="(peerEffectiveRate(peer).fromGroup?$t('peer.groupLimit'):$t('peer.uploadLimit')) + formatRate(peerEffectiveRate(peer).rateUp) + 'bit/s'">
                               <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↑{{formatRate(peerEffectiveRate(peer).rateUp)}}
                             </span>
                             <span v-show="peerEditNameId !== peer.id"
@@ -95,7 +95,7 @@
                           <div class="block md:inline-block pb-1 md:pb-0 text-gray-500 dark:text-neutral-400 text-xs">
                             <span v-if="peer.address">{{peer.address}}</span><span v-else>{{peer.allowedIPs}}</span><span v-if="peer.address && peer.allowedIPs !== peer.address" class="text-gray-400 dark:text-neutral-500"> · {{peer.allowedIPs}}</span>
                             <!-- Inline Transfer TX (speed uses kernel counter; total uses persisted totalTx) -->
-                            <span v-if="!uiTrafficStats && peer.transferTxCurrent" class="whitespace-nowrap" :title="'Total download: ' + bytes(peer.totalTx)">
+                            <span v-if="!uiTrafficStats && peer.transferTxCurrent" class="whitespace-nowrap" :title="$t('peer.totalDownload') + bytes(peer.totalTx)">
                               ·
                               <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
@@ -103,7 +103,7 @@
                               {{peer.transferTxCurrent | bytes}}/s
                             </span>
                             <!-- Inline Transfer RX -->
-                            <span v-if="!uiTrafficStats && peer.transferRxCurrent" class="whitespace-nowrap" :title="'Total upload: ' + bytes(peer.totalRx)">
+                            <span v-if="!uiTrafficStats && peer.transferRxCurrent" class="whitespace-nowrap" :title="$t('peer.totalUpload') + bytes(peer.totalRx)">
                               ·
                               <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
@@ -112,13 +112,13 @@
                             </span>
                             <!-- Last seen -->
                             <span class="text-gray-400 dark:text-neutral-500 whitespace-nowrap"
-                              :title="peer.latestHandshakeAt ? 'Last seen: ' + dateTime(new Date(peer.latestHandshakeAt)) : 'Never connected'">
-                              {{!uiTrafficStats ? " · " : ""}}{{peer.latestHandshakeAt ? $options.filters.timeago(new Date(peer.latestHandshakeAt)) : 'Never'}}
+                              :title="peer.latestHandshakeAt ? $t('peer.lastSeen') + dateTime(new Date(peer.latestHandshakeAt)) : $t('peer.neverConnected')">
+                              {{!uiTrafficStats ? " · " : ""}}{{peer.latestHandshakeAt ? $options.filters.timeago(new Date(peer.latestHandshakeAt)) : $t('common.never')}}
                             </span>
                             <!-- Runtime endpoint: full IP:port for interconnect, IP only for client -->
                             <span v-if="peer.runtimeEndpoint"
                               class="text-gray-400 dark:text-neutral-500 whitespace-nowrap"
-                              :title="peer.peerType === 'interconnect' ? 'Connected from: ' + peer.runtimeEndpoint : 'Public IP: ' + peerPublicIP(peer.runtimeEndpoint)">
+                              :title="peer.peerType === 'interconnect' ? $t('peer.connectedFrom') + peer.runtimeEndpoint : $t('peer.publicIP') + peerPublicIP(peer.runtimeEndpoint)">
                               · {{peer.peerType === 'interconnect' ? peer.runtimeEndpoint : peerPublicIP(peer.runtimeEndpoint)}}
                             </span>
                           </div>
@@ -128,7 +128,7 @@
                         <div v-if="uiTrafficStats"
                           class="flex gap-2 items-center shrink-0 text-gray-400 dark:text-neutral-400 text-xs mt-px justify-end">
                           <div class="min-w-20 md:min-w-24" v-if="peer.transferTx || peer.totalTx">
-                            <span class="flex gap-1" :title="'Total download: ' + bytes(peer.totalTx)">
+                            <span class="flex gap-1" :title="$t('peer.totalDownload') + bytes(peer.totalTx)">
                               <svg class="align-middle h-3 inline mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                               </svg>
@@ -139,7 +139,7 @@
                             </span>
                           </div>
                           <div class="min-w-20 md:min-w-24" v-if="peer.transferRx || peer.totalRx">
-                            <span class="flex gap-1" :title="'Total upload: ' + bytes(peer.totalRx)">
+                            <span class="flex gap-1" :title="$t('peer.totalUpload') + bytes(peer.totalRx)">
                               <svg class="align-middle h-3 inline mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                               </svg>
@@ -156,11 +156,11 @@
                     <div class="flex items-center justify-end">
                       <div class="peer-row-controls text-gray-400 dark:text-neutral-400">
                         <!-- Enable/Disable -->
-                        <div @click="disablePeer(peer)" v-if="peer.enabled === true" :title="'Disable ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
+                        <div @click="disablePeer(peer)" v-if="peer.enabled === true" :title="$t('peer.disablePrefix') + (peer.peerType === 'interconnect' ? $t('peer.nounPeer') : $t('peer.nounClient'))"
                           class="inline-block align-middle rounded-full w-10 h-6 cursor-pointer transition-all" style="background:#16a34a;">
                           <div class="rounded-full w-4 h-4 m-1 ml-5 bg-white"></div>
                         </div>
-                        <div @click="enablePeer(peer)" v-if="peer.enabled === false" :title="'Enable ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
+                        <div @click="enablePeer(peer)" v-if="peer.enabled === false" :title="$t('peer.enablePrefix') + (peer.peerType === 'interconnect' ? $t('peer.nounPeer') : $t('peer.nounClient'))"
                           class="inline-block align-middle rounded-full w-10 h-6 bg-gray-200 dark:bg-neutral-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-neutral-500 transition-all">
                           <div class="rounded-full w-4 h-4 m-1 bg-white"></div>
                         </div>
@@ -170,7 +170,7 @@
                         <button :disabled="!peer.downloadableConfig"
                           class="peer-action-button"
                           :class="{ 'is-disabled': !peer.downloadableConfig }"
-                          :title="!peer.downloadableConfig ? 'No private key' : 'Show QR'"
+                          :title="!peer.downloadableConfig ? $t('peer.noPrivateKey') : $t('peer.showQr')"
                           @click="qrcode = peerQrUrl(peer.interfaceId, peer.id)">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
@@ -182,7 +182,7 @@
                           @click="if(peer.downloadableConfig) downloadPeerConfig(peer)"
                           class="peer-action-button"
                           :class="{ 'is-disabled': !peer.downloadableConfig }"
-                          :title="!peer.downloadableConfig ? 'No private key' : 'Download config'">
+                          :title="!peer.downloadableConfig ? $t('peer.noPrivateKey') : $t('peer.downloadConfig')">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                           </svg>
@@ -191,7 +191,7 @@
                         <!-- One-time link -->
                         <button v-if="enableOneTimeLinks"
                           @click="peer.peerType !== 'interconnect' ? showPeerOneTimeLink(peer) : null"
-                          :title="peer.peerType === 'interconnect' ? 'N/A for S2S' : 'Generate one-time link'"
+                          :title="peer.peerType === 'interconnect' ? $t('peer.naForS2S') : $t('peer.oneTimeLink')"
                           class="peer-action-button"
                           :class="peer.peerType !== 'interconnect' ? '' : 'is-disabled'">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -200,7 +200,7 @@
                         </button>
 
                         <!-- Edit -->
-                        <button @click="openPeerEdit(peer)" :title="'Edit ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
+                        <button @click="openPeerEdit(peer)" :title="$t('peer.editPrefix') + (peer.peerType === 'interconnect' ? $t('peer.nounPeer') : $t('peer.nounClient'))"
                           class="peer-action-button">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -209,7 +209,7 @@
 
                         <!-- Reset traffic -->
                         <button @click="resetPeerTraffic(peer)"
-                          title="Reset trafic" aria-label="Reset trafic" :disabled="peerTrafficResetInFlight"
+                          :title="$t('peer.resetTraffic')" :aria-label="$t('peer.resetTraffic')" :disabled="peerTrafficResetInFlight"
                           class="peer-action-button" :class="{ 'is-disabled': peerTrafficResetInFlight }">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11a9 9 0 119 10M3 11V4m0 7h7" />
@@ -217,7 +217,7 @@
                         </button>
 
                         <!-- Delete -->
-                        <button @click="peerDelete = peer" :title="'Delete ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
+                        <button @click="peerDelete = peer" :title="$t('peer.deletePrefix') + (peer.peerType === 'interconnect' ? $t('peer.nounPeer') : $t('peer.nounClient'))"
                           class="peer-action-button">
                           <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -246,41 +246,41 @@
                 <div class="flex gap-2">
                   <span v-if="currentInterface.enabled"
                     class="ui-badge px-3 py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-lg">
-                    Running
+                    {{$t("iface.running")}}
                   </span>
                   <span v-else
                     class="ui-badge px-3 py-1 text-xs font-medium bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300 rounded-lg">
-                    Stopped
+                    {{$t("iface.stopped")}}
                   </span>
                 </div>
               </div>
               <div style="padding: 16px 20px;">
                 <div class="flex flex-wrap gap-3 text-sm mb-4">
                   <div>
-                    <span class="text-gray-500 dark:text-neutral-400">Protocol:</span>
+                    <span class="text-gray-500 dark:text-neutral-400">{{$t("common.protocol")}}:</span>
 					<span class="font-medium dark:text-neutral-200 ml-1">{{ currentInterface.protocol === 'amneziawg-3.1' ? 'AWG 3.1' : (currentInterface.protocol === 'amneziawg-2.0' ? 'AWG 2.0' : 'WG 1.0') }}</span>
                   </div>
                   <div v-if="currentInterface.address">
-                    <span class="text-gray-500 dark:text-neutral-400">Address:</span>
+                    <span class="text-gray-500 dark:text-neutral-400">{{$t("common.address")}}:</span>
                     <span class="font-medium dark:text-neutral-200 ml-1">{{ currentInterface.address }}</span>
                   </div>
                   <div v-if="currentInterface.listenPort">
-                    <span class="text-gray-500 dark:text-neutral-400">Port:</span>
+                    <span class="text-gray-500 dark:text-neutral-400">{{$t("common.port")}}:</span>
                     <span class="font-medium dark:text-neutral-200 ml-1">{{ currentInterface.listenPort }}</span>
                   </div>
                   <div>
-                    <span class="text-gray-500 dark:text-neutral-400">{{ currentInterface && currentInterface.disableRoutes ? 'Peers:' : 'Clients:' }}</span>
+                    <span class="text-gray-500 dark:text-neutral-400">{{ currentInterface && currentInterface.disableRoutes ? $t('common.peers') : $t('common.clients') }}:</span>
                     <span class="font-medium dark:text-neutral-200 ml-1">{{ currentInterface.peerCount || 0 }}</span>
                   </div>
                   <div v-if="currentInterface.publicKey">
-                    <span class="text-gray-500 dark:text-neutral-400">Public Key:</span>
+                    <span class="text-gray-500 dark:text-neutral-400">{{$t("common.publicKey")}}:</span>
                     <span class="font-medium dark:text-neutral-200 ml-1 font-mono text-xs">{{ currentInterface.publicKey.substring(0, 20) }}…</span>
                   </div>
                   <div v-if="currentInterface.mtu > 0 || currentInterface.kernelMtu > 0">
-                    <span class="text-gray-500 dark:text-neutral-400">MTU:</span>
+                    <span class="text-gray-500 dark:text-neutral-400">{{$t("common.mtu")}}:</span>
                     <span class="font-medium dark:text-neutral-200 ml-1">
                       <span v-if="currentInterface.mtu > 0">{{ currentInterface.mtu }}</span>
-                      <span v-else class="text-gray-400 dark:text-neutral-500">auto</span>
+                      <span v-else class="text-gray-400 dark:text-neutral-500">{{$t("iface.mtuAuto")}}</span>
                       <span v-if="currentInterface.mtu === 0 && currentInterface.kernelMtu > 0" class="text-gray-400 dark:text-neutral-500 text-xs ml-1">({{ currentInterface.kernelMtu }})</span>
                     </span>
                   </div>
@@ -292,51 +292,51 @@
                   <button v-if="!currentInterface.enabled" @click="startTunnelInterface(currentInterface)"
                     :disabled="loadingInterfaceId === currentInterface.id"
                     class="px-3 py-1 text-sm bg-green-600 text-white rounded transition">
-                    {{ loadingInterfaceId === currentInterface.id ? 'Starting…' : 'Start' }}
+                    {{ loadingInterfaceId === currentInterface.id ? $t('iface.starting') : $t('common.start') }}
                   </button>
                   <button v-if="currentInterface.enabled" @click="stopTunnelInterface(currentInterface)"
                     :disabled="loadingInterfaceId === currentInterface.id"
                     class="px-3 py-1 text-sm bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded transition">
-                    {{ loadingInterfaceId === currentInterface.id ? 'Stopping…' : 'Stop' }}
+                    {{ loadingInterfaceId === currentInterface.id ? $t('iface.stopping') : $t('common.stop') }}
                   </button>
                   <button v-if="currentInterface.enabled" @click="restartTunnelInterface(currentInterface)"
                     :disabled="loadingInterfaceId === currentInterface.id"
                     class="px-3 py-1 text-sm bg-blue-600 text-white rounded transition">
-                    {{ loadingInterfaceId === currentInterface.id ? 'Restarting…' : 'Restart' }}
+                    {{ loadingInterfaceId === currentInterface.id ? $t('iface.restarting') : $t('common.restart') }}
                   </button>
                   <!-- Edit Interface -->
                   <button @click="openInterfaceEdit(currentInterface)"
                     class="px-3 py-1 text-sm text-purple-600 dark:text-purple-400 rounded transition"
                     style="border: 1px solid currentColor;"
-                    title="Edit interface settings (name, address, port, obfuscation profile)">
-                    Edit
+                    :title="$t('iface.editSettingsTitle')">
+                    {{$t("common.edit")}}
                   </button>
                   <!-- Export Interface -->
                   <button @click="openExportInterface(currentInterface)"
                     class="px-3 py-1 text-sm rounded transition"
                     style="border:1px solid #059669; color:#059669;"
-                    title="Export interface config + peers as a Cascade backup file">
-                    Export
+                    :title="$t('iface.exportTitle')">
+                    {{$t("common.export")}}
                   </button>
                   <button @click="deleteTunnelInterface(currentInterface)"
                     class="px-3 py-1 text-sm text-red-600 dark:text-red-400 rounded transition"
                     style="border: 1px solid currentColor;">
-                    Delete
+                    {{$t("common.delete")}}
                   </button>
                   <!-- Export My Params: download JSON and provide it to the remote side -->
                   <button v-if="currentInterface.disableRoutes && !currentInterface.uplink"
                     @click="exportMyInterfaceParams(currentInterface)"
                     class="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 rounded transition"
                     style="border: 1px solid currentColor;"
-                    title="Export this interface's public key + endpoint as JSON — send to remote side so they can Import JSON and create a peer for us">
-                    Export My Params
+                    :title="$t('iface.exportParamsTitle')">
+                    {{$t("iface.exportParams")}}
                   </button>
                   <button v-if="currentInterface.disableRoutes && !currentInterface.uplink"
                     @click="importInterconnectPeerJSON()"
                     class="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 rounded transition"
                     style="border: 1px solid currentColor;"
-                    title="Import interconnect peer from JSON (exported by remote side)">
-                    Import JSON
+                    :title="$t('iface.importJsonTitle')">
+                    {{$t("iface.importJson")}}
                   </button>
                 </div>
               </div>
@@ -346,46 +346,46 @@
             <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
               <div class="flex flex-row flex-auto items-center p-3 px-5 border-b-2 border-gray-100 dark:border-neutral-600">
                 <div class="flex-grow">
-                  <p class="text-2xl font-medium dark:text-neutral-200">{{ currentInterface && currentInterface.disableRoutes ? 'Peers' : 'Clients' }}</p>
+                  <p class="text-2xl font-medium dark:text-neutral-200">{{ currentInterface && currentInterface.disableRoutes ? $t('common.peers') : $t('common.clients') }}</p>
                 </div>
                 <div class="interface-peer-actions flex md:block md:flex-shrink-0">
                   <!-- Backup -->
-                  <button @click="backupInterface()" title="Backup interface"
+                  <button @click="backupInterface()" :title="$t('iface.backupTitle')"
                     class="interface-peer-action hover:bg-red-800 hover:border-red-800 hover:text-white text-gray-700 dark:text-neutral-200 border-2 border-gray-100 dark:border-neutral-600 py-2 px-4 md:rounded inline-flex items-center transition">
                     <svg class="w-4 md:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Zm-3 6h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Z"></path>
                     </svg>
-                    <span class="max-md:hidden text-sm">Backup</span>
+                    <span class="max-md:hidden text-sm">{{$t("common.backup")}}</span>
                   </button>
                   <!-- Restore -->
-                  <label title="Restore interface" role="button" tabindex="0" aria-label="Restore interface"
+                  <label :title="$t('iface.restoreTitle')" role="button" tabindex="0" :aria-label="$t('iface.restoreTitle')"
                     @keydown.enter.prevent="$refs.restoreInterfaceInput.click()"
                     @keydown.space.prevent="$refs.restoreInterfaceInput.click()"
                     class="interface-peer-action hover:cursor-pointer hover:bg-red-800 hover:border-red-800 hover:text-white text-gray-700 dark:text-neutral-200 border-2 border-gray-100 dark:border-neutral-600 py-2 px-4 md:rounded inline-flex items-center transition">
                     <svg class="w-4 md:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"></path>
                     </svg>
-                    <span class="max-md:hidden text-sm">Restore</span>
+                    <span class="max-md:hidden text-sm">{{$t("common.restore")}}</span>
                     <input ref="restoreInterfaceInput" type="file" accept=".json" @change="restoreInterface" class="hidden"/>
                   </label>
                   <!-- Import client configs (restore private keys / QR for imported peers) -->
-                  <button @click="openImportClientConfigs()" title="Import client .conf files to restore QR/download for imported peers"
+                  <button @click="openImportClientConfigs()" :title="$t('iface.importConfigsTitle')"
                     :style="importClientConfigsLoading ? 'opacity:0.6; pointer-events:none;' : ''"
                     class="interface-peer-action hover:bg-red-800 hover:border-red-800 hover:text-white text-gray-700 dark:text-neutral-200 border-2 border-gray-100 dark:border-neutral-600 py-2 px-4 md:rounded inline-flex items-center transition">
                     <svg class="w-4 md:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
                     </svg>
-                    <span class="max-md:hidden text-sm">{{ importClientConfigsLoading ? 'Importing…' : 'Import Configs' }}</span>
+                    <span class="max-md:hidden text-sm">{{ importClientConfigsLoading ? $t('iface.importing') : $t('iface.importConfigs') }}</span>
                     <input ref="importClientConfigsInput" type="file" accept=".conf" multiple
                       @change="onImportClientConfigsSelected" class="hidden"/>
                   </button>
                   <!-- Manual peer add (wrench) -->
-                  <button @click="peerCreate.peerType = 'client'; peerCreate.groupId = defaultGroupId(); showPeerCreate = true" :title="currentInterface && currentInterface.disableRoutes ? 'Add peer manually' : 'Add client manually'"
+                  <button @click="peerCreate.peerType = 'client'; peerCreate.groupId = defaultGroupId(); showPeerCreate = true" :title="currentInterface && currentInterface.disableRoutes ? $t('peer.addManually') : $t('peer.addClientManually')"
                     class="interface-peer-action hover:bg-red-800 hover:border-red-800 hover:text-white text-gray-700 dark:text-neutral-200 border-2 border-gray-100 dark:border-neutral-600 py-2 px-4 md:rounded inline-flex items-center transition">
                     <svg class="w-4 md:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.47-3.66a.5.5 0 010-.82l5.47-3.66a.5.5 0 01.77.41v7.32a.5.5 0 01-.77.41zM21.75 12a9.75 9.75 0 11-19.5 0 9.75 9.75 0 0119.5 0z"/>
                     </svg>
-                    <span class="max-md:hidden text-sm">Manual</span>
+                    <span class="max-md:hidden text-sm">{{$t("iface.manual")}}</span>
                   </button>
                   <!-- New peer (quick create) -->
                   <button @click="showQuickPeerCreate = true; peerCreateName = ''; peerCreateExpiredDate = ''; peerCreateGroupId = defaultGroupId();"
@@ -393,19 +393,19 @@
                     <svg class="w-4 md:mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
-                    <span class="max-md:hidden text-sm">New</span>
+                    <span class="max-md:hidden text-sm">{{$t("peer.new")}}</span>
                   </button>
                 </div>
               </div>
 
               <div v-if="selectedPeersLoading && !selectedPeersLoaded" class="text-center text-gray-500 dark:text-neutral-400" style="padding: 40px 0;">
-                <p>Loading peers…</p>
+                <p>{{$t("peer.loading")}}</p>
               </div>
               <div v-else-if="selectedPeersError && !selectedPeersLoaded" class="text-center text-red-600 dark:text-red-400" style="padding: 40px 0;">
-                <p>Unable to load peers. Please try again.</p>
+                <p>{{$t("peer.loadError")}}</p>
               </div>
               <div v-else-if="selectedPeersLoaded && selectedInterfacePeers.length === 0" class="text-center text-gray-500 dark:text-neutral-400" style="padding: 40px 0;">
-                <p>No {{ currentInterface && currentInterface.disableRoutes ? 'peers' : 'clients' }} yet. Click <strong>New</strong> to create one.</p>
+                <p>{{ currentInterface && currentInterface.disableRoutes ? $t('peer.noneYet') : $t('peer.noneClientsYet') }} <strong>{{$t("peer.new")}}</strong>{{$t("peer.emptySuffix")}}</p>
               </div>
 
               <!-- Peer cards (admin-tunnel style) -->
@@ -420,10 +420,10 @@
                       <!-- Name -->
                       <div class="flex flex-col flex-grow gap-1">
                         <div class="text-gray-700 dark:text-neutral-200 group text-sm md:text-base"
-                          :title="peer.createdAt ? 'Created: ' + dateTime(new Date(peer.createdAt)) : ''">
+                          :title="peer.createdAt ? $t('peer.created') + dateTime(new Date(peer.createdAt)) : ''">
                           <span class="peer-online-indicator"
                             :style="{ background: peer.enabled === true && peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? '#22c55e' : '#9ca3af' }"
-                            :title="peer.enabled === false ? 'Disabled' : (peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? 'Recently connected' : (peer.latestHandshakeAt ? 'Inactive' : 'Never connected'))"></span>
+                            :title="peer.enabled === false ? $t('common.disabled') : (peer.latestHandshakeAt && ((new Date() - new Date(peer.latestHandshakeAt)) < 1000 * 60 * 10) ? $t('peer.recentlyConnected') : (peer.latestHandshakeAt ? $t('common.inactive') : $t('peer.neverConnected')))"></span>
                           <input v-show="peerEditNameId === peer.id" v-model="peerEditName"
                             v-on:keyup.enter="updatePeerName(peer, peerEditName); peerEditName = null; peerEditNameId = null;"
                             v-on:keyup.escape="peerEditName = null; peerEditNameId = null;"
@@ -437,19 +437,19 @@
                           <!-- Client group badge -->
                           <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId) && peerEditNameId !== peer.id"
                             style="margin-left:4px;font-size:0.65rem;padding:1px 6px;background:rgba(124,58,237,0.1);color:#7c3aed;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
-                            :title="'Group: ' + peerGroupName(peer.groupId)">
+                            :title="$t('peer.groupPrefix') + peerGroupName(peer.groupId)">
                             {{peerGroupName(peer.groupId)}}
                           </span>
                           <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateDown > 0 && peerEditNameId !== peer.id"
                             style="margin-left:6px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                             :style="peerEffectiveRate(peer).fromGroup ? {background:'rgba(99,102,241,0.1)',color:'#4338ca'} : {background:'rgba(220,38,38,0.1)',color:'#dc2626'}"
-                            :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Download limit: ') + formatRate(peerEffectiveRate(peer).rateDown) + 'bit/s'">
+                            :title="(peerEffectiveRate(peer).fromGroup?$t('peer.groupLimit'):$t('peer.downloadLimit')) + formatRate(peerEffectiveRate(peer).rateDown) + 'bit/s'">
                             <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↓{{formatRate(peerEffectiveRate(peer).rateDown)}}
                           </span>
                           <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateUp > 0 && peerEditNameId !== peer.id"
                             style="margin-left:4px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
                             :style="peerEffectiveRate(peer).fromGroup ? {background:'rgba(99,102,241,0.1)',color:'#4338ca'} : {background:'rgba(22,163,74,0.1)',color:'#16a34a'}"
-                            :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Upload limit: ') + formatRate(peerEffectiveRate(peer).rateUp) + 'bit/s'">
+                            :title="(peerEffectiveRate(peer).fromGroup?$t('peer.groupLimit'):$t('peer.uploadLimit')) + formatRate(peerEffectiveRate(peer).rateUp) + 'bit/s'">
                             <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↑{{formatRate(peerEffectiveRate(peer).rateUp)}}
                           </span>
                           <span v-show="peerEditNameId !== peer.id"
@@ -480,7 +480,7 @@
                             </span>
                           </span>
                           <!-- Inline Transfer TX -->
-                          <span v-if="!uiTrafficStats && peer.transferTx" class="whitespace-nowrap" :title="'Total download: ' + bytes(peer.totalTx)">
+                          <span v-if="!uiTrafficStats && peer.transferTx" class="whitespace-nowrap" :title="$t('peer.totalDownload') + bytes(peer.totalTx)">
                             ·
                             <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                               <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
@@ -488,7 +488,7 @@
                             {{peer.transferTxCurrent | bytes}}/s
                           </span>
                           <!-- Inline Transfer RX -->
-                          <span v-if="!uiTrafficStats && peer.transferRx" class="whitespace-nowrap" :title="'Total upload: ' + bytes(peer.totalRx)">
+                          <span v-if="!uiTrafficStats && peer.transferRx" class="whitespace-nowrap" :title="$t('peer.totalUpload') + bytes(peer.totalRx)">
                             ·
                             <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                               <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
@@ -497,13 +497,13 @@
                           </span>
                           <!-- Last seen -->
                           <span class="text-gray-400 dark:text-neutral-500 whitespace-nowrap"
-                            :title="peer.latestHandshakeAt ? 'Last seen: ' + dateTime(new Date(peer.latestHandshakeAt)) : 'Never connected'">
-                            {{!uiTrafficStats ? " · " : ""}}{{peer.latestHandshakeAt ? $options.filters.timeago(new Date(peer.latestHandshakeAt)) : 'Never'}}
+                            :title="peer.latestHandshakeAt ? $t('peer.lastSeen') + dateTime(new Date(peer.latestHandshakeAt)) : $t('peer.neverConnected')">
+                            {{!uiTrafficStats ? " · " : ""}}{{peer.latestHandshakeAt ? $options.filters.timeago(new Date(peer.latestHandshakeAt)) : $t('common.never')}}
                           </span>
                           <!-- Runtime endpoint: full IP:port for interconnect, IP only for client -->
                           <span v-if="peer.runtimeEndpoint"
                             class="text-gray-400 dark:text-neutral-500 whitespace-nowrap"
-                            :title="peer.peerType === 'interconnect' ? 'Connected from: ' + peer.runtimeEndpoint : 'Public IP: ' + peerPublicIP(peer.runtimeEndpoint)">
+                            :title="peer.peerType === 'interconnect' ? $t('peer.connectedFrom') + peer.runtimeEndpoint : $t('peer.publicIP') + peerPublicIP(peer.runtimeEndpoint)">
                             · {{peer.peerType === 'interconnect' ? peer.runtimeEndpoint : peerPublicIP(peer.runtimeEndpoint)}}
                           </span>
                         </div>
@@ -518,7 +518,7 @@
                               class="rounded border-2 dark:bg-neutral-700 border-gray-100 dark:border-neutral-600 focus:border-gray-200 dark:focus:border-neutral-500 outline-none w-70 text-black dark:text-neutral-300 dark:placeholder:text-neutral-500 text-xs p-0" />
                             <button v-show="peerEditExpireDateId === peer.id" type="button"
                               @click="updatePeerExpireDate(peer, ''); peerEditExpireDate = null; peerEditExpireDateId = null;"
-                              class="ml-1 px-1 text-xs border rounded dark:border-neutral-600">Clear</button>
+                              class="ml-1 px-1 text-xs border rounded dark:border-neutral-600">{{$t("common.clear")}}</button>
                             <span v-show="peerEditExpireDateId !== peer.id" class="inline-block">{{peer.expiredAt | expiredDateFormat}}</span>
                             <span v-show="peerEditExpireDateId !== peer.id"
                               @click="peerEditExpireDate = peer.expiredAt ? new Date(peer.expiredAt).toISOString().slice(0, 10) : 'yyyy-mm-dd'; peerEditExpireDateId = peer.id; setTimeout(() => $refs['peer-' + peer.id + '-expire'][0].select(), 1);"
@@ -535,7 +535,7 @@
                       <div v-if="uiTrafficStats"
                         class="flex gap-2 items-center shrink-0 text-gray-400 dark:text-neutral-400 text-xs mt-px justify-end">
                         <div class="min-w-20 md:min-w-24" v-if="peer.transferTx || peer.totalTx">
-                          <span class="flex gap-1" :title="'Total download: ' + bytes(peer.totalTx)">
+                          <span class="flex gap-1" :title="$t('peer.totalDownload') + bytes(peer.totalTx)">
                             <svg class="align-middle h-3 inline mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                               <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
@@ -546,7 +546,7 @@
                           </span>
                         </div>
                         <div class="min-w-20 md:min-w-24" v-if="peer.transferRx || peer.totalRx">
-                          <span class="flex gap-1" :title="'Total upload: ' + bytes(peer.totalRx)">
+                          <span class="flex gap-1" :title="$t('peer.totalUpload') + bytes(peer.totalRx)">
                             <svg class="align-middle h-3 inline mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                               <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                             </svg>
@@ -563,11 +563,11 @@
                   <div class="flex items-center justify-end">
                     <div class="peer-row-controls text-gray-400 dark:text-neutral-400">
                       <!-- Enable/Disable -->
-                      <div @click="disablePeer(peer)" v-if="peer.enabled === true" :title="'Disable ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
+                      <div @click="disablePeer(peer)" v-if="peer.enabled === true" :title="$t('peer.disablePrefix') + (peer.peerType === 'interconnect' ? $t('peer.nounPeer') : $t('peer.nounClient'))"
                         class="inline-block align-middle rounded-full w-10 h-6 cursor-pointer transition-all" style="background:#16a34a;">
                         <div class="rounded-full w-4 h-4 m-1 ml-5 bg-white"></div>
                       </div>
-                      <div @click="enablePeer(peer)" v-if="peer.enabled === false" :title="'Enable ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
+                      <div @click="enablePeer(peer)" v-if="peer.enabled === false" :title="$t('peer.enablePrefix') + (peer.peerType === 'interconnect' ? $t('peer.nounPeer') : $t('peer.nounClient'))"
                         class="inline-block align-middle rounded-full w-10 h-6 bg-gray-200 dark:bg-neutral-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-neutral-500 transition-all">
                         <div class="rounded-full w-4 h-4 m-1 bg-white"></div>
                       </div>
@@ -577,7 +577,7 @@
                       <button :disabled="!peer.downloadableConfig"
                         class="peer-action-button"
                         :class="{ 'is-disabled': !peer.downloadableConfig }"
-                        :title="!peer.downloadableConfig ? 'No private key' : 'Show QR'"
+                        :title="!peer.downloadableConfig ? $t('peer.noPrivateKey') : $t('peer.showQr')"
                         @click="qrcode = peerQrUrl(peer.interfaceId || activeInterfaceId, peer.id)">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
@@ -589,7 +589,7 @@
                         @click="if(peer.downloadableConfig) downloadPeerConfig(peer)"
                         class="peer-action-button"
                         :class="{ 'is-disabled': !peer.downloadableConfig }"
-                        :title="!peer.downloadableConfig ? 'No private key' : 'Download config'">
+                        :title="!peer.downloadableConfig ? $t('peer.noPrivateKey') : $t('peer.downloadConfig')">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
@@ -598,7 +598,7 @@
                       <!-- One-time link -->
                       <button v-if="enableOneTimeLinks"
                         @click="peer.peerType !== 'interconnect' ? showPeerOneTimeLink(peer) : null"
-                        :title="peer.peerType === 'interconnect' ? 'N/A for S2S' : 'Generate one-time link'"
+                        :title="peer.peerType === 'interconnect' ? $t('peer.naForS2S') : $t('peer.oneTimeLink')"
                         class="peer-action-button"
                         :class="peer.peerType !== 'interconnect' ? '' : 'is-disabled'">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -607,7 +607,7 @@
                       </button>
 
                       <!-- Edit -->
-                      <button @click="openPeerEdit(peer)" :title="'Edit ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
+                      <button @click="openPeerEdit(peer)" :title="$t('peer.editPrefix') + (peer.peerType === 'interconnect' ? $t('peer.nounPeer') : $t('peer.nounClient'))"
                         class="peer-action-button">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -616,7 +616,7 @@
 
                       <!-- Reset traffic -->
                       <button @click="resetPeerTraffic(peer)"
-                        title="Reset trafic" aria-label="Reset trafic" :disabled="peerTrafficResetInFlight"
+                        :title="$t('peer.resetTraffic')" :aria-label="$t('peer.resetTraffic')" :disabled="peerTrafficResetInFlight"
                         class="peer-action-button" :class="{ 'is-disabled': peerTrafficResetInFlight }">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11a9 9 0 119 10M3 11V4m0 7h7" />
@@ -624,7 +624,7 @@
                       </button>
 
                       <!-- Delete -->
-                      <button @click="peerDelete = peer" :title="'Delete ' + (peer.peerType === 'interconnect' ? 'peer' : 'client')"
+                      <button @click="peerDelete = peer" :title="$t('peer.deletePrefix') + (peer.peerType === 'interconnect' ? $t('peer.nounPeer') : $t('peer.nounClient'))"
                         class="peer-action-button">
                         <svg class="w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -646,7 +646,7 @@
 
           <div class="bg-white dark:bg-neutral-700 flex flex-col modal-panel modal-panel-sm">
             <div class="modal-header dark:border-neutral-600">
-              <h2 class="text-2xl font-medium dark:text-neutral-200">Create Interface</h2>
+              <h2 class="text-2xl font-medium dark:text-neutral-200">{{$t("iface.create")}}</h2>
             </div>
 
             <div style="padding:16px 24px 24px; overflow-y:auto;">
@@ -659,14 +659,14 @@
                       ? 'padding:4px 20px; background:#7c3aed; color:#fff;'
                       : 'padding:4px 20px; color:#6b7280;'"
                     class="ui-tab-button text-sm font-medium transition dark:text-neutral-300">
-                    Quick
+                    {{$t("iface.quick")}}
                   </button>
                   <button @click="createMode='manual'"
                     :style="createMode==='manual'
                       ? 'padding:4px 20px; background:#7c3aed; color:#fff;'
                       : (theme === 'dark' ? 'padding:4px 20px; color:#d4d4d4;' : 'padding:4px 20px; color:#6b7280;')"
                     class="ui-tab-button text-sm font-medium transition dark:text-neutral-300">
-                    Manual
+                    {{$t("iface.manual")}}
                   </button>
                 </div>
               </div>
@@ -675,12 +675,12 @@
               <div v-if="createMode==='quick'">
                 <div class="mb-4 text-center">
                   <p class="text-sm text-gray-500 dark:text-neutral-400">
-                    Creates a client interface instantly with auto-assigned address and port.
+                    {{$t("iface.quickHint")}}
                   </p>
                 </div>
 
                 <div class="mb-4">
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Interface Name <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional, defaults to ID)</span></label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("iface.name")}} <span class="text-gray-400 dark:text-neutral-500 font-normal">{{$t("iface.optionalDefaultsToId")}}</span></label>
                   <input v-model="interfaceCreate.name"
                     type="text"
                     placeholder="e.g., Main VPN"
@@ -688,7 +688,7 @@
                 </div>
 
                 <div class="mb-4">
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Protocol</label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.protocol")}}</label>
 				  <select v-model="interfaceCreate.protocol" @change="interfaceCreate.selectedTemplateId=''; interfaceCreate.protocol.startsWith('amneziawg-') && generateAndFillInterfaceParams()"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     <option value="wireguard-1.0">WireGuard 1.0</option>
@@ -698,15 +698,15 @@
                 </div>
 
                 <p class="text-xs text-gray-400 dark:text-neutral-500 text-center">
-                  Address and port will be assigned automatically from the pool.<br>
-				  AmneziaWG parameters use the matching protocol default template or a random profile.
+                  {{$t("iface.quickPoolHint")}}<br>
+				  {{$t("iface.quickAwgHint")}}
                 </p>
               </div>
 
               <!-- ── MANUAL form ─────────────────────────────────────── -->
               <div v-if="createMode==='manual'">
                 <div class="mb-4">
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Interface Name <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional, defaults to ID)</span></label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("iface.name")}} <span class="text-gray-400 dark:text-neutral-500 font-normal">{{$t("iface.optionalDefaultsToId")}}</span></label>
                   <input v-model="interfaceCreate.name"
                     type="text"
                     placeholder="e.g., Main VPN Hub"
@@ -714,7 +714,7 @@
                 </div>
 
                 <div class="mb-4">
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Protocol</label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.protocol")}}</label>
 				  <select v-model="interfaceCreate.protocol" @change="interfaceCreate.selectedTemplateId=''; interfaceCreate.protocol.startsWith('amneziawg-') && generateAndFillInterfaceParams()"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     <option value="wireguard-1.0">WireGuard 1.0</option>
@@ -725,17 +725,17 @@
 
                 <div class="mb-4">
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                    Tunnel Address <span class="text-red-500">*</span>
+                    {{$t("iface.tunnelAddress")}} <span class="text-red-500">*</span>
                   </label>
                   <input v-model="interfaceCreate.address"
                     type="text"
                     placeholder="e.g., 10.100.0.1/24"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Required. Used for peer IP allocation and NAT rules.</p>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("iface.addressHint")}}</p>
                 </div>
 
                 <div class="mb-4">
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Listen Port (optional, auto-assigned)</label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("iface.listenPortOptional")}}</label>
                   <input v-model="interfaceCreate.listenPort"
                     type="number"
                     placeholder="e.g., 51830"
@@ -746,62 +746,62 @@
                 <div class="mb-4">
                   <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" v-model="interfaceCreate.disableRoutes" class="w-4 h-4">
-                    <span class="text-sm font-medium dark:text-neutral-300">Disable Routes (Table = off)</span>
+                    <span class="text-sm font-medium dark:text-neutral-300">{{$t("iface.disableRoutes")}}</span>
                   </label>
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1" style="margin-left: 24px;">
-                    Prevents WireGuard from adding automatic routes. Use when you manage routing yourself.
+                    {{$t("iface.disableRoutesHint")}}
                   </p>
                 </div>
 
                 <div v-if="createMode === 'manual'" class="mb-4">
  <label class="flex items-center gap-2 text-sm dark:text-neutral-300">
- <input type="checkbox" v-model="interfaceCreate.domainAliasDNS"> Use Cascade DNS
+ <input type="checkbox" v-model="interfaceCreate.domainAliasDNS"> {{$t("iface.useCascadeDns")}}
  </label>
- <p class="text-xs text-gray-400 mt-1">Use the tunnel address as client DNS to learn Domain Alias suffixes. Existing clients must import the updated configuration. Secure DNS (DoH/DoT) bypasses this feature.</p>
+ <p class="text-xs text-gray-400 mt-1">{{$t("iface.cascadeDnsHint")}}</p>
  </div>
  <!-- DNS Override (optional) -->
                 <div v-if="createMode === 'manual'" class="mb-4">
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                    DNS Override
-                    <span class="text-gray-400 font-normal">(optional)</span>
+                    {{$t("iface.dnsOverride")}}
+                    <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span>
                   </label>
                   <input v-model="interfaceCreate.dns" :disabled="interfaceCreate.domainAliasDNS" type="text"
                     placeholder="e.g. 1.1.1.1, 8.8.8.8"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                    DNS servers written into client <code>.conf</code> files for this interface.
-                    Leave empty to use the global setting
-                    <span v-if="globalSettings.dns"> (currently: <code>{{ globalSettings.dns }}</code>)</span>.
+                    {{$t("iface.dnsHint1")}} <code>.conf</code> {{$t("iface.dnsHint2")}}
+                    {{$t("iface.dnsHint3")}}
+                    <span v-if="globalSettings.dns"> {{$t("iface.currently")}} <code>{{ globalSettings.dns }}</code>)</span>.
                   </p>
                 </div>
 
 				<div v-if="interfaceCreate.protocol === 'amneziawg-3.1' && !globalSettings.awg3Supported" class="mb-4 p-3 rounded text-sm text-red-700 bg-red-50 dark:bg-red-900/20 dark:text-red-300">
-				  {{ globalSettings.awg3SupportError || 'This runtime does not support AWG 3.1.' }}
+				  {{ globalSettings.awg3SupportError || $t('iface.awg31RuntimeUnsupported') }}
 				</div>
 
 				<!-- Versioned AmneziaWG settings -->
 				<div v-if="interfaceCreate.protocol.startsWith('amneziawg-')" class="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded">
                   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-					<h3 class="font-medium dark:text-neutral-200">AmneziaWG {{ interfaceCreate.protocol === 'amneziawg-3.1' ? '3.1' : '2.0' }} Parameters</h3>
+					<h3 class="font-medium dark:text-neutral-200">AmneziaWG {{ interfaceCreate.protocol === 'amneziawg-3.1' ? '3.1' : '2.0' }} {{$t("iface.parameters")}}</h3>
                     <button @click="generateAndFillInterfaceParams()"
                       class="text-sm font-medium text-purple-600 dark:text-purple-400 rounded"
                       style="padding:3px 10px; border:1px solid #9333ea;"
-					  title="Generate version-compatible AmneziaWG parameters">
-                      Generate ⚡
+					  :title="$t('iface.generateParamsTitle')">
+                      {{$t("common.generate")}} ⚡
                     </button>
                   </div>
 
                   <!-- Profile selector -->
                   <div class="mb-3">
-                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Obfuscation Profile</label>
+                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("iface.obfuscationProfile")}}</label>
                     <select v-model="interfaceCreate.selectedTemplateId"
                       @change="onInterfaceTemplateSelect(interfaceCreate.selectedTemplateId)"
                       class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                      <option value="">— Manual entry —</option>
+                      <option value="">{{$t("iface.manualEntry")}}</option>
 					  <option v-for="t in templates.filter(x => (x.protocolVersion || '2.0') === (interfaceCreate.protocol === 'amneziawg-3.1' ? '3.1' : '2.0'))" :key="t.id" :value="t.id">{{ t.name }}</option>
                     </select>
                     <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                      Select a saved profile to fill parameters automatically, or enter manually below.
+                      {{$t("iface.profileHint")}}
                     </p>
                   </div>
 
@@ -872,7 +872,7 @@
                   <!-- I1-I5: protocol imitation (optional) -->
                   <div class="mt-3 pt-3 dark:border-purple-700" style="border-top: 1px solid #e9d5ff;">
                     <p class="text-xs text-purple-600 dark:text-purple-400 mb-2 font-medium">
-                      I1–I5 — Protocol Imitation <span class="font-normal opacity-75">(optional, leave empty to disable)</span>
+                      I1–I5 — {{$t("iface.protocolImitation")}} <span class="font-normal opacity-75">{{$t("iface.optionalLeaveEmpty")}}</span>
                     </p>
                     <div class="grid grid-cols-5 gap-2">
                       <div>
@@ -904,19 +904,19 @@
                   </div>
 
 				  <div v-if="interfaceCreate.protocol === 'amneziawg-3.1'" class="mt-3 pt-3 dark:border-purple-700" style="border-top:1px solid #e9d5ff;">
-					<p class="text-xs font-medium text-purple-600 dark:text-purple-400 mb-2">AWG 3.1 transport protection</p>
-					<label class="block text-xs font-medium dark:text-neutral-300 mb-1">HeaderProtectionKey (32-byte Base64)</label>
+					<p class="text-xs font-medium text-purple-600 dark:text-purple-400 mb-2">{{$t("iface.awg31Transport")}}</p>
+					<label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("iface.headerProtectionKey")}}</label>
 					<input v-model="interfaceCreate.settings.headerProtectionKey" class="w-full px-2 py-1 text-xs border rounded font-mono dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
 					<div class="grid grid-cols-2 gap-2 mt-2">
-					  <label v-for="field in [{k:'contentPaddingAddition',l:'Content padding'},{k:'rekeyAfterTime',l:'Rekey after'},{k:'rekeyTimeout',l:'Rekey timeout'},{k:'rejectAfterTime',l:'Reject after'},{k:'keepaliveTimeout',l:'Keepalive timeout'},{k:'maxHandshakeAttempts',l:'Handshake attempts'}]" :key="field.k" class="text-xs dark:text-neutral-300">
+					  <label v-for="field in [{k:'contentPaddingAddition',l:$t('peer.fldContentPadding')},{k:'rekeyAfterTime',l:$t('peer.fldRekeyAfter')},{k:'rekeyTimeout',l:$t('peer.fldRekeyTimeout')},{k:'rejectAfterTime',l:$t('peer.fldRejectAfter')},{k:'keepaliveTimeout',l:$t('peer.fldKeepaliveTimeout')},{k:'maxHandshakeAttempts',l:$t('peer.fldHandshakeAttempts')}]" :key="field.k" class="text-xs dark:text-neutral-300">
 						{{ field.l }} <input v-model="interfaceCreate.settings[field.k]" placeholder="min-max" class="w-full px-2 py-1 mt-1 border rounded font-mono dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
 					  </label>
 					</div>
 					<div class="flex gap-4 mt-2 text-xs dark:text-neutral-300">
-					  <label><input type="checkbox" v-model="interfaceCreate.settings.randomTrailers"> Random trailers</label>
-					  <label><input type="checkbox" v-model="interfaceCreate.settings.disableCookies"> Disable cookies</label>
+					  <label><input type="checkbox" v-model="interfaceCreate.settings.randomTrailers"> {{$t("iface.randomTrailers")}}</label>
+					  <label><input type="checkbox" v-model="interfaceCreate.settings.disableCookies"> {{$t("iface.disableCookies")}}</label>
 					</div>
-					<p class="text-xs text-gray-400 mt-2">S1-S4 must be at least 12. All ranges use min-max format.</p>
+					<p class="text-xs text-gray-400 mt-2">{{$t("iface.s1s4Hint")}}</p>
 				  </div>
                 </div>
               </div><!-- end manual form -->
@@ -927,7 +927,7 @@
               <div class="flex gap-3 justify-end">
                 <button @click="showInterfaceCreate = false"
                   class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded hover:bg-gray-50 dark:hover:bg-neutral-600 dark:text-neutral-200 transition">
-                  Cancel
+                  {{$t("common.cancel")}}
                 </button>
                 <!-- Create button calls the appropriate method based on createMode -->
                 <button @click="createMode==='quick' ? quickCreateTunnelInterface() : createTunnelInterface()"
@@ -935,7 +935,7 @@
                   :class="createMode==='quick'
                     ? 'px-4 py-2 bg-purple-600 text-white rounded transition'
                     : 'px-4 py-2 bg-green-600 text-white rounded transition'">
-                  {{ createMode === 'quick' ? 'Create &amp; Start' : 'Create' }}
+                  {{ createMode === 'quick' ? $t('iface.createAndStart') : $t('common.create') }}
                 </button>
               </div>
             </div>
@@ -946,31 +946,31 @@
         <div v-if="showExportInterface" class="modal-overlay">
           <div class="bg-white dark:bg-neutral-700 flex flex-col modal-panel modal-panel-md">
             <div class="modal-header">
-              <h3 class="text-lg font-semibold dark:text-neutral-100">Export Interface</h3>
+              <h3 class="text-lg font-semibold dark:text-neutral-100">{{$t("iface.export")}}</h3>
               <button @click="showExportInterface = false" class="text-gray-400 hover:text-gray-600 dark:text-neutral-400">✕</button>
             </div>
             <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
               <div class="text-sm text-gray-700 dark:text-neutral-300">
-                Exports the interface config (including the private key) as a JSON file
-                that can be restored via <strong>Import → Cascade Backup</strong>.
+                {{$t("iface.exportHint")}}
+                {{$t("iface.canBeRestored")}} <strong>{{$t("iface.importCascadeBackup")}}</strong>.
               </div>
               <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-neutral-300">
                 <input type="checkbox" v-model="exportInterfaceIncludePeers" class="w-4 h-4">
-                Include peers (client configs)
+                {{$t("iface.includePeers")}}
               </label>
               <div class="text-xs text-gray-400 dark:text-neutral-500 rounded" style="background:#fef9c3;padding:10px 12px; color:#92400e;">
-                ⚠️ This file contains the server private key. Keep it secure.
+                ⚠️ {{$t("iface.exportWarning")}}
               </div>
             </div>
             <div class="modal-footer">
               <button @click="showExportInterface = false"
                 class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 transition">
-                Cancel
+                {{$t("common.cancel")}}
               </button>
               <button @click="doExportInterface()"
                 class="px-4 py-2 text-white rounded transition"
                 style="background:#059669;">
-                Download
+                {{$t("common.download")}}
               </button>
             </div>
           </div>
@@ -980,7 +980,7 @@
         <div v-if="showImportBackup" class="modal-overlay">
           <div class="bg-white dark:bg-neutral-700 flex flex-col modal-panel modal-panel-md">
             <div class="modal-header">
-              <h3 class="text-lg font-semibold dark:text-neutral-200">Import Interface</h3>
+              <h3 class="text-lg font-semibold dark:text-neutral-200">{{$t("iface.import")}}</h3>
               <button @click="showImportBackup = false" class="text-gray-400 hover:text-gray-600 dark:text-neutral-400">✕</button>
             </div>
             <!-- Tab bar -->
@@ -990,7 +990,7 @@
                 :style="importBackupTab === 'cascade'
                   ? 'border-bottom:2px solid #7c3aed; color:#7c3aed; margin-bottom:-1px;'
                   : 'border-bottom:2px solid transparent; margin-bottom:-1px; color:' + (theme==='dark' ? '#a3a3a3' : '#6b7280') + ';'">
-                Cascade Export
+                {{$t("iface.cascadeExportTab")}}
               </button>
               <button @click="importBackupTab = 'conf'; importConfForm = { name:'', conf:'', fileName:'' }; importConfWarning = ''"
                 class="ui-tab-button px-4 py-2 text-sm font-medium transition"
@@ -1006,38 +1006,38 @@
               <!-- File picker -->
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1">
-                  <span>Cascade export file (.json)</span>
+                  <span>{{$t("iface.exportFileLabel")}}</span>
                 </label>
                 <div class="flex items-center gap-2">
                   <label class="px-3 py-1.5 rounded text-sm font-medium cursor-pointer transition"
                     style="background:transparent; color:#7c3aed; border:1px solid #7c3aed;">
-                    Browse…
+                    {{$t("iface.browse")}}
                     <input type="file" accept=".json,application/json"
                       @change="onBackupFileSelected($event)"
                       class="hidden">
                   </label>
                   <span class="text-sm text-gray-500 dark:text-neutral-400 truncate">
-                    {{ importBackupForm.fileName || 'No file chosen' }}
+                    {{ importBackupForm.fileName || $t('iface.noFileChosen') }}
                   </span>
                 </div>
               </div>
               <!-- Listen port -->
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1">
-                  UDP Listen Port
+                  {{$t("iface.udpListenPort")}}
                 </label>
                 <input v-model="importBackupForm.listenPort" type="number" min="1" max="65535"
                   placeholder="e.g. 51820"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  Must not conflict with existing interfaces.
+                  {{$t("iface.listenPortHint")}}
                 </p>
               </div>
               <!-- Hint -->
               <div
                 class="text-xs text-gray-500 dark:text-neutral-400 rounded" style="background:#f0fdf4;padding:10px 12px;">
-                Restores an interface previously exported via the <strong>Export</strong> button.
-                Server and peer keys are preserved — existing client configs remain valid.
+                {{$t("iface.restoreHint")}} <strong>{{$t("common.export")}}</strong> {{$t("iface.restoreHint2")}}
+                {{$t("iface.restoreHint3")}}
               </div>
             </div>
 
@@ -1050,21 +1050,21 @@
                   :style="importConfMode === 'server'
                     ? 'background:#7c3aed; color:#fff; border-color:#7c3aed;'
                     : (theme==='dark' ? 'background:#404040; color:#e5e5e5; border-color:#525252;' : 'background:#f9fafb; color:#374151; border-color:#d1d5db;')">
-                  Client Hub
+                  {{$t("iface.clientHub")}}
                 </button>
                 <button @click="importConfMode = 'uplink'"
                   class="flex-1 px-3 py-2 text-sm rounded border transition"
                   :style="importConfMode === 'uplink'
                     ? 'background:#7c3aed; color:#fff; border-color:#7c3aed;'
                     : (theme==='dark' ? 'background:#404040; color:#e5e5e5; border-color:#525252;' : 'background:#f9fafb; color:#374151; border-color:#d1d5db;')">
-                  Uplink (S2S)
+                  {{$t("iface.uplinkS2S")}}
                 </button>
               </div>
               <div v-if="importConfMode === 'server'" class="text-xs rounded" style="background:#d1fae5; color:#065f46; padding:8px 12px;">
-                Creates a server interface. [Peer] sections are imported as clients.
+                {{$t("iface.importServerHint")}}
               </div>
               <div v-else class="text-xs rounded" style="background:#e0f2fe; color:#0c4a6e; padding:8px 12px;">
-                Creates an uplink interface connecting out to a remote server. Routing table is not modified.
+                {{$t("iface.importUplinkHint")}}
               </div>
               <div v-if="importConfWarning" class="text-xs rounded" style="background:#fef9c3; color:#713f12; padding:8px 12px;">
                 ⚠ {{ importConfWarning }}
@@ -1072,7 +1072,7 @@
               <!-- Name -->
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1">
-                  Name <span class="text-red-500">*</span>
+                  {{$t("common.name")}} <span class="text-red-500">*</span>
                 </label>
                 <input v-model="importConfForm.name" type="text"
                   :placeholder="importConfMode === 'server' ? 'e.g. Main VPN' : 'e.g. NL Uplink'"
@@ -1081,7 +1081,7 @@
               <!-- File + textarea -->
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-neutral-300 mb-1">
-                  Config (.conf) <span class="text-red-500">*</span>
+                  {{$t("iface.configConf")}} <span class="text-red-500">*</span>
                 </label>
                 <input type="file" ref="confFileInput" accept=".conf,.txt"
                   style="display:none;" @change="onConfFileSelected">
@@ -1092,7 +1092,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M8 12l4 4 4-4M12 4v12"/>
                     </svg>
-                    Browse…
+                    {{$t("iface.browse")}}
                   </button>
                   <span v-if="importConfForm.fileName" class="flex items-center text-sm text-gray-500 dark:text-neutral-400">
                     {{ importConfForm.fileName }}
@@ -1105,7 +1105,7 @@
                   class="w-full px-3 py-2 border rounded font-mono text-xs dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
                   style="resize:vertical;"></textarea>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-				  AWG 2.0 or AWG 3.1 is detected from the interface markers automatically.
+				  {{$t("iface.confDetectHint")}}
                 </p>
               </div>
             </div>
@@ -1113,17 +1113,17 @@
             <div class="modal-footer">
               <button @click="showImportBackup = false"
                 class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 transition">
-                Cancel
+                {{$t("common.cancel")}}
               </button>
               <button v-if="importBackupTab === 'cascade'" @click="doImportInterface()"
                 class="px-4 py-2 text-white rounded transition"
                 style="background:#7c3aed;">
-                Restore &amp; Start
+                {{$t("iface.restoreAndStart")}}
               </button>
               <button v-else @click="doImportConf()"
                 class="px-4 py-2 text-white rounded transition"
                 style="background:#7c3aed;">
-                Import &amp; Start
+                {{$t("iface.importAndStart")}}
               </button>
             </div>
           </div>
@@ -1138,7 +1138,7 @@
 
             <!-- Header -->
             <div class="modal-header dark:border-neutral-600">
-              <h2 class="text-2xl font-medium dark:text-neutral-200">Edit Interface</h2>
+              <h2 class="text-2xl font-medium dark:text-neutral-200">{{$t("iface.edit")}}</h2>
               <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">
                 {{ interfaceEdit.id }}
                 <span class="ui-badge ml-2 px-2 py-0.5 text-xs rounded"
@@ -1155,7 +1155,7 @@
 
               <!-- Name -->
               <div class="mb-4">
-                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name</label>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.name")}}</label>
                 <input v-model="interfaceEdit.name" type="text" placeholder="e.g., Main VPN Hub"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
               </div>
@@ -1163,23 +1163,23 @@
               <!-- Tunnel Address -->
               <div class="mb-4">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                  Tunnel Address <span class="text-red-500">*</span>
+                  {{$t("iface.tunnelAddress")}} <span class="text-red-500">*</span>
                 </label>
                 <input v-model="interfaceEdit.address" type="text" placeholder="e.g., 10.100.0.1/24"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  CIDR format. Changing this will regenerate peer configs — reconnect clients after saving.
+                  {{$t("iface.tunnelAddressHint")}}
                 </p>
               </div>
 
               <!-- Listen Port -->
               <div class="mb-4">
-                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Listen Port</label>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.listenPort")}}</label>
                 <input v-model.number="interfaceEdit.listenPort" type="number" min="1024" max="65535"
                   placeholder="auto"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  Leave empty to keep current port. Changes take effect after save (hot-reload).
+                  {{$t("iface.listenPortEditHint")}}
                 </p>
               </div>
 
@@ -1187,10 +1187,10 @@
               <div class="mb-4">
                 <label class="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" v-model="interfaceEdit.disableRoutes" class="w-4 h-4">
-                  <span class="text-sm font-medium dark:text-neutral-300">Disable Routing (Table = off)</span>
+                  <span class="text-sm font-medium dark:text-neutral-300">{{$t("iface.disableRouting")}}</span>
                 </label>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  Enable for S2S interconnect interfaces (no NAT, no default route).
+                  {{$t("iface.disableRoutingHint")}}
                 </p>
               </div>
 
@@ -1201,114 +1201,114 @@
                     :disabled="interfaceEdit.disableRoutes">
                   <span class="text-sm font-medium dark:text-neutral-300"
                     :style="interfaceEdit.disableRoutes ? 'opacity:0.5' : ''">
-                    Disable auto NAT (MASQUERADE)
+                    {{$t("iface.disableAutoNat")}}
                   </span>
                 </label>
                 <p class="text-xs text-gray-400 dark:text-neutral-500" style="margin-top:4px">
-                  When enabled, the automatic MASQUERADE rule is removed from PostUp.
-                  Use this when you manage NAT manually or via an explicit NAT rule.
-                  Requires interface restart to take effect.
+                  {{$t("iface.autoNatHint1")}}
+                  {{$t("iface.autoNatHint2")}}
+                  {{$t("iface.autoNatHint3")}}
                 </p>
               </div>
 
               <!-- Public Host Override -->
               <div class="mb-4">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                  Public Host Override
-                  <span class="text-gray-400 font-normal">(optional)</span>
+                  {{$t("iface.publicHostOverride")}}
+                  <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span>
                 </label>
                 <input v-model="interfaceEdit.publicHost" type="text"
                   placeholder="e.g. 1.2.3.4 or vpn-relay.example.com"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  When set, this IP/hostname is used as the <code>Endpoint</code> in client peer configs
-                  instead of the global Public IP. Use for transit (relay) setups where clients connect
-                  to a different server. Leave empty to use the global setting.
+                  {{$t("iface.publicHostHint1")}} <code>Endpoint</code> {{$t("iface.publicHostHint2")}}
+                  {{$t("iface.publicHostHint3")}} {{$t("iface.publicHostHint4")}}
+                  {{$t("iface.publicHostHint5")}}
                 </p>
               </div>
 
               <div class="mb-4">
  <label class="flex items-center gap-2 text-sm dark:text-neutral-300">
- <input type="checkbox" v-model="interfaceEdit.domainAliasDNS"> Use Cascade DNS
+ <input type="checkbox" v-model="interfaceEdit.domainAliasDNS"> {{$t("iface.useCascadeDns")}}
  </label>
  <p v-if="interfaceEdit.domainAliasDNSStatus.error" class="text-xs text-red-500 mt-1">{{ interfaceEdit.domainAliasDNSStatus.error }}</p>
- <p v-if="interfaceEdit.domainAliasDNSStatus.ready" class="text-xs text-green-600 mt-1">DNS ready at {{ interfaceEdit.domainAliasDNSStatus.address }}</p>
- <p class="text-xs text-gray-400 mt-1">Use the tunnel address as client DNS to learn Domain Alias suffixes. Existing clients must import the updated configuration. Secure DNS (DoH/DoT) bypasses this feature.</p>
+ <p v-if="interfaceEdit.domainAliasDNSStatus.ready" class="text-xs text-green-600 mt-1">{{$t("iface.dnsReadyAt")}} {{ interfaceEdit.domainAliasDNSStatus.address }}</p>
+ <p class="text-xs text-gray-400 mt-1">{{$t("iface.cascadeDnsHint")}}</p>
  </div>
  <!-- DNS Override -->
               <div class="mb-4">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                  DNS Override
-                  <span class="text-gray-400 font-normal">(optional)</span>
+                  {{$t("iface.dnsOverride")}}
+                  <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span>
                 </label>
                 <input v-model="interfaceEdit.dns" :disabled="interfaceEdit.domainAliasDNS" type="text"
                   placeholder="e.g. 1.1.1.1, 8.8.8.8"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  DNS servers written into client <code>.conf</code> files for this interface.
-                  Leave empty to use the global setting
-                  <span v-if="globalSettings.dns"> (currently: <code>{{ globalSettings.dns }}</code>)</span>.
+                  {{$t("iface.dnsHint1")}} <code>.conf</code> {{$t("iface.dnsHint2")}}
+                  {{$t("iface.dnsHint3")}}
+                  <span v-if="globalSettings.dns"> {{$t("iface.currently")}} <code>{{ globalSettings.dns }}</code>)</span>.
                 </p>
               </div>
 
               <!-- MTU Override -->
               <div class="mb-4">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                  MTU Override
-                  <span class="text-gray-400 font-normal">(optional)</span>
+                  {{$t("iface.mtuOverride")}}
+                  <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span>
                 </label>
                 <div style="display:flex; align-items:center; gap:8px;">
                   <input v-model.number="interfaceEdit.mtu" type="number" min="0" max="9000"
-                    placeholder="0 = use global"
+                    :placeholder="$t('iface.mtuPlaceholder')"
                     class="w-32 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                   <span v-if="interfaceEdit.mtu === 0 && interfaceEdit.kernelMtu > 0"
                     class="text-sm text-gray-400 dark:text-neutral-500">
-                    auto · <strong class="dark:text-neutral-300">{{ interfaceEdit.kernelMtu }}</strong>
+                    {{$t("iface.mtuAuto")}} · <strong class="dark:text-neutral-300">{{ interfaceEdit.kernelMtu }}</strong>
                   </span>
                 </div>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  Overrides the global MTU for this interface only. 0 = use global setting.
+                  {{$t("iface.mtuOverrideHint")}}
                 </p>
               </div>
 
               <!-- MSS Clamping (client interfaces only) -->
               <div v-if="!interfaceEdit.disableRoutes" class="mb-4">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                  MSS Clamping
-                  <span class="text-gray-400 font-normal">(optional)</span>
+                  {{$t("iface.mssClamping")}}
+                  <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span>
                 </label>
                 <div style="display:flex; align-items:center; gap:8px;">
                   <select :value="mssMode" @change="onMssSelectChange"
                     class="px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
-                    <option value="disabled">Disabled</option>
-                    <option value="auto">Auto (PMTU)</option>
-                    <option value="manual">Manual</option>
+                    <option value="disabled">{{$t("common.disabled")}}</option>
+                    <option value="auto">{{$t("iface.autoPmtu")}}</option>
+                    <option value="manual">{{$t("iface.manual")}}</option>
                   </select>
                   <input v-if="mssMode === 'manual'" v-model.number="interfaceEdit.mss"
                     type="number" min="500" max="9000" placeholder="1380"
                     class="w-24 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 </div>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  Clamps TCP MSS in SYN packets (both directions) to prevent fragmentation through the tunnel.
-                  Auto uses <code class="font-mono">--clamp-mss-to-pmtu</code>; Manual sets a fixed value (e.g. 1380 for MTU 1420).
+                  {{$t("iface.mssHint1")}}
+                  {{$t("iface.mssHint2")}} <code class="font-mono">--clamp-mss-to-pmtu</code>{{$t("iface.mssHint3")}}
                 </p>
               </div>
 
 			  <!-- Versioned AmneziaWG settings -->
 			  <div v-if="interfaceEdit.protocol.startsWith('amneziawg-')" class="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded">
-				<p class="font-medium dark:text-neutral-200 mb-3">AmneziaWG {{ interfaceEdit.protocol === 'amneziawg-3.1' ? '3.1' : '2.0' }} Settings</p>
+				<p class="font-medium dark:text-neutral-200 mb-3">AmneziaWG {{ interfaceEdit.protocol === 'amneziawg-3.1' ? '3.1' : '2.0' }} {{$t("common.settings")}}</p>
 
                 <!-- Template dropdown -->
                 <div class="mb-3">
-                  <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Apply Profile</label>
+                  <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("iface.applyProfile")}}</label>
                   <select v-model="interfaceEdit.selectedTemplateId"
                     @change="onEditInterfaceTemplateSelect(interfaceEdit.selectedTemplateId)"
                     class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                    <option value="">— Keep current / manual entry —</option>
+                    <option value="">{{$t("iface.keepCurrent")}}</option>
 					<option v-for="t in templates.filter(x => (x.protocolVersion || '2.0') === (interfaceEdit.protocol === 'amneziawg-3.1' ? '3.1' : '2.0'))" :key="t.id" :value="t.id">{{ t.name }}</option>
                   </select>
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                    Select a saved profile to overwrite parameters below, or edit manually.
+                    {{$t("iface.applyProfileHint")}}
                   </p>
                 </div>
 
@@ -1379,12 +1379,12 @@
                   </div>
                 </div>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mb-3">
-                  H1-H4 must match on both sides of the tunnel. Both sides must use the same ranges.
+                  {{$t("iface.h1h4Hint")}}
                 </p>
 
                 <!-- I1-I5 (optional) -->
                 <div class="dark:border-purple-700" style="margin-top:12px; padding-top:12px; border-top:1px solid #e9d5ff;">
-                  <p class="text-xs font-medium dark:text-neutral-300 mb-2">I1-I5 (optional, advanced)</p>
+                  <p class="text-xs font-medium dark:text-neutral-300 mb-2">{{$t("iface.i1i5Optional")}}</p>
                   <div class="grid grid-cols-5 gap-2">
                     <div>
                       <label class="block text-xs font-medium dark:text-neutral-300 mb-1">I1</label>
@@ -1417,13 +1417,13 @@
 				  <label class="block text-xs font-medium dark:text-neutral-300 mb-1">HeaderProtectionKey</label>
 				  <input v-model="interfaceEdit.settings.headerProtectionKey" class="w-full px-2 py-1 text-xs border rounded font-mono dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
 				  <div class="grid grid-cols-2 gap-2 mt-2">
-					<label v-for="field in [{k:'contentPaddingAddition',l:'Content padding'},{k:'rekeyAfterTime',l:'Rekey after'},{k:'rekeyTimeout',l:'Rekey timeout'},{k:'rejectAfterTime',l:'Reject after'},{k:'keepaliveTimeout',l:'Keepalive timeout'},{k:'maxHandshakeAttempts',l:'Handshake attempts'}]" :key="field.k" class="text-xs dark:text-neutral-300">
+					<label v-for="field in [{k:'contentPaddingAddition',l:$t('peer.fldContentPadding')},{k:'rekeyAfterTime',l:$t('peer.fldRekeyAfter')},{k:'rekeyTimeout',l:$t('peer.fldRekeyTimeout')},{k:'rejectAfterTime',l:$t('peer.fldRejectAfter')},{k:'keepaliveTimeout',l:$t('peer.fldKeepaliveTimeout')},{k:'maxHandshakeAttempts',l:$t('peer.fldHandshakeAttempts')}]" :key="field.k" class="text-xs dark:text-neutral-300">
 					  {{ field.l }} <input v-model="interfaceEdit.settings[field.k]" class="w-full px-2 py-1 mt-1 border rounded font-mono dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
 					</label>
 				  </div>
 				  <div class="flex gap-4 mt-2 text-xs dark:text-neutral-300">
-					<label><input type="checkbox" v-model="interfaceEdit.settings.randomTrailers"> Random trailers</label>
-					<label><input type="checkbox" v-model="interfaceEdit.settings.disableCookies"> Disable cookies</label>
+					<label><input type="checkbox" v-model="interfaceEdit.settings.randomTrailers"> {{$t("iface.randomTrailers")}}</label>
+					<label><input type="checkbox" v-model="interfaceEdit.settings.disableCookies"> {{$t("iface.disableCookies")}}</label>
 				  </div>
 				</div>
               </div>
@@ -1435,11 +1435,11 @@
               <div class="flex gap-3 justify-end">
                 <button @click="showInterfaceEdit = false"
                   class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded hover:bg-gray-50 dark:hover:bg-neutral-600 dark:text-neutral-200 transition">
-                  Cancel
+                  {{$t("common.cancel")}}
                 </button>
                 <button @click="saveInterfaceEdit" :disabled="interfaceMutationInFlight"
                   class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition">
-                  Save
+                  {{$t("common.save")}}
                 </button>
               </div>
             </div>

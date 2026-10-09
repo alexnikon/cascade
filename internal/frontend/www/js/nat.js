@@ -18,7 +18,7 @@ async loadDnatRules() {
         const res = await this.api.call({ method: 'GET', path: '/nat/dnat' });
         this.dnatRules = res.rules || [];
       } catch (e) {
-        this.showToast(e.message || 'Failed to load port forwarding rules', 'error');
+        this.showToast(e.message || this.$t('toast.natLoadFailed'), 'error');
       } finally {
         this.dnatLoading = false;
       }
@@ -83,15 +83,15 @@ async saveDnat() {
       try {
         if (this.dnatEditMode) {
           await this.api.call({ method: 'PATCH', path: `/nat/dnat/${this.dnatForm.id}`, body });
-          this.showToast('Rule updated', 'success');
+          this.showToast(this.$t('toast.natRuleUpdated'), 'success');
         } else {
           await this.api.call({ method: 'POST', path: '/nat/dnat', body });
-          this.showToast('Rule created', 'success');
+          this.showToast(this.$t('toast.natRuleCreated'), 'success');
         }
         this.showDnatModal = false;
         await this.loadDnatRules();
       } catch (e) {
-        this.showToast(e.message || 'Failed to save rule', 'error');
+        this.showToast(e.message || this.$t('toast.natSaveFailed'), 'error');
       }
     },
 
@@ -100,18 +100,18 @@ async toggleDnat(rule) {
         await this.api.call({ method: 'PATCH', path: `/nat/dnat/${rule.id}`, body: { enabled: !rule.enabled } });
         await this.loadDnatRules();
       } catch (e) {
-        this.showToast(e.message || 'Failed to toggle rule', 'error');
+        this.showToast(e.message || this.$t('toast.natToggleFailed'), 'error');
       }
     },
 
 async deleteDnat(rule) {
-      if (!confirm(`Delete "${rule.name}"?`)) return;
+      if (!confirm(this.$t('toast.natDeleteConfirm', { name: rule.name }))) return;
       try {
         await this.api.call({ method: 'DELETE', path: `/nat/dnat/${rule.id}` });
-        this.showToast('Rule deleted', 'success');
+        this.showToast(this.$t('toast.natRuleDeleted'), 'success');
         await this.loadDnatRules();
       } catch (e) {
-        this.showToast(e.message || 'Failed to delete rule', 'error');
+        this.showToast(e.message || this.$t('toast.natDeleteFailed'), 'error');
       }
     },
 
@@ -238,9 +238,9 @@ async createNatRule() {
           type: 'MASQUERADE', toSource: '', comment: '',
         };
         await this.loadNatRules();
-        this.showToast('NAT rule created', 'success');
+        this.showToast(this.$t('toast.natCreated'), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to create NAT rule', 'error');
+        this.showToast(err.message || this.$t('toast.natCreateFailed'), 'error');
       }
     },
 
@@ -258,9 +258,9 @@ async saveNatRule() {
         await this.api.updateNatRule({ ruleId: this.natRuleEdit.id, ...data });
         this.showNatRuleEdit = false;
         await this.loadNatRules();
-        this.showToast('NAT rule updated', 'success');
+        this.showToast(this.$t('toast.natUpdated'), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to update NAT rule', 'error');
+        this.showToast(err.message || this.$t('toast.natUpdateFailed'), 'error');
       }
     },
 
@@ -269,18 +269,18 @@ async toggleNatRule(rule) {
         await this.api.toggleNatRule({ ruleId: rule.id, enabled: !rule.enabled });
         await this.loadNatRules();
       } catch (err) {
-        this.showToast(err.message || 'Failed to toggle NAT rule', 'error');
+        this.showToast(err.message || this.$t('toast.natRuleToggleFailed'), 'error');
       }
     },
 
 async deleteNatRule(rule) {
-      if (!confirm(`Delete NAT rule "${rule.name}"?`)) return;
+      if (!confirm(this.$t('toast.natRuleDeleteConfirm', { name: rule.name }))) return;
       try {
         await this.api.deleteNatRule({ ruleId: rule.id });
         await this.loadNatRules();
-        this.showToast('NAT rule deleted', 'success');
+        this.showToast(this.$t('toast.natDeleted'), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Failed to delete NAT rule', 'error');
+        this.showToast(err.message || this.$t('toast.natRuleDeleteFailed'), 'error');
       }
     },
 

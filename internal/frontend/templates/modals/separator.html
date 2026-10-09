@@ -7,19 +7,19 @@
       style="padding:40px 24px;" @click.self="showSeparatorModal = false">
       <div class="bg-white dark:bg-neutral-700 rounded-lg" style="max-width:420px; margin:0 auto; padding:24px;">
         <h2 class="text-lg font-bold dark:text-neutral-200" style="margin-bottom:16px;">
-          {{ separatorEditId ? 'Edit Separator' : 'Add Separator' }}
+          {{ separatorEditId ? $t('sep.edit') : $t('sep.add') }}
         </h2>
         <!-- Name -->
         <div style="margin-bottom:16px;">
-          <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Name</label>
-          <input v-model="separatorEdit.name" type="text" placeholder="Separator name"
+          <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">{{$t("common.name")}}</label>
+          <input v-model="separatorEdit.name" type="text" :placeholder="$t('sep.namePlaceholder')"
             class="w-full rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-200"
             style="border:1px solid #d1d5db; padding:8px 10px;"
             @keyup.enter="saveSeparator()" />
         </div>
         <!-- Color palette -->
         <div style="margin-bottom:20px;">
-          <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:8px;">Color</label>
+          <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:8px;">{{$t("sep.color")}}</label>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button v-for="c in separatorColors" :key="c.value"
               @click="separatorEdit.color = c.value"
@@ -35,7 +35,7 @@
           <!-- Preview -->
           <div style="margin-top:12px; border-radius:6px; padding:7px 12px; font-size:0.78rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em;"
             :style="_sepRowStyle(separatorEdit.color)">
-            {{ separatorEdit.name || 'Separator' }}
+            {{ separatorEdit.name || $t('sep.defaultName') }}
           </div>
         </div>
         <!-- Actions -->
@@ -43,12 +43,12 @@
           <button @click="showSeparatorModal = false"
             class="text-sm rounded-lg dark:text-neutral-300"
             style="padding:7px 16px; border:1px solid #d1d5db;">
-            Cancel
+            {{$t("common.cancel")}}
           </button>
           <button @click="saveSeparator()"
             class="text-white text-sm rounded-lg font-medium"
             style="padding:7px 16px; background:#2563eb;">
-            {{ separatorEditId ? 'Save' : 'Add' }}
+            {{ separatorEditId ? $t('common.save') : $t('common.add') }}
           </button>
         </div>
       </div>

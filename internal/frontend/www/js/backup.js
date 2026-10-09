@@ -11,7 +11,7 @@ openBackupModal() {
 
 async confirmDownloadBackup() {
       if (this.backupPassword && this.backupPassword !== this.backupPasswordConfirm) {
-        this.showToast('Passwords do not match', 'error');
+        this.showToast(this.$t('settings.passwordsMismatch'), 'error');
         return;
       }
       try {
@@ -26,9 +26,9 @@ async confirmDownloadBackup() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         this.showBackupModal = false;
-        this.showToast('Backup created' + (this.backupPassword ? ' (encrypted)' : ''), 'success');
+        this.showToast(this.$t('toast.backupCreated') + (this.backupPassword ? this.$t('toast.backupEncryptedSuffix') : ''), 'success');
       } catch (err) {
-        this.showToast(err.message || 'Backup failed', 'error');
+        this.showToast(err.message || this.$t('toast.backupFailed'), 'error');
       } finally {
         this.backupDownloading = false;
       }
@@ -79,7 +79,7 @@ async _startRestorePreview(file, password) {
         this.showRestorePreviewModal = true;
         return true;
       } catch (err) {
-        this.showToast(err.message || 'Preview failed', 'error');
+        this.showToast(err.message || this.$t('toast.restorePreviewFailed'), 'error');
         return false;
       } finally {
         this.restorePreviewLoading = false;
@@ -105,7 +105,7 @@ async _doRestore(file, password, ifaceMap) {
       try {
         this.systemRestoring = true;
         await this.api.restoreSystemBackup({ file, password, ifaceMap });
-        this.showToast('Backup restored. Server is restarting…', 'success');
+        this.showToast(this.$t('toast.backupRestored'), 'success');
         // Poll until server is back online (up to 60s).
         const start = Date.now();
         const tryReload = () => {
@@ -114,7 +114,7 @@ async _doRestore(file, password, ifaceMap) {
         };
         setTimeout(tryReload, 3000);
       } catch (err) {
-        this.showToast(err.message || 'Restore failed', 'error');
+        this.showToast(err.message || this.$t('toast.restoreFailed'), 'error');
       } finally {
         this.systemRestoring = false;
       }
@@ -156,7 +156,7 @@ async onImportClientConfigsSelected(event) {
         await this._refreshPeersOrAll();
         this.showToast(`${res.matched} config${res.matched === 1 ? '' : 's'} matched`, res.matched > 0 ? 'success' : 'error');
       } catch (err) {
-        this.showToast(err.message || 'Import failed', 'error');
+        this.showToast(err.message || this.$t('toast.importFailed'), 'error');
       } finally {
         this.importClientConfigsLoading = false;
       }

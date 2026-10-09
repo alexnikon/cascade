@@ -9,9 +9,9 @@
             <!-- Header -->
             <div class="flex items-center justify-between">
               <div>
-                <h2 class="text-xl font-semibold dark:text-neutral-200">Outbound NAT Rules</h2>
+                <h2 class="text-xl font-semibold dark:text-neutral-200">{{$t("nat.outboundRules")}}</h2>
                 <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">
-                  Source NAT (POSTROUTING) — rewrite source IP of outgoing packets.
+                  {{$t("nat.outboundHint")}}
                 </p>
               </div>
 
@@ -19,13 +19,13 @@
 
             <!-- Loading state -->
             <div v-if="natRulesLoading" class="text-sm text-gray-400 dark:text-neutral-400" style="padding:16px 0;">
-              Loading...
+              {{$t("common.loading")}}
             </div>
 
             <!-- Empty state -->
             <div v-if="!natRulesLoading && natRules.length === 0"
               class="content-panel text-center text-gray-400 dark:text-neutral-500 rounded-lg bg-gray-50 dark:bg-neutral-800 empty-state">
-              No NAT rules configured. Click <strong>+ Add Rule</strong> to create one.
+              {{$t("nat.emptyLead")}}<strong>{{$t("nat.emptyAddRule")}}</strong>{{$t("nat.emptyTail")}}
             </div>
 
             <!-- Rules list -->
@@ -37,11 +37,11 @@
               <div class="flex items-center text-xs font-semibold text-gray-500 dark:text-neutral-400"
                 style="padding:8px 16px; border-bottom:1px solid #e5e7eb;">
                 <span style="width:16px; flex-shrink:0;"></span>
-                <span style="flex:2; padding-left:12px;">Name</span>
-                <span style="flex:2;">Source</span>
-                <span style="flex:1.5;">Out Interface</span>
-                <span style="flex:2;">NAT Type</span>
-                <span style="flex:2;" class="text-gray-400 dark:text-neutral-500">Comment</span>
+                <span style="flex:2; padding-left:12px;">{{$t("common.name")}}</span>
+                <span style="flex:2;">{{$t("common.source")}}</span>
+                <span style="flex:1.5;">{{$t("nat.outInterface")}}</span>
+                <span style="flex:2;">{{$t("nat.natType")}}</span>
+                <span style="flex:2;" class="text-gray-400 dark:text-neutral-500">{{$t("common.comment")}}</span>
                 <span style="width:72px; flex-shrink:0;"></span>
               </div>
 
@@ -55,7 +55,7 @@
                 <span
                   :class="rule.auto ? '' : 'cursor-pointer'"
                   class="shrink-0"
-                  :title="rule.auto ? 'Managed by interface' : (rule.enabled ? 'Disable' : 'Enable')"
+                  :title="rule.auto ? $t('nat.managedByInterface') : (rule.enabled ? $t('common.disable') : $t('common.enable'))"
                   @click="rule.auto ? null : toggleNatRule(rule)">
                   <span v-if="rule.enabled"
                     style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 2px #bbf7d0;"></span>
@@ -76,7 +76,7 @@
                   <template v-if="rule.sourceAliasId">
                     <span class="ui-badge text-xs font-semibold rounded"
                       style="padding:2px 8px; display:inline-block; background:#ede9fe; color:#5b21b6; cursor:pointer;"
-                      title="Click to edit alias"
+                      :title="$t('fw.clickToEditAlias')"
                       @click.stop="openAliasFromBadge(rule.sourceAliasId)"
                       @mouseenter="showAliasTooltip($event, rule.sourceAliasId)"
                       @mouseleave="hideAliasTooltip()">
@@ -126,18 +126,18 @@
                     <button @click="goToInterface(rule.interfaceId)"
                       class="text-indigo-600 dark:text-indigo-400"
                       style="background:none; border:none; cursor:pointer; padding:4px 6px; font-size:12px; white-space:nowrap;"
-                      title="Edit interface to disable auto NAT">→ iface</button>
+                      :title="$t('nat.editIfaceAuto')">→ {{$t("nat.iface")}}</button>
                   </template>
                   <!-- Manual rule: edit + delete -->
                   <template v-else>
                     <button @click="openNatRuleEdit(rule)"
                       class="text-blue-600 dark:text-blue-400"
                       style="background:none; border:none; cursor:pointer; padding:4px 6px; font-size:14px;"
-                      title="Edit rule">✎</button>
+                      :title="$t('nat.editRuleTip')">✎</button>
                     <button @click="deleteNatRule(rule)"
                       class="text-gray-400 dark:text-neutral-500 rounded transition"
                       style="background:none; border:none; cursor:pointer; padding:6px;"
-                      title="Delete rule"
+                      :title="$t('nat.deleteRuleTip')"
                       onmouseover="this.style.color='#dc2626'" onmouseout="this.style.color=''">
                       <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -157,9 +157,9 @@
             <div class="content-panel bg-white dark:bg-neutral-700 rounded-lg shadow" style="padding:16px 24px 24px;">
               <div class="flex items-center justify-between mb-2">
                 <div>
-                  <h2 class="text-lg font-semibold dark:text-neutral-100">Port Forwarding</h2>
+                  <h2 class="text-lg font-semibold dark:text-neutral-100">{{$t("nat.portForwarding")}}</h2>
                   <p class="text-sm text-gray-500 dark:text-neutral-400" style="margin-top:4px;">
-                    Redirect inbound traffic to another server (DNAT). Client → this server → destination.
+                    {{$t("nat.pfHint")}}
                   </p>
                 </div>
 
@@ -168,14 +168,14 @@
 
             <!-- Loading -->
             <div v-if="dnatLoading" class="text-sm text-gray-400 dark:text-neutral-400" style="padding:16px 0;">
-              Loading...
+              {{$t("common.loading")}}
             </div>
 
             <!-- Empty -->
             <div v-else-if="!dnatRules.length"
               class="content-panel bg-white dark:bg-neutral-700 rounded-lg shadow text-center text-gray-400 dark:text-neutral-400"
               style="padding:40px 0;">
-              No rules yet. Click "+ Add Rule" to forward a port to another server.
+              {{$t("nat.pfEmpty")}}
             </div>
 
             <!-- Rules table -->
@@ -183,14 +183,14 @@
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b dark:border-neutral-600 text-left text-gray-500 dark:text-neutral-400">
-                    <th class="px-4 py-3 font-medium">Name</th>
-                    <th class="px-4 py-3 font-medium">Protocol</th>
-                    <th class="px-4 py-3 font-medium">Interface</th>
-                    <th class="px-4 py-3 font-medium">In Port</th>
-                    <th class="px-4 py-3 font-medium">Destination</th>
-                    <th class="px-4 py-3 font-medium">Comment</th>
+                    <th class="px-4 py-3 font-medium">{{$t("common.name")}}</th>
+                    <th class="px-4 py-3 font-medium">{{$t("common.protocol")}}</th>
+                    <th class="px-4 py-3 font-medium">{{$t("common.interface")}}</th>
+                    <th class="px-4 py-3 font-medium">{{$t("nat.inPort")}}</th>
+                    <th class="px-4 py-3 font-medium">{{$t("common.destination")}}</th>
+                    <th class="px-4 py-3 font-medium">{{$t("common.comment")}}</th>
                     <th class="px-4 py-3 font-medium">SNAT</th>
-                    <th class="px-4 py-3 font-medium">Status</th>
+                    <th class="px-4 py-3 font-medium">{{$t("common.status")}}</th>
                     <th class="px-4 py-3 font-medium"></th>
                   </tr>
                 </thead>
@@ -210,7 +210,7 @@
                     </td>
                     <td class="px-4 py-3 dark:text-neutral-200 font-mono">{{ rule.inPort }}</td>
                     <td class="px-4 py-3 dark:text-neutral-200 font-mono">
-                      <span v-if="rule.dest && rule.dest !== rule.destIP" :title="'Resolved: ' + rule.destIP">{{ rule.dest }}</span>
+                      <span v-if="rule.dest && rule.dest !== rule.destIP" :title="$t('nat.resolved') + rule.destIP">{{ rule.dest }}</span>
                       <span v-else>{{ rule.destIP }}</span>
                       :{{ rule.destPort || rule.inPort }}
                       <span v-if="rule.dest && rule.dest !== rule.destIP" class="text-xs text-gray-400 dark:text-neutral-500 font-sans">({{ rule.destIP }})</span>
@@ -218,11 +218,11 @@
                     <td class="px-4 py-3 text-gray-500 dark:text-neutral-400 text-xs">{{ rule.comment }}</td>
                     <td class="px-4 py-3">
                       <span v-if="rule.masquerade"
-                        title="Source NAT enabled — replies route back through this server"
+                        :title="$t('nat.masqOn')"
                         class="ui-badge text-xs font-mono bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded px-2 py-1">
                         MASQ
                       </span>
-                      <span v-else title="Source NAT disabled" class="text-gray-300 dark:text-neutral-600 text-xs">—</span>
+                      <span v-else :title="$t('nat.masqOff')" class="text-gray-300 dark:text-neutral-600 text-xs">—</span>
                     </td>
                     <td class="px-4 py-3">
                       <span :class="rule.enabled ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-gray-100 text-gray-500 dark:bg-neutral-600 dark:text-neutral-400'"
@@ -235,17 +235,17 @@
                         <button @click="toggleDnat(rule)"
                           class="text-xs text-gray-500 dark:text-neutral-400 hover:text-blue-600"
                           style="padding:4px 8px; border:1px solid #d1d5db; border-radius:6px;">
-                          {{ rule.enabled ? 'Disable' : 'Enable' }}
+                          {{ rule.enabled ? $t('common.disable') : $t('common.enable') }}
                         </button>
                         <button @click="openEditDnat(rule)"
                           class="text-xs text-gray-500 dark:text-neutral-400 hover:text-blue-600"
                           style="padding:4px 8px; border:1px solid #d1d5db; border-radius:6px;">
-                          Edit
+                          {{$t("common.edit")}}
                         </button>
                         <button @click="deleteDnat(rule)"
                           class="text-xs text-red-500 hover:text-red-700"
                           style="padding:4px 8px; border:1px solid #fca5a5; border-radius:6px;">
-                          Delete
+                          {{$t("common.delete")}}
                         </button>
                       </div>
                     </td>
@@ -265,7 +265,7 @@
 
               <div class="modal-header">
                 <h3 class="text-lg font-semibold dark:text-neutral-100">
-                  {{ dnatEditMode ? 'Edit Rule' : 'Add Port Forwarding Rule' }}
+                  {{ dnatEditMode ? $t('nat.editRuleTitle') : $t('nat.addPfRule') }}
                 </h3>
                 <button @click="showDnatModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-neutral-200 text-xl leading-none">&times;</button>
               </div>
@@ -274,70 +274,70 @@
 
                 <!-- Name -->
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Name</label>
-                  <input v-model="dnatForm.name" type="text" placeholder="e.g. WireGuard RU→NL"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.name")}}</label>
+                  <input v-model="dnatForm.name" type="text" :placeholder="$t('nat.namePlaceholder')"
                     class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                     style="padding:8px 12px;">
                 </div>
 
                 <!-- Protocol -->
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Protocol</label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.protocol")}}</label>
                   <select v-model="dnatForm.protocol"
                     class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                     style="padding:8px 12px;">
                     <option value="udp">UDP</option>
                     <option value="tcp">TCP</option>
-                    <option value="both">Both (TCP + UDP)</option>
+                    <option value="both">{{$t("nat.both")}}</option>
                   </select>
                 </div>
 
                 <!-- Inbound Interface -->
                 <div>
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                    Inbound Interface
-                    <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional — any if empty)</span>
+                    {{$t("nat.inboundInterface")}}
+                    <span class="text-gray-400 dark:text-neutral-500 font-normal">({{$t("nat.optionalAnyEmpty")}})</span>
                   </label>
                   <select v-model="dnatForm.inInterface"
                     class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                     style="padding:8px 12px;">
-                    <option value="">— any interface —</option>
+                    <option value="">{{$t("nat.anyInterface")}}</option>
                     <option v-for="iface in natInterfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}</option>
                   </select>
                 </div>
 
                 <!-- In Port -->
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Incoming Port (on this server)</label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("nat.incomingPort")}}</label>
                   <input v-model="dnatForm.inPort" type="number" min="1" max="65535" placeholder="51820"
                     class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                     style="padding:8px 12px;">
                   <div v-if="dnatForm.inPort && !portInPool(dnatForm.inPort)"
                     style="margin-top:6px; padding:8px 10px; background:#fef9c3; border:1px solid #fde047; border-radius:6px; font-size:12px; color:#854d0e;">
-                    ⚠️ Port {{ dnatForm.inPort }} is outside your port pool
+                    ⚠️ {{$t("common.port")}} {{ dnatForm.inPort }} {{$t("nat.poolWarnOutside")}}
                     <strong>({{ globalSettings.portPool || '?' }})</strong>.
-                    In bridge network mode Docker won't forward this port to the container —
-                    the rule will be created but traffic may never arrive.
-                    In host mode this warning can be ignored.
+                    {{$t("nat.poolWarnBridge1")}}
+                    {{$t("nat.poolWarnBridge2")}}
+                    {{$t("nat.poolWarnHost")}}
                   </div>
                 </div>
 
                 <!-- Dest IP / FQDN -->
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Destination (IP or FQDN)</label>
-                  <input v-model="dnatForm.dest" type="text" placeholder="185.x.x.x or server.example.com"
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("nat.destinationLabel")}}</label>
+                  <input v-model="dnatForm.dest" type="text" :placeholder="$t('nat.destPlaceholder')"
                     class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                     style="padding:8px 12px;">
-                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">FQDN is resolved on save and re-checked every 5 minutes.</p>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("nat.fqdnHint")}}</p>
                 </div>
 
                 <!-- Dest Port -->
                 <div>
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                    Destination Port
-                    <span class="text-gray-400 dark:text-neutral-500 font-normal">(leave empty = same as incoming)</span>
+                    {{$t("nat.destPort")}}
+                    <span class="text-gray-400 dark:text-neutral-500 font-normal">({{$t("nat.leaveEmptySameIncoming")}})</span>
                   </label>
-                  <input v-model="dnatForm.destPort" type="number" min="1" max="65535" placeholder="same as incoming"
+                  <input v-model="dnatForm.destPort" type="number" min="1" max="65535" :placeholder="$t('nat.sameAsIncoming')"
                     class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                     style="padding:8px 12px;">
                 </div>
@@ -350,10 +350,10 @@
                     <span>
                       <span class="text-sm font-medium dark:text-neutral-200">Source NAT (Masquerade)</span>
                       <span class="block text-xs text-gray-500 dark:text-neutral-400" style="margin-top:2px;">
-                        Rewrites the source IP to this server's address so the destination replies back here.
-                        <strong>Enable</strong> when forwarding to a public internet server (e.g. RU→NL cascading).
-                        <strong>Disable</strong> only if the destination already routes replies through this server
-                        (e.g. hub-and-spoke WireGuard topology).
+                        {{$t("nat.masqHint1")}}
+                        <strong>{{$t("common.enable")}}</strong> {{$t("nat.masqHint2")}}
+                        <strong>{{$t("common.disable")}}</strong> {{$t("nat.masqHint3")}}
+                        {{$t("nat.masqHint4")}}
                       </span>
                     </span>
                   </label>
@@ -361,7 +361,7 @@
 
                 <!-- Comment -->
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Comment <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span></label>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">{{$t("common.comment")}} <span class="text-gray-400 dark:text-neutral-500 font-normal">({{$t("common.optional")}})</span></label>
                   <input v-model="dnatForm.comment" type="text" placeholder=""
                     class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                     style="padding:8px 12px;">
@@ -372,11 +372,11 @@
               <div class="modal-footer-compact">
                 <button @click="showDnatModal = false"
                   class="text-sm text-gray-500 dark:text-neutral-400"
-                  style="padding:8px 16px;">Cancel</button>
+                  style="padding:8px 16px;">{{$t("common.cancel")}}</button>
                 <button @click="saveDnat()"
                   class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg"
                   style="padding:8px 16px;">
-                  {{ dnatEditMode ? 'Save' : 'Create' }}
+                  {{ dnatEditMode ? $t('common.save') : $t('common.create') }}
                 </button>
               </div>
 
@@ -393,7 +393,7 @@
           <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-500">
             <!-- Header -->
             <div class="modal-header dark:border-neutral-600">
-              <h2 class="text-xl font-medium dark:text-neutral-200">Add NAT Rule</h2>
+              <h2 class="text-xl font-medium dark:text-neutral-200">{{$t("nat.addNatRule")}}</h2>
             </div>
 
             <!-- Body -->
@@ -401,22 +401,22 @@
 
               <!-- Name -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Rule Name *</label>
-                <input v-model="natRuleCreate.name" type="text" placeholder="e.g. VPN clients → internet"
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("nat.ruleName")}} *</label>
+                <input v-model="natRuleCreate.name" type="text" :placeholder="$t('nat.ruleNamePlaceholder')"
                   class="w-full mt-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
               </div>
 
               <!-- Source -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Source</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("common.source")}}</label>
                 <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px;">
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleCreate.sourceType" value="any" />
-                    Any (0.0.0.0/0)
+                    {{$t("nat.any")}} (0.0.0.0/0)
                   </label>
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleCreate.sourceType" value="subnet" />
-                    Subnet (CIDR)
+                    {{$t("common.subnet")}} (CIDR)
                     <input v-if="natRuleCreate.sourceType === 'subnet'"
                       v-model="natRuleCreate.sourceValue"
                       type="text" placeholder="e.g. 10.8.0.0/24"
@@ -425,7 +425,7 @@
                   </label>
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleCreate.sourceType" value="ip" />
-                    Single IP
+                    {{$t("nat.singleIp")}}
                     <input v-if="natRuleCreate.sourceType === 'ip'"
                       v-model="natRuleCreate.sourceValue"
                       type="text" placeholder="e.g. 10.8.0.5"
@@ -434,12 +434,12 @@
                   </label>
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleCreate.sourceType" value="alias" />
-                    Alias
+                    {{$t("common.alias")}}
                     <select v-if="natRuleCreate.sourceType === 'alias'"
                       v-model="natRuleCreate.sourceAliasId"
                       class="border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-2 py-1 text-sm"
                       style="min-width:160px;">
-                      <option value="">— select alias —</option>
+                      <option value="">{{$t("fw.selectAlias")}}</option>
                       <option v-for="a in _natIpAliases()" :key="a.id" :value="a.id">{{ a.name }}</option>
                     </select>
                   </label>
@@ -448,7 +448,7 @@
 
               <!-- Outbound Interface -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Outbound Interface *</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("nat.outboundInterface")}} *</label>
                 <select v-model="natRuleCreate.outInterface"
                   class="w-full mt-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
                   <option v-for="iface in natInterfaces" :key="iface.name" :value="iface.name">
@@ -459,20 +459,20 @@
 
               <!-- NAT Type -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">NAT Type *</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("nat.natType")}} *</label>
                 <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleCreate.type" value="MASQUERADE" />
                     <div>
                       <span class="font-medium">MASQUERADE</span>
-                      <span class="text-gray-400 dark:text-neutral-500 text-xs ml-2">— auto IP of outbound interface</span>
+                      <span class="text-gray-400 dark:text-neutral-500 text-xs ml-2">{{$t("nat.masqAutoHint")}}</span>
                     </div>
                   </label>
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleCreate.type" value="SNAT" />
                     <div class="flex items-center gap-2">
                       <span class="font-medium">SNAT</span>
-                      <span class="text-gray-400 dark:text-neutral-500 text-xs">→ to IP:</span>
+                      <span class="text-gray-400 dark:text-neutral-500 text-xs">→ {{$t("nat.toIp")}}</span>
                       <input v-if="natRuleCreate.type === 'SNAT'"
                         v-model="natRuleCreate.toSource"
                         type="text" placeholder="e.g. 1.2.3.4"
@@ -485,8 +485,8 @@
 
               <!-- Comment -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Comment <span class="text-gray-400 font-normal">(optional)</span></label>
-                <input v-model="natRuleCreate.comment" type="text" placeholder="Optional description"
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("common.comment")}} <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span></label>
+                <input v-model="natRuleCreate.comment" type="text" :placeholder="$t('nat.commentPlaceholder')"
                   class="w-full mt-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
               </div>
 
@@ -496,11 +496,11 @@
             <div class="modal-footer-compact dark:border-neutral-600">
               <button @click="showNatRuleCreate = false"
                 class="px-4 py-2 rounded text-sm border border-gray-300 dark:border-neutral-500 dark:text-neutral-300">
-                Cancel
+                {{$t("common.cancel")}}
               </button>
               <button @click="createNatRule"
                 class="px-4 py-2 bg-green-600 text-white rounded text-sm font-medium">
-                Create Rule
+                {{$t("fw.createRule")}}
               </button>
             </div>
           </div>
@@ -514,7 +514,7 @@
           <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-500">
             <!-- Header -->
             <div class="modal-header dark:border-neutral-600">
-              <h2 class="text-xl font-medium dark:text-neutral-200">Edit NAT Rule</h2>
+              <h2 class="text-xl font-medium dark:text-neutral-200">{{$t("nat.editNatRule")}}</h2>
             </div>
 
             <!-- Body -->
@@ -522,22 +522,22 @@
 
               <!-- Name -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Rule Name *</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("nat.ruleName")}} *</label>
                 <input v-model="natRuleEdit.name" type="text"
                   class="w-full mt-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
               </div>
 
               <!-- Source -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Source</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("common.source")}}</label>
                 <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px;">
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleEdit.sourceType" value="any" />
-                    Any (0.0.0.0/0)
+                    {{$t("nat.any")}} (0.0.0.0/0)
                   </label>
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleEdit.sourceType" value="subnet" />
-                    Subnet (CIDR)
+                    {{$t("common.subnet")}} (CIDR)
                     <input v-if="natRuleEdit.sourceType === 'subnet'"
                       v-model="natRuleEdit.sourceValue"
                       type="text" placeholder="e.g. 10.8.0.0/24"
@@ -546,7 +546,7 @@
                   </label>
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleEdit.sourceType" value="ip" />
-                    Single IP
+                    {{$t("nat.singleIp")}}
                     <input v-if="natRuleEdit.sourceType === 'ip'"
                       v-model="natRuleEdit.sourceValue"
                       type="text" placeholder="e.g. 10.8.0.5"
@@ -555,12 +555,12 @@
                   </label>
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleEdit.sourceType" value="alias" />
-                    Alias
+                    {{$t("common.alias")}}
                     <select v-if="natRuleEdit.sourceType === 'alias'"
                       v-model="natRuleEdit.sourceAliasId"
                       class="border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-2 py-1 text-sm"
                       style="min-width:160px;">
-                      <option value="">— select alias —</option>
+                      <option value="">{{$t("fw.selectAlias")}}</option>
                       <option v-for="a in _natIpAliases()" :key="a.id" :value="a.id">{{ a.name }}</option>
                     </select>
                   </label>
@@ -569,7 +569,7 @@
 
               <!-- Outbound Interface -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Outbound Interface *</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("nat.outboundInterface")}} *</label>
                 <select v-model="natRuleEdit.outInterface"
                   class="w-full mt-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
                   <option v-for="iface in natInterfaces" :key="iface.name" :value="iface.name">
@@ -580,20 +580,20 @@
 
               <!-- NAT Type -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">NAT Type *</label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("nat.natType")}} *</label>
                 <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleEdit.type" value="MASQUERADE" />
                     <div>
                       <span class="font-medium">MASQUERADE</span>
-                      <span class="text-gray-400 dark:text-neutral-500 text-xs ml-2">— auto IP of outbound interface</span>
+                      <span class="text-gray-400 dark:text-neutral-500 text-xs ml-2">{{$t("nat.masqAutoHint")}}</span>
                     </div>
                   </label>
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleEdit.type" value="SNAT" />
                     <div class="flex items-center gap-2">
                       <span class="font-medium">SNAT</span>
-                      <span class="text-gray-400 dark:text-neutral-500 text-xs">→ to IP:</span>
+                      <span class="text-gray-400 dark:text-neutral-500 text-xs">→ {{$t("nat.toIp")}}</span>
                       <input v-if="natRuleEdit.type === 'SNAT'"
                         v-model="natRuleEdit.toSource"
                         type="text" placeholder="e.g. 1.2.3.4"
@@ -606,7 +606,7 @@
 
               <!-- Comment -->
               <div>
-                <label class="text-sm font-medium dark:text-neutral-300">Comment <span class="text-gray-400 font-normal">(optional)</span></label>
+                <label class="text-sm font-medium dark:text-neutral-300">{{$t("common.comment")}} <span class="text-gray-400 font-normal">({{$t("common.optional")}})</span></label>
                 <input v-model="natRuleEdit.comment" type="text"
                   class="w-full mt-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
               </div>
@@ -617,11 +617,11 @@
             <div class="modal-footer-compact dark:border-neutral-600">
               <button @click="showNatRuleEdit = false"
                 class="px-4 py-2 rounded text-sm border border-gray-300 dark:border-neutral-500 dark:text-neutral-300">
-                Cancel
+                {{$t("common.cancel")}}
               </button>
               <button @click="saveNatRule"
                 class="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium">
-                Save Changes
+                {{$t("common.saveChanges")}}
               </button>
             </div>
           </div>

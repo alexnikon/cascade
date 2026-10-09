@@ -129,7 +129,7 @@ async _refreshPeersNow(_options = {}, interfaceId = this.activeInterfaceId) {
         this.selectedPeersLoaded = true;
       } catch (err) {
         if (seq !== this.peerRefreshSeq || interfaceId !== this.activeInterfaceId) return;
-        this.selectedPeersError = 'Failed to load peers.';
+        this.selectedPeersError = this.$t('toast.peersLoadFailed');
         console.error('refreshPeers failed:', err);
       } finally {
         if (seq === this.peerRefreshSeq && interfaceId === this.activeInterfaceId) {
@@ -207,7 +207,7 @@ async _refreshAllPeersNow(_options = {}, remoteKey = this.activeRemoteId || 'loc
         this.allPeersLoaded = true;
       } catch (err) {
         if (seq !== this.allPeerRefreshSeq || remoteKey !== (this.activeRemoteId || 'local')) return;
-        this.allPeersError = 'Failed to load peers.';
+        this.allPeersError = this.$t('toast.peersLoadFailed');
         console.error('refreshAllPeers failed:', err);
       } finally {
         if (seq === this.allPeerRefreshSeq && remoteKey === (this.activeRemoteId || 'local')) {
