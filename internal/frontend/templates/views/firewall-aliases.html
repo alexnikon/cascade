@@ -495,12 +495,18 @@
                 <div class="mb-2">
                   <label class="block text-xs font-medium dark:text-neutral-300 mb-1">{{$t("alias.excludePrecision")}}</label>
                   <select v-model.number="aliasEdit.genGranularity"
+                    @change="loadAliasRoutePreview(aliasEdit, aliasEdit.genGranularity)"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
                     <option :value="0">{{$t("alias.precisionExact")}}</option>
                     <option :value="18">{{$t("alias.precision18")}}</option>
                     <option :value="16">{{$t("alias.precision16")}}</option>
                     <option :value="14">{{$t("alias.precision14")}}</option>
                   </select>
+                  <p v-if="aliasRoutePreview && aliasRoutePreview.aliasId === aliasEdit.id"
+                    class="text-xs font-medium text-blue-600 dark:text-blue-400 mt-1">
+                    {{$t("alias.excludePreview", { routes: aliasRoutePreview.routes, size: Math.max(1, Math.round(aliasRoutePreview.bytes / 1024)) })}}
+                  </p>
+                  <p v-else-if="aliasRoutePreviewLoading" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("alias.excludePreviewLoading")}}</p>
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{$t("alias.excludePrecisionHint")}}</p>
                 </div>
                 <button @click="startAliasGenerate(aliasEdit)"

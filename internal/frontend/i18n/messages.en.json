@@ -28,6 +28,8 @@
   "alias.exact": "Exact:",
   "alias.excludePrecision": "Client route precision",
   "alias.excludePrecisionHint": "Used only when this alias excludes traffic from the client tunnel: prefixes are rounded outward to this block size, which shrinks the client config a lot at the cost of also routing a little neighbouring address space directly. The alias itself keeps the exact prefixes, so firewall rules stay precise. \"Exact\" produces a very large config for a country-sized list.",
+  "alias.excludePreview": "Routes sent to clients: {routes} ({size} KiB)",
+  "alias.excludePreviewLoading": "Calculating…",
   "alias.formatPrefix": "Format:",
   "alias.formatRanges": ", ranges like",
   "alias.generateAfter": "Generate after creation (optional)",

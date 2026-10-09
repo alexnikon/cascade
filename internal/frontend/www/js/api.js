@@ -976,15 +976,27 @@ export class API {
 
   /**
    * Start ipset generation through PrefixFetcher (async job).
-   * @param {{ id: string, country?, asn?, asnList? }}
+   * `clientGranularity` is stored with the alias and only affects the routes
+   * built for clients that exclude this alias.
+   * @param {{ id: string, country?, asn?, asnList?, clientGranularity? }}
    * @returns {{ jobId: string }}
    */
-  async generateAlias({ id, country, asn, asnList }) {
+  async generateAlias({ id, country, asn, asnList, clientGranularity }) {
     return this.call({
       method: 'post',
       path: `/aliases/${id}/generate`,
-      body: { country, asn, asnList },
+      body: { country, asn, asnList, clientGranularity },
     });
+  }
+
+  /**
+   * Preview the routes a client receives when it excludes this alias.
+   * @param {{ id: string, granularity?: number }}
+   * @returns {{ routes: number, bytes: number }}
+   */
+  async getAliasClientRoutes({ id, granularity }) {
+    const query = granularity ? `?granularity=${encodeURIComponent(granularity)}` : '';
+    return this.call({ method: 'get', path: `/aliases/${id}/client-routes${query}` });
   }
 
   /**

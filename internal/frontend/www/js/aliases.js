@@ -269,6 +269,7 @@ async openAliasEdit(alias) {
       const found = code ? this.countries.find(c => c.code === code.toUpperCase()) : null;
       this.countrySearch = found ? found.name + ' (' + found.code + ')' : '';
       this.showAliasEdit = true;
+      this.loadAliasRoutePreview(alias, this.aliasEdit.genGranularity);
 
       // For small manually-entered ipsets: pre-populate textarea from kernel.
       // Criteria: no generatorOpts (not generated) AND entryCount <= 200.
@@ -378,6 +379,26 @@ async startAliasGenerateCreate(aliasId) {
         asn: this.aliasCreate.genAsn,
         asnList: this.aliasCreate.genAsnList,
       });
+    },
+
+// Preview the routes a client receives when it excludes this alias, so the
+    // precision can be judged before saving a peer. A failed preview must never
+    // block editing the alias, hence the swallow.
+    async loadAliasRoutePreview(alias, granularity) {
+      if (!alias || alias.type !== 'ipset') {
+        this.aliasRoutePreview = null;
+        return;
+      }
+      const g = granularity ?? 0;
+      this.aliasRoutePreviewLoading = true;
+      try {
+        const res = await this.api.getAliasClientRoutes({ id: alias.id, granularity: g });
+        this.aliasRoutePreview = { aliasId: alias.id, routes: res.routes, bytes: res.bytes };
+      } catch (err) {
+        this.aliasRoutePreview = null;
+      } finally {
+        this.aliasRoutePreviewLoading = false;
+      }
     },
 
 // Re-run the stored generator for an alias sourced from RIPEstat, so its

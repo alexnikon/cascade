@@ -11,12 +11,14 @@
 //	POST   /api/aliases/:id/generate         ← start async generation job, returns { jobId }
 //	GET    /api/aliases/:id/generate/:jobId  ← poll job status { status, entryCount?, error? }
 //	POST   /api/aliases/:id/refresh          ← re-resolve a domain alias now
+//	GET    /api/aliases/:id/client-routes    ← preview routes pushed to an excluding client
 package api
 
 import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -45,6 +47,7 @@ func RegisterAliases(api fiber.Router) {
 	g.Post("/:id/generate", generateAlias)
 	g.Get("/:id/generate/:jobId", getAliasJobStatus)
 	g.Post("/:id/refresh", refreshAlias)
+	g.Get("/:id/client-routes", getAliasClientRoutes)
 }
 
 // GET /api/aliases
@@ -215,6 +218,29 @@ func refreshAlias(c *fiber.Ctx) error {
 	}
 	r.Refresh(a.ID)
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// GET /api/aliases/:id/client-routes[?granularity=N]
+// Reports how many routes and bytes a client would receive if it excluded this
+// alias from its tunnel, so the precision can be judged before saving a peer.
+// granularity overrides the alias's stored rounding; 0 means exact.
+func getAliasClientRoutes(c *fiber.Ctx) error {
+	granularity := 0
+	if v := strings.TrimSpace(c.Query("granularity")); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 || n > 32 {
+			return fiber.NewError(fiber.StatusBadRequest, "granularity must be an integer between 0 and 32")
+		}
+		granularity = n
+	}
+	routes, err := aliases.Get().ClientAllowedIPsAt(c.Params("id"), granularity)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	}
+	return c.JSON(fiber.Map{
+		"routes": strings.Count(routes, ",") + 1,
+		"bytes":  len(routes),
+	})
 }
 
 // attachDomainStatus decorates a domain alias with the resolver's in-memory

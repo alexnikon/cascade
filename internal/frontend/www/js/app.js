@@ -697,6 +697,8 @@ new Vue({
     aliasGeneratingId: null,    // Alias ID currently being generated
     aliasGenerateJobId: null,
     aliasGenerateJobStatus: null,
+    aliasRoutePreview: null,    // { aliasId, routes, bytes } for the exclude-mode preview
+    aliasRoutePreviewLoading: false,
     aliasTooltip: null,         // { id, alias, x, y } — hover tooltip state
     aliasDomainOpenId: '',      // domain alias whose runtime details row is expanded
     aliasRefreshingId: '',      // domain alias whose manual DNS refresh is in flight

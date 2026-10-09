@@ -30,6 +30,27 @@ func (m *Manager) ClientAllowedIPs(id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	granularity := 0
+	if a.GeneratorOpts != nil {
+		granularity = a.GeneratorOpts.ClientGranularity
+	}
+	return m.clientAllowedIPs(a, granularity)
+}
+
+// ClientAllowedIPsAt is ClientAllowedIPs with an explicit rounding override, so
+// the UI can preview what a different precision would cost before committing.
+func (m *Manager) ClientAllowedIPsAt(id string, granularity int) (string, error) {
+	if id == "" {
+		return "", fmt.Errorf("select an ipset alias")
+	}
+	a, err := m.getOrNotFound(id)
+	if err != nil {
+		return "", err
+	}
+	return m.clientAllowedIPs(a, granularity)
+}
+
+func (m *Manager) clientAllowedIPs(a *Alias, granularity int) (string, error) {
 	if a.Type != "ipset" {
 		return "", fmt.Errorf("alias %q must be of type ipset", a.Name)
 	}
@@ -38,9 +59,9 @@ func (m *Manager) ClientAllowedIPs(id string) (string, error) {
 		return "", fmt.Errorf("alias %q: %w", a.Name, err)
 	}
 	// A generated country/ASN alias is far too granular to use as a client
-	// exclusion verbatim; round it outward if the alias asks for it.
-	if a.GeneratorOpts != nil && a.GeneratorOpts.ClientGranularity > 0 {
-		entries, err = ipset.CoarsenPrefixes(entries, a.GeneratorOpts.ClientGranularity)
+	// exclusion verbatim; round it outward when the alias asks for it.
+	if granularity > 0 {
+		entries, err = ipset.CoarsenPrefixes(entries, granularity)
 		if err != nil {
 			return "", fmt.Errorf("alias %q: %w", a.Name, err)
 		}
