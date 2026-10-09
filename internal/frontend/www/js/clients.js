@@ -2,13 +2,18 @@
  * Clients feature methods for the Vue 2 application.
  * Methods intentionally operate on the Vue instance passed as this.
  */
-import { sortByProperty } from './utils.js';
+import { sortByProperty, updateTransferRates } from './utils.js';
 
 export const clientMethods = {
 async refresh() {
       if (!this.authenticated) return;
 
+      const remoteKey = this.activeRemoteId || 'local';
+      const seq = (this.clientRefreshSeq || 0) + 1;
+      this.clientRefreshSeq = seq;
       const clients = await this.api.getClients();
+      if (seq !== this.clientRefreshSeq || remoteKey !== (this.activeRemoteId || 'local')) return;
+      const sampledAt = performance.now();
       this.clients = clients.map((client) => {
         if (client.name.includes('@') && client.name.includes('.') && this.avatarSettings.gravatar) {
           client.avatar = `https://gravatar.com/avatar/${sha256(client.name.toLowerCase().trim())}.jpg`;
@@ -18,17 +23,10 @@ async refresh() {
 
         if (!this.clientsPersist[client.id]) {
           this.clientsPersist[client.id] = {};
-          this.clientsPersist[client.id].transferRxPrevious = client.transferRx;
-          this.clientsPersist[client.id].transferTxPrevious = client.transferTx;
         }
 
-        this.clientsPersist[client.id].transferRxCurrent = client.transferRx - this.clientsPersist[client.id].transferRxPrevious;
-        this.clientsPersist[client.id].transferRxPrevious = client.transferRx;
-        this.clientsPersist[client.id].transferTxCurrent = client.transferTx - this.clientsPersist[client.id].transferTxPrevious;
-        this.clientsPersist[client.id].transferTxPrevious = client.transferTx;
-
-        client.transferTxCurrent = this.clientsPersist[client.id].transferTxCurrent;
-        client.transferRxCurrent = this.clientsPersist[client.id].transferRxCurrent;
+        updateTransferRates(this.clientsPersist[client.id], client,
+          JSON.stringify([remoteKey, client.interfaceId || 'admin']), sampledAt);
 
         client.hoverTx = this.clientsPersist[client.id].hoverTx;
         client.hoverRx = this.clientsPersist[client.id].hoverRx;

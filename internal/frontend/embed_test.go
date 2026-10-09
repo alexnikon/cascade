@@ -155,7 +155,7 @@ func TestFrontendAppUsesNativeModules(t *testing.T) {
 func TestFrontendRefreshPathsHaveRuntimeGuards(t *testing.T) {
 	app := readFrontendJavaScript(t)
 	for _, expected := range []string{
-		"this.refreshPeersPromiseKey === interfaceId",
+		"this.refreshPeersPromiseKey === requestKey",
 		"this.refreshAllPeersPromiseKey === remoteKey",
 		"this.peerRefreshSeq",
 		"this.allPeerRefreshSeq",

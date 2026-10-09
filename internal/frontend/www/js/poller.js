@@ -2,6 +2,7 @@
  * Poller feature methods for the Vue 2 application.
  * Methods intentionally operate on the Vue instance passed as this.
  */
+import { updateTransferRates } from './utils.js';
 export const pollerMethods = {
 startResourcePoller() {
       if (!this._resourceVisibilityHandler) {
@@ -60,14 +61,15 @@ async resourcePollTick() {
 async refreshPeers(options = {}) {
       const interfaceId = this.activeInterfaceId;
       if (!interfaceId) return;
-      if (this.refreshPeersPromise && this.refreshPeersPromiseKey === interfaceId) {
+      const requestKey = JSON.stringify([this.activeRemoteId || 'local', interfaceId]);
+      if (this.refreshPeersPromise && this.refreshPeersPromiseKey === requestKey) {
         this.resourcePollSkipped += 1;
         return this.refreshPeersPromise;
       }
 
       const promise = this._refreshPeersNow(options, interfaceId);
       this.refreshPeersPromise = promise;
-      this.refreshPeersPromiseKey = interfaceId;
+      this.refreshPeersPromiseKey = requestKey;
       try {
         return await promise;
       } finally {
@@ -80,6 +82,7 @@ async refreshPeers(options = {}) {
 
 async _refreshPeersNow(_options = {}, interfaceId = this.activeInterfaceId) {
       if (!this.authenticated || !interfaceId) return;
+      const remoteKey = this.activeRemoteId || 'local';
 
       const seq = (this.peerRefreshSeq || 0) + 1;
       this.peerRefreshSeq = seq;
@@ -88,6 +91,9 @@ async _refreshPeersNow(_options = {}, interfaceId = this.activeInterfaceId) {
 
       try {
         const res = await this.api.getTunnelInterfacePeers({ interfaceId });
+        if (seq !== this.peerRefreshSeq || interfaceId !== this.activeInterfaceId ||
+            remoteKey !== (this.activeRemoteId || 'local')) return;
+        const sampledAt = performance.now();
         const peers = (res.peers || []).map(peer => {
           // Tag with interfaceId so actions work from dashboard too
           peer.interfaceId = interfaceId;
@@ -106,33 +112,26 @@ async _refreshPeersNow(_options = {}, interfaceId = this.activeInterfaceId) {
           // Transfer stats persistence for current-rate display.
           if (!this.peersPersist[peer.id]) {
             this.peersPersist[peer.id] = {};
-            this.peersPersist[peer.id].transferRxPrevious = peer.transferRx || 0;
-            this.peersPersist[peer.id].transferTxPrevious = peer.transferTx || 0;
           }
 
           const pp = this.peersPersist[peer.id];
-          pp.transferRxCurrent = (peer.transferRx || 0) - pp.transferRxPrevious;
-          pp.transferRxPrevious = peer.transferRx || 0;
-          pp.transferTxCurrent = (peer.transferTx || 0) - pp.transferTxPrevious;
-          pp.transferTxPrevious = peer.transferTx || 0;
-
-          peer.transferTxCurrent = pp.transferTxCurrent;
-          peer.transferRxCurrent = pp.transferRxCurrent;
+          updateTransferRates(pp, peer, JSON.stringify([remoteKey, interfaceId]), sampledAt);
           peer.hoverTx = pp.hoverTx;
           peer.hoverRx = pp.hoverRx;
 
           return peer;
         });
 
-        if (seq !== this.peerRefreshSeq || interfaceId !== this.activeInterfaceId) return;
         this.selectedInterfacePeers = peers;
         this.selectedPeersLoaded = true;
       } catch (err) {
-        if (seq !== this.peerRefreshSeq || interfaceId !== this.activeInterfaceId) return;
+        if (seq !== this.peerRefreshSeq || interfaceId !== this.activeInterfaceId ||
+            remoteKey !== (this.activeRemoteId || 'local')) return;
         this.selectedPeersError = 'Failed to load peers.';
         console.error('refreshPeers failed:', err);
       } finally {
-        if (seq === this.peerRefreshSeq && interfaceId === this.activeInterfaceId) {
+        if (seq === this.peerRefreshSeq && interfaceId === this.activeInterfaceId &&
+            remoteKey === (this.activeRemoteId || 'local')) {
           this.selectedPeersLoading = false;
         }
       }
@@ -172,6 +171,8 @@ async _refreshAllPeersNow(_options = {}, remoteKey = this.activeRemoteId || 'loc
       this.allPeersError = '';
       try {
         const res = await this.api.getAllTunnelPeers();
+        if (seq !== this.allPeerRefreshSeq || remoteKey !== (this.activeRemoteId || 'local')) return;
+        const sampledAt = performance.now();
         const all = (res.peers || []).map(peer => {
           peer.interfaceName = peer.interfaceName || peer.interfaceId;
 
@@ -186,23 +187,14 @@ async _refreshAllPeersNow(_options = {}, remoteKey = this.activeRemoteId || 'loc
 
           if (!this.peersPersist[peer.id]) {
             this.peersPersist[peer.id] = {};
-            this.peersPersist[peer.id].transferRxPrevious = peer.transferRx || 0;
-            this.peersPersist[peer.id].transferTxPrevious = peer.transferTx || 0;
           }
           const pp = this.peersPersist[peer.id];
-          pp.transferRxCurrent = (peer.transferRx || 0) - pp.transferRxPrevious;
-          pp.transferRxPrevious = peer.transferRx || 0;
-          pp.transferTxCurrent = (peer.transferTx || 0) - pp.transferTxPrevious;
-          pp.transferTxPrevious = peer.transferTx || 0;
-
-          peer.transferTxCurrent = pp.transferTxCurrent;
-          peer.transferRxCurrent = pp.transferRxCurrent;
+          updateTransferRates(pp, peer, JSON.stringify([remoteKey, peer.interfaceId]), sampledAt);
           peer.hoverTx = pp.hoverTx;
           peer.hoverRx = pp.hoverRx;
 
           return peer;
         });
-        if (seq !== this.allPeerRefreshSeq || remoteKey !== (this.activeRemoteId || 'local')) return;
         this.allPeers = all;
         this.allPeersLoaded = true;
       } catch (err) {
