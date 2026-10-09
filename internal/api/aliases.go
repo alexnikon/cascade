@@ -237,9 +237,21 @@ func getAliasClientRoutes(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
+	// Report only the IPv4 routes. The complement helper appends an IPv6
+	// default route, but the config generator drops it for interfaces that
+	// carry no IPv6, so counting it here would overstate what the client
+	// actually receives.
+	var kept []string
+	for _, part := range strings.Split(routes, ",") {
+		text := strings.TrimSpace(part)
+		if text == "" || strings.Contains(text, ":") {
+			continue
+		}
+		kept = append(kept, text)
+	}
 	return c.JSON(fiber.Map{
-		"routes": strings.Count(routes, ",") + 1,
-		"bytes":  len(routes),
+		"routes": len(kept),
+		"bytes":  len(strings.Join(kept, ", ")),
 	})
 }
 
