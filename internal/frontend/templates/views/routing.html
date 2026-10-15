@@ -72,7 +72,7 @@
               <!-- Table selector -->
               <div class="flex items-center gap-3 mb-4">
                 <h3 class="font-semibold dark:text-neutral-200">Kernel Routes</h3>
-                <select v-model="routingTable" @change="loadKernelRoutes"
+                <select v-content-select v-model="routingTable" @change="loadKernelRoutes"
                   class="border border-gray-300 dark:bg-neutral-700 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-1 text-sm">
                   <option v-for="t in routingTables" :key="t.name" :value="t.name">
                     {{ t.name }}{{ t.id !== null ? ' (' + t.id + ')' : '' }}
@@ -98,24 +98,23 @@
               </div>
 
               <!-- Routes table -->
-              <div v-if="kernelRoutes.length > 0" style="overflow-x:auto;">
-                <table class="w-full text-sm text-left" style="border-collapse:collapse;">
+              <div v-if="kernelRoutes.length > 0" class="kernel-routes-table-scroll">
+                <table class="kernel-routes-table w-full text-sm text-left">
                   <thead>
                     <tr style="border-bottom:1px solid var(--list-separator);">
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Destination</th>
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Gateway</th>
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Interface</th>
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Protocol</th>
-                      <th class="font-semibold text-gray-600 dark:text-neutral-400 text-xs" class="tc-dense" style="padding-bottom:8px;">Metric</th>
+                      <th scope="col" class="font-semibold text-gray-600 dark:text-neutral-400 text-xs tc-dense">Destination</th>
+                      <th scope="col" class="font-semibold text-gray-600 dark:text-neutral-400 text-xs tc-dense">Gateway</th>
+                      <th scope="col" class="font-semibold text-gray-600 dark:text-neutral-400 text-xs tc-dense">Interface</th>
+                      <th scope="col" class="font-semibold text-gray-600 dark:text-neutral-400 text-xs tc-dense">Protocol</th>
+                      <th scope="col" class="font-semibold text-gray-600 dark:text-neutral-400 text-xs tc-dense">Metric</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="(r, idx) in kernelRoutes" :key="idx"
-                      :style="idx % 2 === 0 ? '' : 'background:rgba(0,0,0,0.02);'"
                       style="border-bottom:1px solid var(--list-separator);">
-                      <td class="font-mono dark:text-neutral-200" class="tc-dense">{{ r.dst || 'default' }}</td>
-                      <td class="font-mono text-gray-600 dark:text-neutral-400" class="tc-dense">{{ r.gateway || '—' }}</td>
-                      <td class="font-mono text-gray-600 dark:text-neutral-400" class="tc-dense">{{ r.dev || '—' }}</td>
+                      <td class="font-mono dark:text-neutral-200 tc-dense">{{ r.dst || 'default' }}</td>
+                      <td class="font-mono text-gray-600 dark:text-neutral-400 tc-dense">{{ r.gateway || '—' }}</td>
+                      <td class="font-mono text-gray-600 dark:text-neutral-400 tc-dense">{{ r.dev || '—' }}</td>
                       <td class="tc-dense">
                         <span class="ui-badge rounded-full text-xs font-medium"
                           style="padding:2px 8px; display:inline-block;"
@@ -127,7 +126,7 @@
                           {{ r.protocol || '—' }}
                         </span>
                       </td>
-                      <td class="text-gray-500 dark:text-neutral-500" class="tc-dense">{{ r.metric !== undefined ? r.metric : '—' }}</td>
+                      <td class="text-gray-500 dark:text-neutral-500 tc-dense">{{ r.metric !== undefined ? r.metric : '—' }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -179,7 +178,7 @@
                 <span class="shrink-0" style="min-width:130px;">
                   <!-- Gateway Group badge -->
                   <span class="ui-badge" v-if="route.gatewayGroupId"
-                    style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;background:#fde68a;color:#92400e;font-size:12px;">
+                    style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;background:var(--badge-orange-bg);color:var(--badge-orange-text);font-size:12px;">
                     <svg style="width:10px;height:10px;" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-1a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v1h-3zM4.75 14.094A5.973 5.973 0 004 17v1H1v-1a3 3 0 013.75-2.906z"/>
                     </svg>
@@ -187,7 +186,7 @@
                   </span>
                   <!-- Gateway badge -->
                   <span class="ui-badge" v-else-if="route.gatewayId"
-                    style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;background:#bbf7d0;color:#065f46;font-size:12px;">
+                    style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;background:var(--badge-green-bg);color:var(--badge-green-text);font-size:12px;">
                     <svg style="width:10px;height:10px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
                     </svg>
@@ -208,7 +207,7 @@
 
                 <!-- Table -->
                 <span class="ui-badge text-xs rounded-full shrink-0"
-                  style="padding:2px 8px; background:#e0e7ff; color:#3730a3;">
+                  style="padding:2px 8px; background:var(--badge-indigo-bg); color:var(--badge-indigo-text);">
                   {{ route.table || 'main' }}
                 </span>
 
@@ -224,7 +223,7 @@
                 </button>
                 <!-- Delete button -->
                 <button @click="deleteRoute(route.id)"
-                  class="button-danger shrink-0 rounded transition"
+                  class="button-danger icon-delete shrink-0 rounded transition"
                   style="border:none; cursor:pointer; padding:6px;"
                   title="Delete route">
                   <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -303,7 +302,7 @@
                 </div>
                 <div>
                   <label class="text-sm font-medium dark:text-neutral-300">Interface (dev, optional)</label>
-                  <select v-model="routeCreate.dev"
+                  <select v-content-select v-model="routeCreate.dev"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                     <option value="">— not specified —</option>
                     <option v-for="iface in natInterfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}</option>
@@ -314,7 +313,7 @@
               <!-- Gateway selector -->
               <div v-if="routeCreate.viaMode === 'gateway'">
                 <label class="text-sm font-medium dark:text-neutral-300">Gateway *</label>
-                <select v-model="routeCreate.gatewayId"
+                <select v-content-select v-model="routeCreate.gatewayId"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                   <option value="">— select gateway —</option>
                   <option v-for="gw in gateways" :key="gw.id" :value="gw.id">
@@ -329,7 +328,7 @@
               <!-- Gateway Group selector -->
               <div v-if="routeCreate.viaMode === 'group'">
                 <label class="text-sm font-medium dark:text-neutral-300">Gateway Group * <span class="text-yellow-600 dark:text-yellow-400">(failover)</span></label>
-                <select v-model="routeCreate.gatewayGroupId"
+                <select v-content-select v-model="routeCreate.gatewayGroupId"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                   <option value="">— select group —</option>
                   <option v-for="grp in gatewayGroups" :key="grp.id" :value="grp.id">
@@ -350,7 +349,7 @@
                 </div>
                 <div style="flex:1;">
                   <label class="text-sm font-medium dark:text-neutral-300">Table</label>
-                  <select v-if="routingTables.length > 0" v-model="routeCreate.table"
+                  <select v-content-select v-if="routingTables.length > 0" v-model="routeCreate.table"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                     <option v-for="t in routingTables.filter(t => t.name !== 'all')" :key="t.name" :value="t.name">
                       {{ t.name }}{{ t.id !== null ? ' (' + t.id + ')' : '' }}
@@ -371,7 +370,7 @@
               <!-- Buttons -->
               <div class="flex gap-2" style="justify-content:flex-end;">
                 <button @click="showRouteCreate = false"
-                  class="px-4 py-2 bg-gray-200 dark:bg-neutral-600 dark:text-neutral-200 rounded text-sm font-medium transition">
+                  class="px-4 py-2 bg-gray-200 dark:bg-neutral-600 dark:text-neutral-200 rounded text-sm font-medium transition modal-action modal-action-cancel">
                   Cancel
                 </button>
                 <button @click="createRoute"
@@ -435,7 +434,7 @@
                 </div>
                 <div>
                   <label class="text-sm font-medium dark:text-neutral-300">Interface (dev, optional)</label>
-                  <select v-model="routeEdit.dev"
+                  <select v-content-select v-model="routeEdit.dev"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                     <option value="">— not specified —</option>
                     <option v-for="iface in natInterfaces" :key="iface.name" :value="iface.name">{{ iface.label || iface.name }}</option>
@@ -446,7 +445,7 @@
               <!-- Gateway selector -->
               <div v-if="routeEdit.viaMode === 'gateway'">
                 <label class="text-sm font-medium dark:text-neutral-300">Gateway *</label>
-                <select v-model="routeEdit.gatewayId"
+                <select v-content-select v-model="routeEdit.gatewayId"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                   <option value="">— select gateway —</option>
                   <option v-for="gw in gateways" :key="gw.id" :value="gw.id">
@@ -458,7 +457,7 @@
               <!-- Gateway Group selector -->
               <div v-if="routeEdit.viaMode === 'group'">
                 <label class="text-sm font-medium dark:text-neutral-300">Gateway Group * <span class="text-yellow-600 dark:text-yellow-400">(failover)</span></label>
-                <select v-model="routeEdit.gatewayGroupId"
+                <select v-content-select v-model="routeEdit.gatewayGroupId"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                   <option value="">— select group —</option>
                   <option v-for="grp in gatewayGroups" :key="grp.id" :value="grp.id">{{ grp.name }}</option>
@@ -474,7 +473,7 @@
                 </div>
                 <div style="flex:1;">
                   <label class="text-sm font-medium dark:text-neutral-300">Table</label>
-                  <select v-if="routingTables.length > 0" v-model="routeEdit.table"
+                  <select v-content-select v-if="routingTables.length > 0" v-model="routeEdit.table"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                     <option v-for="t in routingTables.filter(t => t.name !== 'all')" :key="t.name" :value="t.name">
                       {{ t.name }}{{ t.id !== null ? ' (' + t.id + ')' : '' }}
@@ -495,11 +494,11 @@
               <!-- Buttons -->
               <div class="flex gap-2" style="justify-content:flex-end;">
                 <button @click="showRouteEdit = false"
-                  class="px-4 py-2 bg-gray-200 dark:bg-neutral-600 dark:text-neutral-200 rounded text-sm font-medium transition">
+                  class="px-4 py-2 bg-gray-200 dark:bg-neutral-600 dark:text-neutral-200 rounded text-sm font-medium transition modal-action modal-action-cancel">
                   Cancel
                 </button>
                 <button @click="saveEditRoute"
-                  class="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium transition">
+                  class="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium transition modal-action modal-action-save">
                   Save Changes
                 </button>
               </div>

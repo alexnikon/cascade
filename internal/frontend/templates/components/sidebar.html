@@ -98,7 +98,7 @@
           <div v-if="remotes.length" class="app-nav-divider" style="padding: 8px 16px 12px;">
             <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-neutral-500" style="margin-bottom:6px;">Server</div>
             <div style="position:relative;">
-              <select @change="$event.target.value === '__local__' ? switchToLocal() : switchToRemote(remotes.find(r => r.id === $event.target.value))"
+              <select v-content-select @change="$event.target.value === '__local__' ? switchToLocal() : switchToRemote(remotes.find(r => r.id === $event.target.value))"
                 class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
                 style="padding:5px 8px; appearance:none; cursor:pointer; width:100%;"
                 :value="activeRemoteId || '__local__'">

@@ -18,10 +18,9 @@ defaultGroupId() {
       return g ? g.id : '';
     },
 
-    // Creates a new client-group inline from the peer create modals.
-    // targetModel: 'manual' | 'quick'
+    // Creates a new client group from the quick-create dialog.
 
-async createInlineClientGroup(targetModal) {
+async createInlineClientGroup() {
       const name = this.inlineGroupInput.trim();
       if (!name) return;
 
@@ -35,13 +34,8 @@ async createInlineClientGroup(targetModal) {
       const existing = this.clientGroups.find(g => g.name.toLowerCase() === name.toLowerCase());
       if (existing) {
         this.showToast(`Group "${name}" already exists`, 'error');
-        if (targetModal === 'manual') {
-          this.peerCreate.groupId = existing.id;
-          this.inlineGroupShow = false;
-        } else {
-          this.peerCreateGroupId = existing.id;
-          this.inlineGroupShowQuick = false;
-        }
+        this.peerCreateGroupId = existing.id;
+        this.inlineGroupShowQuick = false;
         this.inlineGroupInput = '';
         return;
       }
@@ -51,13 +45,8 @@ async createInlineClientGroup(targetModal) {
         await this.loadClientGroups();
         const created = this.clientGroups.find(g => g.id === res.id || g.name === name);
         if (created) {
-          if (targetModal === 'manual') {
-            this.peerCreate.groupId = created.id;
-            this.inlineGroupShow = false;
-          } else {
-            this.peerCreateGroupId = created.id;
-            this.inlineGroupShowQuick = false;
-          }
+          this.peerCreateGroupId = created.id;
+          this.inlineGroupShowQuick = false;
         }
         this.inlineGroupInput = '';
         this.showToast(`Group "${name}" created`);

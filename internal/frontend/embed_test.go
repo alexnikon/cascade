@@ -533,8 +533,8 @@ func TestFrontendUserBadgesAndMobileInterfaceActions(t *testing.T) {
 	if got := strings.Count(index, `class="user-badge`); got != 3 {
 		t.Errorf("user badge count = %d, want 3", got)
 	}
-	if got := strings.Count(index, `class="interface-peer-action`); got != 6 {
-		t.Errorf("interface action class count = %d, want 6 including the group", got)
+	if got := strings.Count(index, `class="interface-peer-action`); got != 5 {
+		t.Errorf("interface action class count = %d, want 5 including the group", got)
 	}
 	actionStart := strings.Index(index, `class="interface-peer-actions flex md:block md:flex-shrink-0"`)
 	if actionStart < 0 {
@@ -545,6 +545,11 @@ func TestFrontendUserBadgesAndMobileInterfaceActions(t *testing.T) {
 		t.Fatal("Interfaces peer action group end not found")
 	}
 	actions := index[actionStart : actionStart+actionEnd]
+	for _, obsolete := range []string{"showPeerCreate", "createPeer", "peerCreate.mode"} {
+		if strings.Contains(index, obsolete) {
+			t.Errorf("retired manual client dialog reference %q remains", obsolete)
+		}
+	}
 	for _, obsolete := range []string{"max-md:border-r-0", "max-md:border-x-0", "max-md:border-l-0", "rounded-l-full", "rounded-r-full"} {
 		if strings.Contains(actions, obsolete) {
 			t.Errorf("Interfaces mobile action group still contains %q", obsolete)
@@ -623,7 +628,7 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 		`class="peer-row-controls text-gray-400 dark:text-neutral-400"`: 2,
 		`class="peer-action-group"`:                                     2,
 		`class="peer-action-button"`:                                    6,
-		`class="button-danger peer-action-button"`:                      2,
+		`class="button-danger icon-delete peer-action-button"`:          2,
 	} {
 		if got := strings.Count(interfaces, markup); got != want {
 			t.Errorf("Interfaces action markup %q count = %d, want %d", markup, got, want)
@@ -642,7 +647,7 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 		`grid-auto-flow: column;`,
 		`.dark .peer-action-group {`,
 		`.peer-action-button:not(:disabled):not(.is-disabled):hover {`,
-		`background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);`,
+		`color: var(--accent-blue, #2563eb) !important;`,
 		`.peer-action-button:focus-visible {`,
 		`pointer-events: none;`,
 	} {
@@ -1032,7 +1037,7 @@ func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
 		`.dash-peers-panel {`,
 		`overflow: hidden;`,
 		`.dash-peers-toolbar {`,
-		`grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;`,
+		`flex-wrap: wrap;`,
 		`.dash-peers-select {`,
 		`min-width: 0 !important;`,
 		`.dash-peers-view-action.is-dirty {`,
@@ -1525,5 +1530,40 @@ func TestFrontendDomainAliasUI(t *testing.T) {
 	// firewall rule takes an address alias (the selector excludes port types only).
 	if !strings.Contains(index, `aliases.filter(x => x.type !== 'port' && x.type !== 'port-group')`) {
 		t.Error("firewall rule alias selectors no longer use the shared address-alias filter")
+	}
+}
+
+func TestDashboardElasticRangeStaysOutsideGridStack(t *testing.T) {
+	index := readEmbedded(t, "www/index.html")
+	wrapper := regexp.MustCompile(`(?s)<div class="dashboard-grid-surface">\s*(?:<!--[^>]*-->\s*)?<div class="grid-stack" id="dashboard-grid">`)
+	if !wrapper.MatchString(index) {
+		t.Fatal("dashboard grid is not inside its dedicated elastic scroll surface")
+	}
+	if !strings.Contains(index, `.dashboard-grid-surface { min-height: calc(100% + 1px); }`) {
+		t.Error("dashboard elastic scroll surface lost its minimum range")
+	}
+	if !strings.Contains(index, `.dashboard-grid-surface > .grid-stack { min-height: 0; }`) {
+		t.Error("GridStack must have a numeric minimum height")
+	}
+	for _, block := range regexp.MustCompile(`([^{}]+)\{([^{}]*)\}`).FindAllStringSubmatch(index, -1) {
+		if strings.Contains(block[1], ".grid-stack") && regexp.MustCompile(`min-height\s*:\s*(?:calc\(|[^;]*%)`).MatchString(block[2]) {
+			t.Errorf("GridStack cannot parse a computed percentage/calc minimum height: %s", block[0])
+		}
+	}
+}
+
+func TestAllNativeSelectsUseSharedContentSizing(t *testing.T) {
+	index := readEmbedded(t, "www/index.html")
+	selects := regexp.MustCompile(`<select\b[^>]*>`).FindAllString(index, -1)
+	if len(selects) == 0 {
+		t.Fatal("rendered frontend has no selects")
+	}
+	for _, selectTag := range selects {
+		if !strings.Contains(selectTag, "v-content-select") {
+			t.Errorf("select missing shared sizing directive: %s", selectTag)
+		}
+	}
+	if strings.Contains(index, "v-modal-select") {
+		t.Error("modal-only sizing directive is still used")
 	}
 }

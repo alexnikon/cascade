@@ -29,7 +29,7 @@
                   <th class="text-left font-medium tc">Name</th>
                   <th class="text-left font-medium tc">URL</th>
                   <th class="text-left font-medium tc">Added</th>
-                  <th class="text-right font-medium tc">Actions</th>
+                  <th class="remote-actions-cell font-medium tc">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -41,12 +41,13 @@
                     <a :href="remote.url" target="_blank" class="hover:underline" style="color:#2563eb;">{{ remote.url }}</a>
                   </td>
                   <td class="tc text-gray-500 dark:text-neutral-400 text-xs">{{ remote.createdAt ? new Date(remote.createdAt).toLocaleDateString() : '—' }}</td>
-                  <td class="tc text-right" style="white-space:nowrap;">
+                  <td class="tc remote-actions-cell">
+                    <div class="remote-actions">
                     <!-- Test button -->
                     <button @click="testRemote(remote)"
                       :disabled="remoteTesting[remote.id]"
                       class="rounded text-xs font-medium"
-                      style="padding:4px 10px; margin-right:6px;"
+                      style="padding:4px 10px;"
                       :style="remoteTesting[remote.id] ? 'background:var(--badge-neutral-bg); color:var(--badge-neutral-text); cursor:not-allowed;' :
                               remoteTestResult[remote.id] === 'ok' ? 'background:var(--badge-green-bg); color:var(--badge-green-text);' :
                               remoteTestResult[remote.id] === 'error' ? 'background:var(--badge-red-bg); color:var(--badge-red-text);' :
@@ -59,6 +60,7 @@
                       style="padding:4px 10px;">
                       Remove
                     </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -83,14 +85,14 @@
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
                 <div>
                   <label class="text-xs font-medium text-gray-500 dark:text-neutral-400" style="display:block; margin-bottom:4px;">From (server)</label>
-                  <select v-model="speedtest.fromId" @change="onSpeedtestServersChange()" class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200" style="padding:7px 10px;">
+                  <select v-content-select v-model="speedtest.fromId" @change="onSpeedtestServersChange()" class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200" style="padding:7px 10px;">
                     <option value="__local__">🏠 {{ localServerName || pageTitle || 'Local' }}</option>
                     <option v-for="r in remotes" :key="r.id" :value="r.id">🌐 {{ r.name }}</option>
                   </select>
                 </div>
                 <div>
                   <label class="text-xs font-medium text-gray-500 dark:text-neutral-400" style="display:block; margin-bottom:4px;">To (server)</label>
-                  <select v-model="speedtest.toId" @change="onSpeedtestServersChange()" class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200" style="padding:7px 10px;">
+                  <select v-content-select v-model="speedtest.toId" @change="onSpeedtestServersChange()" class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200" style="padding:7px 10px;">
                     <option value="__local__">🏠 {{ localServerName || pageTitle || 'Local' }}</option>
                     <option v-for="r in remotes" :key="r.id" :value="r.id">🌐 {{ r.name }}</option>
                   </select>
@@ -138,7 +140,7 @@
                     <label class="text-xs text-gray-500 dark:text-neutral-400" style="display:block; margin-bottom:4px;">
                       Source interface (From) — iperf3 server IP
                     </label>
-                    <select v-model="speedtestFromIfaceId"
+                    <select v-content-select v-model="speedtestFromIfaceId"
                       class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
                       style="padding:7px 10px;">
                       <option value="" disabled>Select…</option>
@@ -154,7 +156,7 @@
                     <label class="text-xs text-gray-500 dark:text-neutral-400" style="display:block; margin-bottom:4px;">
                       Destination interface (To) — iperf3 client bind
                     </label>
-                    <select v-model="speedtestToIfaceId"
+                    <select v-content-select v-model="speedtestToIfaceId"
                       class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
                       style="padding:7px 10px;">
                       <option value="">Any (no bind)</option>
@@ -173,7 +175,7 @@
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
                 <div>
                   <label class="text-xs font-medium text-gray-500 dark:text-neutral-400" style="display:block; margin-bottom:4px;">Duration (sec)</label>
-                  <select v-model="speedtest.duration" class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200" style="padding:7px 10px;">
+                  <select v-content-select v-model="speedtest.duration" class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200" style="padding:7px 10px;">
                     <option :value="5">5</option>
                     <option :value="10">10</option>
                     <option :value="20">20</option>
@@ -182,7 +184,7 @@
                 </div>
                 <div>
                   <label class="text-xs font-medium text-gray-500 dark:text-neutral-400" style="display:block; margin-bottom:4px;">Parallel streams</label>
-                  <select v-model="speedtest.streams" class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200" style="padding:7px 10px;">
+                  <select v-content-select v-model="speedtest.streams" class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200" style="padding:7px 10px;">
                     <option :value="1">1</option>
                     <option :value="4">4</option>
                     <option :value="8">8</option>
@@ -229,7 +231,7 @@
                     Run anyway
                   </button>
                   <button @click="speedtestPingConfirm = false"
-                    class="text-sm font-medium rounded"
+                    class="text-sm font-medium rounded modal-action modal-action-cancel"
                     style="padding:6px 14px; background:var(--badge-neutral-bg); color:var(--badge-neutral-text);">
                     Cancel
                   </button>
@@ -391,7 +393,7 @@
             </div>
             <div class="modal-footer">
               <button @click="showRemoteAdd = false"
-                class="rounded-lg text-sm font-medium btn dark:text-neutral-300"
+                class="rounded-lg text-sm font-medium btn dark:text-neutral-300 modal-action modal-action-cancel"
                 style="background:#f3f4f6;">Cancel</button>
               <button @click="addRemote()" :disabled="remoteAddLoading"
                 class="text-white rounded-lg text-sm font-medium btn"

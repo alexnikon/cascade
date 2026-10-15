@@ -24,8 +24,10 @@ import { peerMethods } from './peers.js';
 import { pollerMethods } from './poller.js';
 import { settingsMethods } from './settings.js';
 import { wizardMethods } from './wizards.js';
+import { contentSelectDirective } from './select-width.js';
 new Vue({
   el: '#app',
+  directives: { 'content-select': contentSelectDirective },
   components: {
     apexchart: VueApexCharts,
   },
@@ -219,6 +221,8 @@ new Vue({
     allPeersLoaded: false,
     allPeersError: '',
     allPeerRefreshSeq: 0,
+    showCreateAmneziaParams: false,
+    showEditAmneziaParams: false,
     showInterfaceCreate: false,
     createMode: 'quick',        // 'quick' | 'manual' — controls which form is shown in the create modal
     importConfForm: { name: '', conf: '', fileName: '' },
@@ -254,7 +258,6 @@ new Vue({
         i1: '', i2: '', i3: '', i4: '', i5: '',
       },
     },
-    showPeerCreate: false, // manual peer create modal
     showQuickPeerCreate: false, // quick peer create dialog
     peerMutationInFlight: false,
     peerTrafficResetInFlight: false,
@@ -280,23 +283,9 @@ new Vue({
         randomTrailers: true, disableCookies: true,
       },
     },
-    peerCreate: {
-      mode: 'generate',     // 'generate' | 'manual'
-      peerType: 'client',   // 'client' | 'interconnect'
-      name: '',
-      publicKey: '',
-      endpoint: '',
-      allowedIPs: '',
-      clientAllowedIPs: '',
-      persistentKeepalive: 25,
-      groupId: '',          // client-group alias ID
-      expiredAt: '',        // YYYY-MM-DD or empty
-    },
-
     // Quick peer create (one-click)
     peerCreateName: '',
     inlineGroupInput: '',        // inline new-group name input value
-    inlineGroupShow: false,      // show inline input in Manual Create modal
     inlineGroupShowQuick: false, // show inline input in Quick Create modal
     peerCreateExpiredDate: '',
     peerCreateGroupId: '',    // selected client-group for quick create
@@ -1082,6 +1071,8 @@ new Vue({
     }
   },
   watch: {
+    showInterfaceCreate() { this.showCreateAmneziaParams = false; },
+    showInterfaceEdit() { this.showEditAmneziaParams = false; },
     authenticated(value) {
       if (value === false) this.focusLoginField();
     },

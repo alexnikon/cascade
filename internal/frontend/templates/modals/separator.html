@@ -41,11 +41,11 @@
         <!-- Actions -->
         <div style="display:flex; gap:8px; justify-content:flex-end;">
           <button @click="showSeparatorModal = false"
-            class="text-sm rounded-lg dark:text-neutral-300"
+            class="text-sm rounded-lg dark:text-neutral-300 modal-action modal-action-cancel"
             style="padding:7px 16px; border:1px solid var(--light-control-border, #d1d5db);">
             Cancel
           </button>
-          <button @click="saveSeparator()"
+          <button @click="saveSeparator()" :class="{ 'modal-action': !!separatorEditId, 'modal-action-save': !!separatorEditId }"
             class="text-white text-sm rounded-lg font-medium"
             style="padding:7px 16px; background:#2563eb;">
             {{ separatorEditId ? 'Save' : 'Add' }}

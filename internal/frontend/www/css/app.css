@@ -2228,8 +2228,8 @@ button.interface-filter-button {
 }
 
 .peer-action-button:not(:disabled):not(.is-disabled):hover {
-  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
-  color: #ffffff;
+  background: transparent;
+  color: var(--accent-blue, #2563eb);
 }
 
 .peer-action-button.is-disabled,
@@ -2249,9 +2249,9 @@ button.interface-filter-button {
 
 .dash-peers-toolbar {
   align-items: center;
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   max-width: 100%;
   min-width: 0;
   padding: 6px 12px;
@@ -2616,3 +2616,192 @@ button.widget-remove-button { min-width: 20px; min-height: 20px; }
 .firewall-choice.is-selected { background:var(--choice-selected); color:#fff; }
 .firewall-choice:hover { filter:brightness(0.95); }
 .firewall-choice:focus-visible { outline:2px solid var(--accent-blue, #2563eb); outline-offset:2px; }
+
+/* Unframed actions share hover and keyboard behavior in both appearances. */
+.peer-action-group,
+.dark .peer-action-group,
+.interface-peer-actions,
+.dark .interface-peer-actions {
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+.peer-action-button,
+.dark .peer-action-button,
+.interface-peer-action,
+.dark .interface-peer-action,
+.interface-peer-action + .interface-peer-action,
+.dark .interface-peer-action + .interface-peer-action {
+  background: transparent !important;
+  border: 0 !important;
+  transition: color 150ms ease;
+}
+button.icon-delete,
+.dark button.icon-delete,
+button.icon-delete:hover:not(:disabled),
+.dark button.icon-delete:hover:not(:disabled) {
+  background: transparent !important;
+  border: 0 !important;
+  color: #dc2626 !important;
+}
+.peer-action-button:not(:disabled):not(.is-disabled):hover,
+.dark .peer-action-button:not(:disabled):not(.is-disabled):hover,
+.interface-peer-action:hover,
+.dark .interface-peer-action:hover {
+  background: transparent !important;
+  color: var(--accent-blue, #2563eb) !important;
+}
+.peer-action-button:focus-visible,
+.interface-peer-action:focus-visible,
+.icon-delete:focus-visible,
+.amnezia-parameters-toggle:focus-visible {
+  outline: 2px solid var(--accent-blue, #2563eb);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.amnezia-parameters-toggle {
+  display: block;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.amnezia-parameters-toggle:hover { color: var(--accent-blue, #2563eb); }
+.amnezia-parameters-body { margin-top: 12px; }
+
+/* Token actions align with the trailing edge in table and compact card views. */
+.settings-card-table td.api-token-actions {
+  text-align: right;
+  padding-right: 20px;
+}
+@media (max-width: 640px) {
+  .settings-card-table td.api-token-actions { padding-right: 0; }
+  .settings-card-table td.api-token-actions > button { justify-self: end; }
+}
+
+/* Consistent modal actions, including legacy dialogs with inline colors. */
+button.modal-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 8px 16px !important;
+  border: 1px solid transparent !important;
+  border-radius: 6px !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 20px;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+button.modal-action-cancel {
+  background: transparent !important;
+  color: #374151 !important;
+  border-color: #d1d5db !important;
+}
+.dark button.modal-action-cancel { color: #e5e5e5 !important; border-color: #737373 !important; }
+button.modal-action-cancel:hover:not(:disabled) { background: #f9fafb !important; }
+.dark button.modal-action-cancel:hover:not(:disabled) { background: #525252 !important; }
+button.modal-action-save { background: #9333ea !important; color: #fff !important; }
+button.modal-action-save:hover:not(:disabled) { background: #7e22ce !important; }
+button.modal-action:disabled { opacity: 0.5; cursor: not-allowed; }
+button.modal-action:focus-visible { outline: 2px solid var(--accent-blue, #2563eb); outline-offset: 2px; }
+@media (max-width: 1023px) { button.modal-action { min-height: 44px; } }
+
+/* Client removal is neutral at rest and red on hover, without a filled button. */
+button.peer-action-button.icon-delete { color: #6b7280 !important; }
+.dark button.peer-action-button.icon-delete { color: #d4d4d4 !important; }
+button.peer-action-button.icon-delete:hover:not(:disabled):not(.is-disabled),
+.dark button.peer-action-button.icon-delete:hover:not(:disabled):not(.is-disabled) { color: #dc2626 !important; }
+
+/* Kernel routes use one header band and aligned, evenly spaced columns. */
+.kernel-routes-table-scroll { overflow-x: auto; border-radius: 6px; }
+.kernel-routes-table { border-collapse: collapse; min-width: 600px; }
+.kernel-routes-table :is(th, td) { padding: 10px 12px; white-space: nowrap; border-left: 0; border-right: 0; }
+.kernel-routes-table th { font-weight: 600; text-align: left; }
+.kernel-routes-table thead { background: var(--light-inset, #3a3a3c); }
+.kernel-routes-table :is(th, td):last-child { text-align: right; }
+.kernel-routes-table tbody tr:last-child { border-bottom: 0 !important; }
+.kernel-routes-table tbody tr:hover { background: #f3f4f6; }
+.dark .kernel-routes-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+
+/* Explicit dimensions keep login feedback from changing the button height. */
+.auth-primary { display: flex; align-items: center; justify-content: center; }
+.auth-spinner { width: 20px; height: 20px; animation: spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .auth-spinner { animation: none; } }
+
+/* Native selects follow the widest option and stay inside their container. */
+select.content-select,
+.app-main select.content-select,
+.modal-panel select.content-select,
+.app-nav select.content-select {
+  box-sizing: border-box;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  flex: 0 1 auto !important;
+  align-self: flex-start;
+  justify-self: start;
+}
+.interface-import-tabs,
+.interface-import-modes { display: flex; flex-wrap: wrap; gap: 8px; }
+.interface-import-tabs { padding: 16px 24px 0; }
+.interface-transfer-tab {
+  border: 0;
+  border-radius: 8px !important;
+  padding: 8px 16px;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.dark .interface-transfer-tab { background: #525252; color: #e5e5e5; }
+.interface-transfer-tab:hover { background: #d1d5db; }
+.dark .interface-transfer-tab:hover { background: #636366; }
+.interface-transfer-tab.is-active { background: #2563eb; color: #fff; }
+.dark .interface-transfer-tab.is-active { background: var(--accent-blue); }
+.interface-transfer-tab.is-active:hover { background: #1d4ed8; }
+.dark .interface-transfer-tab.is-active:hover { background: #0071e3; }
+.interface-file-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.interface-file-name { min-width: 0; overflow-wrap: anywhere; }
+.interface-file-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: transparent;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.dark .interface-file-button { border-color: #737373; color: #e5e5e5; }
+.interface-file-button:hover { background: #f3f4f6; }
+.dark .interface-file-button:hover { background: #525252; }
+.interface-transfer-tab:focus-visible,
+.interface-file-button:focus-visible,
+.interface-file-button:focus-within { outline: 2px solid var(--accent-blue, #2563eb); outline-offset: 2px; }
+.interface-transfer-notice { padding: 10px 12px; border-radius: 6px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.interface-transfer-warning { background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning-border); }
+.interface-transfer-success { background: var(--badge-green-bg); color: var(--badge-green-text); }
+.interface-transfer-info { background: var(--badge-blue-bg); color: var(--badge-blue-text); }
+button.interface-transfer-download { background: #059669 !important; color: #fff !important; }
+button.interface-transfer-download:hover:not(:disabled) { background: #047857 !important; }
+@media (max-width: 1023px) { .interface-import-tabs { padding: 16px 16px 0; } }
+
+/* Let adjacent controls wrap before squeezing a select's label. */
+.flex:not(.flex-col):has(> select.content-select),
+.dash-card-header > div:has(> select.content-select) { flex-wrap: wrap; }
+
+.remote-actions-cell { text-align: right; }
+.remote-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; white-space: nowrap; }
+.dash-memory-track { background: var(--light-divider, #e5e7eb); }
+.dark .dash-memory-track { background: #525252; }

@@ -24,7 +24,7 @@
                     <div class="dash-card-header">
                       <span>{{ w.title || 'Graph' }}</span>
                       <div style="display:flex; align-items:center; gap:4px;">
-                        <select :value="metricsWidgetPeriod[w.id]||'5m'" @change="metricsOnPeriodChange(w.id, $event.target.value)"
+                        <select v-content-select :value="metricsWidgetPeriod[w.id]||'5m'" @change="metricsOnPeriodChange(w.id, $event.target.value)"
                           class="text-xs dark:text-neutral-300 rounded"
                           style="padding:1px 4px; border:1px solid transparent; cursor:pointer; background:none; opacity:0.7;"
                           :style="{ color: theme==='dark'?'#d4d4d4':'#374151' }">
@@ -110,7 +110,7 @@
                 <div style="flex:2; min-width:160px;">
                   <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
                     :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Source interface</label>
-                  <select v-model="pingSource" class="rounded"
+                  <select v-content-select v-model="pingSource" class="rounded"
                     style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid;"
                     :style="{ background: theme==='dark'?'#1a1a1a':'#fff', color: theme==='dark'?'#f5f5f5':'#111827', borderColor: theme==='dark'?'#525252':'var(--light-control-border, #d1d5db)' }">
                     <option value="">Auto (by routing table)</option>
@@ -193,7 +193,7 @@
               <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
                   :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Source interface</label>
-                <select v-model="traceSource" class="rounded"
+                <select v-content-select v-model="traceSource" class="rounded"
                   style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid;"
                   :style="{ background: theme==='dark'?'#1a1a1a':'#fff', color: theme==='dark'?'#f5f5f5':'#111827', borderColor: theme==='dark'?'#525252':'var(--light-control-border, #d1d5db)' }">
                   <option value="">Auto (by routing table)</option>
@@ -243,7 +243,7 @@
               <div style="margin-bottom:12px;">
                 <label style="display:block; font-size:0.75rem; font-weight:500; margin-bottom:4px;"
                   :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">Interface *</label>
-                <select v-model="tcpdumpIface" class="rounded"
+                <select v-content-select v-model="tcpdumpIface" class="rounded"
                   style="width:100%; padding:7px 10px; font-size:0.875rem; border:1px solid;"
                   :style="{ background: theme==='dark'?'#1a1a1a':'#fff', color: theme==='dark'?'#f5f5f5':'#111827', borderColor: theme==='dark'?'#525252':'var(--light-control-border, #d1d5db)' }">
                   <option value="">— select interface —</option>

@@ -153,7 +153,7 @@
               <!-- Type -->
               <div>
                 <label class="text-sm font-medium dark:text-neutral-300">Type</label>
-                <select v-model="aliasCreate.type"
+                <select v-content-select v-model="aliasCreate.type"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                   <option value="host">Host — list of single IP addresses</option>
                   <option value="network">Network — list of CIDR prefixes</option>
@@ -273,7 +273,7 @@
               <!-- ipset: generate from internet -->
               <div v-if="aliasCreate.type === 'ipset'" class="bg-gray-50 dark:bg-neutral-600 rounded-lg" style="padding:12px;">
                 <p class="text-sm font-medium dark:text-neutral-300 mb-2">Generate after creation (optional)</p>
-                <select v-model="aliasCreate.genSource"
+                <select v-content-select v-model="aliasCreate.genSource"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mb-2">
                   <option value="country">By Country</option>
                   <option value="asn">By ASN</option>
@@ -290,7 +290,7 @@
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm"
                     autocomplete="off">
                   <div v-if="showCountryDrop && countryPickerForm === 'create'"
-                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:#404040;border:1px solid #525252;' : 'background:#fff;border:1px solid var(--light-control-border, #d1d5db);')">
+                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:var(--surface-inset);border:1px solid #525252;' : 'background:#fff;border:1px solid var(--light-control-border, #d1d5db);')">
                     <div v-if="filteredCountries.length === 0"
                       style="padding:8px 12px;font-size:13px;color:#9ca3af;">No results</div>
                     <div v-for="c in filteredCountries" :key="c.code"
@@ -312,7 +312,7 @@
             </div>
             <div class="modal-footer dark:border-neutral-600">
               <button @click="showAliasCreate = false"
-                class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+                class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn modal-action modal-action-cancel">
                 Cancel
               </button>
               <button @click="createAlias()"
@@ -428,7 +428,7 @@
               <!-- ipset: regenerate section -->
               <div v-if="aliasEdit.type === 'ipset'" class="bg-gray-50 dark:bg-neutral-600 rounded-lg" style="padding:12px;">
                 <p class="text-sm font-medium dark:text-neutral-300 mb-2">Regenerate prefixes</p>
-                <select v-model="aliasEdit.genSource"
+                <select v-content-select v-model="aliasEdit.genSource"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mb-2">
                   <option value="country">By Country</option>
                   <option value="asn">By ASN</option>
@@ -445,7 +445,7 @@
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm"
                     autocomplete="off">
                   <div v-if="showCountryDrop && countryPickerForm === 'edit'"
-                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:#404040;border:1px solid #525252;' : 'background:#fff;border:1px solid var(--light-control-border, #d1d5db);')">
+                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:var(--surface-inset);border:1px solid #525252;' : 'background:#fff;border:1px solid var(--light-control-border, #d1d5db);')">
                     <div v-if="filteredCountries.length === 0"
                       style="padding:8px 12px;font-size:13px;color:#9ca3af;">No results</div>
                     <div v-for="c in filteredCountries" :key="c.code"
@@ -513,11 +513,11 @@
             </div>
             <div class="modal-footer dark:border-neutral-600">
               <button @click="showAliasEdit = false"
-                class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+                class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn modal-action modal-action-cancel">
                 Cancel
               </button>
               <button @click="saveAliasEdit()"
-                class="bg-blue-600 text-white rounded-lg font-medium text-sm btn">
+                class="bg-blue-600 text-white rounded-lg font-medium text-sm btn modal-action modal-action-save">
                 Save
               </button>
             </div>

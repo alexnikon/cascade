@@ -40,6 +40,7 @@ async createTunnelInterface() {
         if (this.interfaceCreate.protocol.startsWith('amneziawg-')) {
           if (!this.interfaceCreate.settings.h1 || !this.interfaceCreate.settings.h2 ||
               !this.interfaceCreate.settings.h3 || !this.interfaceCreate.settings.h4) {
+            this.showCreateAmneziaParams = true;
             this.showToast('Please set H1-H4 parameters for AmneziaWG', 'error');
             return;
           }
@@ -75,6 +76,7 @@ async createTunnelInterface() {
           this.activeInterfaceId = newIface.id;
         }
       } catch (err) {
+        if (this.interfaceCreate.protocol.startsWith('amneziawg-')) this.showCreateAmneziaParams = true;
         console.error('Failed to create interface:', err);
         this.showToast(`Failed: ${err.message}`, 'error');
       } finally {
@@ -419,7 +421,8 @@ async saveInterfaceEdit() {
       }
 	  if (protocol.startsWith('amneziawg-')) {
 	    if (!settings.h1 || !settings.h2 || !settings.h3 || !settings.h4) {
-		  this.showToast('Please set H1-H4 parameters for AmneziaWG', 'error');
+		  this.showEditAmneziaParams = true;
+          this.showToast('Please set H1-H4 parameters for AmneziaWG', 'error');
           return;
         }
       }
@@ -449,6 +452,7 @@ async saveInterfaceEdit() {
         this.showInterfaceEdit = false;
         this.showToast(`Interface "${name}" updated successfully`);
       } catch (err) {
+        if (this.interfaceEdit.protocol.startsWith('amneziawg-')) this.showEditAmneziaParams = true;
         console.error('saveInterfaceEdit failed:', err);
         this.showToast(`Failed: ${err.message}`, 'error');
       } finally {
@@ -546,74 +550,6 @@ async restartTunnelInterface(iface) {
 async loadInterfacePeers(interfaceId) {
       if (interfaceId !== this.activeInterfaceId) return;
       return this.refreshPeers();
-    },
-
-async createPeer() {
-      if (!this.activeInterfaceId) {
-        this.showToast('No interface selected', 'error');
-        return;
-      }
-
-      const { mode, peerType, name, publicKey, endpoint, allowedIPs, clientAllowedIPs, persistentKeepalive, groupId, expiredAt } = this.peerCreate;
-
-      // Validation
-      if (!name || name.trim() === '') {
-        this.showToast('Please enter a name', 'error');
-        return;
-      }
-      if (mode === 'manual' && !publicKey) {
-        this.showToast('Please enter the public key', 'error');
-        return;
-      }
-      // Interconnect requires explicit AllowedIPs (it routes a subnet, not just /32)
-      if (peerType === 'interconnect' && !allowedIPs) {
-        this.showToast('Please enter Allowed IPs for the interconnect peer (e.g., 192.168.2.0/24)', 'error');
-        return;
-      }
-
-      // For client+generate with no allowedIPs → auto-allocate /32 from interface subnet
-      const autoAllocate = mode === 'generate' && peerType === 'client' && !allowedIPs;
-
-      if (this.peerMutationInFlight) return;
-      this.peerMutationInFlight = true;
-
-      const payload = {
-        name,
-        peerType,
-        ...(mode === 'generate' ? { generateKeys: true } : { publicKey }),
-        ...(autoAllocate ? { autoAllocateIP: true } : { allowedIPs }),
-        clientAllowedIPs: clientAllowedIPs || undefined,
-        endpoint: endpoint || undefined,
-        persistentKeepalive: persistentKeepalive || 25,
-        ...(peerType === 'client' && groupId ? { groupId } : {}),
-        ...(expiredAt ? { expiredAt } : {}),
-      };
-
-      try {
-        await this.api.createTunnelInterfacePeer({
-          interfaceId: this.activeInterfaceId,
-          ...payload,
-        });
-
-        this.showPeerCreate = false;
-        this.inlineGroupShow = false;
-        this.inlineGroupInput = '';
-        this.peerCreate = { mode: 'generate', peerType: 'client', name: '', publicKey: '', endpoint: '', allowedIPs: '', clientAllowedIPs: '', persistentKeepalive: 25, groupId: this.defaultGroupId(), expiredAt: '' };
-
-        await this.refreshPeers();
-        await this.loadTunnelInterfaces();
-        if (peerType === 'client') {
-          this.loadClientGroups();
-          this.loadAliases();
-        }
-
-        this.showToast(peerType === 'client' ? 'Client created!' : 'Peer created!');
-      } catch (err) {
-        console.error('Failed to create peer:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
-      } finally {
-        this.peerMutationInFlight = false;
-      }
     },
 
 async deletePeer(peer) {

@@ -186,7 +186,7 @@
               </p>
             </div>
             <div class="flex items-center" style="gap:12px; flex-shrink:0;">
-              <select v-model="globalSettings.defaultFwPolicy" @change="saveDefaultFwPolicy()"
+              <select v-content-select v-model="globalSettings.defaultFwPolicy" @change="saveDefaultFwPolicy()"
                 class="border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
                 style="padding:6px 10px;">
                 <option value="accept">Accept</option>

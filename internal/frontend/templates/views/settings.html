@@ -91,7 +91,7 @@
                 </label>
                 <label v-if="webAccessDraft.enabled" class="block text-sm dark:text-neutral-200">
                   {{ $t('webAccess.interface') }}
-                  <select v-model="webAccessDraft.interfaceId" class="settings-content-select mt-1 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500">
+                  <select v-content-select v-model="webAccessDraft.interfaceId" class="settings-content-select mt-1 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500">
                     <option value="" disabled>{{ $t('webAccess.selectInterface') }}</option>
                     <option v-for="iface in webAccess.interfaces" :key="iface.id" :value="iface.id" :disabled="!iface.enabled">
                       {{ iface.name }} · {{ iface.id }} · {{ iface.address }}
@@ -150,12 +150,12 @@
               </div>
               <div>
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Default Client AllowedIPs</label>
-                <select v-model="globalSettings.defaultClientAllowedIPsMode"
+                <select v-content-select v-model="globalSettings.defaultClientAllowedIPsMode"
                   class="settings-content-select px-3 py-2 mb-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                   <option value="manual">Manual AllowedIPs</option>
                   <option value="exclude-ipset">Exclude ipset alias</option>
                 </select>
-                <select v-if="globalSettings.defaultClientAllowedIPsMode === 'exclude-ipset'" v-model="globalSettings.defaultClientAllowedIPsAliasId"
+                <select v-content-select v-if="globalSettings.defaultClientAllowedIPsMode === 'exclude-ipset'" v-model="globalSettings.defaultClientAllowedIPsAliasId"
                   class="settings-content-select px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                   <option disabled value="">Select an ipset alias</option>
                   <option v-for="alias in aliases.filter(a => a.type === 'ipset')" :key="alias.id" :value="alias.id">{{ alias.name }} ({{ alias.entryCount }} excluded IPv4 entries)</option>
@@ -272,7 +272,7 @@
 
                   <!-- Move to group -->
                   <p class="text-xs font-medium dark:text-neutral-300 mb-2">Move to group <span class="font-normal text-gray-400">(optional — leave blank to keep current group)</span></p>
-                  <select v-model="globalSettings.expiredPeerGroupId"
+                  <select v-content-select v-model="globalSettings.expiredPeerGroupId"
                     class="px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     <option value="">— don't change group —</option>
                     <option v-for="g in clientGroups" :key="g.id" :value="g.id">{{ g.name }}</option>
@@ -603,8 +603,8 @@
                       Current state is saved automatically before restore.
                     </p>
                   </div>
-                  <label class="btn font-medium text-sm rounded-lg cursor-pointer"
-                    style="background:var(--badge-neutral-bg); color:var(--badge-neutral-text); padding:8px 20px; white-space:nowrap;"
+                  <label class="btn bg-green-600 hover:bg-green-700 text-white font-medium text-sm rounded-lg cursor-pointer"
+                    style="padding:8px 20px; white-space:nowrap;"
                     :style="(systemRestoring || restorePreviewLoading) ? 'opacity:0.6; pointer-events:none;' : ''">
                     <span v-if="systemRestoring">Restoring…</span>
                     <span v-else-if="restorePreviewLoading">Analyzing…</span>
@@ -625,7 +625,7 @@
                   <div v-else>
                     <div v-for="bk in preRestoreBackups" :key="bk.name"
                       style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; border-radius:6px; margin-bottom:4px;"
-                      :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: theme==='dark' ? '1px solid #404040' : '1px solid var(--light-divider, #e5e7eb)' }">
+                      :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: theme==='dark' ? '1px solid #404040' : '1px solid var(--light-divider, #e5e7eb)' }">
                       <div>
                         <span class="text-xs font-mono dark:text-neutral-300">{{ bk.name }}</span>
                         <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-left:8px;">{{ (bk.size / 1024).toFixed(0) }} KB</span>
@@ -677,7 +677,7 @@
               </div>
               <div class="modal-footer dark:border-neutral-600">
                 <button @click="showBackupModal = false"
-                  class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+                  class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn modal-action modal-action-cancel">
                   Cancel
                 </button>
                 <button @click="confirmDownloadBackup()"
@@ -767,7 +767,7 @@
                   <td data-label="Created" class="tc text-gray-400 dark:text-neutral-500 text-xs">
                     {{ token.created_at ? new Date(token.created_at).toLocaleDateString() : '—' }}
                   </td>
-                  <td data-label="Actions" class="tc">
+                  <td data-label="Actions" class="tc api-token-actions">
                     <button @click="deleteApiToken(token)"
                       class="button-danger px-3 py-1 text-xs border rounded transition">
                       Revoke

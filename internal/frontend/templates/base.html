@@ -58,7 +58,7 @@
     --light-divider: #d1d5db;
     --light-control-border: #b8c0cc;
     --border-color: var(--light-control-border);
-    --input-bg: #fff;
+    --input-bg: #e9edf2;
     --list-separator: var(--light-divider);
   }
   :root {
@@ -86,6 +86,9 @@
     --surface-base: #1c1c1e;
     --surface-panel: #2c2c2e;
     --surface-raised: #3a3a3c;
+    --surface-inset: #343436;
+    --input-bg: #3a3a3c;
+    --border-color: #636366;
     --text-primary: #f5f5f7;
     --text-secondary: #a1a1a6;
     --accent-blue: #0a84ff;
@@ -97,6 +100,7 @@
   :root {
     --badge-neutral-bg: #f3f4f6; --badge-neutral-text: #374151;
     --badge-blue-bg: #dbeafe; --badge-blue-text: #1e40af;
+    --badge-indigo-bg: #e0e7ff; --badge-indigo-text: #3730a3;
     --badge-purple-bg: #ede9fe; --badge-purple-text: #5b21b6;
     --badge-red-bg: #fee2e2; --badge-red-text: #991b1b;
     --badge-pink-bg: #fce7f3; --badge-pink-text: #9d174d;
@@ -107,6 +111,7 @@
   html.dark {
     --badge-neutral-bg: #3a3a3c; --badge-neutral-text: #d1d1d6;
     --badge-blue-bg: #23374d; --badge-blue-text: #93c5fd;
+    --badge-indigo-bg: #30334d; --badge-indigo-text: #a5b4fc;
     --badge-purple-bg: #382d48; --badge-purple-text: #d8b4fe;
     --badge-red-bg: #472b2d; --badge-red-text: #fca5a5;
     --badge-pink-bg: #432c3a; --badge-pink-text: #f9a8d4;
@@ -480,7 +485,7 @@
     flex-direction: column;
     min-height: 0;
   }
-  .dashboard-main-content > .firewall-pending-banner {
+  .dashboard-scroll-content > .firewall-pending-banner {
     flex: 0 0 auto;
     margin: 24px 32px 12px !important;
   }
@@ -898,7 +903,7 @@
       padding: 0 max(14px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
       scrollbar-gutter: auto;
     }
-    .dashboard-main-content > .firewall-pending-banner {
+    .dashboard-scroll-content > .firewall-pending-banner {
       margin: 16px max(14px, env(safe-area-inset-right)) 12px max(14px, env(safe-area-inset-left)) !important;
     }
     .app-nav-footer {
@@ -1219,15 +1224,54 @@
   html:not(.dark) .border-gray-300 { border-color: var(--light-control-border); }
   html:not(.dark) .dash-card-header { border-bottom-color: var(--light-divider); }
 
+  /* Inset controls stay distinct from white light-mode panels. */
+  html:not(.dark) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]), select, textarea) {
+    background-color: var(--input-bg) !important;
+  }
+  html:not(.dark) :is(.firewall-rule-group, .restore-interface-map-row, .awg-generator-preview) { background-color: var(--light-inset); }
+  /* Dark fields and neutral groups sit above their surrounding surface. */
+  html.dark .modal-panel {
+    --surface-inset: #424244;
+    --input-bg: #4a4a4c;
+  }
+  html.dark :is(input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]), select, textarea) {
+    background-color: var(--input-bg) !important;
+  }
+  html.dark :is(.firewall-rule-group, .awg-settings-panel, .restore-interface-map-row, .awg-generator-preview) {
+    background-color: var(--surface-inset) !important;
+  }
+  html.dark :is(.bg-gray-50, .bg-gray-100):not(.ui-badge):not(.user-badge) {
+    background-color: var(--surface-inset);
+  }
+  html .ui-badge.bg-gray-100, html .user-badge.bg-gray-100 { background: var(--badge-neutral-bg); color: var(--badge-neutral-text); }
+  html .ui-badge.bg-blue-100, html .user-badge.bg-blue-100 { background: var(--badge-blue-bg); color: var(--badge-blue-text); }
+  html .ui-badge.bg-indigo-100, html .user-badge.bg-indigo-100 { background: var(--badge-indigo-bg); color: var(--badge-indigo-text); }
+  html .ui-badge.bg-purple-100, html .user-badge.bg-purple-100 { background: var(--badge-purple-bg); color: var(--badge-purple-text); }
+  html .ui-badge.bg-red-100, html .user-badge.bg-red-100 { background: var(--badge-red-bg); color: var(--badge-red-text); }
+  html .ui-badge.bg-pink-100, html .user-badge.bg-pink-100 { background: var(--badge-pink-bg); color: var(--badge-pink-text); }
+  html .ui-badge.bg-teal-100, html .user-badge.bg-teal-100 { background: var(--badge-teal-bg); color: var(--badge-teal-text); }
+  html .ui-badge.bg-green-100, html .user-badge.bg-green-100 { background: var(--badge-green-bg); color: var(--badge-green-text); }
+  html .ui-badge.bg-yellow-100, html .user-badge.bg-yellow-100 { background: var(--badge-orange-bg); color: var(--badge-orange-text); }
+
   /* Shared navigation surface keeps browser chrome and application chrome aligned. */
   :root { --navigation-surface: #fafbfc; }
   html.dark { --navigation-surface: #2c2c2e; }
   .app-nav, .dark .app-nav { background: var(--navigation-surface); }
   .app-main.section-layout { display: flex; flex-direction: column; overflow: hidden; }
   .section-layout > .app-main-content {
-    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    flex: 1 1 0; min-height: 0; overflow-y: scroll;
     overscroll-behavior: contain; scrollbar-gutter: stable;
   }
+  /* A one-pixel range enables native elastic scrolling without a blank tail. */
+  .section-layout > .app-main-content > .section-scroll-content:not(.dashboard-scroll-content) {
+    display: flow-root;
+    min-height: calc(100% + 1px);
+  }
+  .dashboard-scroll-content { display: flex; flex: 1 1 0; min-height: 0; flex-direction: column; }
+  .wizard-scroll-content { display: contents; }
+  /* Keep percentage/calc sizes outside GridStack's numeric height parser. */
+  .dashboard-grid-surface { min-height: calc(100% + 1px); }
+  .dashboard-grid-surface > .grid-stack { min-height: 0; }
   .section-layout > .dashboard-main-content { overflow: hidden; }
   .section-layout .dashboard-scroll { padding-top: 16px; }
   .section-toolbar {
@@ -1285,6 +1329,7 @@
 [[ template "sidebar" . ]]
 [[ template "header" . ]]
 
+<div class="section-scroll-content" :class="{ 'dashboard-scroll-content': activePage === 'dashboard', 'wizard-scroll-content': isWizardPage }">
 [[ template "firewall-banner" . ]]
 [[ template "dashboard" . ]]
 [[ template "diagnostics" . ]]
@@ -1300,6 +1345,7 @@
 [[ template "firewall-modals" . ]]
 [[ template "peer-modals" . ]]
 [[ template "wizards" . ]]
+        </div><!-- /section-scroll-content -->
         </div><!-- /app-main-content -->
         </main><!-- /Content Area -->
       </div><!-- /authenticated === true && !showFirstRunSetup (flex h-screen) -->

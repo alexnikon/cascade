@@ -10,37 +10,43 @@ export const authMethods = {
         if (input) input.focus({ preventScroll: true });
       });
     },
-login() {
+    // Keep feedback visible for at least one second while the request runs.
+async _loginRequestWithDelay(request) {
+      const [result] = await Promise.allSettled([
+        Promise.resolve().then(request),
+        new Promise(resolve => setTimeout(resolve, 1000)),
+      ]);
+      if (result.status === 'rejected') throw result.reason;
+      return result.value;
+    },
+
+async login() {
+      if (this.authenticating) return;
       const usernameInput = document.getElementById('login-username');
       const passwordInput = document.getElementById('login-password');
       if (usernameInput) this.username = usernameInput.value.trim();
       if (passwordInput) this.password = passwordInput.value;
       if (!this.username || !this.password) return;
-      if (this.authenticating) return;
 
       this.authenticating = true;
-      this.api.createSession({
-        username: this.username,
-        password: this.password,
-        remember: this.remember,
-      })
-        .then(async (res) => {
-          // Server may require TOTP as a second step.
-          if (res && res.totp_required) {
-            this.totpRequired = true;
-            this.totpCode = '';
-            return; // stay on login screen — show TOTP input
-          }
-          // Fully authenticated (no TOTP or TOTP already done).
-          await this._onLoginSuccess();
-        })
-        .catch((err) => {
-          this.showToast(err.message || err.toString(), 'error');
-        })
-        .finally(() => {
-          this.authenticating = false;
-          this.password = '';
-        });
+      try {
+        const res = await this._loginRequestWithDelay(() => this.api.createSession({
+          username: this.username,
+          password: this.password,
+          remember: this.remember,
+        }));
+        if (res && res.totp_required) {
+          this.totpRequired = true;
+          this.totpCode = '';
+          return;
+        }
+        await this._onLoginSuccess();
+      } catch (err) {
+        this.showToast(err.message || err.toString(), 'error');
+      } finally {
+        this.authenticating = false;
+        this.password = '';
+      }
     },
 
     // Step 2: submit TOTP code after password was accepted.
@@ -49,7 +55,7 @@ async loginStep2() {
       if (!this.totpCode || this.authenticating) return;
       this.authenticating = true;
       try {
-        await this.api.verifyTOTP({ code: this.totpCode });
+        await this._loginRequestWithDelay(() => this.api.verifyTOTP({ code: this.totpCode }));
         this.totpRequired = false;
         this.totpCode = '';
         await this._onLoginSuccess();

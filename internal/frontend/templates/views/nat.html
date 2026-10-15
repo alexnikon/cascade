@@ -68,7 +68,7 @@
                   <div class="font-medium dark:text-neutral-200 truncate">{{ rule.name }}</div>
                   <span v-if="rule.auto"
                     class="ui-badge text-xs font-semibold rounded"
-                    style="padding:1px 6px; background:#e0e7ff; color:#3730a3; flex-shrink:0;">auto</span>
+                    style="padding:1px 6px; background:var(--badge-indigo-bg); color:var(--badge-indigo-text); flex-shrink:0;">auto</span>
                 </div>
 
                 <!-- Source -->
@@ -135,7 +135,7 @@
                       style="background:none; border:none; cursor:pointer; padding:4px 6px; font-size:14px;"
                       title="Edit rule">✎</button>
                     <button @click="deleteNatRule(rule)"
-                      class="button-danger rounded transition"
+                      class="button-danger icon-delete rounded transition"
                       style="border:none; cursor:pointer; padding:6px;"
                       title="Delete rule">
                       <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -282,7 +282,7 @@
                 <!-- Protocol -->
                 <div>
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Protocol</label>
-                  <select v-model="dnatForm.protocol"
+                  <select v-content-select v-model="dnatForm.protocol"
                     class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                     style="padding:8px 12px;">
                     <option value="udp">UDP</option>
@@ -297,7 +297,7 @@
                     Inbound Interface
                     <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional — any if empty)</span>
                   </label>
-                  <select v-model="dnatForm.inInterface"
+                  <select v-content-select v-model="dnatForm.inInterface"
                     class="w-full border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-100"
                     style="padding:8px 12px;">
                     <option value="">— any interface —</option>
@@ -370,11 +370,11 @@
 
               <div class="modal-footer-compact">
                 <button @click="showDnatModal = false"
-                  class="text-sm text-gray-500 dark:text-neutral-400"
+                  class="text-sm text-gray-500 dark:text-neutral-400 modal-action modal-action-cancel"
                   style="padding:8px 16px;">Cancel</button>
                 <button @click="saveDnat()"
                   class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg"
-                  style="padding:8px 16px;">
+                  style="padding:8px 16px;" :class="{ 'modal-action': dnatEditMode, 'modal-action-save': dnatEditMode }">
                   {{ dnatEditMode ? 'Save' : 'Create' }}
                 </button>
               </div>
@@ -434,7 +434,7 @@
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleCreate.sourceType" value="alias" />
                     Alias
-                    <select v-if="natRuleCreate.sourceType === 'alias'"
+                    <select v-content-select v-if="natRuleCreate.sourceType === 'alias'"
                       v-model="natRuleCreate.sourceAliasId"
                       class="border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-2 py-1 text-sm"
                       style="min-width:160px;">
@@ -448,7 +448,7 @@
               <!-- Outbound Interface -->
               <div>
                 <label class="text-sm font-medium dark:text-neutral-300">Outbound Interface *</label>
-                <select v-model="natRuleCreate.outInterface"
+                <select v-content-select v-model="natRuleCreate.outInterface"
                   class="w-full mt-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
                   <option v-for="iface in natInterfaces" :key="iface.name" :value="iface.name">
                     {{ iface.label || iface.name }}
@@ -494,7 +494,7 @@
             <!-- Footer -->
             <div class="modal-footer-compact dark:border-neutral-600">
               <button @click="showNatRuleCreate = false"
-                class="px-4 py-2 rounded text-sm border border-gray-300 dark:border-neutral-500 dark:text-neutral-300">
+                class="px-4 py-2 rounded text-sm border border-gray-300 dark:border-neutral-500 dark:text-neutral-300 modal-action modal-action-cancel">
                 Cancel
               </button>
               <button @click="createNatRule"
@@ -555,7 +555,7 @@
                   <label class="flex items-center gap-2 text-sm dark:text-neutral-300 cursor-pointer">
                     <input type="radio" v-model="natRuleEdit.sourceType" value="alias" />
                     Alias
-                    <select v-if="natRuleEdit.sourceType === 'alias'"
+                    <select v-content-select v-if="natRuleEdit.sourceType === 'alias'"
                       v-model="natRuleEdit.sourceAliasId"
                       class="border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-2 py-1 text-sm"
                       style="min-width:160px;">
@@ -569,7 +569,7 @@
               <!-- Outbound Interface -->
               <div>
                 <label class="text-sm font-medium dark:text-neutral-300">Outbound Interface *</label>
-                <select v-model="natRuleEdit.outInterface"
+                <select v-content-select v-model="natRuleEdit.outInterface"
                   class="w-full mt-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm">
                   <option v-for="iface in natInterfaces" :key="iface.name" :value="iface.name">
                     {{ iface.label || iface.name }}
@@ -615,11 +615,11 @@
             <!-- Footer -->
             <div class="modal-footer-compact dark:border-neutral-600">
               <button @click="showNatRuleEdit = false"
-                class="px-4 py-2 rounded text-sm border border-gray-300 dark:border-neutral-500 dark:text-neutral-300">
+                class="px-4 py-2 rounded text-sm border border-gray-300 dark:border-neutral-500 dark:text-neutral-300 modal-action modal-action-cancel">
                 Cancel
               </button>
               <button @click="saveNatRule"
-                class="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium">
+                class="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium modal-action modal-action-save">
                 Save Changes
               </button>
             </div>

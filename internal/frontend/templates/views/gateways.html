@@ -112,7 +112,7 @@
                   </button>
                   <!-- Delete -->
                   <button @click="deleteGateway(gw)"
-                    class="button-danger p-2 rounded transition"
+                    class="button-danger icon-delete p-2 rounded transition"
 
                     title="Delete gateway">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -165,7 +165,7 @@
                       </svg>
                     </button>
                     <button @click="deleteGatewayGroup(grp)"
-                      class="button-danger p-2 rounded transition"
+                      class="button-danger icon-delete p-2 rounded transition"
                       title="Delete group">
                       <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -221,7 +221,7 @@
                 <!-- Interface -->
                 <div>
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Interface <span class="text-red-500">*</span></label>
-                  <select v-model="gatewayCreate.interface"
+                  <select v-content-select v-model="gatewayCreate.interface"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                     <option value="">— select interface —</option>
                     <option v-for="iface in systemInterfaces" :key="iface.name" :value="iface.name">
@@ -356,7 +356,7 @@
               <div class="modal-section dark:border-neutral-600">
                 <div class="flex gap-3 justify-end">
                   <button @click="showGatewayCreate = false"
-                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition modal-action modal-action-cancel">
                     Cancel
                   </button>
                   <button @click="createGateway()" :disabled="gatewayMutationInFlight"
@@ -390,7 +390,7 @@
 
                 <div>
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Interface <span class="text-red-500">*</span></label>
-                  <select v-model="gatewayEdit.interface"
+                  <select v-content-select v-model="gatewayEdit.interface"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                     <option value="">— select interface —</option>
                     <option v-for="iface in systemInterfaces" :key="iface.name" :value="iface.name">
@@ -532,11 +532,11 @@
               <div class="modal-section dark:border-neutral-600">
                 <div class="flex gap-3 justify-end">
                   <button @click="showGatewayEdit = false"
-                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition modal-action modal-action-cancel">
                     Cancel
                   </button>
                   <button @click="saveGatewayEdit()" :disabled="gatewayMutationInFlight"
-                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition modal-action modal-action-save">
                     Save Changes
                   </button>
                 </div>
@@ -566,7 +566,7 @@
 
                 <div>
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Trigger</label>
-                  <select v-model="groupCreate.trigger"
+                  <select v-content-select v-model="groupCreate.trigger"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                     <option value="packetloss">Packet Loss</option>
                     <option value="latency">Latency</option>
@@ -590,7 +590,7 @@
                   <div style="display:flex; flex-direction:column; gap:8px;">
                     <div v-for="(entry, idx) in groupCreate.gateways" :key="idx"
                       class="flex items-center gap-2">
-                      <select v-model="entry.gatewayId"
+                      <select v-content-select v-model="entry.gatewayId"
                         class="flex-1 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                         <option value="">— gateway —</option>
                         <option v-for="gw in gateways" :key="gw.id" :value="gw.id">{{gw.name}}</option>
@@ -616,7 +616,7 @@
               <div class="modal-section dark:border-neutral-600">
                 <div class="flex gap-3 justify-end">
                   <button @click="showGroupCreate = false"
-                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition modal-action modal-action-cancel">
                     Cancel
                   </button>
                   <button @click="createGatewayGroup()"
@@ -650,7 +650,7 @@
 
                 <div>
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Trigger</label>
-                  <select v-model="groupEdit.trigger"
+                  <select v-content-select v-model="groupEdit.trigger"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                     <option value="packetloss">Packet Loss</option>
                     <option value="latency">Latency</option>
@@ -674,7 +674,7 @@
                   <div style="display:flex; flex-direction:column; gap:8px;">
                     <div v-for="(entry, idx) in groupEdit.gateways" :key="idx"
                       class="flex items-center gap-2">
-                      <select v-model="entry.gatewayId"
+                      <select v-content-select v-model="entry.gatewayId"
                         class="flex-1 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                         <option value="">— gateway —</option>
                         <option v-for="gw in gateways" :key="gw.id" :value="gw.id">{{gw.name}}</option>
@@ -700,11 +700,11 @@
               <div class="modal-section dark:border-neutral-600">
                 <div class="flex gap-3 justify-end">
                   <button @click="showGroupEdit = false"
-                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition">
+                    class="px-4 py-2 border border-gray-300 dark:border-neutral-500 rounded dark:text-neutral-200 text-sm transition modal-action modal-action-cancel">
                     Cancel
                   </button>
                   <button @click="saveGroupEdit()"
-                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition">
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm font-medium transition modal-action modal-action-save">
                     Save Changes
                   </button>
                 </div>

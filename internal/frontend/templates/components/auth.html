@@ -109,9 +109,10 @@
             <span class="text-sm">{{$t("rememberMe")}}</span>
           </label>
 
-          <button type="submit" :disabled="authenticating" class="auth-primary">
+          <button type="submit" :disabled="authenticating" :aria-busy="String(authenticating)"
+            :aria-label="authenticating ? 'Signing in' : $t('signIn')" class="auth-primary">
             <span v-if="!authenticating">{{$t('signIn')}}</span>
-            <svg class="w-5 animate-spin mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+            <svg class="auth-spinner" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
               fill="currentColor" v-else>
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor"
@@ -137,14 +138,15 @@
               v-model="totpCode" @keyup.enter="loginStep2"
               class="text-center tracking-widest font-mono text-lg" />
           </div>
-          <button type="button" @click="loginStep2" :disabled="authenticating" class="auth-primary">
+          <button type="button" @click="loginStep2" :disabled="authenticating" :aria-busy="String(authenticating)"
+            :aria-label="authenticating ? 'Verifying code' : 'Verify'" class="auth-primary">
             <span v-if="!authenticating">Verify</span>
-            <svg v-else class="w-5 animate-spin mx-auto" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+            <svg v-else class="auth-spinner" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </button>
-          <button type="button" @click="totpRequired = false; totpCode = ''"
+          <button type="button" :disabled="authenticating" @click="totpRequired = false; totpCode = ''"
             class="w-full py-2 text-sm text-gray-500 dark:text-neutral-400 hover:text-gray-700 transition" style="margin-top:8px;">
             ← Back
           </button>

@@ -5,6 +5,7 @@
         <div v-if="activePage === 'dashboard'" key="page-dashboard" class="dashboard-page">
 
           <div class="dashboard-scroll">
+          <div class="dashboard-grid-surface">
           <!-- GridStack container — Vue renders items directly here; GridStack adopts them -->
           <div class="grid-stack" id="dashboard-grid">
             <div v-for="w in dashWidgets" :key="w.id"
@@ -17,7 +18,7 @@
                     <span>{{ (w.type === 'monitoring' && w.title) ? w.title : dashWidgetLabel(w.type) }}</span>
                     <div style="display:flex; align-items:center; gap:4px;">
                       <template v-if="w.type === 'monitoring'">
-                        <select :value="metricsWidgetPeriod[w.id]||'5m'" @change="metricsOnPeriodChange(w.id, $event.target.value)"
+                        <select v-content-select :value="metricsWidgetPeriod[w.id]||'5m'" @change="metricsOnPeriodChange(w.id, $event.target.value)"
                           class="text-xs dark:text-neutral-300 rounded"
                           style="padding:1px 4px; border:1px solid transparent; cursor:pointer; background:none; opacity:0.7;"
                           :style="{ color: theme==='dark'?'#d4d4d4':'#374151' }">
@@ -64,7 +65,7 @@
                             <span class="text-gray-500 dark:text-neutral-400">Memory</span>
                             <span class="dark:text-neutral-200">{{ dashFmtBytes(dashSystemInfo.memUsed * 1024) }} / {{ dashFmtBytes(dashSystemInfo.memTotal * 1024) }} ({{ dashSystemInfo.memPct }}%)</span>
                           </div>
-                          <div style="height:6px; background:var(--light-divider, #e5e7eb); border-radius:3px; overflow:hidden;">
+                          <div class="dash-memory-track" style="height:6px; border-radius:3px; overflow:hidden;">
                             <div :style="{ width: dashSystemInfo.memPct + '%', background: dashSystemInfo.memPct > 85 ? '#ef4444' : dashSystemInfo.memPct > 65 ? '#eab308' : '#22c55e', height: '100%', borderRadius: '3px', transition: 'width 0.4s' }"></div>
                           </div>
                         </div>
@@ -141,26 +142,26 @@
 
                           <!-- S2S badge -->
                           <span class="ui-badge" v-if="iface.disableRoutes"
-                            style="font-size:0.6rem; font-weight:600; padding:1px 4px; background:rgba(59,130,246,0.12); color:#2563eb; border-radius:3px; flex-shrink:0;">S2S</span>
+                            style="font-size:0.6rem; font-weight:600; padding:1px 4px; background:var(--badge-blue-bg); color:var(--badge-blue-text); border-radius:3px; flex-shrink:0;">S2S</span>
 
                           <!-- protocol badge -->
                           <span class="ui-badge" style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
                             :style="iface.protocol === 'wireguard-1.0' || iface.protocol === 'wireguard'
-                              ? (theme==='dark' ? 'background:rgba(156,163,175,0.15); color:var(--light-control-border, #d1d5db);' : 'background:rgba(107,114,128,0.1); color:#6b7280;')
-                              : (theme==='dark' ? 'background:rgba(99,102,241,0.2); color:#a5b4fc;' : 'background:rgba(99,102,241,0.12); color:#6366f1;')">
+                              ? ('background:var(--badge-neutral-bg); color:var(--badge-neutral-text);')
+                              : ('background:var(--badge-indigo-bg); color:var(--badge-indigo-text);')">
                             {{ dashProtoLabel(iface.protocol) }}
                           </span>
 
                           <!-- MTU badge -->
                           <span class="ui-badge" style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
-                            :style="{ background: theme==='dark'?'rgba(75,85,99,0.35)':'rgba(107,114,128,0.08)', color: theme==='dark'?'var(--light-control-border, #d1d5db)':'#6b7280' }">
+                            :style="{ background: 'var(--badge-neutral-bg)', color: 'var(--badge-neutral-text)' }">
                             MTU {{ iface.mtu > 0 ? iface.mtu : (globalSettings.mtu > 0 ? globalSettings.mtu : 'auto') }}
                           </span>
 
                           <!-- MSS badge (only if not disabled) -->
                           <span class="ui-badge" v-if="iface.mss !== 0"
                             style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
-                            :style="{ background: theme==='dark'?'rgba(245,158,11,0.2)':'rgba(245,158,11,0.1)', color: theme==='dark'?'#fbbf24':'#d97706' }">
+                            :style="{ background: 'var(--badge-orange-bg)', color: 'var(--badge-orange-text)' }">
                             {{ iface.mss === -1 ? 'MSS auto' : 'MSS ' + iface.mss }}
                           </span>
 
@@ -231,12 +232,12 @@
                             <!-- type badge -->
                             <span class="ui-badge" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px;"
                               :style="rule.type === 'MASQUERADE'
-                                ? 'background:rgba(99,102,241,0.12); color:#6366f1;'
-                                : 'background:rgba(234,179,8,0.12); color:#ca8a04;'">
+                                ? 'background:var(--badge-indigo-bg); color:var(--badge-indigo-text);'
+                                : 'background:var(--badge-orange-bg); color:var(--badge-orange-text);'">
                               {{ rule.type }}
                             </span>
                             <!-- auto badge -->
-                            <span class="ui-badge" v-if="rule.auto" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:rgba(107,114,128,0.1); color:#9ca3af;">auto</span>
+                            <span class="ui-badge" v-if="rule.auto" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:var(--badge-neutral-bg); color:var(--badge-neutral-text);">auto</span>
                           </div>
                         </div>
 
@@ -269,7 +270,7 @@
                               </span>
                             </div>
                             <!-- proto badge -->
-                            <span class="ui-badge" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:rgba(34,197,94,0.1); color:#16a34a; text-transform:uppercase;">
+                            <span class="ui-badge" style="flex-shrink:0; font-size:0.6rem; font-weight:600; padding:1px 5px; border-radius:3px; background:var(--badge-green-bg); color:var(--badge-green-text); text-transform:uppercase;">
                               {{ rule.protocol }}
                             </span>
                             <!-- port mapping -->
@@ -289,7 +290,7 @@
                         <!-- sticky filter bar -->
                         <div class="dash-peers-toolbar" style="border-bottom:1px solid #f3f4f6; flex-shrink:0;"
                           :style="{ 'border-bottom-color': theme==='dark' ? '#525252' : '#f3f4f6' }">
-                          <select v-model="dashPeersGetState(w.id).iface"
+                          <select v-content-select v-model="dashPeersGetState(w.id).iface"
                             class="dash-peers-select"
                             style="font-size:0.72rem; border:1px solid var(--light-divider, #e5e7eb); border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
                             :style="{ 'border-color': theme==='dark' ? '#525252':'var(--light-divider, #e5e7eb)', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
@@ -298,7 +299,7 @@
                             <option value="__s2s__">All S2S</option>
                             <option v-for="iface in tunnelInterfaces" :key="iface.id" :value="iface.id">{{ iface.name }}</option>
                           </select>
-                          <select v-model="dashPeersGetState(w.id).sort"
+                          <select v-content-select v-model="dashPeersGetState(w.id).sort"
                             class="dash-peers-select"
                             style="font-size:0.72rem; border:1px solid var(--light-divider, #e5e7eb); border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
                             :style="{ 'border-color': theme==='dark' ? '#525252':'var(--light-divider, #e5e7eb)', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
@@ -334,12 +335,12 @@
                                 :style="{ color: theme==='dark'?'#e5e5e5':'#374151' }">
                                 {{ peer.name }}
                                 <span class="ui-badge" style="font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:3px; font-weight:600;"
-                                  :style="{ background: theme==='dark'?'rgba(156,163,175,0.15)':'rgba(107,114,128,0.12)', color: theme==='dark'?'var(--light-control-border, #d1d5db)':'#6b7280' }">{{ peer.interfaceName }}</span>
-                                <span class="ui-badge" v-if="peer.peerType === 'interconnect'" style="font-size:0.6rem; padding:1px 4px; background:rgba(59,130,246,0.12); color:#2563eb; border-radius:3px; margin-left:2px; font-weight:600;">S2S</span>
+                                  :style="{ background: 'var(--badge-neutral-bg)', color: 'var(--badge-neutral-text)' }">{{ peer.interfaceName }}</span>
+                                <span class="ui-badge" v-if="peer.peerType === 'interconnect'" style="font-size:0.6rem; padding:1px 4px; background:var(--badge-blue-bg); color:var(--badge-blue-text); border-radius:3px; margin-left:2px; font-weight:600;">S2S</span>
                                 <!-- group badge for client peers -->
                                 <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId)"
                                   style="font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:2px; font-weight:600;"
-                                  :style="{ background: theme==='dark'?'rgba(34,197,94,0.18)':'rgba(34,197,94,0.1)', color: theme==='dark'?'#4ade80':'#16a34a' }"
+                                  :style="{ background: 'var(--badge-green-bg)', color: 'var(--badge-green-text)' }"
                                   :title="'Group: ' + peerGroupName(peer.groupId)">{{ peerGroupName(peer.groupId) }}</span>
                                 <!-- handshake time -->
                                 <span style="font-size:0.6rem; font-weight:400; margin-left:4px; opacity:0.7; display:inline-flex; align-items:center; gap:2px;"
@@ -351,10 +352,10 @@
                                   style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; margin-left:2px;"
                                   :title="'Expires: ' + new Date(peer.expiredAt).toLocaleDateString('ru-RU')"
                                   :style="new Date(peer.expiredAt) < new Date()
-                                    ? { background: 'rgba(239,68,68,0.15)', color: '#ef4444' }
+                                    ? { background: 'var(--badge-red-bg)', color: 'var(--badge-red-text)' }
                                     : (new Date(peer.expiredAt) - new Date() < 7*24*3600*1000)
-                                      ? { background: 'rgba(245,158,11,0.15)', color: theme==='dark'?'#fbbf24':'#d97706' }
-                                      : { background: theme==='dark'?'rgba(156,163,175,0.15)':'rgba(107,114,128,0.08)', color: theme==='dark'?'var(--light-control-border, #d1d5db)':'#6b7280' }">
+                                      ? { background: 'var(--badge-orange-bg)', color: 'var(--badge-orange-text)' }
+                                      : { background: 'var(--badge-neutral-bg)', color: 'var(--badge-neutral-text)' }">
                                   ⏰{{ new Date(peer.expiredAt).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'-') }}
                                 </span>
                               </div>
@@ -421,6 +422,7 @@
               </div>
             </div>
           </div>
+          </div><!-- /dashboard-grid-surface -->
           </div><!-- /dashboard-scroll -->
         </div><!-- /activePage === 'dashboard' -->
 

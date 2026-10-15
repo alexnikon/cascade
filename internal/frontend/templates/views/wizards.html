@@ -14,7 +14,7 @@
                    style="cursor:pointer; border-radius:8px; padding:16px 20px; border:2px solid;"
                    :style="wizardVPN.protocol === 'wireguard'
                      ? 'border-color:#2563eb; background:rgba(37,99,235,0.06);'
-                     : (theme==='dark' ? 'border-color:#525252; background:#404040;' : 'border-color:var(--light-control-border, #d1d5db); background:var(--light-inset, #f9fafb);')">
+                     : (theme==='dark' ? 'border-color:#525252; background:var(--surface-inset);' : 'border-color:var(--light-control-border, #d1d5db); background:var(--light-inset, #f9fafb);')">
                 <div style="display:flex; align-items:center; gap:12px;">
                   <div style="width:18px; height:18px; border-radius:50%; border:2px solid; flex-shrink:0;"
                        :style="wizardVPN.protocol==='wireguard' ? 'border-color:#2563eb; background:#2563eb;' : 'border-color:#9ca3af;'">
@@ -30,13 +30,13 @@
                    style="cursor:pointer; border-radius:8px; padding:16px 20px; border:2px solid;"
                    :style="wizardVPN.protocol === 'amneziawg'
                      ? 'border-color:#7c3aed; background:rgba(124,58,237,0.06);'
-                     : (theme==='dark' ? 'border-color:#525252; background:#404040;' : 'border-color:var(--light-control-border, #d1d5db); background:var(--light-inset, #f9fafb);')">
+                     : (theme==='dark' ? 'border-color:#525252; background:var(--surface-inset);' : 'border-color:var(--light-control-border, #d1d5db); background:var(--light-inset, #f9fafb);')">
                 <div style="display:flex; align-items:center; gap:12px;">
                   <div style="width:18px; height:18px; border-radius:50%; border:2px solid; flex-shrink:0;"
                        :style="wizardVPN.protocol==='amneziawg' ? 'border-color:#7c3aed; background:#7c3aed;' : 'border-color:#9ca3af;'">
                   </div>
                   <div>
-                    <div class="font-medium dark:text-neutral-100">AmneziaWG 2.0 <span class="ui-badge" style="font-size:0.72rem; padding:2px 6px; border-radius:4px; background:#7c3aed; color:#fff; margin-left:4px;">Stealth</span></div>
+                    <div class="font-medium dark:text-neutral-100">AmneziaWG 2.0 <span class="ui-badge" style="font-size:0.72rem; padding:2px 6px; border-radius:4px; background:var(--badge-purple-bg); color:var(--badge-purple-text); margin-left:4px;">Stealth</span></div>
                     <div class="text-sm text-gray-400 dark:text-neutral-400" style="margin-top:2px;">Traffic obfuscation — harder to detect and block.</div>
                   </div>
                 </div>
@@ -105,7 +105,7 @@
 
             <!-- Summary -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:20px; font-size:0.85rem;"
-                 :style="theme==='dark' ? 'background:#404040; color:#d4d4d4;' : 'background:#f3f4f6; color:#374151;'">
+                 :style="theme==='dark' ? 'background:var(--surface-inset); color:#d4d4d4;' : 'background:#f3f4f6; color:#374151;'">
               <div style="font-weight:600; margin-bottom:8px;">Summary</div>
               <div>Protocol: <strong>{{ wizardVPN.protocol === 'amneziawg' ? 'AmneziaWG 2.0' : 'WireGuard 1.0' }}</strong></div>
               <div v-if="wizardVPN.ifaceName">Name: <strong>{{ wizardVPN.ifaceName }}</strong></div>
@@ -192,7 +192,7 @@
                        ? 'background:#2563eb; color:#fff;'
                        : wizardUplink.step > i+1
                          ? 'background:#16a34a; color:#fff;'
-                         : (theme==='dark' ? 'background:#404040; color:#9ca3af;' : 'background:#f3f4f6; color:#6b7280;')">
+                         : (theme==='dark' ? 'background:var(--surface-inset); color:#9ca3af;' : 'background:#f3f4f6; color:#6b7280;')">
                   {{ wizardUplink.step > i+1 ? '✓' : (i+1) }}
                 </div>
                 <span style="font-size:0.72rem; white-space:nowrap;"
@@ -272,7 +272,7 @@
             <!-- No interfaces -->
             <div v-if="wizardUplinkClientIfaces().length === 0 && !wizardUplink.showInlineCreate"
                  style="border-radius:8px; padding:20px; text-align:center; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
+                 :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:12px;">No client interfaces yet.</p>
               <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button @click="activePage = 'wizard-simple-vpn'"
@@ -293,7 +293,7 @@
                  style="display:flex; align-items:center; gap:12px; border-radius:8px; padding:12px 16px; margin-bottom:8px; cursor:pointer;"
                  :style="wizardUplink.selectedIfaceIds.includes(iface.id)
                    ? 'border:2px solid #2563eb; background:rgba(37,99,235,0.06);'
-                   : (theme==='dark' ? 'border:2px solid #525252; background:#404040;' : 'border:2px solid var(--light-divider, #e5e7eb); background:var(--light-inset, #f9fafb);')">
+                   : (theme==='dark' ? 'border:2px solid #525252; background:var(--surface-inset);' : 'border:2px solid var(--light-divider, #e5e7eb); background:var(--light-inset, #f9fafb);')">
               <div style="width:18px; height:18px; border-radius:4px; border:2px solid; flex-shrink:0; display:flex; align-items:center; justify-content:center;"
                    :style="wizardUplink.selectedIfaceIds.includes(iface.id) ? 'border-color:#2563eb; background:#2563eb;' : 'border-color:#9ca3af;'">
                 <span v-if="wizardUplink.selectedIfaceIds.includes(iface.id)" style="color:#fff; font-size:0.75rem;">✓</span>
@@ -317,10 +317,10 @@
 
             <!-- Inline create form -->
             <div v-if="wizardUplink.showInlineCreate" style="border-radius:8px; padding:14px 16px; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
+                 :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">New interface</div>
               <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-                <select v-model="wizardUplink.inlineIfaceProto"
+                <select v-content-select v-model="wizardUplink.inlineIfaceProto"
                         style="border-radius:6px; padding:6px 10px; font-size:0.85rem; width:110px;"
                         :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }">
                   <option value="wireguard">WG 1.0</option>
@@ -352,7 +352,7 @@
 
             <!-- Source alias option -->
             <div style="border-radius:8px; padding:12px 16px; margin-bottom:24px;"
-                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
+                 :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
               <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-bottom:8px;">
                 <input type="checkbox" v-model="wizardUplink.createSrcAlias" style="width:16px; height:16px;" />
                 <span class="text-sm font-medium dark:text-neutral-300">Create source alias with selected subnets</span>
@@ -401,7 +401,7 @@
                    style="display:flex; align-items:center; gap:12px; border-radius:8px; padding:12px 16px; cursor:pointer; border:2px solid;"
                    :style="wizardUplink.dstType === key
                      ? 'border-color:#2563eb; background:rgba(37,99,235,0.06);'
-                     : (theme==='dark' ? 'border-color:#525252; background:#404040;' : 'border-color:var(--light-divider, #e5e7eb); background:var(--light-inset, #f9fafb);')">
+                     : (theme==='dark' ? 'border-color:#525252; background:var(--surface-inset);' : 'border-color:var(--light-divider, #e5e7eb); background:var(--light-inset, #f9fafb);')">
                 <div style="width:16px; height:16px; border-radius:50%; border:2px solid; flex-shrink:0;"
                      :style="wizardUplink.dstType === key ? 'border-color:#2563eb; background:#2563eb;' : 'border-color:#9ca3af;'"></div>
                 <span class="text-sm font-medium dark:text-neutral-200">{{ opt }}</span>
@@ -465,7 +465,7 @@
 
             <!-- MSS Clamping -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:12px;"
-                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
+                 :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
               <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
                 <input type="checkbox" v-model="wizardUplink.mssClamp" style="width:16px; height:16px; margin-top:2px;" />
                 <div>
@@ -479,7 +479,7 @@
 
             <!-- Fallback policy -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
+                 :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
               <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">Fallback when uplink is down</div>
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:8px;">
                 <input type="radio" v-model="wizardUplink.fallback" value="drop" style="width:14px; height:14px;" />
@@ -493,7 +493,7 @@
 
             <!-- Auto-generated names -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:24px;"
-                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
+                 :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
               <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">Object names (editable)</div>
               <div style="display:flex; flex-direction:column; gap:8px;">
                 <div style="display:flex; align-items:center; gap:10px;">
@@ -550,14 +550,14 @@
             <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px;">
               <div v-for="(s, i) in wizardUplink.steps" :key="i"
                    style="display:flex; align-items:flex-start; gap:12px; border-radius:8px; padding:10px 14px;"
-                   :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)') }">
+                   :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)') }">
                 <!-- Status icon -->
                 <div style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.8rem; flex-shrink:0; margin-top:1px;"
                      :style="s.status==='ok' ? 'background:#16a34a; color:#fff;'
                            : s.status==='warn' ? 'background:#d97706; color:#fff;'
                            : s.status==='error' ? 'background:#dc2626; color:#fff;'
                            : s.status==='running' ? 'background:#2563eb; color:#fff;'
-                           : (theme==='dark' ? 'background:#404040; color:#9ca3af;' : 'background:var(--light-divider, #e5e7eb); color:#9ca3af;')">
+                           : (theme==='dark' ? 'background:var(--surface-inset); color:#9ca3af;' : 'background:var(--light-divider, #e5e7eb); color:#9ca3af;')">
                   <span v-if="s.status==='ok'">✓</span>
                   <span v-else-if="s.status==='warn'">!</span>
                   <span v-else-if="s.status==='error'">✗</span>
@@ -676,7 +676,7 @@
               <div v-for="r in wizardS2S.remotes" :key="r.id"
                    @click="wizardS2S.remoteId = r.id; wizardS2SAutoNames()"
                    style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; cursor:pointer; margin-bottom:8px; border:2px solid transparent;"
-                   :style="{ border: wizardS2S.remoteId === r.id ? '2px solid #3b82f6' : '2px solid ' + (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)'), background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)' }">
+                   :style="{ border: wizardS2S.remoteId === r.id ? '2px solid #3b82f6' : '2px solid ' + (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)'), background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)' }">
                 <div style="width:36px; height:36px; border-radius:50%; background:#3b82f6; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:0.9rem; flex-shrink:0;">
                   {{ (r.name || '?')[0].toUpperCase() }}
                 </div>
@@ -690,7 +690,7 @@
               </div>
             </div>
             <div v-else class="text-sm text-gray-400 dark:text-neutral-500" style="margin-bottom:16px; padding:16px; border-radius:8px; text-align:center;"
-                 :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
+                 :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               No remote servers configured yet.
             </div>
 
@@ -701,7 +701,7 @@
 
             <div v-if="wizardS2S.showAddRemote"
                  style="border-radius:8px; padding:16px; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
+                 :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:12px;">New remote</div>
               <div style="display:flex; flex-direction:column; gap:8px;">
                 <input v-model="wizardS2S.addRemoteName" type="text" placeholder="Name"
@@ -760,7 +760,7 @@
             <div v-for="iface in wizardS2SClientIfaces()" :key="iface.id"
                  @click="wizardS2SToggleIface(iface.id)"
                  style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; cursor:pointer; margin-bottom:8px; border:2px solid;"
-                 :style="{ borderColor: wizardS2S.selectedIfaceIds.includes(iface.id) ? '#3b82f6' : (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)'), background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)' }">
+                 :style="{ borderColor: wizardS2S.selectedIfaceIds.includes(iface.id) ? '#3b82f6' : (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)'), background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)' }">
               <input type="checkbox" :checked="wizardS2S.selectedIfaceIds.includes(iface.id)" @click.stop style="pointer-events:none;" />
               <div>
                 <div class="text-sm font-semibold dark:text-neutral-100">{{ iface.name || iface.id }}</div>
@@ -769,7 +769,7 @@
             </div>
             <div v-if="wizardS2SClientIfaces().length === 0"
                  class="text-sm text-gray-400 dark:text-neutral-500" style="padding:16px; border-radius:8px; text-align:center; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
+                 :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               No client interfaces. Create one in Interfaces first.
             </div>
 
@@ -833,7 +833,7 @@
           <div v-if="wizardS2S.step === 4">
             <div class="mb-4 text-sm dark:text-neutral-300">
               <label class="block mb-2">Gateway monitoring</label>
-              <select v-model="wizardS2S.monitorMode" @change="wizardS2S.monitorMode === 'internet' && wizardS2SLoadEgress()" class="w-full p-2 rounded border dark:bg-neutral-700">
+              <select v-content-select v-model="wizardS2S.monitorMode" @change="wizardS2S.monitorMode === 'internet' && wizardS2SLoadEgress()" class="w-full p-2 rounded border dark:bg-neutral-700">
                 <option value="tunnel">Tunnel peer (default)</option>
                 <option value="internet">Internet through remote gateway</option>
               </select>
@@ -842,7 +842,7 @@
                 <label class="block">Monitor IPv4 address</label>
                 <input v-model="wizardS2S.monitorIP" placeholder="1.1.1.1" class="w-full p-2 mb-2 rounded border dark:bg-neutral-700">
                 <label class="block">Remote internet interface</label>
-                <select v-model="wizardS2S.remoteEgress" class="w-full p-2 rounded border dark:bg-neutral-700">
+                <select v-content-select v-model="wizardS2S.remoteEgress" class="w-full p-2 rounded border dark:bg-neutral-700">
                   <option value="">Select interface</option>
                   <option v-for="iface in wizardS2S.remoteEgressInterfaces" :key="iface.name" :value="iface.name">{{ iface.name }}</option>
                 </select>
@@ -968,7 +968,7 @@
             <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px;">
               <div v-for="(step, i) in wizardS2S.steps" :key="i"
                    style="display:flex; align-items:flex-start; gap:12px; padding:14px 16px; border-radius:10px;"
-                   :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)' }">
+                   :style="{ background: theme==='dark' ? 'var(--surface-inset)' : 'var(--light-inset, #f9fafb)' }">
                 <div style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px;"
                      :style="step.status === 'ok' ? 'background:#10b981;' : step.status === 'warn' ? 'background:#f59e0b;' : step.status === 'error' ? 'background:#ef4444;' : step.status === 'running' ? 'background:#3b82f6;' : 'background:var(--light-control-border, #d1d5db);'">
                   <svg v-if="step.status === 'ok'" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>

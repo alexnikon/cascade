@@ -30,7 +30,7 @@
         </div>
         <div class="modal-footer">
           <button @click="showTOTPSetupModal = false"
-            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
+            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition modal-action modal-action-cancel">
             Cancel
           </button>
           <button @click="confirmTOTPEnable()"
@@ -65,7 +65,7 @@
         </div>
         <div class="modal-footer dark:border-neutral-600">
           <button type="button" @click="cancelRestoreFlow()"
-            class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+            class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn modal-action modal-action-cancel">
             Cancel
           </button>
           <button type="button" @click="confirmRestoreWithPassword()"
@@ -106,7 +106,7 @@
               class="restore-interface-map-row">
               <span class="text-sm font-mono" :style="{ color: theme === 'dark' ? '#f87171' : '#dc2626' }">{{ bi }}</span>
               <span class="text-sm dark:text-neutral-400">→</span>
-              <select v-model="restoreIfaceMap[bi]"
+              <select v-content-select v-model="restoreIfaceMap[bi]"
                 class="dark:bg-neutral-800 dark:text-neutral-200 dark:border-neutral-500">
                 <option v-for="si in (restorePreview.serverIfaces || [])" :key="si" :value="si">{{ si }}</option>
               </select>
@@ -125,7 +125,7 @@
         </div>
         <div class="modal-footer dark:border-neutral-600">
           <button type="button" @click="cancelRestoreFlow()"
-            class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn">
+            class="bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200 rounded-lg font-medium text-sm btn modal-action modal-action-cancel">
             Cancel
           </button>
           <button type="button" @click="confirmRestoreApply()" :disabled="systemRestoring"
@@ -155,7 +155,7 @@
         </div>
         <div class="modal-footer">
           <button @click="showTOTPDisableModal = false"
-            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
+            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition modal-action modal-action-cancel">
             Cancel
           </button>
           <button @click="confirmTOTPDisable()"
@@ -194,7 +194,7 @@
         </div>
         <div class="modal-footer">
           <button @click="showAddUserModal = false"
-            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
+            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition modal-action modal-action-cancel">
             Cancel
           </button>
           <button @click="createUser()"
@@ -224,7 +224,7 @@
         </div>
         <div class="modal-footer">
           <button @click="showCreateTokenModal = false"
-            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition">
+            class="px-4 py-2 text-sm border dark:border-neutral-500 text-gray-600 dark:text-neutral-300 rounded transition modal-action modal-action-cancel">
             Cancel
           </button>
           <button @click="createApiToken()"
@@ -274,7 +274,7 @@
       :style="{ left: aliasTooltip.x + 'px', top: aliasTooltip.y + 'px' }">
       <!-- Header -->
       <div class="font-semibold" style="padding:8px 12px 6px; border-bottom:1px solid rgba(0,0,0,0.08); display:flex; align-items:center; gap:6px;">
-        <span class="ui-badge rounded text-xs" style="padding:1px 6px; background:#ede9fe; color:#5b21b6; font-weight:700;">{{ aliasTooltip.alias.type }}</span>
+        <span class="ui-badge rounded text-xs" style="padding:1px 6px; background:var(--badge-purple-bg); color:var(--badge-purple-text); font-weight:700;">{{ aliasTooltip.alias.type }}</span>
         {{ aliasTooltip.alias.name }}
       </div>
       <!-- Entries -->
