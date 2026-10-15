@@ -460,21 +460,6 @@ metricsKeyLabel(key) {
       return key;
     },
 
-    // Returns fill color for a gateway status value (3=healthy, 2=degraded, 1=down, 0=admin_down)
-
-_gatewayStatusColor(val) {
-      const v = Math.round(val);
-      if (v >= 3) return '#22c55e'; // healthy — green
-      if (v >= 2) return '#eab308'; // degraded — yellow
-      if (v >= 1) return '#ef4444'; // down — red
-      return '#9ca3af';               // admin_down / unknown — gray
-    },
-
-metricsYAxisTitle(key) {
-      if (key === 'cpu' || key === 'mem') return '%';
-      return 'Mbps';
-    },
-
 async metricsLoadHistory(widgetId, key, period) {
       try {
         const res = await this.api.getMetricsHistory({ key, period });
@@ -580,12 +565,6 @@ async metricsOnPeriodChange(widgetId, period) {
       }
     },
 
-metricsGetSeries(widgetId, key) {
-      const data = this.metricsHistory[`${widgetId}:${key}`] || [];
-      if (!key.startsWith('gateway:')) return data;
-      return data.map(p => ({ x: p.x, y: 1 }));
-    },
-
     // Builds series wrapper for area charts; call whenever underlying data changes.
     // Always replaces with $set so ApexCharts detects the change and re-renders.
     // Chart options are stable via _chartOptionsCache, so this does not cause re-init.
@@ -627,23 +606,6 @@ metricsAreaChartOptions(widgetId, key) {
         };
       }
       return this._chartOptionsCache[ck];
-    },
-
-    // Returns pre-computed per-bar color array for gateway bar charts.
-    // Used with distributed:true so colors[i] maps to bar i directly — no dataPointIndex risk.
-
-metricsGatewayColors(widgetId, key) {
-      const data = this.metricsHistory[`${widgetId}:${key}`] || [];
-      return data.map(p => this._gatewayStatusColor(p.y));
-    },
-
-    // Tooltip label for gateway status by index into the raw history buffer.
-
-metricsGatewayTooltip(widgetId, key, dataPointIndex) {
-      const data = this.metricsHistory[`${widgetId}:${key}`] || [];
-      const p = data[dataPointIndex];
-      const v = p ? Math.round(p.y) : -1;
-      return ['Admin Down', 'Down', 'Degraded', 'Healthy'][v] || 'Unknown';
     },
 
 metricsCloseConfig() {

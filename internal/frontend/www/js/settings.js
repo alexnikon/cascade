@@ -140,18 +140,6 @@ importInterconnectPeerJSON() {
       input.click();
     },
 
-async toggleDisableRoutes(iface) {
-      try {
-        await this.api.updateTunnelInterface({
-          interfaceId: iface.id,
-          disableRoutes: !iface.disableRoutes,
-        });
-        await this.loadTunnelInterfaces();
-      } catch (err) {
-        this.showToast(`Failed: ${err.message}`, 'error');
-      }
-    },
-
     // ============================================================
     // Settings & Templates
     // ============================================================
@@ -427,9 +415,6 @@ async generateParams() {
 		  protocolVersion: this.generateForm.protocolVersion,
         });
         this.generatedParams = res.params;
-        if (!this.generateProfiles.length && res.profiles) {
-          this.generateProfiles = res.profiles;
-        }
       } catch (err) {
         this.showToast(`Generate failed: ${err.message}`, 'error');
       } finally {
@@ -661,7 +646,6 @@ async openTOTPSetup() {
         const res = await this.api.getTOTPSetup();
         this.totpSetupSecret = res.secret || '';
         this.totpSetupQrPng  = res.qr_png  || '';
-        this.totpSetupQrUri  = res.qr_uri  || '';
         this.totpSetupCode   = '';
         this.totpSetupSaving = false;
         this.showTOTPSetupModal = true;

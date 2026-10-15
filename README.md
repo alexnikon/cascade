@@ -22,7 +22,7 @@
 
 ---
 
-<img width="1484" height="775" alt="image" src="https://github.com/user-attachments/assets/01be9f90-afc5-452c-ad5e-25bfa586ba2b" />
+<img src="./assets/dashboard.png" width="1484" alt="Cascade dashboard in dark theme" />
 
 > **AWG versions:** existing AWG 2.0 interfaces are preserved across upgrades; new interfaces
 > default to AWG 3.1. Userspace deployments use a pinned AWG 3.1 runtime, while kernel

@@ -472,7 +472,6 @@ async confirmDeleteInterface() {
         await this.api.deleteTunnelInterface({ interfaceId: iface.id });
         if (this.activeInterfaceId === iface.id) {
           this.activeInterfaceId = null;
-          this.selectedInterface = null;
           this.selectedInterfacePeers = [];
         }
         await this.loadTunnelInterfaces();
@@ -544,28 +543,6 @@ async restartTunnelInterface(iface) {
         this.showToast(`Restart failed: ${err.message}`, 'error');
       } finally {
         this.loadingInterfaceId = null;
-      }
-    },
-
-async loadInterfacePeers(interfaceId) {
-      if (interfaceId !== this.activeInterfaceId) return;
-      return this.refreshPeers();
-    },
-
-async deletePeer(peer) {
-      const label = peer.peerType === 'interconnect' ? 'peer' : 'client';
-      if (!confirm(`Delete ${label} "${peer.name}"?`)) return;
-      try {
-        await this.api.deleteTunnelInterfacePeer({
-          interfaceId: this.selectedInterface.id,
-          peerId: peer.id,
-        });
-        await this.loadInterfacePeers(this.selectedInterface.id);
-        await this.loadTunnelInterfaces();
-        this.showToast(peer.peerType === 'interconnect' ? 'Peer deleted!' : 'Client deleted!');
-      } catch (err) {
-        console.error('Delete failed:', err);
-        this.showToast(`Failed: ${err.message}`, 'error');
       }
     },
 
