@@ -520,7 +520,9 @@ func TestFrontendUserBadgesAndMobileInterfaceActions(t *testing.T) {
 		`border-radius: 10px;`,
 		`min-width: 44px;`,
 		`height: 44px;`,
-		`.interface-peer-action + .interface-peer-action {`,
+		`.dark .interface-peer-action {
+  background: transparent !important;
+  border: 0 !important;`,
 		`role="button" tabindex="0" aria-label="Restore interface"`,
 		`@keydown.enter.prevent="$refs.restoreInterfaceInput.click()"`,
 		`@keydown.space.prevent="$refs.restoreInterfaceInput.click()"`,
@@ -645,10 +647,10 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 		`background: transparent;`,
 		`grid-auto-columns: 44px;`,
 		`grid-auto-flow: column;`,
-		`.dark .peer-action-group {`,
-		`.peer-action-button:not(:disabled):not(.is-disabled):hover {`,
+		`.dark .peer-action-group,`,
+		`.peer-action-button:not(:disabled):not(.is-disabled):hover,`,
 		`color: var(--accent-blue, #2563eb) !important;`,
-		`.peer-action-button:focus-visible {`,
+		`.peer-action-button:focus-visible,`,
 		`pointer-events: none;`,
 	} {
 		if !strings.Contains(css, expected) {

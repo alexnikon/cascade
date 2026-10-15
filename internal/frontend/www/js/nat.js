@@ -201,15 +201,6 @@ _natIpAliases() {
     },
 
     /**
-     * Display source text for the rules table.
-     */
-
-_natRuleSourceLabel(rule) {
-      if (!rule.source) return 'any';
-      return rule.source;
-    },
-
-    /**
      * Display type text for the rules table.
      */
 

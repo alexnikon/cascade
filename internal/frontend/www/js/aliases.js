@@ -357,15 +357,6 @@ async startAliasGenerate(alias) {
       });
     },
 
-async startAliasGenerateCreate(aliasId) {
-      await this._startAliasGenerate(aliasId, {
-        source: this.aliasCreate.genSource,
-        country: this.aliasCreate.genCountry,
-        asn: this.aliasCreate.genAsn,
-        asnList: this.aliasCreate.genAsnList,
-      });
-    },
-
 async _startAliasGenerate(aliasId, opts) {
       try {
         const genOpts = {};
@@ -379,7 +370,6 @@ async _startAliasGenerate(aliasId, opts) {
         }
         const { jobId } = await this.api.generateAlias({ id: aliasId, ...genOpts });
         this.aliasGeneratingId = aliasId;
-        this.aliasGenerateJobId = jobId;
         this.aliasGenerateJobStatus = { status: 'running' };
         this.showToast('Generation started...', 'success');
         this._pollAliasJob(aliasId, jobId);
@@ -396,7 +386,6 @@ _pollAliasJob(aliasId, jobId) {
           if (status.status === 'done') {
             clearInterval(interval);
             this.aliasGeneratingId = null;
-            this.aliasGenerateJobId = null;
             await this.loadAliases();
             this.showToast(`Generation done: ${status.entryCount} prefixes`, 'success');
           } else if (status.status === 'error') {

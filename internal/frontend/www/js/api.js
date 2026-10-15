@@ -22,9 +22,6 @@ export class API {
   /** Switch back to the local server. */
   clearRemote() { this._remoteId = null; }
 
-  /** Returns the active remote id, or null if local. */
-  getRemoteId() { return this._remoteId; }
-
   /** Like call(), but always targets the local server regardless of activeRemoteId. */
   async callLocal(opts) {
     const saved = this._remoteId;
@@ -102,13 +99,6 @@ export class API {
     return json;
   }
 
-  async getRelease() {
-    return this.call({
-      method: 'get',
-      path: '/release',
-    });
-  }
-
   async getLang() {
     return this.call({
       method: 'get',
@@ -129,14 +119,6 @@ export class API {
       path: '/ui-traffic-stats',
     });
   }
-
-  async getChartType() {
-    return this.call({
-      method: 'get',
-      path: '/ui-chart-type',
-    });
-  }
-
 
   async getWGEnableExpireTime() {
     return this.call({
@@ -205,7 +187,6 @@ export class API {
       path: `/wireguard/client/${clientId}`,
     });
   }
-
 
   async enableClient({ clientId }) {
     return this.call({
@@ -345,18 +326,6 @@ export class API {
   }
 
   /**
-   * Get AWG2 settings from a template.
-   * H1-H4 are copied as-is (ranges). The AWG protocol randomises within the range per handshake.
-   * Used when the user selects "Load from template" in the Instance form.
-   */
-  async applyTemplate({ templateId }) {
-    return this.call({
-      method: 'post',
-      path: `/templates/${templateId}/apply`,
-    });
-  }
-
-  /**
    * generateTemplate — generate AWG 2.0 parameters (AmneziaWG-Architect endpoint).
    * @param {object} opts
    * @param {string} [opts.profile]    — CPS profile ('random', 'quic_initial', 'tls_client_hello', ...)
@@ -410,7 +379,6 @@ export class API {
       body: { conf },
     });
   }
-
 
   async importTunnelConf({ name, conf }) {
     return this.call({
@@ -573,7 +541,6 @@ export class API {
     });
   }
 
-
   /**
    * Export Interconnect peer parameters as JSON.
    * Returns an object for transfer to the remote side, which imports it with importPeerJSON.
@@ -620,19 +587,6 @@ export class API {
       throw new Error(err.message || res.statusText);
     }
     return res.json();
-  }
-
-  /**
-   * Export AWG2 interface obfuscation parameters.
-   * Returns an object with Jc, Jmin, Jmax, S1-S4, H1-H4, and I1-I5.
-   * The format is compatible with createTemplate() and can be saved as a profile.
-   * Returns HTTP 400 when the interface is not AWG2.
-   */
-  async exportObfuscationParams({ interfaceId }) {
-    return this.call({
-      method: 'get',
-      path: `/tunnel-interfaces/${interfaceId}/export-obfuscation`,
-    });
   }
 
   /**
@@ -900,10 +854,6 @@ export class API {
     return this.call({ method: 'post', path: '/aliases', body: { ...data, type: 'client-group' } });
   }
 
-  async deleteClientGroup({ id }) {
-    return this.call({ method: 'delete', path: `/aliases/${id}` });
-  }
-
   /**
    * Create an alias.
    * @param {{ name, type, entries?, description? }} data
@@ -1058,11 +1008,6 @@ export class API {
     return this.call({ method: 'post', path: '/users', body: { username, password } });
   }
 
-  /** Update a user's username or password. */
-  async updateUser(id, updates) {
-    return this.call({ method: 'patch', path: `/users/${id}`, body: updates });
-  }
-
   /** Delete a user by ID. */
   async deleteUser(id) {
     return this.call({ method: 'delete', path: `/users/${id}` });
@@ -1076,11 +1021,6 @@ export class API {
   /** Get the currently authenticated user. */
   async getCurrentUser() {
     return this.call({ method: 'get', path: '/users/me' });
-  }
-
-  /** Update own password. */
-  async updateCurrentUser(updates) {
-    return this.call({ method: 'patch', path: '/users/me', body: updates });
   }
 
   // ============================================================

@@ -51,13 +51,11 @@ async testRoute() {
       this.routeTestLoading = true;
       this.routeTestResult = null;
       this.routeTestMatchedRule = null;
-      this.routeTestSteps = [];
       this.routeTestError = '';
       try {
         const res = await this.api.testRoute(this.routeTestIp, this.routeTestSrc || undefined);
         this.routeTestResult      = res.result;
         this.routeTestMatchedRule = res.matchedRule || null;
-        this.routeTestSteps       = res.steps || [];
       } catch (err) {
         this.routeTestError = err.message || 'Error';
       } finally {
@@ -120,14 +118,6 @@ _routeNextHopLabel(route) {
         return gw ? gw.name : route.gatewayId;
       }
       return route.gateway || '—';
-    },
-
-    // Helper: badge type for next-hop column
-
-_routeNextHopType(route) {
-      if (route.gatewayGroupId) return 'group';
-      if (route.gatewayId) return 'gateway';
-      return 'manual';
     },
 
     // Helper: determine viaMode from a saved route object

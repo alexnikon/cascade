@@ -47,7 +47,6 @@ new Vue({
     // TOTP login step 2
     totpCode: '',          // 6-digit code input during login
     totpRequired: false,   // true = password OK, show TOTP input
-    totpPending: false,    // waiting for TOTP verification
 
     // Users management
     users: [],
@@ -57,7 +56,6 @@ new Vue({
     showTOTPSetupModal: false,
     totpSetupSecret: '',
     totpSetupQrPng: '',
-    totpSetupQrUri: '',
     totpSetupCode: '',
     totpSetupSaving: false,
 
@@ -210,7 +208,6 @@ new Vue({
     interfacesLoaded: false,
     interfacesError: '',
     interfaceLoadSeq: 0,
-    selectedInterface: null,
     selectedInterfacePeers: [],
     selectedPeersLoading: false,
     selectedPeersLoaded: false,
@@ -401,7 +398,6 @@ new Vue({
     generatedParams: null,
     generatingParams: false,
     savingGeneratedTemplate: false,
-    generateProfiles: [],
 
     // Gateways
     gateways: [],
@@ -449,8 +445,6 @@ new Vue({
     speedtestResult: null,
     speedtestError: '',
     speedtestHistory: [],
-
-
 
     // ── Wizard: Simple Client VPN ─────────────────────────────────────────────
     wizardVPN: {
@@ -604,7 +598,6 @@ new Vue({
     routeTestSrc: '',          // Optional source IP for the policy trace
     routeTestResult: null,
     routeTestMatchedRule: null, // { id, name, fwmark } | null
-    routeTestSteps: [],         // Trace steps for diagnostics
     routeTestLoading: false,
     routeTestError: '',
     showRouteCreate: false,
@@ -711,7 +704,6 @@ new Vue({
     showCountryDrop: false,     // dropdown visible
     countryPickerForm: null,    // 'create' | 'edit' — which form is active
     aliasGeneratingId: null,    // Alias ID currently being generated
-    aliasGenerateJobId: null,
     aliasGenerateJobStatus: null,
     aliasTooltip: null,         // { id, alias, x, y } — hover tooltip state
     aliasDomainOpenId: '',      // domain alias whose runtime details row is expanded
@@ -900,9 +892,6 @@ new Vue({
       const options = { year: 'numeric', month: 'long', day: 'numeric' };
       return dateTime.toLocaleDateString(i18n.locale, options);
     },
-    expiredDateEditFormat: (value) => {
-      if (value === null) return 'yyyy-MM-dd';
-    },
   },
   mounted() {
     // Remove splash screen — Vue is mounted, content is ready
@@ -1005,7 +994,6 @@ new Vue({
         this.uiTrafficStats = false;
       });
 
-
     this.api.getUiSortClients()
       .then((res) => {
         this.enableSortClient = res;
@@ -1095,13 +1083,11 @@ new Vue({
     },
     activeInterfaceId(newId) {
       if (newId) {
-        this.selectedInterface = this.currentInterface;
         this.selectedInterfacePeers = [];
         this.selectedPeersLoaded = false;
         this.selectedPeersError = '';
         this.refreshPeers();
       } else {
-        this.selectedInterface = null;
         this.selectedInterfacePeers = [];
         this.selectedPeersLoaded = false;
         this.selectedPeersError = '';
