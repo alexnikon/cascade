@@ -68,16 +68,23 @@ https://:443 {
     #   /ADMIN_PATH/api/...   → /api/...    → Cascade API handler
     #
     handle_path /{$ADMIN_PATH}/* {
-        reverse_proxy 127.0.0.1:{$CASCADE_PORT}
-    }
-
-    # One-time peer config download links — public, no admin path prefix.
-    handle /cnf/* {
-        reverse_proxy 127.0.0.1:{$CASCADE_PORT}
+        reverse_proxy 127.0.0.1:{$CASCADE_PORT} {
+            # Always overwrite client-supplied policy metadata.
+            header_up X-Cascade-Proxy "1"
+            header_up X-Cascade-Client-IP {remote_host}
+            header_up X-Cascade-HTTPS-Port {http.request.local.port}
+        }
     }
 
     # Redirect /ADMIN_PATH (no trailing slash) → add trailing slash
-    redir /{$ADMIN_PATH} /{$ADMIN_PATH}/ 301
+    handle /{$ADMIN_PATH} {
+        reverse_proxy 127.0.0.1:{$CASCADE_PORT} {
+            rewrite /_web-access/redirect
+            header_up X-Cascade-Proxy "1"
+            header_up X-Cascade-Client-IP {remote_host}
+            header_up X-Cascade-HTTPS-Port {http.request.local.port}
+        }
+    }
 
     # ── Decoy site ────────────────────────────────────────────────────────────
     handle {

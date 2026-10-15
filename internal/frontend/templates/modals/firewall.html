@@ -3,7 +3,7 @@
         <div v-if="showFirewallCreate && activePage === 'firewall'"
           class="modal-overlay"
          >
-          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-lg">
+          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-lg firewall-rule-panel">
             <div class="modal-header dark:border-neutral-600">
               <h2 class="text-xl font-medium dark:text-neutral-200">Add Firewall Rule</h2>
             </div>
@@ -40,7 +40,7 @@
               </div>
 
               <!-- Source -->
-              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+              <div class="firewall-rule-group">
                 <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Source</div>
                 <div class="flex gap-2">
                   <select v-model="firewallCreate.source.type"
@@ -66,14 +66,17 @@
                   <div class="flex items-center gap-1" style="margin-bottom:4px;">
                     <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-right:4px;">Src port:</span>
                     <button @click="firewallCreate.source.portMode = ''"
-                      :style="firewallCreate.source.portMode === '' ? 'background:#6b7280;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
+                      :class="{ 'is-selected': firewallCreate.source.portMode === '' }"
+                      :aria-pressed="String(firewallCreate.source.portMode === '')"
+                      class="firewall-choice firewall-choice-neutral text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
                     <button @click="firewallCreate.source.portMode = 'plain'"
-                      :style="firewallCreate.source.portMode === 'plain' ? 'background:#2563eb;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
+                      :class="{ 'is-selected': firewallCreate.source.portMode === 'plain' }"
+                      :aria-pressed="String(firewallCreate.source.portMode === 'plain')"
+                      class="firewall-choice firewall-choice-blue text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
                     <button @click="firewallCreate.source.portMode = 'alias'"
-                      :style="firewallCreate.source.portMode === 'alias' ? 'background:#7c3aed;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
+                      :class="{ 'is-selected': firewallCreate.source.portMode === 'alias' }"
+                      :aria-pressed="String(firewallCreate.source.portMode === 'alias')"
+                      class="firewall-choice firewall-choice-purple text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
                   </div>
                   <input v-if="firewallCreate.source.portMode === 'plain'" v-model="firewallCreate.source.port"
                     type="text" placeholder="e.g. 80, 443, or 8000-8090"
@@ -87,7 +90,7 @@
               </div>
 
               <!-- Destination -->
-              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+              <div class="firewall-rule-group">
                 <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Destination</div>
                 <div class="flex gap-2">
                   <select v-model="firewallCreate.destination.type"
@@ -113,14 +116,17 @@
                   <div class="flex items-center gap-1" style="margin-bottom:4px;">
                     <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-right:4px;">Dst port:</span>
                     <button @click="firewallCreate.destination.portMode = ''"
-                      :style="firewallCreate.destination.portMode === '' ? 'background:#6b7280;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
+                      :class="{ 'is-selected': firewallCreate.destination.portMode === '' }"
+                      :aria-pressed="String(firewallCreate.destination.portMode === '')"
+                      class="firewall-choice firewall-choice-neutral text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
                     <button @click="firewallCreate.destination.portMode = 'plain'"
-                      :style="firewallCreate.destination.portMode === 'plain' ? 'background:#2563eb;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
+                      :class="{ 'is-selected': firewallCreate.destination.portMode === 'plain' }"
+                      :aria-pressed="String(firewallCreate.destination.portMode === 'plain')"
+                      class="firewall-choice firewall-choice-blue text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
                     <button @click="firewallCreate.destination.portMode = 'alias'"
-                      :style="firewallCreate.destination.portMode === 'alias' ? 'background:#7c3aed;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
+                      :class="{ 'is-selected': firewallCreate.destination.portMode === 'alias' }"
+                      :aria-pressed="String(firewallCreate.destination.portMode === 'alias')"
+                      class="firewall-choice firewall-choice-purple text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
                   </div>
                   <input v-if="firewallCreate.destination.portMode === 'plain'" v-model="firewallCreate.destination.port"
                     type="text" placeholder="e.g. 443 or 8080-8090"
@@ -134,18 +140,21 @@
               </div>
 
               <!-- Action -->
-              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+              <div class="firewall-rule-group">
                 <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Action</div>
                 <div class="flex gap-2 mb-3">
                   <button @click="firewallCreate.action = 'accept'"
-                    :style="firewallCreate.action === 'accept' ? 'background:#16a34a;color:#fff;' : 'background:#dcfce7;color:#166534;'"
-                    class="text-sm font-semibold rounded" style="padding:6px 16px;">ACCEPT</button>
+                    :class="{ 'is-selected': firewallCreate.action === 'accept' }"
+                      :aria-pressed="String(firewallCreate.action === 'accept')"
+                    class="firewall-choice firewall-choice-green text-sm font-semibold rounded" style="padding:6px 16px;">ACCEPT</button>
                   <button @click="firewallCreate.action = 'drop'"
-                    :style="firewallCreate.action === 'drop' ? 'background:#dc2626;color:#fff;' : 'background:#fee2e2;color:#991b1b;'"
-                    class="text-sm font-semibold rounded" style="padding:6px 16px;">DROP</button>
+                    :class="{ 'is-selected': firewallCreate.action === 'drop' }"
+                      :aria-pressed="String(firewallCreate.action === 'drop')"
+                    class="firewall-choice firewall-choice-red text-sm font-semibold rounded" style="padding:6px 16px;">DROP</button>
                   <button @click="firewallCreate.action = 'reject'"
-                    :style="firewallCreate.action === 'reject' ? 'background:#d97706;color:#fff;' : 'background:#fef3c7;color:#92400e;'"
-                    class="text-sm font-semibold rounded" style="padding:6px 16px;">REJECT</button>
+                    :class="{ 'is-selected': firewallCreate.action === 'reject' }"
+                      :aria-pressed="String(firewallCreate.action === 'reject')"
+                    class="firewall-choice firewall-choice-orange text-sm font-semibold rounded" style="padding:6px 16px;">REJECT</button>
                 </div>
                 <!-- Gateway (only for ACCEPT) -->
                 <div v-if="firewallCreate.action === 'accept'">
@@ -217,7 +226,7 @@
         <div v-if="showFirewallEdit && activePage === 'firewall'"
           class="modal-overlay"
          >
-          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-lg">
+          <div class="bg-white dark:bg-neutral-700 modal-panel modal-panel-lg firewall-rule-panel">
             <div class="modal-header dark:border-neutral-600">
               <h2 class="text-xl font-medium dark:text-neutral-200">Edit Firewall Rule</h2>
             </div>
@@ -254,7 +263,7 @@
               </div>
 
               <!-- Source -->
-              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+              <div class="firewall-rule-group">
                 <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Source</div>
                 <div class="flex gap-2">
                   <select v-model="firewallEdit.source.type"
@@ -280,14 +289,17 @@
                   <div class="flex items-center gap-1" style="margin-bottom:4px;">
                     <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-right:4px;">Src port:</span>
                     <button @click="firewallEdit.source.portMode = ''"
-                      :style="firewallEdit.source.portMode === '' ? 'background:#6b7280;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
+                      :class="{ 'is-selected': firewallEdit.source.portMode === '' }"
+                      :aria-pressed="String(firewallEdit.source.portMode === '')"
+                      class="firewall-choice firewall-choice-neutral text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
                     <button @click="firewallEdit.source.portMode = 'plain'"
-                      :style="firewallEdit.source.portMode === 'plain' ? 'background:#2563eb;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
+                      :class="{ 'is-selected': firewallEdit.source.portMode === 'plain' }"
+                      :aria-pressed="String(firewallEdit.source.portMode === 'plain')"
+                      class="firewall-choice firewall-choice-blue text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
                     <button @click="firewallEdit.source.portMode = 'alias'"
-                      :style="firewallEdit.source.portMode === 'alias' ? 'background:#7c3aed;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
+                      :class="{ 'is-selected': firewallEdit.source.portMode === 'alias' }"
+                      :aria-pressed="String(firewallEdit.source.portMode === 'alias')"
+                      class="firewall-choice firewall-choice-purple text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
                   </div>
                   <input v-if="firewallEdit.source.portMode === 'plain'" v-model="firewallEdit.source.port"
                     type="text" placeholder="e.g. 80, 443, or 8000-8090"
@@ -301,7 +313,7 @@
               </div>
 
               <!-- Destination -->
-              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+              <div class="firewall-rule-group">
                 <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Destination</div>
                 <div class="flex gap-2">
                   <select v-model="firewallEdit.destination.type"
@@ -327,14 +339,17 @@
                   <div class="flex items-center gap-1" style="margin-bottom:4px;">
                     <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-right:4px;">Dst port:</span>
                     <button @click="firewallEdit.destination.portMode = ''"
-                      :style="firewallEdit.destination.portMode === '' ? 'background:#6b7280;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
+                      :class="{ 'is-selected': firewallEdit.destination.portMode === '' }"
+                      :aria-pressed="String(firewallEdit.destination.portMode === '')"
+                      class="firewall-choice firewall-choice-neutral text-xs rounded font-medium" style="padding:2px 8px;">Any</button>
                     <button @click="firewallEdit.destination.portMode = 'plain'"
-                      :style="firewallEdit.destination.portMode === 'plain' ? 'background:#2563eb;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
+                      :class="{ 'is-selected': firewallEdit.destination.portMode === 'plain' }"
+                      :aria-pressed="String(firewallEdit.destination.portMode === 'plain')"
+                      class="firewall-choice firewall-choice-blue text-xs rounded font-medium" style="padding:2px 8px;">Port</button>
                     <button @click="firewallEdit.destination.portMode = 'alias'"
-                      :style="firewallEdit.destination.portMode === 'alias' ? 'background:#7c3aed;color:#fff;' : 'background:#f3f4f6;color:#374151;'"
-                      class="text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
+                      :class="{ 'is-selected': firewallEdit.destination.portMode === 'alias' }"
+                      :aria-pressed="String(firewallEdit.destination.portMode === 'alias')"
+                      class="firewall-choice firewall-choice-purple text-xs rounded font-medium" style="padding:2px 8px;">Alias</button>
                   </div>
                   <input v-if="firewallEdit.destination.portMode === 'plain'" v-model="firewallEdit.destination.port"
                     type="text" placeholder="e.g. 443 or 8080-8090"
@@ -348,18 +363,21 @@
               </div>
 
               <!-- Action -->
-              <div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px;">
+              <div class="firewall-rule-group">
                 <div class="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase mb-2">Action</div>
                 <div class="flex gap-2 mb-3">
                   <button @click="firewallEdit.action = 'accept'"
-                    :style="firewallEdit.action === 'accept' ? 'background:#16a34a;color:#fff;' : 'background:#dcfce7;color:#166534;'"
-                    class="text-sm font-semibold rounded" style="padding:6px 16px;">ACCEPT</button>
+                    :class="{ 'is-selected': firewallEdit.action === 'accept' }"
+                      :aria-pressed="String(firewallEdit.action === 'accept')"
+                    class="firewall-choice firewall-choice-green text-sm font-semibold rounded" style="padding:6px 16px;">ACCEPT</button>
                   <button @click="firewallEdit.action = 'drop'"
-                    :style="firewallEdit.action === 'drop' ? 'background:#dc2626;color:#fff;' : 'background:#fee2e2;color:#991b1b;'"
-                    class="text-sm font-semibold rounded" style="padding:6px 16px;">DROP</button>
+                    :class="{ 'is-selected': firewallEdit.action === 'drop' }"
+                      :aria-pressed="String(firewallEdit.action === 'drop')"
+                    class="firewall-choice firewall-choice-red text-sm font-semibold rounded" style="padding:6px 16px;">DROP</button>
                   <button @click="firewallEdit.action = 'reject'"
-                    :style="firewallEdit.action === 'reject' ? 'background:#d97706;color:#fff;' : 'background:#fef3c7;color:#92400e;'"
-                    class="text-sm font-semibold rounded" style="padding:6px 16px;">REJECT</button>
+                    :class="{ 'is-selected': firewallEdit.action === 'reject' }"
+                      :aria-pressed="String(firewallEdit.action === 'reject')"
+                    class="firewall-choice firewall-choice-orange text-sm font-semibold rounded" style="padding:6px 16px;">REJECT</button>
                 </div>
                 <!-- Gateway (only for ACCEPT) -->
                 <div v-if="firewallEdit.action === 'accept'">

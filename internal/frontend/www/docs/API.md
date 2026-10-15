@@ -185,28 +185,18 @@ Base path: `/api/tunnel-interfaces/:id/peers`
 | `POST` | `/peers` | Create peer. Body: `{ name, peerType (client/interconnect), clientAllowedIPs?, persistentKeepalive?, expiredAt? }`. Response includes `totalRx`/`totalTx` (accumulated traffic counters from SQLite, persist across restarts) and `latestHandshakeAt` (last handshake timestamp, persisted across restarts; `null` if peer never connected) |
 | `POST` | `/peers/import-json` | Create interconnect peer from exported JSON |
 | `GET` | `/peers/:peerId` | Get peer |
-| `PATCH` | `/peers/:peerId` | Update peer fields. Accepts: `name?, endpoint?, allowedIPs?, clientAllowedIPs?, persistentKeepalive?, enabled?, expiredAt?, oneTimeLink?, rateDown?, rateUp?`. Fields `rateDown`/`rateUp` — bandwidth limit in **kbps** (0 = unlimited), enforced via `tc HTB + police` on the server; the UI accepts **Mbit/s** and converts automatically |
+| `PATCH` | `/peers/:peerId` | Update peer fields. Accepts: `name?, endpoint?, allowedIPs?, clientAllowedIPs?, persistentKeepalive?, enabled?, expiredAt?, rateDown?, rateUp?`. Fields `rateDown`/`rateUp` — bandwidth limit in **kbps** (0 = unlimited), enforced via `tc HTB + police` on the server; the UI accepts **Mbit/s** and converts automatically |
 | `DELETE` | `/peers/:peerId` | Delete peer |
 | `GET` | `/peers/:peerId/config` | Download WireGuard config file |
-| `GET` | `/peers/:peerId/qrcode.svg` | QR code SVG (client peers only) |
 | `POST` | `/peers/:peerId/enable` | Enable peer |
 | `POST` | `/peers/:peerId/disable` | Disable peer |
 | `POST` | `/peers/:peerId/reset-traffic` | Reset accumulated client or S2S peer RX/TX without disconnecting. No body; returns **204**, **404** for a missing interface/peer, **400** for an unsupported peer type, or **500** if baseline collection or persistence fails. |
 | `PUT` | `/peers/:peerId/name` | Rename peer. Body: `{ name }` |
 | `PUT` | `/peers/:peerId/address` | Update overlay address. Body: `{ address }` → stored as AllowedIPs |
 | `PUT` | `/peers/:peerId/expireDate` | Set expiry. Body: `{ expireDate }` — RFC3339 or YYYY-MM-DD, empty clears |
-| `POST` | `/peers/:peerId/generateOneTimeLink` | Generate one-time config link token. Returns `{ oneTimeLink: "https://..." }`. Token is single-use — cleared after first download. |
 | `GET` | `/peers/:peerId/export-json` | Export interconnect peer as JSON (interconnect only) |
 
 Traffic totals (`totalRx`/`totalTx`) persist across restarts and measure usage since the last reset. Reset also lowers the current peer Prometheus counters and the interface totals derived from them. Existing Prometheus history is retained. Raw `transferRx`/`transferTx` remain technical WireGuard counters for rate calculation and are not reset. No interface restart or client config update is required. For S2S, reset affects only the selected peer on the selected server; counters on the opposite server are unchanged.
-
-### One-time config download (public)
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/cnf/:token` | ❌ public | Download WireGuard config by one-time token (32 hex chars). Returns the `.conf` file as `text/plain` attachment. Token is invalidated immediately after download. Returns **404** if token is invalid or already used. |
-
-> The `/cnf/*` path is proxied by Caddy **outside** the admin path — accessible without knowing the hidden admin URL.
 
 ---
 
@@ -358,7 +348,7 @@ peers only. Interface responses include `domainAliasDNSStatus` with `address`,
 `ready` and an optional `error`. Upstream DNS uses the system resolver configuration;
 self-referencing upstreams are excluded. A port conflict is reported as an error.
 
-Generated client downloads, one-time links and QR codes use only the tunnel
+Generated client downloads use only the tunnel
 address as DNS while this mode is enabled. The address is included in split-tunnel
 `AllowedIPs` as needed. Existing clients must import the updated configuration.
 Stored per-interface and global DNS settings remain available when the mode is
@@ -506,7 +496,6 @@ Legacy endpoints retained for frontend compatibility. Read-only, return safe def
 | `GET` | `/api/remember-me` | `true` |
 | `GET` | `/api/ui-traffic-stats` | `false` |
 | `GET` | `/api/ui-chart-type` | `0` |
-| `GET` | `/api/wg-enable-one-time-links` | `true` |
 | `GET` | `/api/ui-sort-clients` | `false` |
 | `GET` | `/api/wg-enable-expire-time` | `false` |
 | `GET` | `/api/ui-avatar-settings` | `{ dicebear: null, gravatar: false }` |
@@ -537,3 +526,24 @@ Global settings expose `defaultClientAllowedIPsMode` (`manual` or `exclude-ipset
 Omitting a mode on client creation inherits the global choice unless a nonempty manual `clientAllowedIPs` is supplied. Existing peers and interconnect peers default to `manual`. Updating `clientAllowedIPs` without a mode switches the peer to manual routing and clears its alias binding. Explicit `manual` also clears the binding. Alias mode requires a nonempty readable IPv4 alias of type `ipset`.
 
 Export computes the IPv4 complement of the current alias entries and appends `::/0`. The peer stores the source choice, not the computed CIDR list. An unavailable or invalid alias causes an export error. Deletion of an alias referenced by global settings or a client peer is rejected.
+
+
+## Administrative web access
+
+`GET /api/settings/web-access` returns `{state, interfaces, supported, canManage}`.
+The state contains `policy: {enabled, interfaceId, clients: [{name, ip, interface}]}`,
+`pending`, `expiresAt`, and `error`. The default is unrestricted web access.
+
+An administrator can POST that policy to `/api/settings/web-access/trial` for a
+120-second trial, then POST `{}` to `/api/settings/web-access/confirm` through the
+selected administrative VPN, or `/api/settings/web-access/cancel` to restore the
+previous policy. Disabling is confirmed through the previous VPN. An expired
+trial or process restart restores the last confirmed policy.
+
+In VPN-only mode, other VPN interfaces cannot access the panel. Exact machine
+IP/interface exceptions require valid Bearer tokens and permit only API requests;
+they cannot log in with passwords, open the panel, or modify this policy. The
+backend must bind to loopback behind the updated Caddy proxy on port 443.
+
+One-time configuration links and generation endpoints have been removed. Use the
+authorized peer `/config` endpoint for downloads and wgbot delivery.

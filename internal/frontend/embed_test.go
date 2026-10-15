@@ -622,7 +622,8 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 	for markup, want := range map[string]int{
 		`class="peer-row-controls text-gray-400 dark:text-neutral-400"`: 2,
 		`class="peer-action-group"`:                                     2,
-		`class="peer-action-button"`:                                    12,
+		`class="peer-action-button"`:                                    6,
+		`class="button-danger peer-action-button"`:                      2,
 	} {
 		if got := strings.Count(interfaces, markup); got != want {
 			t.Errorf("Interfaces action markup %q count = %d, want %d", markup, got, want)

@@ -75,6 +75,55 @@
             </div>
           </div>
 
+          <!-- Administrative web access -->
+          <section class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden" data-testid="web-access-settings">
+            <div class="p-5 border-b dark:border-neutral-600">
+              <h2 class="text-xl font-medium dark:text-neutral-200">{{ $t('webAccess.title') }}</h2>
+              <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">{{ $t('webAccess.description') }}</p>
+            </div>
+            <div class="p-5" style="display:flex; flex-direction:column; gap:16px;">
+              <p v-if="!webAccess.supported" role="status" class="text-sm text-orange-600 dark:text-orange-400">{{ $t('webAccess.unsupported') }}</p>
+              <p v-if="!webAccess.canManage" class="text-sm text-gray-500 dark:text-neutral-400">{{ $t('webAccess.adminOnly') }}</p>
+              <p v-if="webAccess.state.error" role="alert" class="text-sm text-red-600">{{ webAccess.state.error }}</p>
+              <fieldset :disabled="!webAccess.supported || !webAccess.canManage || webAccess.state.pending || webAccessBusy" style="min-width:0; display:flex; flex-direction:column; gap:16px;">
+                <label class="flex items-center gap-2 text-sm dark:text-neutral-200">
+                  <input type="checkbox" v-model="webAccessDraft.enabled"> {{ $t('webAccess.enabled') }}
+                </label>
+                <label v-if="webAccessDraft.enabled" class="block text-sm dark:text-neutral-200">
+                  {{ $t('webAccess.interface') }}
+                  <select v-model="webAccessDraft.interfaceId" class="settings-content-select mt-1 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500">
+                    <option value="" disabled>{{ $t('webAccess.selectInterface') }}</option>
+                    <option v-for="iface in webAccess.interfaces" :key="iface.id" :value="iface.id" :disabled="!iface.enabled">
+                      {{ iface.name }} · {{ iface.id }} · {{ iface.address }}
+                    </option>
+                  </select>
+                </label>
+                <div v-if="webAccessDraft.enabled">
+                  <h3 class="text-sm font-medium dark:text-neutral-200">{{ $t('webAccess.clients') }}</h3>
+                  <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1 mb-3">{{ $t('webAccess.clientsHelp') }}</p>
+                  <div v-for="(client, index) in webAccessDraft.clients" :key="index" class="web-access-client">
+                    <label>{{ $t('webAccess.clientName') }}<input v-model="client.name" maxlength="100" :aria-label="$t('webAccess.clientName')"></label>
+                    <label>{{ $t('webAccess.clientIP') }}<input v-model="client.ip" placeholder="203.0.113.10" :aria-label="$t('webAccess.clientIP')" spellcheck="false"></label>
+                    <label>{{ $t('webAccess.ingress') }}<input v-model="client.interface" placeholder="ens1" :aria-label="$t('webAccess.ingress')" spellcheck="false"></label>
+                    <button @click="webAccessDraft.clients.splice(index, 1)" type="button" class="button-danger web-access-remove">{{ $t('webAccess.remove') }}</button>
+                  </div>
+                  <button @click="webAccessDraft.clients.push({ name: '', ip: '', interface: '' })" type="button" class="text-sm text-purple-600 dark:text-purple-400">{{ $t('webAccess.addClient') }}</button>
+                </div>
+                <p v-if="webAccessDraft.enabled" class="text-sm text-gray-500 dark:text-neutral-400">{{ $t('webAccess.certificateHelp') }}</p>
+                <button @click="changeWebAccess('trial')" type="button" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm self-start disabled:opacity-50">{{ $t('webAccess.apply') }}</button>
+              </fieldset>
+              <div v-if="webAccess.state.pending" class="p-3 border rounded dark:border-neutral-500" role="status">
+                <p class="text-sm dark:text-neutral-200">{{ $t('webAccess.pending') }}</p>
+                <p class="text-sm dark:text-neutral-300" v-if="webAccess.state.expiresAt">{{ new Date(webAccess.state.expiresAt).toLocaleTimeString() }}</p>
+                <div class="flex flex-wrap gap-3 mt-3">
+                  <button @click="changeWebAccess('confirm')" :disabled="webAccessBusy || !webAccess.canManage" class="px-3 py-2 bg-purple-600 text-white rounded text-sm">{{ $t('webAccess.confirm') }}</button>
+                  <button @click="changeWebAccess('cancel')" :disabled="webAccessBusy || !webAccess.canManage" class="text-sm dark:text-neutral-200">{{ $t('webAccess.cancel') }}</button>
+                </div>
+              </div>
+              <button @click="loadWebAccess" type="button" class="text-sm text-purple-600 dark:text-purple-400 self-start">{{ $t('webAccess.refresh') }}</button>
+            </div>
+          </section>
+
           <!-- Global Settings -->
           <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
             <div class="p-5 border-b dark:border-neutral-600">
@@ -102,12 +151,12 @@
               <div>
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Default Client AllowedIPs</label>
                 <select v-model="globalSettings.defaultClientAllowedIPsMode"
-                  class="w-full px-3 py-2 mb-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                  class="settings-content-select px-3 py-2 mb-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                   <option value="manual">Manual AllowedIPs</option>
                   <option value="exclude-ipset">Exclude ipset alias</option>
                 </select>
                 <select v-if="globalSettings.defaultClientAllowedIPsMode === 'exclude-ipset'" v-model="globalSettings.defaultClientAllowedIPsAliasId"
-                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                  class="settings-content-select px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                   <option disabled value="">Select an ipset alias</option>
                   <option v-for="alias in aliases.filter(a => a.type === 'ipset')" :key="alias.id" :value="alias.id">{{ alias.name }} ({{ alias.entryCount }} excluded IPv4 entries)</option>
                 </select>
@@ -323,7 +372,7 @@
                   Export
                 </button>
                 <button @click="deleteTemplate(tmpl.id)"
-                  class="text-xs border border-red-300 text-red-600 dark:text-red-400 rounded transition"
+                  class="button-danger text-xs border rounded transition"
                   style="padding:2px 8px;">
                   Delete
                 </button>
@@ -407,7 +456,7 @@
                         @click="setUserAdmin(user)"
                         class="px-3 py-1 text-xs border rounded transition"
                         :class="user.is_admin
-                          ? 'border-orange-400 text-orange-600 dark:text-orange-400'
+                          ? 'button-danger'
                           : 'border-gray-400 text-gray-600 dark:text-neutral-400'">
                         {{ user.is_admin ? 'Revoke Admin' : 'Make Admin' }}
                       </button>
@@ -415,7 +464,7 @@
                       <button @click="deleteUser(user)"
                         :disabled="users.length <= 1"
                         :class="users.length <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-red-50 dark:hover:bg-red-900'"
-                        class="px-3 py-1 text-xs border border-red-300 text-red-600 dark:text-red-400 rounded transition">
+                        class="button-danger px-3 py-1 text-xs border rounded transition">
                         Delete
                       </button>
                     </div>
@@ -486,7 +535,7 @@
                     <button v-if="metricsSettings.tokenConfigured && !metricsSettings.clearToken"
                       @click="removeMetricsToken" type="button"
                       :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
-                      class="px-3 py-2 text-sm border border-red-300 text-red-600 dark:text-red-400 rounded transition">
+                      class="button-danger px-3 py-2 text-sm border rounded transition">
                       Remove token
                     </button>
                   </div>
@@ -576,7 +625,7 @@
                   <div v-else>
                     <div v-for="bk in preRestoreBackups" :key="bk.name"
                       style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; border-radius:6px; margin-bottom:4px;"
-                      :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: theme==='dark' ? '1px solid #404040' : '1px solid #e5e7eb' }">
+                      :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: theme==='dark' ? '1px solid #404040' : '1px solid var(--light-divider, #e5e7eb)' }">
                       <div>
                         <span class="text-xs font-mono dark:text-neutral-300">{{ bk.name }}</span>
                         <span class="text-xs text-gray-400 dark:text-neutral-500" style="margin-left:8px;">{{ (bk.size / 1024).toFixed(0) }} KB</span>
@@ -654,7 +703,7 @@
               <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;" v-if="importClientConfigsResult">
                 <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px;">
                   <p class="text-sm" style="color:#166534;">
-                    {{ importClientConfigsResult.matched }} config{{ importClientConfigsResult.matched === 1 ? '' : 's' }} matched — QR/download unlocked.
+                    {{ importClientConfigsResult.matched }} config{{ importClientConfigsResult.matched === 1 ? '' : 's' }} matched — download unlocked.
                   </p>
                 </div>
                 <div v-if="importClientConfigsResult.unmatched && importClientConfigsResult.unmatched.length > 0"
@@ -720,7 +769,7 @@
                   </td>
                   <td data-label="Actions" class="tc">
                     <button @click="deleteApiToken(token)"
-                      class="px-3 py-1 text-xs border border-red-300 text-red-600 dark:text-red-400 rounded transition hover:bg-red-50 dark:hover:bg-red-900">
+                      class="button-danger px-3 py-1 text-xs border rounded transition">
                       Revoke
                     </button>
                   </td>

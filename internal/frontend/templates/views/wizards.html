@@ -14,7 +14,7 @@
                    style="cursor:pointer; border-radius:8px; padding:16px 20px; border:2px solid;"
                    :style="wizardVPN.protocol === 'wireguard'
                      ? 'border-color:#2563eb; background:rgba(37,99,235,0.06);'
-                     : (theme==='dark' ? 'border-color:#525252; background:#404040;' : 'border-color:#d1d5db; background:#f9fafb;')">
+                     : (theme==='dark' ? 'border-color:#525252; background:#404040;' : 'border-color:var(--light-control-border, #d1d5db); background:var(--light-inset, #f9fafb);')">
                 <div style="display:flex; align-items:center; gap:12px;">
                   <div style="width:18px; height:18px; border-radius:50%; border:2px solid; flex-shrink:0;"
                        :style="wizardVPN.protocol==='wireguard' ? 'border-color:#2563eb; background:#2563eb;' : 'border-color:#9ca3af;'">
@@ -30,7 +30,7 @@
                    style="cursor:pointer; border-radius:8px; padding:16px 20px; border:2px solid;"
                    :style="wizardVPN.protocol === 'amneziawg'
                      ? 'border-color:#7c3aed; background:rgba(124,58,237,0.06);'
-                     : (theme==='dark' ? 'border-color:#525252; background:#404040;' : 'border-color:#d1d5db; background:#f9fafb;')">
+                     : (theme==='dark' ? 'border-color:#525252; background:#404040;' : 'border-color:var(--light-control-border, #d1d5db); background:var(--light-inset, #f9fafb);')">
                 <div style="display:flex; align-items:center; gap:12px;">
                   <div style="width:18px; height:18px; border-radius:50%; border:2px solid; flex-shrink:0;"
                        :style="wizardVPN.protocol==='amneziawg' ? 'border-color:#7c3aed; background:#7c3aed;' : 'border-color:#9ca3af;'">
@@ -66,7 +66,7 @@
             <div style="display:flex; gap:10px;">
               <button @click="wizardVPN.step = 1"
                       class="text-sm rounded-lg dark:text-neutral-300"
-                      style="padding:9px 20px; border:1px solid #d1d5db; cursor:pointer;">
+                      style="padding:9px 20px; border:1px solid var(--light-control-border, #d1d5db); cursor:pointer;">
                 ← Back
               </button>
               <button @click="wizardVPN.step = 3"
@@ -124,7 +124,7 @@
             <div style="display:flex; gap:10px; align-items:center;">
               <button @click="wizardVPN.step = 2" :disabled="wizardVPN.running"
                       class="text-sm rounded-lg dark:text-neutral-300"
-                      style="padding:9px 20px; border:1px solid #d1d5db; cursor:pointer;">
+                      style="padding:9px 20px; border:1px solid var(--light-control-border, #d1d5db); cursor:pointer;">
                 ← Back
               </button>
               <button @click="wizardVPNRun()" :disabled="wizardVPN.running"
@@ -157,11 +157,6 @@
               ⚠ {{ wizardVPN.startWarning }}
             </div>
 
-            <!-- QR code -->
-            <div style="display:inline-block; padding:12px; border-radius:12px; background:#fff; margin-bottom:20px;">
-              <img :src="wizardVPN.qrUrl" style="width:220px; height:220px; display:block;">
-            </div>
-
             <!-- Buttons -->
             <div style="display:flex; flex-direction:column; gap:10px; align-items:center;">
               <button @click="wizardVPNDownload()"
@@ -171,7 +166,7 @@
               </button>
               <button @click="switchPage('interfaces')"
                       class="text-sm rounded-lg dark:text-neutral-300"
-                      style="padding:10px 28px; border:1px solid #d1d5db; cursor:pointer; width:220px;">
+                      style="padding:10px 28px; border:1px solid var(--light-control-border, #d1d5db); cursor:pointer; width:220px;">
                 Go to Interfaces
               </button>
               <button @click="wizardVPNReset()"
@@ -203,7 +198,7 @@
                 <span style="font-size:0.72rem; white-space:nowrap;"
                       :style="wizardUplink.step === i+1 ? 'color:#2563eb; font-weight:600;' : (theme==='dark' ? 'color:#9ca3af;' : 'color:#6b7280;')">{{ lbl }}</span>
                 <div v-if="i < 4" style="flex:1; height:1px; min-width:10px;"
-                     :style="{ background: theme==='dark' ? '#404040' : '#e5e7eb' }"></div>
+                     :style="{ background: theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)' }"></div>
               </div>
             </template>
           </div>
@@ -228,7 +223,7 @@
               <textarea v-model="wizardUplink.confText" @input="wizardUplinkPreview" rows="7"
                         placeholder="[Interface]&#10;PrivateKey = ...&#10;Address = ...&#10;&#10;[Peer]&#10;PublicKey = ...&#10;Endpoint = ..."
                         style="width:100%; font-family:monospace; font-size:0.8rem; border-radius:6px; padding:8px 10px; resize:vertical;"
-                        :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }"></textarea>
+                        :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }"></textarea>
             </div>
 
             <!-- Preview -->
@@ -252,7 +247,7 @@
               <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Interface name</label>
               <input v-model="wizardUplink.ifaceName" @input="wizardUplinkOnNameChange" type="text" placeholder="my-uplink"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.9rem;"
-                     :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                     :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
             </div>
 
             <div style="display:flex; justify-content:flex-end;">
@@ -277,7 +272,7 @@
             <!-- No interfaces -->
             <div v-if="wizardUplinkClientIfaces().length === 0 && !wizardUplink.showInlineCreate"
                  style="border-radius:8px; padding:20px; text-align:center; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#404040' : '#f9fafb', border: '1px dashed ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
+                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               <p class="text-sm text-gray-400 dark:text-neutral-400" style="margin-bottom:12px;">No client interfaces yet.</p>
               <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button @click="activePage = 'wizard-simple-vpn'"
@@ -286,7 +281,7 @@
                 </button>
                 <button @click="wizardUplink.showInlineCreate = true"
                         style="padding:7px 16px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:600;"
-                        :style="{ background: theme==='dark' ? '#525252' : '#f3f4f6', color: theme==='dark' ? '#e5e5e5' : '#374151', border: theme==='dark' ? '1px solid #666' : '1px solid #d1d5db' }">
+                        :style="{ background: theme==='dark' ? '#525252' : '#f3f4f6', color: theme==='dark' ? '#e5e5e5' : '#374151', border: theme==='dark' ? '1px solid #666' : '1px solid var(--light-control-border, #d1d5db)' }">
                   Create interface here
                 </button>
               </div>
@@ -298,7 +293,7 @@
                  style="display:flex; align-items:center; gap:12px; border-radius:8px; padding:12px 16px; margin-bottom:8px; cursor:pointer;"
                  :style="wizardUplink.selectedIfaceIds.includes(iface.id)
                    ? 'border:2px solid #2563eb; background:rgba(37,99,235,0.06);'
-                   : (theme==='dark' ? 'border:2px solid #525252; background:#404040;' : 'border:2px solid #e5e7eb; background:#f9fafb;')">
+                   : (theme==='dark' ? 'border:2px solid #525252; background:#404040;' : 'border:2px solid var(--light-divider, #e5e7eb); background:var(--light-inset, #f9fafb);')">
               <div style="width:18px; height:18px; border-radius:4px; border:2px solid; flex-shrink:0; display:flex; align-items:center; justify-content:center;"
                    :style="wizardUplink.selectedIfaceIds.includes(iface.id) ? 'border-color:#2563eb; background:#2563eb;' : 'border-color:#9ca3af;'">
                 <span v-if="wizardUplink.selectedIfaceIds.includes(iface.id)" style="color:#fff; font-size:0.75rem;">✓</span>
@@ -315,32 +310,32 @@
             <div v-if="wizardUplinkClientIfaces().length > 0 && !wizardUplink.showInlineCreate" style="margin-bottom:16px;">
               <button @click="wizardUplink.showInlineCreate = true"
                       style="padding:6px 14px; border-radius:6px; font-size:0.82rem; cursor:pointer; font-weight:600;"
-                      :style="{ background: 'transparent', border: '1px dashed ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">
+                      :style="{ background: 'transparent', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">
                 + Add interface
               </button>
             </div>
 
             <!-- Inline create form -->
             <div v-if="wizardUplink.showInlineCreate" style="border-radius:8px; padding:14px 16px; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
+                 :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">New interface</div>
               <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
                 <select v-model="wizardUplink.inlineIfaceProto"
                         style="border-radius:6px; padding:6px 10px; font-size:0.85rem; width:110px;"
-                        :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }">
+                        :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }">
                   <option value="wireguard">WG 1.0</option>
                   <option value="amneziawg-2.0">AWG 2.0</option>
 				  <option value="amneziawg-3.1">AWG 3.1</option>
                 </select>
                 <input v-model="wizardUplink.inlineIfaceName" type="text" placeholder="Name (optional)"
                        style="border-radius:6px; padding:6px 10px; font-size:0.85rem; flex:1; min-width:120px;"
-                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 <input v-model="wizardUplink.inlineIfaceAddr" type="text" placeholder="Address (e.g. 10.8.0.1/24)"
                        style="border-radius:6px; padding:6px 10px; font-size:0.85rem; flex:2; min-width:160px;"
-                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 <input v-model="wizardUplink.inlineIfacePort" type="number" placeholder="Port (auto)"
                        style="border-radius:6px; padding:6px 10px; font-size:0.85rem; width:100px;"
-                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
               </div>
               <div style="display:flex; gap:8px;">
                 <button @click="wizardUplinkInlineCreate" :disabled="wizardUplink.inlineIfaceCreating"
@@ -349,7 +344,7 @@
                 </button>
                 <button @click="wizardUplink.showInlineCreate = false"
                         style="padding:6px 14px; border-radius:6px; border:none; cursor:pointer; font-size:0.85rem;"
-                        :style="{ background: theme==='dark' ? '#525252' : '#e5e7eb', color: theme==='dark' ? '#e5e5e5' : '#374151' }">
+                        :style="{ background: theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)', color: theme==='dark' ? '#e5e5e5' : '#374151' }">
                   Cancel
                 </button>
               </div>
@@ -357,7 +352,7 @@
 
             <!-- Source alias option -->
             <div style="border-radius:8px; padding:12px 16px; margin-bottom:24px;"
-                 :style="{ background: theme==='dark' ? '#404040' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#e5e7eb') }">
+                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
               <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-bottom:8px;">
                 <input type="checkbox" v-model="wizardUplink.createSrcAlias" style="width:16px; height:16px;" />
                 <span class="text-sm font-medium dark:text-neutral-300">Create source alias with selected subnets</span>
@@ -365,7 +360,7 @@
               <div v-if="wizardUplink.createSrcAlias" style="display:flex; align-items:center; gap:8px;">
                 <input v-model="wizardUplink.srcAliasName" type="text" placeholder="src-my-uplink"
                        style="border-radius:6px; padding:6px 10px; font-size:0.85rem; flex:1;"
-                       :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                       :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
               </div>
               <div v-if="wizardUplink.createSrcAlias && wizardUplink.selectedIfaceIds.length > 0"
                    class="text-xs" style="margin-top:6px;"
@@ -406,7 +401,7 @@
                    style="display:flex; align-items:center; gap:12px; border-radius:8px; padding:12px 16px; cursor:pointer; border:2px solid;"
                    :style="wizardUplink.dstType === key
                      ? 'border-color:#2563eb; background:rgba(37,99,235,0.06);'
-                     : (theme==='dark' ? 'border-color:#525252; background:#404040;' : 'border-color:#e5e7eb; background:#f9fafb;')">
+                     : (theme==='dark' ? 'border-color:#525252; background:#404040;' : 'border-color:var(--light-divider, #e5e7eb); background:var(--light-inset, #f9fafb);')">
                 <div style="width:16px; height:16px; border-radius:50%; border:2px solid; flex-shrink:0;"
                      :style="wizardUplink.dstType === key ? 'border-color:#2563eb; background:#2563eb;' : 'border-color:#9ca3af;'"></div>
                 <span class="text-sm font-medium dark:text-neutral-200">{{ opt }}</span>
@@ -419,7 +414,7 @@
               <input v-model="wizardUplink.dstCountriesRaw" type="text" placeholder="RU, BY, KZ"
                      @input="wizardUplink.dstCountries = wizardUplink.dstCountriesRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.9rem;"
-                     :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                     :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
             </div>
 
             <!-- AS: ASN input -->
@@ -427,7 +422,7 @@
               <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">ASN</label>
               <input v-model="wizardUplink.dstASN" type="text" placeholder="AS12345"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.9rem;"
-                     :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                     :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
             </div>
 
             <!-- Warning for GEO/AS -->
@@ -441,7 +436,7 @@
               <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Destination alias name</label>
               <input v-model="wizardUplink.dstAliasName" type="text" placeholder="dst-my-uplink"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.9rem;"
-                     :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                     :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
             </div>
 
             <!-- Negate -->
@@ -470,7 +465,7 @@
 
             <!-- MSS Clamping -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:12px;"
-                 :style="{ background: theme==='dark' ? '#404040' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#e5e7eb') }">
+                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
               <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;">
                 <input type="checkbox" v-model="wizardUplink.mssClamp" style="width:16px; height:16px; margin-top:2px;" />
                 <div>
@@ -484,7 +479,7 @@
 
             <!-- Fallback policy -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#404040' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#e5e7eb') }">
+                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
               <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">Fallback when uplink is down</div>
               <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-bottom:8px;">
                 <input type="radio" v-model="wizardUplink.fallback" value="drop" style="width:14px; height:14px;" />
@@ -498,33 +493,33 @@
 
             <!-- Auto-generated names -->
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:24px;"
-                 :style="{ background: theme==='dark' ? '#404040' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#e5e7eb') }">
+                 :style="{ background: theme==='dark' ? '#404040' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-divider, #e5e7eb)') }">
               <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:10px;">Object names (editable)</div>
               <div style="display:flex; flex-direction:column; gap:8px;">
                 <div style="display:flex; align-items:center; gap:10px;">
                   <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Gateway</span>
                   <input v-model="wizardUplink.gatewayName" type="text" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
-                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
                   <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Monitor IP</span>
                   <input v-model="wizardUplink.gatewayMonitorIP" type="text" placeholder="e.g. 10.0.0.1" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
-                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
                   <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Firewall rule</span>
                   <input v-model="wizardUplink.fwRuleName" type="text" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
-                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 </div>
                 <div style="display:flex; align-items:center; gap:10px;">
                   <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">NAT rule</span>
                   <input v-model="wizardUplink.natRuleName" type="text" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
-                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 </div>
                 <div v-if="wizardUplink.createSrcAlias" style="display:flex; align-items:center; gap:10px;">
                   <span class="text-xs" style="width:110px; flex-shrink:0;" :style="{ color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Source alias</span>
                   <input v-model="wizardUplink.srcAliasName" type="text" style="flex:1; border-radius:5px; padding:5px 8px; font-size:0.83rem;"
-                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                         :style="{ background: theme==='dark' ? '#2a2a2a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 </div>
               </div>
             </div>
@@ -555,14 +550,14 @@
             <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px;">
               <div v-for="(s, i) in wizardUplink.steps" :key="i"
                    style="display:flex; align-items:flex-start; gap:12px; border-radius:8px; padding:10px 14px;"
-                   :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#404040' : '#e5e7eb') }">
+                   :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)') }">
                 <!-- Status icon -->
                 <div style="width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.8rem; flex-shrink:0; margin-top:1px;"
                      :style="s.status==='ok' ? 'background:#16a34a; color:#fff;'
                            : s.status==='warn' ? 'background:#d97706; color:#fff;'
                            : s.status==='error' ? 'background:#dc2626; color:#fff;'
                            : s.status==='running' ? 'background:#2563eb; color:#fff;'
-                           : (theme==='dark' ? 'background:#404040; color:#9ca3af;' : 'background:#e5e7eb; color:#9ca3af;')">
+                           : (theme==='dark' ? 'background:#404040; color:#9ca3af;' : 'background:var(--light-divider, #e5e7eb); color:#9ca3af;')">
                   <span v-if="s.status==='ok'">✓</span>
                   <span v-else-if="s.status==='warn'">!</span>
                   <span v-else-if="s.status==='error'">✗</span>
@@ -662,13 +657,13 @@
               <div style="display:flex; align-items:center; gap:6px; cursor:pointer;"
                    @click="wizardS2S.step > i+1 && !wizardS2S.applying ? wizardS2S.step = i+1 : null">
                 <div style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:700; flex-shrink:0;"
-                     :style="wizardS2S.step === i+1 ? 'background:#3b82f6;color:#fff;' : wizardS2S.step > i+1 ? 'background:#10b981;color:#fff;' : 'background:#d1d5db;color:#6b7280;'">
+                     :style="wizardS2S.step === i+1 ? 'background:#3b82f6;color:#fff;' : wizardS2S.step > i+1 ? 'background:#10b981;color:#fff;' : 'background:var(--light-control-border, #d1d5db);color:#6b7280;'">
                   <svg v-if="wizardS2S.step > i+1" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                   <span v-else>{{ i+1 }}</span>
                 </div>
                 <span class="text-sm font-medium" :style="wizardS2S.step === i+1 ? 'color:#3b82f6;' : ''">{{ st }}</span>
               </div>
-              <div v-if="i < 4" style="flex:1; height:2px; background:#e5e7eb; margin:0 6px; min-width:12px;"></div>
+              <div v-if="i < 4" style="flex:1; height:2px; background:var(--light-divider, #e5e7eb); margin:0 6px; min-width:12px;"></div>
             </template>
           </div>
 
@@ -681,7 +676,7 @@
               <div v-for="r in wizardS2S.remotes" :key="r.id"
                    @click="wizardS2S.remoteId = r.id; wizardS2SAutoNames()"
                    style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; cursor:pointer; margin-bottom:8px; border:2px solid transparent;"
-                   :style="{ border: wizardS2S.remoteId === r.id ? '2px solid #3b82f6' : '2px solid ' + (theme==='dark' ? '#404040' : '#e5e7eb'), background: theme==='dark' ? '#2a2a2a' : '#f9fafb' }">
+                   :style="{ border: wizardS2S.remoteId === r.id ? '2px solid #3b82f6' : '2px solid ' + (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)'), background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)' }">
                 <div style="width:36px; height:36px; border-radius:50%; background:#3b82f6; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:0.9rem; flex-shrink:0;">
                   {{ (r.name || '?')[0].toUpperCase() }}
                 </div>
@@ -695,7 +690,7 @@
               </div>
             </div>
             <div v-else class="text-sm text-gray-400 dark:text-neutral-500" style="margin-bottom:16px; padding:16px; border-radius:8px; text-align:center;"
-                 :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: '1px dashed ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
+                 :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               No remote servers configured yet.
             </div>
 
@@ -706,34 +701,34 @@
 
             <div v-if="wizardS2S.showAddRemote"
                  style="border-radius:8px; padding:16px; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
+                 :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               <div class="text-sm font-medium dark:text-neutral-300" style="margin-bottom:12px;">New remote</div>
               <div style="display:flex; flex-direction:column; gap:8px;">
                 <input v-model="wizardS2S.addRemoteName" type="text" placeholder="Name"
                        style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
-                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 <input v-model="wizardS2S.addRemoteURL" type="text" placeholder="URL (e.g. https://vpn.example.com)"
                        style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
-                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 <div style="display:flex; gap:8px;">
                   <button @click="wizardS2S.addRemoteMode = 'password'"
                           style="flex:1; padding:6px; border-radius:6px; font-size:0.8rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.addRemoteMode === 'password' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">Login / Password</button>
+                          :style="wizardS2S.addRemoteMode === 'password' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">Login / Password</button>
                   <button @click="wizardS2S.addRemoteMode = 'token'"
                           style="flex:1; padding:6px; border-radius:6px; font-size:0.8rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.addRemoteMode === 'token' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">API Token</button>
+                          :style="wizardS2S.addRemoteMode === 'token' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">API Token</button>
                 </div>
                 <template v-if="wizardS2S.addRemoteMode === 'password'">
                   <input v-model="wizardS2S.addRemoteUser" type="text" placeholder="Username"
                          style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
-                         :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                         :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                   <input v-model="wizardS2S.addRemotePass" type="password" placeholder="Password"
                          style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
-                         :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                         :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 </template>
                 <input v-else v-model="wizardS2S.addRemoteToken" type="text" placeholder="API token (ws_...)"
                        style="border-radius:6px; padding:7px 10px; font-size:0.85rem;"
-                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                       :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                 <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;" class="dark:text-neutral-300">
                   <input type="checkbox" v-model="wizardS2S.addRemoteSkipTLS" /> Skip TLS verification (self-signed cert)
                 </label>
@@ -745,7 +740,7 @@
                 </button>
                 <button @click="wizardS2S.showAddRemote = false"
                         style="padding:7px 16px; border-radius:6px; cursor:pointer; font-size:0.85rem; background:transparent;"
-                        :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Cancel</button>
+                        :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">Cancel</button>
               </div>
             </div>
 
@@ -765,7 +760,7 @@
             <div v-for="iface in wizardS2SClientIfaces()" :key="iface.id"
                  @click="wizardS2SToggleIface(iface.id)"
                  style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; cursor:pointer; margin-bottom:8px; border:2px solid;"
-                 :style="{ borderColor: wizardS2S.selectedIfaceIds.includes(iface.id) ? '#3b82f6' : (theme==='dark' ? '#404040' : '#e5e7eb'), background: theme==='dark' ? '#2a2a2a' : '#f9fafb' }">
+                 :style="{ borderColor: wizardS2S.selectedIfaceIds.includes(iface.id) ? '#3b82f6' : (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)'), background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)' }">
               <input type="checkbox" :checked="wizardS2S.selectedIfaceIds.includes(iface.id)" @click.stop style="pointer-events:none;" />
               <div>
                 <div class="text-sm font-semibold dark:text-neutral-100">{{ iface.name || iface.id }}</div>
@@ -774,7 +769,7 @@
             </div>
             <div v-if="wizardS2SClientIfaces().length === 0"
                  class="text-sm text-gray-400 dark:text-neutral-500" style="padding:16px; border-radius:8px; text-align:center; margin-bottom:16px;"
-                 :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb', border: '1px dashed ' + (theme==='dark' ? '#525252' : '#d1d5db') }">
+                 :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)', border: '1px dashed ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)') }">
               No client interfaces. Create one in Interfaces first.
             </div>
 
@@ -784,12 +779,12 @@
               </label>
               <input v-if="wizardS2S.createSrcAlias" v-model="wizardS2S.srcAliasName" type="text" placeholder="Alias name"
                      style="border-radius:6px; padding:6px 10px; font-size:0.85rem; flex:1; min-width:140px;"
-                     :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                     :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
             </div>
 
             <div style="display:flex; justify-content:space-between;">
               <button @click="wizardS2S.step = 1" style="padding:9px 20px; border-radius:8px; cursor:pointer; font-size:0.85rem; background:transparent;"
-                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Back</button>
+                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Back</button>
               <button @click="wizardS2S.step = 3" style="padding:9px 24px; border-radius:8px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#3b82f6; color:#fff;">Next →</button>
             </div>
           </div><!-- /step 2 -->
@@ -802,7 +797,7 @@
             <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">
               <label v-for="opt in [{v:'all',l:'All traffic'},{v:'geo',l:'By country (GEO)'},{v:'as',l:'By ASN'}]" :key="opt.v"
                      style="display:flex; align-items:flex-start; gap:10px; padding:12px 16px; border-radius:8px; cursor:pointer; border:2px solid;"
-                     :style="{ borderColor: wizardS2S.dstType === opt.v ? '#3b82f6' : (theme==='dark' ? '#404040' : '#e5e7eb'), background: theme==='dark' ? '#2a2a2a' : '#f9fafb' }">
+                     :style="{ borderColor: wizardS2S.dstType === opt.v ? '#3b82f6' : (theme==='dark' ? '#404040' : 'var(--light-divider, #e5e7eb)'), background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)' }">
                 <input type="radio" :value="opt.v" v-model="wizardS2S.dstType" style="margin-top:2px;" />
                 <span class="text-sm font-medium dark:text-neutral-200">{{ opt.l }}</span>
               </label>
@@ -813,13 +808,13 @@
               <input v-model="wizardS2S.dstCountriesRaw" type="text" placeholder="e.g. RU,BY,KZ"
                      @input="wizardS2S.dstCountries = wizardS2S.dstCountriesRaw.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean)"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.85rem;"
-                     :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                     :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
             </div>
             <div v-if="wizardS2S.dstType === 'as'" style="margin-bottom:16px;">
               <label class="text-sm dark:text-neutral-300" style="display:block; margin-bottom:6px;">ASN (e.g. AS12345)</label>
               <input v-model="wizardS2S.dstASN" type="text" placeholder="AS12345"
                      style="width:100%; border-radius:6px; padding:7px 10px; font-size:0.85rem;"
-                     :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                     :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
             </div>
             <div v-if="wizardS2S.dstType !== 'all'" style="margin-bottom:16px;">
               <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;" class="dark:text-neutral-300">
@@ -829,7 +824,7 @@
 
             <div style="display:flex; justify-content:space-between;">
               <button @click="wizardS2S.step = 2" style="padding:9px 20px; border-radius:8px; cursor:pointer; font-size:0.85rem; background:transparent;"
-                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Back</button>
+                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Back</button>
               <button @click="wizardS2S.step = 4" style="padding:9px 24px; border-radius:8px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#3b82f6; color:#fff;">Next →</button>
             </div>
           </div><!-- /step 3 -->
@@ -864,13 +859,13 @@
                 <div style="display:flex; gap:8px;">
                   <button @click="wizardS2S.protocol = 'wireguard'"
                           style="flex:1; padding:8px; border-radius:6px; font-size:0.85rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.protocol === 'wireguard' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">WG 1.0</button>
+                          :style="wizardS2S.protocol === 'wireguard' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">WG 1.0</button>
                   <button @click="wizardS2S.protocol = 'amneziawg-2.0'"
                           style="flex:1; padding:8px; border-radius:6px; font-size:0.85rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.protocol === 'amneziawg-2.0' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">AWG 2.0</button>
+                          :style="wizardS2S.protocol === 'amneziawg-2.0' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">AWG 2.0</button>
 				  <button @click="wizardS2S.protocol = 'amneziawg-3.1'"
 					  class="px-3 py-2 rounded text-sm font-medium border transition"
-					  :style="wizardS2S.protocol === 'amneziawg-3.1' ? 'border-color:#16a34a; background:#f0fdf4; color:#15803d;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">AWG 3.1</button>
+					  :style="wizardS2S.protocol === 'amneziawg-3.1' ? 'border-color:#16a34a; background:#f0fdf4; color:#15803d;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">AWG 3.1</button>
                 </div>
               </div>
               <!-- MSS clamping -->
@@ -884,10 +879,10 @@
                 <div style="display:flex; gap:8px;">
                   <button @click="wizardS2S.fallback = 'drop'"
                           style="flex:1; padding:7px; border-radius:6px; font-size:0.85rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.fallback === 'drop' ? 'border-color:#ef4444; background:#fef2f2; color:#b91c1c;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">Drop (secure)</button>
+                          :style="wizardS2S.fallback === 'drop' ? 'border-color:#ef4444; background:#fef2f2; color:#b91c1c;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">Drop (secure)</button>
                   <button @click="wizardS2S.fallback = 'allow'"
                           style="flex:1; padding:7px; border-radius:6px; font-size:0.85rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.fallback === 'allow' ? 'border-color:#10b981; background:#f0fdf4; color:#065f46;' : 'border-color:#d1d5db; background:transparent; color:#6b7280;'">Allow (failover)</button>
+                          :style="wizardS2S.fallback === 'allow' ? 'border-color:#10b981; background:#f0fdf4; color:#065f46;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">Allow (failover)</button>
                 </div>
               </div>
               <!-- Names -->
@@ -898,37 +893,37 @@
                     <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Local S2S iface</span>
                     <input v-model="wizardS2S.localIfaceName" @input="wizardS2SOnNameChange" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
-                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
                     <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Remote S2S iface</span>
                     <input v-model="wizardS2S.remoteIfaceName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
-                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                   </div>
                   <div v-if="wizardS2S.createSrcAlias" style="display:flex; align-items:center; gap:8px;">
                     <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Source alias</span>
                     <input v-model="wizardS2S.srcAliasName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
-                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                   </div>
                   <div v-if="wizardS2S.dstType !== 'all'" style="display:flex; align-items:center; gap:8px;">
                     <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Dest alias</span>
                     <input v-model="wizardS2S.dstAliasName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
-                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
                     <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">Gateway</span>
                     <input v-model="wizardS2S.gatewayName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
-                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                   </div>
                   <div style="display:flex; align-items:center; gap:8px;">
                     <span class="text-xs text-gray-400" style="width:130px; flex-shrink:0;">PBR rule</span>
                     <input v-model="wizardS2S.fwRuleName" type="text"
                            style="flex:1; border-radius:6px; padding:5px 8px; font-size:0.82rem;"
-                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid #d1d5db' }" />
+                           :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }" />
                   </div>
                 </div>
               </div>
@@ -936,7 +931,7 @@
 
             <div style="display:flex; justify-content:space-between;">
               <button @click="wizardS2S.step = 3" style="padding:9px 20px; border-radius:8px; cursor:pointer; font-size:0.85rem; background:transparent;"
-                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Back</button>
+                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Back</button>
               <button @click="wizardS2S.step = 5; wizardS2SApply()"
                       style="padding:9px 24px; border-radius:8px; border:none; cursor:pointer; font-size:0.9rem; font-weight:600; background:#10b981; color:#fff;">
                 Apply ✓
@@ -973,9 +968,9 @@
             <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px;">
               <div v-for="(step, i) in wizardS2S.steps" :key="i"
                    style="display:flex; align-items:flex-start; gap:12px; padding:14px 16px; border-radius:10px;"
-                   :style="{ background: theme==='dark' ? '#2a2a2a' : '#f9fafb' }">
+                   :style="{ background: theme==='dark' ? '#2a2a2a' : 'var(--light-inset, #f9fafb)' }">
                 <div style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px;"
-                     :style="step.status === 'ok' ? 'background:#10b981;' : step.status === 'warn' ? 'background:#f59e0b;' : step.status === 'error' ? 'background:#ef4444;' : step.status === 'running' ? 'background:#3b82f6;' : 'background:#d1d5db;'">
+                     :style="step.status === 'ok' ? 'background:#10b981;' : step.status === 'warn' ? 'background:#f59e0b;' : step.status === 'error' ? 'background:#ef4444;' : step.status === 'running' ? 'background:#3b82f6;' : 'background:var(--light-control-border, #d1d5db);'">
                   <svg v-if="step.status === 'ok'" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                   <svg v-else-if="step.status === 'warn' || step.status === 'error'" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="#fff" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
                   <svg v-else-if="step.status === 'running'" class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1018,7 +1013,7 @@
             <div v-if="wizardS2S.done" style="display:flex; gap:10px; flex-wrap:wrap;">
               <button @click="wizardS2SInit()"
                       style="padding:9px 20px; border-radius:8px; cursor:pointer; font-size:0.85rem; font-weight:600; background:transparent;"
-                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : '#d1d5db'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Run again</button>
+                      :style="{ border: '1px solid ' + (theme==='dark' ? '#525252' : 'var(--light-control-border, #d1d5db)'), color: theme==='dark' ? '#9ca3af' : '#6b7280' }">← Run again</button>
               <button @click="activePage = 'interfaces'"
                       style="padding:9px 20px; border-radius:8px; border:none; cursor:pointer; font-size:0.85rem; font-weight:600; background:#3b82f6; color:#fff;">Go to Interfaces</button>
             </div>

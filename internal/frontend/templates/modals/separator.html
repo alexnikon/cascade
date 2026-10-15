@@ -14,7 +14,7 @@
           <label class="text-sm font-medium dark:text-neutral-300" style="display:block; margin-bottom:6px;">Name</label>
           <input v-model="separatorEdit.name" type="text" placeholder="Separator name"
             class="w-full rounded-lg text-sm dark:bg-neutral-600 dark:text-neutral-200"
-            style="border:1px solid #d1d5db; padding:8px 10px;"
+            style="border:1px solid var(--light-control-border, #d1d5db); padding:8px 10px;"
             @keyup.enter="saveSeparator()" />
         </div>
         <!-- Color palette -->
@@ -42,7 +42,7 @@
         <div style="display:flex; gap:8px; justify-content:flex-end;">
           <button @click="showSeparatorModal = false"
             class="text-sm rounded-lg dark:text-neutral-300"
-            style="padding:7px 16px; border:1px solid #d1d5db;">
+            style="padding:7px 16px; border:1px solid var(--light-control-border, #d1d5db);">
             Cancel
           </button>
           <button @click="saveSeparator()"

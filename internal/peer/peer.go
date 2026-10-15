@@ -1,9 +1,9 @@
-// Package peer manages WireGuard/AmneziaWG peer CRUD, config generation, and QR codes.
+// Package peer manages WireGuard/AmneziaWG peer CRUD, and config generation.
 //
 // Storage: SQLite `peers` table (migration v1 + v6).
 //
 // Peer model:
-//   - client peer: server generated keys, downloadable config + QR code
+//   - client peer: server generated keys, downloadable config
 //   - interconnect peer: manual keys (S2S tunnel), no private key stored server-side
 //
 // Runtime fields (transferRx/Tx, latestHandshakeAt, runtimeEndpoint) are NOT stored
@@ -16,9 +16,6 @@
 //	wg genpsk                 → pre-shared key
 //
 // For amneziawg-2.0 use "awg" binary, which accepts the same subcommands.
-//
-// QR code: SVG generated from config text using rsc.io/qr (pure Go).
-// The SVG is rendered cell-by-cell so it scales perfectly at any resolution.
 package peer
 
 import (
@@ -32,7 +29,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"rsc.io/qr"
 
 	"github.com/alexnikon/cascade/internal/aliases"
 	"github.com/alexnikon/cascade/internal/db"
@@ -62,8 +58,7 @@ type Peer struct {
 	Enabled                 bool   `json:"enabled"`
 	CreatedAt               string `json:"createdAt"`
 	UpdatedAt               string `json:"updatedAt"`
-	ExpiredAt               string `json:"expiredAt"`   // "" = no expiry
-	OneTimeLink             string `json:"oneTimeLink"` // "" = no one-time link
+	ExpiredAt               string `json:"expiredAt"` // "" = no expiry
 
 	// Bandwidth limits (kbps). 0 = unlimited.
 	// Applied via tc HTB (egress/download) + tc police (ingress/upload).
@@ -132,14 +127,13 @@ type PeerUpdate struct {
 	PersistentKeepalive     *int    `json:"persistentKeepalive"`
 	Enabled                 *bool   `json:"enabled"`
 	ExpiredAt               *string `json:"expiredAt"`
-	OneTimeLink             *string `json:"oneTimeLink"`
 	RateDown                *int    `json:"rateDown"`
 	RateUp                  *int    `json:"rateUp"`
 	GroupID                 *string `json:"groupId"`         // client-group alias ID
 	PreviousGroupId         *string `json:"previousGroupId"` // set internally by expiry policy; not exposed via API
 }
 
-// InterfaceData carries the interface fields needed for config/QR generation.
+// InterfaceData carries the interface fields needed for config generation.
 // Defined here to avoid a circular import (tunnel → peer, peer ↛ tunnel).
 type InterfaceData struct {
 	ID                      string
@@ -340,9 +334,6 @@ func UpdatePeer(id string, upd PeerUpdate) (*Peer, error) {
 			p.ExpiredAt = ""
 		}
 	}
-	if upd.OneTimeLink != nil {
-		p.OneTimeLink = *upd.OneTimeLink
-	}
 	if upd.RateDown != nil {
 		if *upd.RateDown < 0 {
 			*upd.RateDown = 0
@@ -391,24 +382,6 @@ func UpdatePeer(id string, upd PeerUpdate) (*Peer, error) {
 	return p, nil
 }
 
-// ConsumeOneTimeLink clears token only when it is still assigned to id.
-// The conditional update makes concurrent redemptions atomic across requests.
-func ConsumeOneTimeLink(id, token string) (bool, error) {
-	result, err := db.DB().Exec(`
-		UPDATE peers
-		SET one_time_link = '', updated_at = ?
-		WHERE id = ? AND one_time_link = ?
-	`, time.Now().UTC().Format(time.RFC3339), id, token)
-	if err != nil {
-		return false, err
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return rows == 1, nil
-}
-
 // DeletePeer removes a peer from SQLite.
 func DeletePeer(id string) error {
 	p, err := GetPeer(id)
@@ -438,7 +411,7 @@ func SaveHandshake(peerID, handshakeAt string) error {
 }
 
 // SavePrivateKey persists a private key recovered from an imported client .conf
-// file. Used to restore QR/config download capability for peers that were
+// file. Used to restore config download capability for peers that were
 // created without a server-side private key (e.g. imported from another server).
 func SavePrivateKey(peerID, privateKey string) error {
 	_, err := db.DB().Exec(
@@ -578,8 +551,7 @@ func (p *Peer) GenerateRemoteConfig(iface InterfaceData) string {
 	return p.generateTemplateConfig(iface)
 }
 
-// generateCompleteConfig produces a minimal ready-to-use config suitable for QR codes.
-// Keeps comment noise low — QR codes have limited capacity.
+// generateCompleteConfig produces a minimal ready-to-use client config.
 func (p *Peer) generateCompleteConfig(iface InterfaceData) string {
 	var sb strings.Builder
 
@@ -796,45 +768,6 @@ func writeAWG3Settings(sb *strings.Builder, protocol string, s *AWGSettings) {
 	}
 }
 
-// ── QR code ───────────────────────────────────────────────────────────────────
-
-// GenerateQRSVG encodes content as a QR code and returns an SVG string.
-// Uses rsc.io/qr (pure Go) for encoding; renders cells as <rect> elements.
-// The SVG uses a fixed cell size of 5px with 4-cell quiet zone padding.
-func GenerateQRSVG(content string) (string, error) {
-	code, err := qr.Encode(content, qr.Q)
-	if err != nil {
-		return "", fmt.Errorf("qr encode: %w", err)
-	}
-
-	const cellSize = 5
-	const padding = 4 // cells (QR spec requires ≥4-module quiet zone)
-
-	size := code.Size
-	total := (size + padding*2) * cellSize
-
-	var sb strings.Builder
-	fmt.Fprintf(&sb, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d">`,
-		total, total, total, total)
-	// White background (quiet zone).
-	fmt.Fprintf(&sb, `<rect width="%d" height="%d" fill="white"/>`, total, total)
-
-	// Render each black module as a filled rectangle.
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
-			if code.Black(x, y) {
-				px := (x + padding) * cellSize
-				py := (y + padding) * cellSize
-				fmt.Fprintf(&sb, `<rect x="%d" y="%d" width="%d" height="%d" fill="black"/>`,
-					px, py, cellSize, cellSize)
-			}
-		}
-	}
-
-	sb.WriteString(`</svg>`)
-	return sb.String(), nil
-}
-
 // ── Private: DB helpers ───────────────────────────────────────────────────────
 
 type peerScanner interface {
@@ -853,12 +786,12 @@ func scanPeerRow(s peerScanner) (*Peer, error) {
 	var p Peer
 	var enabled int
 
-	var latestHandshakeAt string
+	var latestHandshakeAt, retiredLink string
 	err := s.Scan(
 		&p.ID, &p.InterfaceID, &p.Name, &p.PublicKey, &p.PrivateKey, &p.PresharedKey,
 		&p.Endpoint, &p.AllowedIPs, &p.Address, &p.ClientAllowedIPs,
 		&p.PeerType, &p.GroupID, &p.PersistentKeepalive, &enabled,
-		&p.CreatedAt, &p.UpdatedAt, &p.ExpiredAt, &p.OneTimeLink,
+		&p.CreatedAt, &p.UpdatedAt, &p.ExpiredAt, &retiredLink,
 		&p.TotalRx, &p.TotalTx,
 		&p.RateDown, &p.RateUp,
 		&p.PreviousGroupId,
@@ -900,7 +833,7 @@ func insertPeer(p Peer) error {
 		p.ID, p.InterfaceID, p.Name, p.PublicKey, p.PrivateKey, p.PresharedKey,
 		p.Endpoint, p.AllowedIPs, p.Address, p.ClientAllowedIPs,
 		p.PeerType, p.GroupID, p.PersistentKeepalive, boolInt(p.Enabled),
-		p.CreatedAt, p.UpdatedAt, p.ExpiredAt, p.OneTimeLink,
+		p.CreatedAt, p.UpdatedAt, p.ExpiredAt, "",
 		p.RateDown, p.RateUp, p.PreviousGroupId, p.ClientAllowedIPsMode, p.ClientAllowedIPsAliasID,
 	)
 	return err
@@ -917,7 +850,7 @@ func updatePeer(p Peer) error {
 	`,
 		p.Name, p.Endpoint, p.AllowedIPs, p.Address,
 		p.ClientAllowedIPs, p.GroupID, p.PersistentKeepalive,
-		boolInt(p.Enabled), p.UpdatedAt, p.ExpiredAt, p.OneTimeLink,
+		boolInt(p.Enabled), p.UpdatedAt, p.ExpiredAt, "",
 		p.RateDown, p.RateUp, p.PreviousGroupId, p.ClientAllowedIPsMode, p.ClientAllowedIPsAliasID,
 		p.ID,
 	)

@@ -590,19 +590,15 @@ async createPeer() {
       };
 
       try {
-        const res = await this.api.createTunnelInterfacePeer({
+        await this.api.createTunnelInterfacePeer({
           interfaceId: this.activeInterfaceId,
           ...payload,
         });
 
-        const interfaceId = this.activeInterfaceId;
-        const peerId = res.peer && res.peer.id;
-
-        const showQR = this.peerCreate.showQR;
         this.showPeerCreate = false;
         this.inlineGroupShow = false;
         this.inlineGroupInput = '';
-        this.peerCreate = { mode: 'generate', peerType: 'client', name: '', publicKey: '', endpoint: '', allowedIPs: '', clientAllowedIPs: '', persistentKeepalive: 25, groupId: this.defaultGroupId(), expiredAt: '', showQR: false };
+        this.peerCreate = { mode: 'generate', peerType: 'client', name: '', publicKey: '', endpoint: '', allowedIPs: '', clientAllowedIPs: '', persistentKeepalive: 25, groupId: this.defaultGroupId(), expiredAt: '' };
 
         await this.refreshPeers();
         await this.loadTunnelInterfaces();
@@ -611,11 +607,7 @@ async createPeer() {
           this.loadAliases();
         }
 
-        if (showQR && mode === 'generate' && peerType === 'client' && peerId) {
-          this.qrcode = this.peerQrUrl(interfaceId, peerId);
-        } else {
-          this.showToast(peerType === 'client' ? 'Client created!' : 'Peer created!');
-        }
+        this.showToast(peerType === 'client' ? 'Client created!' : 'Peer created!');
       } catch (err) {
         console.error('Failed to create peer:', err);
         this.showToast(`Failed: ${err.message}`, 'error');

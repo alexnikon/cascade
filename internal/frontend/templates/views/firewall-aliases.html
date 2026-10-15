@@ -14,7 +14,7 @@
           </div>
 
           <!-- Table -->
-          <div v-else class="content-panel bg-white dark:bg-neutral-700 rounded-lg overflow-hidden" style="border:1px solid #e5e7eb;">
+          <div v-else class="content-panel bg-white dark:bg-neutral-700 rounded-lg overflow-hidden" style="border:1px solid var(--light-divider, #e5e7eb);">
             <table class="w-full text-sm">
               <thead>
                 <tr class="bg-gray-50 dark:bg-neutral-600 text-gray-500 dark:text-neutral-400 text-xs uppercase">
@@ -79,7 +79,7 @@
                       </button>
                       <button v-if="!(alias.type === 'client-group' && alias.name === 'default')"
                         @click="deleteAlias(alias)"
-                        class="text-xs bg-red-100 text-red-600 rounded px-2 py-1 transition">
+                        class="button-danger text-xs rounded px-2 py-1 transition">
                         Delete
                       </button>
                     </div>
@@ -210,7 +210,7 @@
                 <div v-if="_aliasGroupCandidates().length === 0" class="text-sm text-gray-400 dark:text-neutral-500 mt-1">
                   No host/network aliases yet. Create them first.
                 </div>
-                <div v-else class="mt-1 rounded" style="border:1px solid #d1d5db; max-height:180px; overflow-y:auto;">
+                <div v-else class="mt-1 rounded" style="border:1px solid var(--light-control-border, #d1d5db); max-height:180px; overflow-y:auto;">
                   <label v-for="a in _aliasGroupCandidates()" :key="a.id"
                     class="flex items-center gap-3 text-sm dark:text-neutral-300 cursor-pointer"
                     style="padding:8px 12px; border-bottom:1px solid rgba(0,0,0,0.06);">
@@ -226,7 +226,7 @@
                 <div v-if="_portAliasCandidates().length === 0" class="text-sm text-gray-400 dark:text-neutral-500 mt-1">
                   No port aliases yet. Create them first (type: Port).
                 </div>
-                <div v-else class="mt-1 rounded" style="border:1px solid #d1d5db; max-height:180px; overflow-y:auto;">
+                <div v-else class="mt-1 rounded" style="border:1px solid var(--light-control-border, #d1d5db); max-height:180px; overflow-y:auto;">
                   <label v-for="a in _portAliasCandidates()" :key="a.id"
                     class="flex items-center gap-3 text-sm dark:text-neutral-300 cursor-pointer"
                     style="padding:8px 12px; border-bottom:1px solid rgba(0,0,0,0.06);">
@@ -264,8 +264,8 @@
                     @change="e => { aliasCreate.file = e.target.files[0] || null; }">
                 </label>
                 <button v-if="aliasCreate.file" @click="aliasCreate.file = null"
-                  class="text-xs text-gray-400 dark:text-neutral-500 mt-1"
-                  style="background:none;border:none;cursor:pointer;padding:0;">
+                  class="button-danger text-xs mt-1"
+                  style="border:none; cursor:pointer; padding:0;">
                   ✕ Remove
                 </button>
               </div>
@@ -290,7 +290,7 @@
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm"
                     autocomplete="off">
                   <div v-if="showCountryDrop && countryPickerForm === 'create'"
-                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:#404040;border:1px solid #525252;' : 'background:#fff;border:1px solid #d1d5db;')">
+                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:#404040;border:1px solid #525252;' : 'background:#fff;border:1px solid var(--light-control-border, #d1d5db);')">
                     <div v-if="filteredCountries.length === 0"
                       style="padding:8px 12px;font-size:13px;color:#9ca3af;">No results</div>
                     <div v-for="c in filteredCountries" :key="c.code"
@@ -399,7 +399,7 @@
                 <div v-if="_aliasGroupCandidates().length === 0" class="text-sm text-gray-400 dark:text-neutral-500 mt-1">
                   No host/network aliases available.
                 </div>
-                <div v-else class="mt-1 rounded" style="border:1px solid #d1d5db; max-height:220px; overflow-y:auto;">
+                <div v-else class="mt-1 rounded" style="border:1px solid var(--light-control-border, #d1d5db); max-height:220px; overflow-y:auto;">
                   <label v-for="a in _aliasGroupCandidates()" :key="a.id"
                     class="flex items-center gap-3 text-sm dark:text-neutral-300 cursor-pointer"
                     style="padding:8px 12px; border-bottom:1px solid rgba(0,0,0,0.06);">
@@ -415,7 +415,7 @@
                 <div v-if="_portAliasCandidates().length === 0" class="text-sm text-gray-400 dark:text-neutral-500 mt-1">
                   No port aliases available.
                 </div>
-                <div v-else class="mt-1 rounded" style="border:1px solid #d1d5db; max-height:220px; overflow-y:auto;">
+                <div v-else class="mt-1 rounded" style="border:1px solid var(--light-control-border, #d1d5db); max-height:220px; overflow-y:auto;">
                   <label v-for="a in _portAliasCandidates()" :key="a.id"
                     class="flex items-center gap-3 text-sm dark:text-neutral-300 cursor-pointer"
                     style="padding:8px 12px; border-bottom:1px solid rgba(0,0,0,0.06);">
@@ -445,7 +445,7 @@
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm"
                     autocomplete="off">
                   <div v-if="showCountryDrop && countryPickerForm === 'edit'"
-                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:#404040;border:1px solid #525252;' : 'background:#fff;border:1px solid #d1d5db;')">
+                    :style="'position:absolute;z-index:200;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;border-radius:4px;box-shadow:0 4px 6px rgba(0,0,0,.15);' + (theme==='dark' ? 'background:#404040;border:1px solid #525252;' : 'background:#fff;border:1px solid var(--light-control-border, #d1d5db);')">
                     <div v-if="filteredCountries.length === 0"
                       style="padding:8px 12px;font-size:13px;color:#9ca3af;">No results</div>
                     <div v-for="c in filteredCountries" :key="c.code"

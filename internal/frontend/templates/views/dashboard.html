@@ -64,7 +64,7 @@
                             <span class="text-gray-500 dark:text-neutral-400">Memory</span>
                             <span class="dark:text-neutral-200">{{ dashFmtBytes(dashSystemInfo.memUsed * 1024) }} / {{ dashFmtBytes(dashSystemInfo.memTotal * 1024) }} ({{ dashSystemInfo.memPct }}%)</span>
                           </div>
-                          <div style="height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden;">
+                          <div style="height:6px; background:var(--light-divider, #e5e7eb); border-radius:3px; overflow:hidden;">
                             <div :style="{ width: dashSystemInfo.memPct + '%', background: dashSystemInfo.memPct > 85 ? '#ef4444' : dashSystemInfo.memPct > 65 ? '#eab308' : '#22c55e', height: '100%', borderRadius: '3px', transition: 'width 0.4s' }"></div>
                           </div>
                         </div>
@@ -98,18 +98,18 @@
                     <!-- ── peers-summary ── -->
                     <template v-else-if="w.type === 'peers-summary'">
                       <div style="display:flex; gap:16px; flex-wrap:wrap;">
-                        <div style="flex:1; min-width:80px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
-                          :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
+                        <div style="flex:1; min-width:80px; text-align:center; padding:8px; background:var(--light-inset, #f9fafb); border-radius:8px;"
+                          :style="{ background: theme === 'dark' ? '#525252' : 'var(--light-inset, #f9fafb)' }">
                           <div class="text-2xl font-bold dark:text-neutral-100">{{ allPeers.length }}</div>
                           <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Total Peers</div>
                         </div>
-                        <div style="flex:1; min-width:80px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
-                          :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
+                        <div style="flex:1; min-width:80px; text-align:center; padding:8px; background:var(--light-inset, #f9fafb); border-radius:8px;"
+                          :style="{ background: theme === 'dark' ? '#525252' : 'var(--light-inset, #f9fafb)' }">
                           <div class="text-2xl font-bold" style="color:#22c55e;">{{ allPeers.filter(p => p.latestHandshakeAt && (Date.now() - new Date(p.latestHandshakeAt).getTime()) < 3 * 60 * 1000).length }}</div>
                           <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Connected</div>
                         </div>
-                        <div style="flex:1; min-width:80px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
-                          :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
+                        <div style="flex:1; min-width:80px; text-align:center; padding:8px; background:var(--light-inset, #f9fafb); border-radius:8px;"
+                          :style="{ background: theme === 'dark' ? '#525252' : 'var(--light-inset, #f9fafb)' }">
                           <div class="text-2xl font-bold dark:text-neutral-100">{{ tunnelInterfaces.length }}</div>
                           <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Interfaces</div>
                         </div>
@@ -146,14 +146,14 @@
                           <!-- protocol badge -->
                           <span class="ui-badge" style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
                             :style="iface.protocol === 'wireguard-1.0' || iface.protocol === 'wireguard'
-                              ? (theme==='dark' ? 'background:rgba(156,163,175,0.15); color:#d1d5db;' : 'background:rgba(107,114,128,0.1); color:#6b7280;')
+                              ? (theme==='dark' ? 'background:rgba(156,163,175,0.15); color:var(--light-control-border, #d1d5db);' : 'background:rgba(107,114,128,0.1); color:#6b7280;')
                               : (theme==='dark' ? 'background:rgba(99,102,241,0.2); color:#a5b4fc;' : 'background:rgba(99,102,241,0.12); color:#6366f1;')">
                             {{ dashProtoLabel(iface.protocol) }}
                           </span>
 
                           <!-- MTU badge -->
                           <span class="ui-badge" style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
-                            :style="{ background: theme==='dark'?'rgba(75,85,99,0.35)':'rgba(107,114,128,0.08)', color: theme==='dark'?'#d1d5db':'#6b7280' }">
+                            :style="{ background: theme==='dark'?'rgba(75,85,99,0.35)':'rgba(107,114,128,0.08)', color: theme==='dark'?'var(--light-control-border, #d1d5db)':'#6b7280' }">
                             MTU {{ iface.mtu > 0 ? iface.mtu : (globalSettings.mtu > 0 ? globalSettings.mtu : 'auto') }}
                           </span>
 
@@ -179,13 +179,13 @@
                     <!-- ── traffic ── -->
                     <template v-else-if="w.type === 'traffic'">
                       <div style="display:flex; gap:16px; flex-wrap:wrap;">
-                        <div style="flex:1; min-width:100px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
-                          :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
+                        <div style="flex:1; min-width:100px; text-align:center; padding:8px; background:var(--light-inset, #f9fafb); border-radius:8px;"
+                          :style="{ background: theme === 'dark' ? '#525252' : 'var(--light-inset, #f9fafb)' }">
                           <div class="text-xl font-bold" :style="{ color: theme === 'dark' ? '#fecaca' : '#ef4444' }">{{ dashFmtBytes(allPeers.reduce((s,p) => s + (p.totalRx||0), 0)) }}</div>
                           <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Total Received</div>
                         </div>
-                        <div style="flex:1; min-width:100px; text-align:center; padding:8px; background:#f9fafb; border-radius:8px;"
-                          :style="{ background: theme === 'dark' ? '#525252' : '#f9fafb' }">
+                        <div style="flex:1; min-width:100px; text-align:center; padding:8px; background:var(--light-inset, #f9fafb); border-radius:8px;"
+                          :style="{ background: theme === 'dark' ? '#525252' : 'var(--light-inset, #f9fafb)' }">
                           <div class="text-xl font-bold" :style="{ color: theme === 'dark' ? '#86efac' : '#22c55e' }">{{ dashFmtBytes(allPeers.reduce((s,p) => s + (p.totalTx||0), 0)) }}</div>
                           <div class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Total Sent</div>
                         </div>
@@ -291,8 +291,8 @@
                           :style="{ 'border-bottom-color': theme==='dark' ? '#525252' : '#f3f4f6' }">
                           <select v-model="dashPeersGetState(w.id).iface"
                             class="dash-peers-select"
-                            style="font-size:0.72rem; border:1px solid #e5e7eb; border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
-                            :style="{ 'border-color': theme==='dark' ? '#525252':'#e5e7eb', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
+                            style="font-size:0.72rem; border:1px solid var(--light-divider, #e5e7eb); border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
+                            :style="{ 'border-color': theme==='dark' ? '#525252':'var(--light-divider, #e5e7eb)', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
                             <option value="">All peers</option>
                             <option value="__clients__">All clients</option>
                             <option value="__s2s__">All S2S</option>
@@ -300,8 +300,8 @@
                           </select>
                           <select v-model="dashPeersGetState(w.id).sort"
                             class="dash-peers-select"
-                            style="font-size:0.72rem; border:1px solid #e5e7eb; border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
-                            :style="{ 'border-color': theme==='dark' ? '#525252':'#e5e7eb', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
+                            style="font-size:0.72rem; border:1px solid var(--light-divider, #e5e7eb); border-radius:5px; padding:3px 6px; background:transparent; cursor:pointer;"
+                            :style="{ 'border-color': theme==='dark' ? '#525252':'var(--light-divider, #e5e7eb)', color: theme==='dark'?'#d4d4d4':'#374151', background: theme==='dark'?'#404040':'#fff' }">
                             <option value="name">Sort: Name</option>
                             <option value="traffic">Sort: Traffic</option>
                             <option value="seen">Sort: Last seen</option>
@@ -334,7 +334,7 @@
                                 :style="{ color: theme==='dark'?'#e5e5e5':'#374151' }">
                                 {{ peer.name }}
                                 <span class="ui-badge" style="font-size:0.6rem; padding:1px 4px; border-radius:3px; margin-left:3px; font-weight:600;"
-                                  :style="{ background: theme==='dark'?'rgba(156,163,175,0.15)':'rgba(107,114,128,0.12)', color: theme==='dark'?'#d1d5db':'#6b7280' }">{{ peer.interfaceName }}</span>
+                                  :style="{ background: theme==='dark'?'rgba(156,163,175,0.15)':'rgba(107,114,128,0.12)', color: theme==='dark'?'var(--light-control-border, #d1d5db)':'#6b7280' }">{{ peer.interfaceName }}</span>
                                 <span class="ui-badge" v-if="peer.peerType === 'interconnect'" style="font-size:0.6rem; padding:1px 4px; background:rgba(59,130,246,0.12); color:#2563eb; border-radius:3px; margin-left:2px; font-weight:600;">S2S</span>
                                 <!-- group badge for client peers -->
                                 <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerGroupName(peer.groupId)"
@@ -354,7 +354,7 @@
                                     ? { background: 'rgba(239,68,68,0.15)', color: '#ef4444' }
                                     : (new Date(peer.expiredAt) - new Date() < 7*24*3600*1000)
                                       ? { background: 'rgba(245,158,11,0.15)', color: theme==='dark'?'#fbbf24':'#d97706' }
-                                      : { background: theme==='dark'?'rgba(156,163,175,0.15)':'rgba(107,114,128,0.08)', color: theme==='dark'?'#d1d5db':'#6b7280' }">
+                                      : { background: theme==='dark'?'rgba(156,163,175,0.15)':'rgba(107,114,128,0.08)', color: theme==='dark'?'var(--light-control-border, #d1d5db)':'#6b7280' }">
                                   ⏰{{ new Date(peer.expiredAt).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'-') }}
                                 </span>
                               </div>

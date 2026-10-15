@@ -383,21 +383,6 @@ func TestGenerateRemoteConfig_WithoutPrivateKey(t *testing.T) {
 	}
 }
 
-// ── GenerateQRSVG ─────────────────────────────────────────────────────────────
-
-func TestGenerateQRSVG_ProducesSVG(t *testing.T) {
-	svg, err := GenerateQRSVG("[Interface]\nPrivateKey = test\n")
-	if err != nil {
-		t.Fatalf("GenerateQRSVG: %v", err)
-	}
-	if !strings.HasPrefix(svg, "<svg") {
-		t.Errorf("expected SVG starting with '<svg', got: %.50s", svg)
-	}
-	if !strings.HasSuffix(svg, "</svg>") {
-		t.Errorf("expected SVG ending with '</svg>', got: ...%.20s", svg[len(svg)-20:])
-	}
-}
-
 // ── DB-backed helpers ─────────────────────────────────────────────────────────
 
 // initTestDB creates a fresh temp SQLite database for one test and registers

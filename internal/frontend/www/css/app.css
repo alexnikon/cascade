@@ -2188,7 +2188,7 @@ button.interface-filter-button {
 
 .peer-action-group {
   background: transparent;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--light-control-border, #d1d5db);
   border-radius: 12px;
   display: grid;
   flex: 0 0 auto;
@@ -2206,7 +2206,7 @@ button.interface-filter-button {
   align-items: center;
   background: transparent;
   border: 0;
-  border-left: 1px solid #d1d5db;
+  border-left: 1px solid var(--light-control-border, #d1d5db);
   border-radius: 0 !important;
   box-sizing: border-box;
   color: #6b7280;
@@ -2297,7 +2297,7 @@ button.interface-filter-button {
 }
 
 .restore-interface-map-row select {
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--light-control-border, #d1d5db);
   border-radius: 6px;
   min-width: 0;
   padding: 6px 10px;
@@ -2447,7 +2447,7 @@ button.interface-filter-button {
   }
 
   .interface-peer-action + .interface-peer-action {
-    border-left: 1px solid #e5e7eb !important;
+    border-left: 1px solid var(--light-divider, #e5e7eb) !important;
   }
 
   .dark .interface-peer-action + .interface-peer-action {
@@ -2533,3 +2533,86 @@ button.interface-filter-button {
 .dark .text-red-600 { color: var(--status-red); }
 .dark .text-yellow-500,
 .dark .text-yellow-600 { color: var(--status-yellow); }
+
+/* Settings selectors follow their content without overflowing narrow cards. */
+.settings-content-select { display:block; width:auto; max-width:100%; }
+
+/* Trusted API clients wrap to keep all fields usable on narrow settings pages. */
+.web-access-client { display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin-bottom:16px; }
+.web-access-client label { flex:1 1 170px; min-width:0; font-size:0.875rem; color:var(--text-secondary, inherit); }
+.web-access-client input { display:block; width:100%; height:40px; box-sizing:border-box; margin-top:4px; padding:8px 12px; border:1px solid var(--border-color, var(--light-control-border, #d1d5db)); border-radius:4px; background:var(--input-bg, transparent); color:inherit; }
+.web-access-client .web-access-remove {
+  display:inline-flex; align-items:center; justify-content:center; align-self:flex-end;
+  flex:0 0 auto; box-sizing:border-box; height:40px; padding:8px 12px;
+  font-size:14px; line-height:20px; text-align:center; white-space:nowrap;
+}
+
+/* Shared list dividers match the subdued separators used by Firewall Aliases. */
+:root { --list-separator: var(--light-divider, #e5e7eb); }
+.dark { --list-separator: rgba(255, 255, 255, 0.07); }
+
+/* Destructive actions retain their meaning in either appearance. */
+button.button-danger,
+.dark button.button-danger {
+  background: #dc2626 !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button.button-danger:hover:not(:disabled),
+.dark button.button-danger:hover:not(:disabled) {
+  background: #b91c1c !important;
+  color: #fff !important;
+}
+button.button-danger:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
+}
+button.button-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+button.button-danger svg { color: inherit; }
+
+button.widget-remove-button { min-width: 20px; min-height: 20px; }
+
+/* Dashboard actions share one outer height, including the Reset border. */
+.dashboard-toolbar-button {
+  display:inline-flex; align-items:center; justify-content:center;
+  box-sizing:border-box; height:36px; padding:0 12px; line-height:20px;
+}
+
+/* Auto margins center the dialog and preserve its top edge on short screens. */
+.speedtest-overlay { display:flex; flex-direction:column; }
+.speedtest-overlay > .modal-panel { flex:0 0 auto; width:100%; margin:auto; }
+
+/* Error notices follow the same semantic palette as status badges. */
+.speedtest-error {
+  background:var(--badge-red-bg); color:var(--badge-red-text);
+  border-radius:6px; padding:10px 14px; margin-bottom:16px;
+  font-size:0.85rem; overflow-wrap:anywhere;
+}
+
+/* Rule editors share theme-aware groups and selectable controls. */
+.firewall-rule-group { border:1px solid var(--list-separator); border-radius:8px; padding:12px; }
+.firewall-rule-panel .modal-header,
+.firewall-rule-panel .modal-footer { border-color:var(--list-separator); }
+.firewall-choice {
+  --choice-bg:var(--badge-neutral-bg); --choice-text:var(--badge-neutral-text);
+  --choice-selected:#6b7280; border:0; cursor:pointer;
+  background:var(--choice-bg); color:var(--choice-text);
+  transition:background-color 150ms ease, color 150ms ease;
+}
+.firewall-choice-blue { --choice-selected:#2563eb; }
+.firewall-choice-purple { --choice-selected:#7c3aed; }
+.firewall-choice-green { --choice-bg:var(--badge-green-bg); --choice-text:var(--badge-green-text); --choice-selected:#15803d; }
+.firewall-choice-red { --choice-bg:var(--badge-red-bg); --choice-text:var(--badge-red-text); --choice-selected:#dc2626; }
+.firewall-choice-orange { --choice-bg:var(--badge-orange-bg); --choice-text:var(--badge-orange-text); --choice-selected:#b45309; }
+.dark .firewall-choice-neutral { --choice-selected:#636366; }
+.dark .firewall-choice-blue { --choice-selected:#0a84ff; }
+.dark .firewall-choice-purple { --choice-selected:#8b5cf6; }
+.dark .firewall-choice-green { --choice-selected:#248a3d; }
+.firewall-choice.is-selected { background:var(--choice-selected); color:#fff; }
+.firewall-choice:hover { filter:brightness(0.95); }
+.firewall-choice:focus-visible { outline:2px solid var(--accent-blue, #2563eb); outline-offset:2px; }

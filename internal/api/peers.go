@@ -10,18 +10,15 @@
 //	PATCH  /api/tunnel-interfaces/:id/peers/:peerId
 //	DELETE /api/tunnel-interfaces/:id/peers/:peerId
 //	GET    /api/tunnel-interfaces/:id/peers/:peerId/config
-//	GET    /api/tunnel-interfaces/:id/peers/:peerId/qrcode.svg
 //	POST   /api/tunnel-interfaces/:id/peers/:peerId/enable
 //	POST   /api/tunnel-interfaces/:id/peers/:peerId/disable
 //	PUT    /api/tunnel-interfaces/:id/peers/:peerId/name        ← rename peer
 //	PUT    /api/tunnel-interfaces/:id/peers/:peerId/address     ← update AllowedIPs
 //	PUT    /api/tunnel-interfaces/:id/peers/:peerId/expireDate  ← set/clear expiry
-//	POST   /api/tunnel-interfaces/:id/peers/:peerId/generateOneTimeLink
 //	GET    /api/tunnel-interfaces/:id/peers/:peerId/export-json ← S2S interconnect export
 package api
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -35,64 +32,6 @@ import (
 	"github.com/alexnikon/cascade/internal/peer"
 	"github.com/alexnikon/cascade/internal/tunnel"
 )
-
-// RegisterOneTimeLink registers the unauthenticated GET /cnf/:token route.
-// Must be called before the auth middleware.
-func RegisterOneTimeLink(r fiber.Router) {
-	r.Get("/cnf/:token", getPeerConfigByToken)
-}
-
-// getPeerConfigByToken serves a peer config using a one-time token.
-// Finds the peer whose OneTimeLink matches the token, builds the config, then
-// atomically clears the token and returns the config as a downloadable file.
-func getPeerConfigByToken(c *fiber.Ctx) error {
-	token := c.Params("token")
-	if len(token) != 32 {
-		return fiber.NewError(fiber.StatusNotFound, "invalid token")
-	}
-
-	m := mgr()
-	if m == nil {
-		return fiber.NewError(fiber.StatusServiceUnavailable, "not ready")
-	}
-
-	for _, iface := range m.GetAllInterfaces() {
-		for _, p := range iface.GetAllPeers() {
-			if p.OneTimeLink != token {
-				continue
-			}
-			fresh, err := m.ReloadPeerFromDB(iface.ID, p.ID)
-			if err != nil {
-				log.Printf("api: cnf: reload peer %s/%s: %v", iface.ID, p.ID, err)
-				return fiber.NewError(fiber.StatusInternalServerError, "config generation failed")
-			}
-			if fresh == nil || fresh.OneTimeLink != token {
-				return fiber.NewError(fiber.StatusNotFound, "token not found or already used")
-			}
-			config, err := m.BuildPeerRemoteConfig(iface, fresh)
-			if err != nil {
-				log.Printf("api: cnf: config generation failed iface=%q peer=%q: %v", iface.ID, fresh.ID, err)
-				if errors.Is(err, aliases.ErrClientRouting) {
-					return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
-				}
-				return fiber.NewError(fiber.StatusInternalServerError, "config generation failed")
-			}
-			consumed, err := m.ConsumePeerOneTimeLink(iface.ID, fresh.ID, token)
-			if err != nil {
-				log.Printf("api: cnf: consume token for peer %s: %v", fresh.ID, err)
-				return fiber.NewError(fiber.StatusInternalServerError, "config generation failed")
-			}
-			if !consumed {
-				return fiber.NewError(fiber.StatusNotFound, "token not found or already used")
-			}
-			c.Set("Content-Type", "text/plain; charset=utf-8")
-			c.Set("Content-Disposition", `attachment; filename="wg.conf"`)
-			return c.SendString(config)
-		}
-	}
-
-	return fiber.NewError(fiber.StatusNotFound, "token not found or already used")
-}
 
 // RegisterPeers registers all /api/tunnel-interfaces/:id/peers/* routes.
 func RegisterPeers(api fiber.Router) {
@@ -109,7 +48,6 @@ func RegisterPeers(api fiber.Router) {
 	g.Delete("/:peerId", deletePeer)
 
 	g.Get("/:peerId/config", getPeerConfig)
-	g.Get("/:peerId/qrcode.svg", getPeerQRCode)
 
 	g.Post("/:peerId/enable", enablePeer)
 	g.Post("/:peerId/disable", disablePeer)
@@ -119,7 +57,6 @@ func RegisterPeers(api fiber.Router) {
 	g.Put("/:peerId/name", renamePeer)
 	g.Put("/:peerId/address", updatePeerAddress)
 	g.Put("/:peerId/expireDate", updatePeerExpireDate)
-	g.Post("/:peerId/generateOneTimeLink", generatePeerOneTimeLink)
 	g.Get("/:peerId/export-json", exportPeerJSON)
 }
 
@@ -132,7 +69,7 @@ type peerWithInterface struct {
 // sanitizePeer returns a shallow copy of p with PrivateKey and PresharedKey
 // zeroed out. Use for all JSON list/get/create/update responses so that
 // sensitive key material is never exposed over the API.
-// Keys are only used internally (config generation, QR code) via dedicated
+// Keys are only used internally (config generation) via dedicated
 // endpoints that produce text/svg output, never raw JSON.
 func sanitizePeer(p *peer.Peer) *peer.Peer {
 	if p == nil {
@@ -313,7 +250,7 @@ func importPeerJSON(c *fiber.Ctx) error {
 // client .conf. For each one, we extract the PrivateKey, derive its public
 // key, and match it against a peer already on this interface (imported
 // without a stored private key). Matched peers get their private key saved,
-// unlocking QR code / config download.
+// unlocking config download.
 func importClientConfigs(c *fiber.Ctx) error {
 	ifaceID := c.Params("id")
 
@@ -403,7 +340,7 @@ func importClientConfigs(c *fiber.Ctx) error {
 			fail(fh.Filename, "failed to save")
 			continue
 		}
-		// Refresh the in-memory cache so DownloadableConfig (and QR/download
+		// Refresh the in-memory cache so DownloadableConfig (and download
 		// buttons in the UI) reflect the newly persisted private key.
 		fresh, err := mgr().ReloadPeerFromDB(ifaceID, p.ID)
 		if err != nil || fresh == nil {
@@ -432,7 +369,7 @@ func importClientConfigs(c *fiber.Ctx) error {
 }
 
 // PATCH /api/tunnel-interfaces/:id/peers/:peerId
-// Body: PeerUpdate fields (name?, allowedIPs?, enabled?, endpoint?, persistentKeepalive?, expiredAt?, oneTimeLink?)
+// Body: PeerUpdate fields (name?, allowedIPs?, enabled?, endpoint?, persistentKeepalive?, expiredAt?)
 func updatePeer(c *fiber.Ctx) error {
 	ifaceID := c.Params("id")
 	peerID := c.Params("peerId")
@@ -480,9 +417,6 @@ func updatePeer(c *fiber.Ctx) error {
 	}
 	if v, ok := raw["expiredAt"].(string); ok {
 		upd.ExpiredAt = &v
-	}
-	if v, ok := raw["oneTimeLink"].(string); ok {
-		upd.OneTimeLink = &v
 	}
 	if v, ok := raw["rateDown"].(float64); ok {
 		n := int(v)
@@ -579,26 +513,6 @@ func getPeerConfig(c *fiber.Ctx) error {
 	return c.SendString(config)
 }
 
-// GET /api/tunnel-interfaces/:id/peers/:peerId/qrcode.svg
-// Returns the peer config as a QR code SVG image.
-func getPeerQRCode(c *fiber.Ctx) error {
-	config, err := mgr().GetPeerRemoteConfig(c.Params("id"), c.Params("peerId"))
-	if err != nil {
-		if errors.Is(err, aliases.ErrClientRouting) {
-			return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
-		}
-		return fiber.NewError(fiber.StatusNotFound, err.Error())
-	}
-
-	svg, err := peer.GenerateQRSVG(config)
-	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Configuration is too large for a QR code. Download the .conf file instead.")
-	}
-
-	c.Set("Content-Type", "image/svg+xml")
-	return c.SendString(svg)
-}
-
 // POST /api/tunnel-interfaces/:id/peers/:peerId/enable
 func enablePeer(c *fiber.Ctx) error {
 	return togglePeer(c, true)
@@ -693,26 +607,6 @@ func updatePeerExpireDate(c *fiber.Ctx) error {
 	}
 
 	p, err := mgr().UpdatePeer(ifaceID, peerID, peer.PeerUpdate{ExpiredAt: &expiredAt})
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	}
-	return c.JSON(fiber.Map{"peer": sanitizePeer(p)})
-}
-
-// POST /api/tunnel-interfaces/:id/peers/:peerId/generateOneTimeLink
-// Generates a random 32-char hex one-time link token and stores it on the peer.
-// The frontend then constructs a URL: /api/.../:peerId/config?token=<link>
-func generatePeerOneTimeLink(c *fiber.Ctx) error {
-	ifaceID := c.Params("id")
-	peerID := c.Params("peerId")
-
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "failed to generate link token")
-	}
-	link := fmt.Sprintf("%x", b)
-
-	p, err := mgr().UpdatePeer(ifaceID, peerID, peer.PeerUpdate{OneTimeLink: &link})
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}

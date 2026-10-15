@@ -752,15 +752,6 @@ func (m *Manager) ReloadPeerFromDB(interfaceID, peerID string) (*peer.Peer, erro
 	return t.ReloadPeerFromDB(peerID)
 }
 
-// ConsumePeerOneTimeLink atomically clears a peer's one-time token.
-func (m *Manager) ConsumePeerOneTimeLink(interfaceID, peerID, token string) (bool, error) {
-	t := m.GetInterface(interfaceID)
-	if t == nil {
-		return false, fmt.Errorf("interface %q not found", interfaceID)
-	}
-	return t.ConsumePeerOneTimeLink(peerID, token)
-}
-
 // RemovePeer removes the peer from the given interface.
 func (m *Manager) RemovePeer(interfaceID, peerID string) error {
 	t := m.GetInterface(interfaceID)

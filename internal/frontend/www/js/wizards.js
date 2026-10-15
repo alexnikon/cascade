@@ -24,7 +24,6 @@ wizardVPNInit() {
         error: '',
         ifaceId: '',
         peerId: '',
-        qrUrl: '',
         ifaceAddr: '',
         ifacePort: 0,
         startWarning: '',
@@ -90,7 +89,6 @@ async wizardVPNRun() {
         });
         const peerId = peerRes.peer.id;
         this.wizardVPN.peerId = peerId;
-        this.wizardVPN.qrUrl = this.peerQrUrl(ifaceId, peerId);
         this.wizardVPN.step = 4;
 
         // Wait for the async restart goroutine (PATCH with listenPort triggers

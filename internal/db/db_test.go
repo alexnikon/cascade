@@ -2,6 +2,7 @@ package db
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -46,8 +47,40 @@ var expectedTables = []string{
 	"gateways",
 	"gateway_groups",
 	"schema_migrations",
+	"web_access",
 	"users",
 	"api_tokens",
+}
+
+func TestMigration46RetiresConfigurationLinkTokens(t *testing.T) {
+	if err := Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(Close)
+	d := DB()
+	_, err := d.Exec(`INSERT INTO interfaces(id,name,address) VALUES('legacy','legacy','10.8.0.1/24');
+INSERT INTO peers(id,interface_id,public_key,one_time_link) VALUES('legacy-peer','legacy','public-key','legacy-token');
+DROP TABLE web_access;
+DELETE FROM schema_migrations WHERE version=46;`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runMigrations(d); err != nil {
+		t.Fatal(err)
+	}
+	var token, policy string
+	if err := d.QueryRow("SELECT one_time_link FROM peers WHERE id='legacy-peer'").Scan(&token); err != nil {
+		t.Fatal(err)
+	}
+	if token != "" {
+		t.Fatal("migration retained a public configuration token")
+	}
+	if err := d.QueryRow("SELECT policy FROM web_access WHERE id=1").Scan(&policy); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(policy, `"enabled":false`) {
+		t.Fatal("migration enabled web access restriction by default")
+	}
 }
 
 func TestOpen_AllTablesExist(t *testing.T) {

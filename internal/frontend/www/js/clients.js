@@ -55,11 +55,6 @@ deleteClient(client) {
         .finally(() => this.refresh().catch(console.error));
     },
 
-showOneTimeLink(client) {
-      this.api.showOneTimeLink({ clientId: client.id })
-        .catch((err) => this.showToast(err.message || err.toString(), 'error'))
-        .finally(() => this.refresh().catch(console.error));
-    },
 
 enableClient(client) {
       this.api.enableClient({ clientId: client.id })

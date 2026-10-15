@@ -874,6 +874,11 @@ ALTER TABLE gateways ADD COLUMN monitor_address_v6 TEXT NOT NULL DEFAULT '';
 ALTER TABLE peers ADD COLUMN client_allowed_ips_mode TEXT NOT NULL DEFAULT 'manual';
 ALTER TABLE peers ADD COLUMN client_allowed_ips_alias_id TEXT NOT NULL DEFAULT '';
 `},
+	{version: 46, sql: `
+CREATE TABLE web_access (id INTEGER PRIMARY KEY CHECK (id=1), policy TEXT NOT NULL);
+INSERT INTO web_access VALUES(1, '{"enabled":false,"interfaceId":"","clients":[]}');
+UPDATE peers SET one_time_link='';
+`},
 }
 
 func runMigrations(db *sql.DB) error {

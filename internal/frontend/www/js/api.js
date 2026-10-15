@@ -137,12 +137,6 @@ export class API {
     });
   }
 
-  async getWGEnableOneTimeLinks() {
-    return this.call({
-      method: 'get',
-      path: '/wg-enable-one-time-links',
-    });
-  }
 
   async getWGEnableExpireTime() {
     return this.call({
@@ -212,12 +206,6 @@ export class API {
     });
   }
 
-  async showOneTimeLink({ clientId }) {
-    return this.call({
-      method: 'post',
-      path: `/wireguard/client/${clientId}/generateOneTimeLink`,
-    });
-  }
 
   async enableClient({ clientId }) {
     return this.call({
@@ -585,12 +573,6 @@ export class API {
     });
   }
 
-  async generatePeerOneTimeLink({ interfaceId, peerId }) {
-    return this.call({
-      method: 'post',
-      path: `/tunnel-interfaces/${interfaceId}/peers/${peerId}/generateOneTimeLink`,
-    });
-  }
 
   /**
    * Export Interconnect peer parameters as JSON.
@@ -1293,6 +1275,14 @@ export class API {
 
   async speedtestClearResults() {
     return this.callLocal({ method: 'delete', path: '/speedtest/results' });
+  }
+
+  async getWebAccess() {
+    return this.call({ method: 'get', path: '/settings/web-access' });
+  }
+
+  async changeWebAccess(action, body) {
+    return this.call({ method: 'post', path: `/settings/web-access/${action}`, body });
   }
 
   // ── Metrics ────────────────────────────────────────────────────────────────

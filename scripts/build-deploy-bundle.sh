@@ -27,6 +27,8 @@ chmod 0644 "$BUNDLE_DIR/docker-compose.yml"
 sed "s|ghcr.io/alexnikon/cascade:[0-9][0-9A-Za-z.-]*|ghcr.io/alexnikon/cascade:${IMAGE_TAG}|" \
   "$REPO_DIR/deploy/docker-compose.bridge.yml.example" > "$BUNDLE_DIR/deploy/docker-compose.bridge.yml.example"
 chmod 0644 "$BUNDLE_DIR/deploy/docker-compose.bridge.yml.example"
+install -m 0644 "$REPO_DIR/deploy/WEB_ACCESS.md" "$BUNDLE_DIR/deploy/WEB_ACCESS.md"
+install -m 0755 "$REPO_DIR/deploy/update-web-access-proxy.py" "$BUNDLE_DIR/deploy/update-web-access-proxy.py"
 install -m 0755 "$REPO_DIR/deploy/setup.sh" "$BUNDLE_DIR/deploy/setup.sh"
 install -m 0755 "$REPO_DIR/deploy/switch-mode.sh" "$BUNDLE_DIR/deploy/switch-mode.sh"
 install -m 0755 "$REPO_DIR/deploy/tcp_tune.sh" "$BUNDLE_DIR/deploy/tcp_tune.sh"

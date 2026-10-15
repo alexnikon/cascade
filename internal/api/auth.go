@@ -82,6 +82,11 @@ func InitAuth() {
 //
 // Returns 401 JSON otherwise.
 func AuthMiddleware(c *fiber.Ctx) error {
+	// The web-access gate has already authenticated machine requests by token.
+	// Preserve that identity even if the request also carries a session cookie.
+	if id, ok := c.Locals(localKeyTokenUserID).(string); ok && id != "" {
+		return c.Next()
+	}
 	// Open mode: if no users are registered yet, allow everything.
 	n, err := users.Count()
 	if err == nil && n == 0 {

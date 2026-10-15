@@ -42,6 +42,7 @@ import (
 	"github.com/alexnikon/cascade/internal/tc"
 	"github.com/alexnikon/cascade/internal/util"
 	"github.com/alexnikon/cascade/internal/validate"
+	"github.com/alexnikon/cascade/internal/webaccess"
 )
 
 // peerTrafficState tracks per-peer traffic accumulation in memory.
@@ -225,6 +226,27 @@ func Create(inp InterfaceInput) (*TunnelInterface, error) {
 //
 // All other fields (Name, PublicHost, AWG2 params) are safe for hot-reload via syncconf.
 func (t *TunnelInterface) Update(upd InterfaceUpdate) (updateErr error) {
+	addressChanged := upd.Address != nil && strings.TrimSpace(*upd.Address) != t.Address
+	listenPortChanged := upd.ListenPort != nil && *upd.ListenPort != t.ListenPort
+	natDisabledChanged := upd.NatDisabled != nil && *upd.NatDisabled != t.NatDisabled
+	mtuChanged := upd.MTU != nil && *upd.MTU != t.MTU
+	mssChanged := upd.MSS != nil && *upd.MSS != t.MSS
+	disableRoutesChanged := upd.DisableRoutes != nil && *upd.DisableRoutes != t.DisableRoutes
+
+	releaseLifecycle := func() {}
+	if addressChanged || listenPortChanged || natDisabledChanged || mtuChanged || mssChanged || disableRoutesChanged {
+		unlock, err := webaccess.LockInterfaceChange(t.ID)
+		if err != nil {
+			return err
+		}
+		releaseLifecycle = unlock
+	}
+	defer func() {
+		if releaseLifecycle != nil {
+			releaseLifecycle()
+		}
+	}()
+
 	if upd.AWG2 != nil {
 		if err := awgparams.Validate(t.Protocol, upd.AWG2); err != nil {
 			return err
@@ -248,12 +270,6 @@ func (t *TunnelInterface) Update(upd InterfaceUpdate) (updateErr error) {
 	if upd.DomainAliasDNS != nil {
 		t.DomainAliasDNS = *upd.DomainAliasDNS
 	}
-	addressChanged := upd.Address != nil && strings.TrimSpace(*upd.Address) != t.Address
-	listenPortChanged := upd.ListenPort != nil && *upd.ListenPort != t.ListenPort
-	natDisabledChanged := upd.NatDisabled != nil && *upd.NatDisabled != t.NatDisabled
-	mtuChanged := upd.MTU != nil && *upd.MTU != t.MTU
-	mssChanged := upd.MSS != nil && *upd.MSS != t.MSS
-	disableRoutesChanged := upd.DisableRoutes != nil && *upd.DisableRoutes != t.DisableRoutes
 
 	if upd.Name != nil {
 		t.Name = strings.TrimSpace(*upd.Name)
@@ -301,7 +317,12 @@ func (t *TunnelInterface) Update(upd InterfaceUpdate) (updateErr error) {
 			// Stop must read the old on-disk config before the new settings are saved;
 			// otherwise PostDown cannot remove old MSS/NAT rules.
 			// reloadMu must be held: concurrent awg syncconf + awg-quick up = deadlock (FIX-8/9).
+			// Keep the existing asynchronous restart behavior while retaining the
+			// lifecycle lock until the kernel update has actually completed.
+			release := releaseLifecycle
+			releaseLifecycle = nil
 			go func() {
+				defer release()
 				t.reloadMu.Lock()
 				defer t.reloadMu.Unlock()
 				if err := t.restartWithNewSettings(); err != nil {
@@ -331,11 +352,16 @@ func (t *TunnelInterface) Update(upd InterfaceUpdate) (updateErr error) {
 // Delete stops the interface, removes all its peers from SQLite, deletes the
 // interface row, and removes the wg-quick config file from disk.
 func (t *TunnelInterface) Delete() error {
+	unlock, err := webaccess.LockInterfaceChange(t.ID)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if r := dnsalias.Get(); r != nil {
 		r.RemoveInterface(t.ID)
 	}
 	if t.Enabled {
-		if err := t.Stop(); err != nil {
+		if err := t.stop(); err != nil {
 			log.Printf("tunnel: delete %s: stop failed (continuing): %v", t.ID, err)
 		}
 	}
@@ -487,20 +513,6 @@ func (t *TunnelInterface) ReloadPeerFromDB(id string) (*peer.Peer, error) {
 	}
 	t.replaceCachedPeer(fresh)
 	return fresh, nil
-}
-
-// ConsumePeerOneTimeLink atomically clears a persisted one-time token and then
-// refreshes the in-memory cache. Once consumed, a cache refresh failure must not
-// turn the successful redemption into an unretryable HTTP error.
-func (t *TunnelInterface) ConsumePeerOneTimeLink(id, token string) (bool, error) {
-	consumed, err := peer.ConsumeOneTimeLink(id, token)
-	if err != nil || !consumed {
-		return consumed, err
-	}
-	if _, reloadErr := t.ReloadPeerFromDB(id); reloadErr != nil {
-		log.Printf("tunnel: refresh peer %s after one-time token consumption: %v", id, reloadErr)
-	}
-	return true, nil
 }
 
 // replaceCachedPeer restores the cache invariant that a peer is stored only
@@ -1013,6 +1025,16 @@ func (t *TunnelInterface) restoreTCLimits() {
 // Flushes traffic totals to DB before bringing the interface down so that the
 // kernel counters (which reset on wg-quick down) are not lost.
 func (t *TunnelInterface) Stop() error {
+	unlock, err := webaccess.LockInterfaceChange(t.ID)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	return t.stop()
+}
+
+// stop is used only while the web-access lifecycle lock is already held.
+func (t *TunnelInterface) stop() error {
 	t.statusMu.Lock()
 	defer t.statusMu.Unlock()
 	t.FlushTrafficTotals()
@@ -1055,7 +1077,7 @@ func (t *TunnelInterface) Restart() error {
 // restartWithNewSettings applies an already-mutated interface update without
 // allowing the new configuration to replace the old PostDown commands first.
 func (t *TunnelInterface) restartWithNewSettings() error {
-	return restartWithNewSettingsSteps(t.Stop, t.save, t.RegenerateConfig, t.startAndReapplyDependents)
+	return restartWithNewSettingsSteps(t.stop, t.save, t.RegenerateConfig, t.startAndReapplyDependents)
 }
 
 // startAndReapplyDependents restores routes and firewall state lost on down.

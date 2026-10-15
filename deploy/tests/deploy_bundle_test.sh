@@ -40,6 +40,8 @@ fi
 CONTENTS=$(tar -tzf "$ARCHIVE")
 grep -q '^cascade/docker-compose.yml$' <<< "$CONTENTS"
 grep -q '^cascade/deploy/setup.sh$' <<< "$CONTENTS"
+grep -q '^cascade/deploy/WEB_ACCESS.md$' <<< "$CONTENTS"
+grep -q '^cascade/deploy/update-web-access-proxy.py$' <<< "$CONTENTS"
 grep -q '^cascade/deploy/lib/install-dependencies.sh$' <<< "$CONTENTS"
 grep -q '^cascade/deploy/lib/kernel-module.sh$' <<< "$CONTENTS"
 grep -q '^cascade/deploy/caddy/Caddyfile$' <<< "$CONTENTS"

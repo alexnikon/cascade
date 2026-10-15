@@ -15,14 +15,14 @@
 
           <!-- Empty state -->
           <div v-if="!remotes.length" class="content-panel bg-white dark:bg-neutral-700 rounded-lg text-center"
-            style="border:1px solid #e5e7eb; padding:48px 24px;">
+            style="border:1px solid var(--light-divider, #e5e7eb); padding:48px 24px;">
             <div style="font-size:2rem; margin-bottom:12px;">🌐</div>
             <p class="text-gray-500 dark:text-neutral-400 text-sm">No remote servers yet.</p>
             <p class="text-gray-400 dark:text-neutral-500 text-xs" style="margin-top:4px;">Add another Cascade instance to manage it from here.</p>
           </div>
 
           <!-- Remotes table -->
-          <div v-else class="content-panel bg-white dark:bg-neutral-700 rounded-lg overflow-hidden" style="border:1px solid #e5e7eb;">
+          <div v-else class="content-panel bg-white dark:bg-neutral-700 rounded-lg overflow-hidden" style="border:1px solid var(--light-divider, #e5e7eb);">
             <table class="w-full text-sm">
               <thead>
                 <tr class="bg-gray-50 dark:bg-neutral-600 text-gray-500 dark:text-neutral-400 text-xs uppercase">
@@ -55,8 +55,8 @@
                     </button>
                     <!-- Delete button -->
                     <button @click="deleteRemote(remote)"
-                      class="rounded text-xs font-medium"
-                      style="padding:4px 10px; background:var(--badge-red-bg); color:var(--badge-red-text);">
+                      class="button-danger rounded text-xs font-medium"
+                      style="padding:4px 10px;">
                       Remove
                     </button>
                   </td>
@@ -69,9 +69,8 @@
         <!-- ============================================================== -->
         <!-- Speed Test Modal                                               -->
         <!-- ============================================================== -->
-        <div v-if="showSpeedtest" class="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto"
-          style="padding:40px 24px;" @click.self="showSpeedtest = false">
-          <div class="bg-white dark:bg-neutral-700 rounded-lg" style="max-width:480px; margin:0 auto;">
+        <div v-if="showSpeedtest" class="modal-overlay speedtest-overlay" @click.self="showSpeedtest = false">
+          <div class="bg-white dark:bg-neutral-700 rounded-lg modal-panel modal-panel-480">
 
             <div class="flex items-center justify-between" style="padding:20px 24px 0;">
               <h2 class="text-lg font-semibold dark:text-neutral-200">⚡ Speed Test</h2>
@@ -108,7 +107,7 @@
                     style="padding:5px 12px; border:1px solid;"
                     :style="speedtest.via === opt.v
                       ? 'background:#2563eb; color:#fff; border-color:#2563eb;'
-                      : (theme==='dark' ? 'background:#404040; color:#d4d4d4; border-color:#525252;' : 'background:#f9fafb; color:#374151; border-color:#d1d5db;')">
+                      : (theme==='dark' ? 'background:#404040; color:#d4d4d4; border-color:#525252;' : 'background:var(--light-inset, #f9fafb); color:#374151; border-color:var(--light-control-border, #d1d5db);')">
                     {{ opt.l }}
                   </button>
                 </div>
@@ -193,7 +192,7 @@
               </div>
 
               <!-- Error -->
-              <div v-if="speedtestError" style="background:#fee2e2; border-radius:6px; padding:10px 14px; margin-bottom:16px; color:#dc2626; font-size:0.85rem;">
+              <div v-if="speedtestError" class="speedtest-error" role="alert">
                 {{ speedtestError }}
               </div>
 

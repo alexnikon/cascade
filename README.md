@@ -40,7 +40,7 @@ dependencies.
 | Module | |
 |--------|--------------------------------------------------------------------------------------------------------------------------------------------|
 | 🔌 **Interfaces** | Multiple WireGuard / AmneziaWG tunnels, quick-create in one click, per-interface MSS clamping. Import any `.conf` as an uplink and use it as a PBR gateway without touching the main routing table |
-| 👥 **Peers** | Client and site-to-site (S2S) interconnect peers with QR codes, lifetime traffic stats, per-client bandwidth limiting and group membership |
+| 👥 **Peers** | Client and site-to-site (S2S) interconnect peers with lifetime traffic stats, per-client bandwidth limiting and group membership |
 | 🌐 **Routing** | Static routes and policy-based routing — send traffic per-source, per-destination or **per-domain** through different gateways. Dual-stack: `ip rule` and `ip -6 rule` built from one rule, with per-family fallback and blackhole |
 | 🔀 **NAT** | Outbound MASQUERADE / SNAT with alias support, plus Port Forwarding (DNAT) with per-interface scoping and optional source NAT |
 | 🛡️ **Firewall** | Filter rules (ACCEPT / DROP / REJECT) and PBR via gateway, matching on addresses, ports, interfaces or domain aliases — IPv4 and IPv6 from a single rule |
@@ -324,3 +324,8 @@ multi-server configuration, Grafana dashboard import, and migration from
 
 ## License
 Cascade is distributed under the [MIT License](LICENSE).
+
+## Administrative VPN access
+
+Restrict the panel to one administrative VPN in Settings → Web access. See
+[proxy upgrade, API clients, certificate access, and SSH recovery](deploy/WEB_ACCESS.md).

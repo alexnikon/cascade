@@ -5,6 +5,40 @@
 import { i18n } from './i18n.js';
 
 export const settingsMethods = {
+async loadWebAccess() {
+      try {
+        this.webAccess = await this.api.getWebAccess();
+        this.webAccessDraft = JSON.parse(JSON.stringify(this.webAccess.state.policy));
+        if (this._webAccessRefresh) clearTimeout(this._webAccessRefresh);
+        if (this.webAccess.state.pending) {
+          this._webAccessRefresh = setTimeout(() => this.loadWebAccess(),
+            Math.max(0, Date.parse(this.webAccess.state.expiresAt) - Date.now()) + 1000);
+        }
+      } catch (err) {
+        this.showToast(err.message, 'error');
+      }
+    },
+
+async changeWebAccess(action) {
+      if (this.webAccessBusy) return;
+      this.webAccessBusy = true;
+      try {
+        this.webAccess = await this.api.changeWebAccess(action,
+          action === 'trial' ? this.webAccessDraft : undefined);
+        this.webAccessDraft = JSON.parse(JSON.stringify(this.webAccess.state.policy));
+        if (this._webAccessRefresh) clearTimeout(this._webAccessRefresh);
+        if (this.webAccess.state.pending) {
+          this._webAccessRefresh = setTimeout(() => this.loadWebAccess(),
+            Math.max(0, Date.parse(this.webAccess.state.expiresAt) - Date.now()) + 1000);
+        }
+        this.showToast(this.$t(action === 'trial' ? 'webAccess.trialStarted' : 'webAccess.saved'));
+      } catch (err) {
+        this.showToast(err.message, 'error');
+      } finally {
+        this.webAccessBusy = false;
+      }
+    },
+
 async backupInterface() {
       if (!this.activeInterfaceId) return;
       try {
@@ -125,6 +159,7 @@ async toggleDisableRoutes(iface) {
 async loadSettings() {
       try {
         this.globalSettings = await this.api.getSettings();
+        await this.loadWebAccess();
         await this.loadAliases();
         if (this.globalSettings.lang && i18n.availableLocales.includes(this.globalSettings.lang)) {
           i18n.locale = this.globalSettings.lang;

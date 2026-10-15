@@ -35,17 +35,19 @@ import (
 	"github.com/alexnikon/cascade/internal/routing"
 	"github.com/alexnikon/cascade/internal/tunnel"
 	"github.com/alexnikon/cascade/internal/version"
+	"github.com/alexnikon/cascade/internal/webaccess"
 )
 
 // Config holds all runtime configuration resolved from flags and ENV.
 // Flag takes priority over ENV (standard Go service pattern).
 type Config struct {
-	DataDir  string // --data-dir / DATA_DIR
-	Port     int    // --port / PORT         (TCP, Web UI)
-	BindHost string // --bind / BIND_ADDR    (listen host, default "" = 0.0.0.0)
-	WGPort   int    // --wg-port / WG_PORT   (UDP, WireGuard default)
-	Host     string // --host / WG_HOST      (required)
-	Debug    bool   // --debug / DEBUG
+	DataDir        string // --data-dir / DATA_DIR
+	Port           int    // --port / PORT         (TCP, Web UI)
+	BindHost       string // --bind / BIND_ADDR    (listen host, default "" = 0.0.0.0)
+	WGPort         int    // --wg-port / WG_PORT   (UDP, WireGuard default)
+	Host           string // --host / WG_HOST      (required)
+	ResetWebAccess bool
+	Debug          bool // --debug / DEBUG
 }
 
 func serveFrontendIndex(c *fiber.Ctx) error {
@@ -103,6 +105,36 @@ func main() {
 		log.Fatalf("db init: %v", err)
 	}
 	defer db.Close()
+	if cfg.ResetWebAccess {
+		if err := webaccess.Reset(db.DB()); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("Web access reset. Restart Cascade to restore unrestricted access.")
+		return
+	}
+	networkMode := os.Getenv("NETWORK_MODE")
+	if networkMode == "" {
+		networkMode = "host"
+	}
+	webAccess, err := webaccess.New(db.DB(), webaccess.Dependencies{
+		Prepare: func(p webaccess.Policy) (webaccess.Prepared, error) {
+			if err := webaccess.CheckRuntime(p, cfg.BindHost, networkMode); err != nil {
+				return webaccess.Prepared{}, err
+			}
+			return webaccess.Prepare(db.DB(), p)
+		},
+		Apply:    webaccess.ApplyKernel,
+		Validate: webaccess.CheckLive,
+	})
+	if err != nil {
+		if webAccess == nil {
+			log.Fatalf("web access: %v", err)
+		}
+		// Keep VPN/S2S restoration independent of an unavailable administrative
+		// interface or firewall. The HTTP gate remains completely closed.
+		log.Printf("web access is closed; SSH recovery may be required: %v", err)
+	}
+	defer webAccess.Close()
 	metricsManager, err := prometheusmetrics.NewManager(db.DB(), metricsBootstrap)
 	if err != nil {
 		log.Fatalf("metrics settings: %v", err)
@@ -132,6 +164,14 @@ func main() {
 
 	// Panic recovery — turns panics into HTTP 500 without crashing the server.
 	app.Use(recover.New())
+	app.Use(api.WebAccessMiddleware(webAccess))
+	app.Get("/_web-access/redirect", func(c *fiber.Ctx) error {
+		path := strings.Trim(os.Getenv("ADMIN_PATH"), "/")
+		if path == "" {
+			return c.SendStatus(fiber.StatusNotFound)
+		}
+		return c.Redirect("/"+path+"/", fiber.StatusMovedPermanently)
+	})
 
 	// Request logging: log mutations (POST/PATCH/DELETE/PUT) and errors (4xx/5xx).
 	// Successful GET requests (200-399) are not logged because periodic frontend
@@ -192,9 +232,6 @@ func main() {
 	// Legacy shims that are safe without auth (lang, release, feature flags).
 	api.RegisterCompat(apiGroup)
 
-	// One-time download links — unauthenticated, token is the credential.
-	api.RegisterOneTimeLink(app)
-
 	// ── Auth gate — all routes below require authentication ───────────────────
 	apiGroup.Use(api.AuthMiddleware)
 
@@ -208,6 +245,7 @@ func main() {
 	// settings package only needs db which is already initialised above).
 	api.RegisterSettings(apiGroup)
 	api.RegisterMetricsSettings(apiGroup, metricsManager, metricsServer)
+	api.RegisterWebAccess(apiGroup, webAccess, cfg.BindHost)
 
 	// Remaining handlers are registered here; they call package-level Get()
 	// which is safe after SetInstance calls below.
@@ -234,7 +272,7 @@ func main() {
 	// API requests. The index is rendered from server-side templates; only the
 	// public asset tree is exposed through the static filesystem.
 	app.Use("/", func(c *fiber.Ctx) error {
-		if (c.Method() == fiber.MethodGet || c.Method() == fiber.MethodHead) && !isFrontendStaticPath(c.Path()) {
+		if (c.Method() == fiber.MethodGet || c.Method() == fiber.MethodHead) && !isFrontendStaticPath(c.Path()) && !strings.HasPrefix(c.Path(), "/api/") {
 			return serveFrontendIndex(c)
 		}
 		return c.Next()
@@ -342,6 +380,8 @@ func main() {
 	if _, err := tunnel.Init(cfg.Host); err != nil {
 		log.Fatalf("tunnel interface manager init: %v", err)
 	}
+
+	webaccess.SetManager(webAccess)
 
 	// 5b. FirewallManager — rebuild PBR routing chains NOW that wg interfaces
 	//     are up. The Init() call above (step 4) created iptables chains and
@@ -472,6 +512,8 @@ func parseConfig() Config {
 	flag.BoolVar(&cfg.Debug, "debug",
 		envBool("DEBUG", false),
 		"Enable debug request logging")
+
+	flag.BoolVar(&cfg.ResetWebAccess, "reset-web-access", false, "Reset VPN-only web access; restart the running service afterwards")
 
 	flag.Parse()
 

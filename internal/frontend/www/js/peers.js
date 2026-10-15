@@ -25,17 +25,14 @@ async createQuickPeer() {
           groupId: this.peerCreateGroupId || this.defaultGroupId() || undefined,
         };
 
-        const res = await this.api.createTunnelInterfacePeer({
+        await this.api.createTunnelInterfacePeer({
           interfaceId: this.activeInterfaceId,
           ...payload,
         });
 
-        const peerId = res.peer && res.peer.id;
-        const showQR = this.peerCreateShowQR;
         this.showQuickPeerCreate = false;
         this.peerCreateName = '';
         this.peerCreateExpiredDate = '';
-        this.peerCreateShowQR = false;
         this.inlineGroupShowQuick = false;
         this.inlineGroupInput = '';
 
@@ -44,11 +41,7 @@ async createQuickPeer() {
         this.loadClientGroups();
         this.loadAliases();
 
-        if (showQR && peerId) {
-          this.qrcode = this.peerQrUrl(this.activeInterfaceId, peerId);
-        } else {
-          this.showToast('Client created!');
-        }
+        this.showToast('Client created!');
       } catch (err) {
         console.error('Failed to create peer:', err);
         this.showToast(`Failed: ${err.message}`, 'error');
@@ -68,13 +61,6 @@ _peerIfaceId(peer) {
     },
 
     // Extract IP from runtimeEndpoint "IP:port" string (IPv4 and IPv6)
-
-peerQrUrl(interfaceId, peerId) {
-      const base = this.activeRemoteId
-        ? `./api/remotes/${this.activeRemoteId}/proxy/tunnel-interfaces/${interfaceId}/peers/${peerId}/qrcode.svg`
-        : `./api/tunnel-interfaces/${interfaceId}/peers/${peerId}/qrcode.svg`;
-      return base;
-    },
 
 peerPublicIP(endpoint) {
       if (!endpoint) return '';
@@ -164,20 +150,6 @@ async updatePeerExpireDate(peer, expireDate) {
       }
     },
 
-async showPeerOneTimeLink(peer) {
-      try {
-        const res = await this.api.generatePeerOneTimeLink({ interfaceId: this._peerIfaceId(peer), peerId: peer.id });
-        const token = (res.peer || {}).oneTimeLink;
-        if (token) {
-          const url = `${location.protocol}//${location.host}/cnf/${token}`;
-          await navigator.clipboard.writeText(url);
-          this.showToast('One-time link copied to clipboard', 'success');
-        }
-        await this._refreshPeersOrAll();
-      } catch (err) {
-        this.showToast(err.message || err.toString(), 'error');
-      }
-    },
 
 async confirmDeletePeer() {
       if (!this.peerDelete) return;

@@ -54,10 +54,6 @@ func RegisterCompat(r fiber.Router) {
 		return c.JSON(1)
 	})
 
-	r.Get("/wg-enable-one-time-links", func(c *fiber.Ctx) error {
-		return c.JSON(true)
-	})
-
 	r.Get("/ui-sort-clients", func(c *fiber.Ctx) error {
 		return c.JSON(false)
 	})

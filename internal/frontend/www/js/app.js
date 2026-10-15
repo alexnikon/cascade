@@ -91,8 +91,6 @@ new Vue({
     clientEditAddressId: null,
     clientEditExpireDate: null,
     clientEditExpireDateId: null,
-    qrcode: null,
-    qrcodeError: false,
 
     uiTrafficStats: false,
 
@@ -100,7 +98,6 @@ new Vue({
       'dicebear': null,
       'gravatar': false,
     },
-    enableOneTimeLinks: false,
     enableSortClient: false,
     sortClient: true, // Sort clients by name, true = asc, false = desc
     enableExpireTime: false,
@@ -118,9 +115,8 @@ new Vue({
       { id: 'gateways',         label: 'Gateways' },
       { id: 'routing',          label: 'Routing' },
       { id: 'nat',              label: 'NAT' },
-      { id: '_header_firewall', label: 'Firewall', type: 'header' },
-      { id: 'firewall-aliases', label: 'Aliases' },
-      { id: 'firewall',         label: 'Rules' },
+      { id: 'firewall-aliases', label: 'Firewall Aliases' },
+      { id: 'firewall',         label: 'Firewall Rules' },
       { id: 'diagnostics',      label: 'Diagnostics' },
       { id: 'remotes',          label: 'Remotes' },
       { id: 'settings',         label: 'Settings' },
@@ -295,12 +291,10 @@ new Vue({
       persistentKeepalive: 25,
       groupId: '',          // client-group alias ID
       expiredAt: '',        // YYYY-MM-DD or empty
-      showQR: false,
     },
 
     // Quick peer create (one-click)
     peerCreateName: '',
-    peerCreateShowQR: false,
     inlineGroupInput: '',        // inline new-group name input value
     inlineGroupShow: false,      // show inline input in Manual Create modal
     inlineGroupShowQuick: false, // show inline input in Quick Create modal
@@ -333,6 +327,12 @@ new Vue({
       groupId: '',          // client-group alias ID
       expiredAt: '',        // Local YYYY-MM-DDTHH:mm or empty
     },
+    webAccess: {
+      state: { policy: { enabled: false, interfaceId: '', clients: [] }, pending: false, expiresAt: null, error: '' },
+      interfaces: [], supported: false, canManage: false,
+    },
+    webAccessDraft: { enabled: false, interfaceId: '', clients: [] },
+    webAccessBusy: false,
     // Settings
     globalSettings: {
       dns: '1.1.1.1, 8.8.8.8',
@@ -474,7 +474,6 @@ new Vue({
       error: '',
       ifaceId: '',
       peerId: '',
-      qrUrl: '',
       ifaceAddr: '',
       ifacePort: 0,
     },
@@ -1017,13 +1016,6 @@ new Vue({
         this.uiTrafficStats = false;
       });
 
-    this.api.getWGEnableOneTimeLinks()
-      .then((res) => {
-        this.enableOneTimeLinks = res;
-      })
-      .catch(() => {
-        this.enableOneTimeLinks = false;
-      });
 
     this.api.getUiSortClients()
       .then((res) => {
@@ -1090,7 +1082,6 @@ new Vue({
     }
   },
   watch: {
-    qrcode() { this.qrcodeError = false; },
     authenticated(value) {
       if (value === false) this.focusLoginField();
     },

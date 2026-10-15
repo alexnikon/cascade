@@ -12,7 +12,7 @@
         + Add Rule
       </button>
       <!-- Divider -->
-      <div :style="theme === 'dark' ? 'background:#525252;' : 'background:#e5e7eb;'"
+      <div :style="theme === 'dark' ? 'background:#525252;' : 'background:var(--light-divider, #e5e7eb);'"
         style="width:1px; height:24px; margin:0 4px;"></div>
       <!-- Apply / Discard -->
       <button @click="discardFirewallChanges()" v-if="firewallPending"
