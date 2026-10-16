@@ -2231,11 +2231,21 @@ button.interface-filter-button {
 }
 
 .dash-peers-select {
+  box-sizing: border-box;
+  height: 28px;
   min-width: 0 !important;
   width: 100%;
 }
 
 .dash-peers-view-action {
+  align-items: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 28px;
+  justify-content: center;
+  margin-left: auto;
+  min-width: 48px;
   background: transparent;
   border: 1px solid #9ca3af;
   border-radius: 5px;
@@ -2756,3 +2766,47 @@ button.interface-transfer-download:hover:not(:disabled) { background: #047857 !i
 .remote-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; white-space: nowrap; }
 .dash-memory-track { background: var(--light-divider, #e5e7eb); }
 .dark .dash-memory-track { background: #525252; }
+
+/* Keep public keys readable without widening the editor. */
+.peer-edit-heading { min-width: 0; }
+.peer-edit-public-key {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* Compact peer cards reserve a separate column for touch controls. */
+@media (max-width: 767px) {
+  .peer-card-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 88px;
+    align-items: start;
+    gap: 8px;
+  }
+  .peer-card-layout > div,
+  .peer-card-details,
+  .peer-card-details > div { min-width: 0; }
+  .peer-card-details {
+    flex-direction: column;
+    overflow-wrap: anywhere;
+  }
+  .peer-card-details .whitespace-nowrap { white-space: normal; }
+  .peer-card-traffic {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    align-self: flex-start;
+  }
+  .peer-card-traffic > div { min-width: 0; }
+  .peer-card-layout > div:last-child { align-self: start; }
+  .peer-card-layout .peer-row-controls {
+    flex-direction: column;
+    align-items: flex-end;
+    flex-wrap: nowrap;
+  }
+  .peer-card-layout .peer-action-group {
+    grid-template-columns: repeat(2, 44px);
+    grid-auto-flow: row;
+  }
+}

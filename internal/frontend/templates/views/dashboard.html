@@ -152,18 +152,6 @@
                             {{ dashProtoLabel(iface.protocol) }}
                           </span>
 
-                          <!-- MTU badge -->
-                          <span class="ui-badge" style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
-                            :style="{ background: 'var(--badge-neutral-bg)', color: 'var(--badge-neutral-text)' }">
-                            MTU {{ iface.mtu > 0 ? iface.mtu : (globalSettings.mtu > 0 ? globalSettings.mtu : 'auto') }}
-                          </span>
-
-                          <!-- MSS badge (only if not disabled) -->
-                          <span class="ui-badge" v-if="iface.mss !== 0"
-                            style="font-size:0.6rem; font-weight:600; padding:1px 4px; border-radius:3px; flex-shrink:0;"
-                            :style="{ background: 'var(--badge-orange-bg)', color: 'var(--badge-orange-text)' }">
-                            {{ iface.mss === -1 ? 'MSS auto' : 'MSS ' + iface.mss }}
-                          </span>
 
                         </div>
 

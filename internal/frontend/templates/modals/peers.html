@@ -462,20 +462,14 @@
 
             <!-- Header -->
             <div class="modal-header flex items-center justify-between">
-              <div>
+              <div class="peer-edit-heading">
                 <h3 class="text-base font-semibold dark:text-neutral-100">{{ peerEditForm._peer && peerEditForm._peer.peerType === 'interconnect' ? 'Edit Peer' : 'Edit Client' }}</h3>
                 <p class="text-xs text-gray-500 dark:text-neutral-400" style="margin-top:2px;">
                   {{ peerEditForm._peer.peerType === 'interconnect' ? 'S2S Interconnect' : 'Client' }}
-                  · {{ peerEditForm._peer.publicKey ? peerEditForm._peer.publicKey.slice(0,16) + '…' : '' }}
+                  <span v-if="peerEditForm._peer.publicKey" class="peer-edit-public-key">{{ peerEditForm._peer.publicKey }}</span>
                 </p>
               </div>
-              <button @click="showPeerEditModal = false"
-                class="text-gray-400 dark:text-neutral-400 rounded"
-                style="padding:4px;">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
+
             </div>
 
             <!-- Body -->
