@@ -1,4 +1,4 @@
-/** Size native selects to their widest visible option without replacing the control. */
+/** Size native selects to their selected option without replacing the control. */
 const states = new WeakMap();
 const fontProperties = ['fontFamily', 'fontSize', 'fontStyle', 'fontWeight', 'fontStretch',
   'fontVariant', 'fontFeatureSettings', 'fontVariationSettings', 'letterSpacing', 'textTransform'];
@@ -7,11 +7,8 @@ function resizeSelect(el, state) {
   if (!state.active) return;
   const view = el.ownerDocument.defaultView;
   const style = view.getComputedStyle(el);
-  const labels = Array.from(el.options)
-    .filter(option => !option.hidden && option.style?.display !== 'none'
-      && !(option.parentElement?.tagName === 'OPTGROUP' && option.parentElement.hidden))
-    .map(option => option.text);
-  const signature = JSON.stringify([labels, ...fontProperties.map(key => style[key]),
+  const label = el.options[el.selectedIndex]?.text || '';
+  const signature = JSON.stringify([label, ...fontProperties.map(key => style[key]),
     style.paddingLeft, style.paddingRight, style.borderLeftWidth, style.borderRightWidth]);
   if (signature === state.signature) return;
   state.signature = signature;
@@ -23,11 +20,8 @@ function resizeSelect(el, state) {
   });
   for (const key of fontProperties) measure.style[key] = style[key];
   el.ownerDocument.body.appendChild(measure);
-  let textWidth = 0;
-  for (const label of labels) {
-    measure.textContent = label;
-    textWidth = Math.max(textWidth, measure.getBoundingClientRect().width);
-  }
+  measure.textContent = label;
+  const textWidth = measure.getBoundingClientRect().width;
   measure.remove();
   const number = value => Number.parseFloat(value) || 0;
   const chrome = number(style.paddingLeft) + number(style.paddingRight)

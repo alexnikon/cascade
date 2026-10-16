@@ -32,18 +32,18 @@ function fixture() {
 }
 async function flush() { await Promise.resolve(); await Promise.resolve(); }
 
-test('select uses the widest visible option and keeps its width when selection changes', async () => {
+test('select follows the selected label through Vue updates and native changes', async () => {
   const f = fixture();
   f.el.options.push({ text: 'A hidden option that must not determine the width', hidden: true });
   directive.inserted(f.el);
   await flush();
   const width = f.el.style.width;
-  assert.equal(width, '274px', 'widest label includes padding, border, arrow and breathing room');
+  assert.equal(width, '98px', 'selected label includes padding, border, arrow and breathing room');
   assert.ok(f.classes.has('content-select'));
   f.el.selectedIndex = 1;
   directive.componentUpdated(f.el);
   await flush();
-  assert.equal(f.el.style.width, width);
+  assert.equal(f.el.style.width, '274px');
   assert.equal(f.measurements(), 2);
   f.el.options[1].text += ' with a longer group name';
   directive.componentUpdated(f.el);
@@ -63,17 +63,17 @@ test('repeated Vue updates reuse handlers and avoid unnecessary measurements', a
   directive.componentUpdated(f.el);
   directive.componentUpdated(f.el);
   await flush();
-  assert.equal(f.measurements(), 2);
+  assert.equal(f.measurements(), 1);
   directive.componentUpdated(f.el);
   await flush();
-  assert.equal(f.measurements(), 2);
+  assert.equal(f.measurements(), 1);
   assert.equal(f.changes.size, 1);
   assert.equal(f.resizes.size, 1);
   f.computed.fontSize = '20px';
   f.resizes.get('resize')();
   await flush();
-  assert.equal(f.el.style.width, '282px');
-  assert.equal(f.measurements(), 4);
+  assert.equal(f.el.style.width, '106px');
+  assert.equal(f.measurements(), 2);
   directive.unbind(f.el);
   assert.equal(f.changes.size, 0);
   assert.equal(f.resizes.size, 0);
@@ -101,10 +101,10 @@ test('font loading remeasures even when the CSS font family is unchanged', async
   f.document.fonts = { ready: new Promise(resolve => { loaded = resolve; }) };
   directive.inserted(f.el);
   await flush();
-  assert.equal(f.measurements(), 2);
+  assert.equal(f.measurements(), 1);
   loaded();
   await flush();
-  assert.equal(f.measurements(), 4);
+  assert.equal(f.measurements(), 2);
   directive.unbind(f.el);
 });
 
@@ -118,4 +118,20 @@ test('multiple selects and visible listboxes retain their own sizing', async () 
     assert.equal(f.classes.size, 0);
     directive.unbind(f.el);
   }
+});
+
+test('unselected label changes do not resize the control and empty selection is supported', async () => {
+  const f = fixture();
+  directive.inserted(f.el);
+  await flush();
+  f.el.options[1].text += ' longer';
+  directive.componentUpdated(f.el);
+  await flush();
+  assert.equal(f.measurements(), 1);
+  assert.equal(f.el.style.width, '98px');
+  f.el.selectedIndex = -1;
+  directive.componentUpdated(f.el);
+  await flush();
+  assert.equal(f.el.style.width, '66px');
+  directive.unbind(f.el);
 });

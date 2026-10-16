@@ -108,3 +108,18 @@ test('gateway forms explain custom tunnel targets without blocking uplinks', asy
     assert.equal(visible({ interface: 'ens1', gatewayIP: '192.0.2.1', monitorAddress: '1.1.1.1' }), false);
   }
 });
+
+test('gateway startup is neutral while real results and administrative state remain visible', () => {
+  const gateway = { enabled: true, monitor: true, adminDown: false };
+  assert.equal(gateways.gatewayStatusLabel('unknown', gateway), 'Waiting…');
+  assert.equal(gateways.gatewayStatusLabel(undefined, gateway), 'Waiting…');
+  assert.equal(gateways.gatewayStatusColor('unknown'), '#9ca3af');
+  for (const [status, label] of [['healthy', 'Healthy'], ['degraded', 'Degraded'], ['down', 'Down']]) {
+    assert.equal(gateways.gatewayStatusLabel(status, gateway), label);
+  }
+  assert.equal(gateways.gatewayStatusLabel('unknown', { ...gateway, monitor: false }), 'Unknown');
+  assert.equal(gateways.gatewayStatusLabel('unknown', { ...gateway, enabled: false }), 'Unknown');
+  assert.equal(gateways.gatewayStatusLabel('unknown', { ...gateway, adminDown: true }), 'Admin Down');
+  assert.equal(gateways.gatewayStatusLabel('admin_down'), 'Admin Down');
+  assert.equal(gateways.gatewayStatusLabel('unknown'), 'Unknown');
+});

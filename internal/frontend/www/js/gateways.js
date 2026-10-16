@@ -730,7 +730,9 @@ gatewayStatusColor(status) {
       return map[status] || map.unknown;
     },
 
-gatewayStatusLabel(status) {
+gatewayStatusLabel(status, gateway = null) {
+      if (gateway?.adminDown) return 'Admin Down';
+      if (gateway?.enabled && gateway.monitor && (!status || status === 'unknown')) return 'Waiting…';
       const map = { healthy: 'Healthy', degraded: 'Degraded', down: 'Down', unknown: 'Unknown', admin_down: 'Admin Down' };
       return map[status] || 'Unknown';
     },

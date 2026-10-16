@@ -91,7 +91,7 @@
                             outlineOffset: '1px'
                           }"></span>
                         <span class="font-medium dark:text-neutral-200 truncate" style="flex:1;">{{ gw.name }}</span>
-                        <span class="text-xs font-mono" :style="{ color: gatewayStatusColor(gw.status) }">{{ gatewayStatusLabel(gw.status) }}</span>
+                        <span class="text-xs font-mono" :style="{ color: gatewayStatusColor(gw.status) }">{{ gatewayStatusLabel(gw.status, gw) }}</span>
                         <span v-if="gw.latency !== null" class="text-xs text-gray-400 dark:text-neutral-500 font-mono">{{ gw.latency }}ms</span>
                       </div>
                     </template>
