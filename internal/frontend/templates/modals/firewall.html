@@ -279,7 +279,7 @@
                   </select>
                   <input v-if="firewallEdit.source.type === 'cidr'" v-model="firewallEdit.source.value"
                     type="text" placeholder="10.0.0.0/8"
-                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
+                    class="firewall-endpoint-input flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 text-sm" />
                 </div>
                 <label v-if="firewallEdit.source.type !== 'any'" class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400 mt-2">
                   <input type="checkbox" v-model="firewallEdit.source.invert"> Invert (NOT)
@@ -329,7 +329,7 @@
                   </select>
                   <input v-if="firewallEdit.destination.type === 'cidr'" v-model="firewallEdit.destination.value"
                     type="text" placeholder="10.0.0.0/8"
-                    class="flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm" />
+                    class="firewall-endpoint-input flex-1 border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 text-sm" />
                 </div>
                 <label v-if="firewallEdit.destination.type !== 'any'" class="flex items-center gap-2 text-sm text-gray-600 dark:text-neutral-400 mt-2">
                   <input type="checkbox" v-model="firewallEdit.destination.invert"> Invert (NOT)

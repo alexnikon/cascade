@@ -2570,6 +2570,7 @@ button.widget-remove-button { min-width: 20px; min-height: 20px; }
 
 /* Rule editors share theme-aware groups and selectable controls. */
 .firewall-rule-group { border:1px solid var(--list-separator); border-radius:8px; padding:12px; }
+.firewall-endpoint-input { box-sizing:border-box; height:22px; padding-block:0; }
 .firewall-rule-panel .modal-header,
 .firewall-rule-panel .modal-footer { border-color:var(--list-separator); }
 .firewall-choice {
