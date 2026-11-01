@@ -135,7 +135,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -221,7 +221,7 @@
                 "wideLayout": false
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -359,7 +359,7 @@
                 }
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -496,7 +496,7 @@
                 }
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -594,7 +594,7 @@
                 "valueMode": "color"
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -691,7 +691,7 @@
                 "valueMode": "color"
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -777,7 +777,7 @@
                 "wideLayout": false
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -862,7 +862,7 @@
                 "wideLayout": false
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -944,7 +944,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -1065,7 +1065,7 @@
                 }
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -1100,8 +1100,8 @@
                 }
               ],
               "queryOptions": {
-                "timeFrom": "now/M",
-                "hideTimeOverride": false
+                "hideTimeOverride": false,
+                "timeFrom": "now/M"
               },
               "transformations": []
             }
@@ -1157,7 +1157,7 @@
                 "valueMode": "color"
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -1243,7 +1243,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -1266,7 +1266,8 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "(cascade_peer_handshake_age_seconds{instance=~\"$instance\",interface=~\"$interface\",name=~\"$peer\"} unless on (instance, interface) cascade_interface_role_info{instance=~\"$instance\",role=~\"$excluded_interface_role\"})",
+                        "expr": "label_join((cascade_peer_handshake_age_seconds{instance=~\"$instance\",interface=~\"$interface\",name=~\"$peer\"} unless on (instance, interface) cascade_interface_role_info{instance=~\"$instance\",role=~\"$excluded_interface_role\"}) + 0, \"display\", \" | \", \"name\", \"instance\")",
+                        "format": "table",
                         "instant": true,
                         "legendFormat": "{{name}} | {{instance}}",
                         "range": false
@@ -1275,13 +1276,104 @@
                     },
                     "refId": "A"
                   }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "bf0o2zpwh26tce"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join((cascade_peer_latest_handshake_timestamp_seconds{instance=~\"$instance\",interface=~\"$interface\",name=~\"$peer\"} unless on (instance, interface) cascade_interface_role_info{instance=~\"$instance\",role=~\"$excluded_interface_role\"}) + 0, \"display\", \" | \", \"name\", \"instance\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "{{name}} | {{instance}}",
+                        "range": false
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "B"
+                  }
                 }
               ],
               "queryOptions": {},
-              "transformations": []
+              "transformations": [
+                {
+                  "group": "merge",
+                  "kind": "Transformation",
+                  "spec": {
+                    "options": {}
+                  }
+                },
+                {
+                  "group": "sortBy",
+                  "kind": "Transformation",
+                  "spec": {
+                    "options": {
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "Value #B"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "group": "rowsToFields",
+                  "kind": "Transformation",
+                  "spec": {
+                    "options": {
+                      "mappings": [
+                        {
+                          "fieldName": "display",
+                          "handlerKey": "field.name"
+                        },
+                        {
+                          "fieldName": "Value #A",
+                          "handlerKey": "field.value"
+                        },
+                        {
+                          "fieldName": "Time",
+                          "handlerKey": "__ignore"
+                        },
+                        {
+                          "fieldName": "Value #B",
+                          "handlerKey": "__ignore"
+                        },
+                        {
+                          "fieldName": "instance",
+                          "handlerKey": "__ignore"
+                        },
+                        {
+                          "fieldName": "interface",
+                          "handlerKey": "__ignore"
+                        },
+                        {
+                          "fieldName": "peer_id",
+                          "handlerKey": "__ignore"
+                        },
+                        {
+                          "fieldName": "name",
+                          "handlerKey": "__ignore"
+                        },
+                        {
+                          "fieldName": "job",
+                          "handlerKey": "__ignore"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
             }
           },
-          "description": "Handshake age is a recency signal, not authoritative session state. Peers that have never handshaked are shown in red.",
+          "description": "Handshake age is a recency signal, not authoritative session state. Peers that have never handshaked are shown in red. Peers are ordered by latest handshake, newest first; peers that have never handshaked appear last.",
           "id": 51,
           "links": [],
           "title": "Last Handshake Age",
@@ -1295,6 +1387,8 @@
                     "fixedColor": "#ad46ff",
                     "mode": "thresholds"
                   },
+                  "decimals": 1,
+                  "displayName": "${__field.name}",
                   "mappings": [
                     {
                       "options": {
@@ -1316,12 +1410,16 @@
                         "value": 0
                       },
                       {
+                        "color": "semi-dark-yellow",
+                        "value": 30
+                      },
+                      {
                         "color": "orange",
-                        "value": 60
+                        "value": 80
                       },
                       {
                         "color": "red",
-                        "value": 80
+                        "value": 90
                       }
                     ]
                   },
@@ -1332,7 +1430,7 @@
               "options": {
                 "colorMode": "background",
                 "graphMode": "none",
-                "justifyMode": "auto",
+                "justifyMode": "center",
                 "orientation": "auto",
                 "percentChangeColorMode": "standard",
                 "reduceOptions": {
@@ -1340,18 +1438,18 @@
                     "lastNotNull"
                   ],
                   "fields": "",
-                  "limit": 50,
+                  "limit": 40,
                   "values": true
                 },
                 "showPercentChange": false,
                 "text": {
-                  "titleSize": 8
+                  "titleSize": 9
                 },
                 "textMode": "auto",
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -1433,7 +1531,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -1576,7 +1674,7 @@
                 "wideLayout": false
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -1693,7 +1791,7 @@
                 }
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -1820,7 +1918,7 @@
                 }
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -1902,7 +2000,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -2183,7 +2281,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -2291,7 +2389,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -2394,7 +2492,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -2476,7 +2574,7 @@
                 "wideLayout": true
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -2562,7 +2660,7 @@
                 "wideLayout": false
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -2652,7 +2750,7 @@
                 "wideLayout": false
               }
             },
-            "version": "13.2.3"
+            "version": "13.2.4"
           }
         }
       },
@@ -3490,7 +3588,7 @@
         "1d"
       ],
       "fiscalYearStartMonth": 0,
-      "from": "now/d",
+      "from": "now-1h",
       "hideTimepicker": false,
       "timezone": "browser",
       "to": "now"
@@ -3523,8 +3621,8 @@
           "allValue": ".*",
           "allowCustomValue": true,
           "current": {
-            "text": "corebox",
-            "value": "corebox"
+            "text": "All",
+            "value": "$__all"
           },
           "definition": "label_values(cascade_build_info, instance)",
           "hide": "dontHide",
@@ -3555,31 +3653,21 @@
       {
         "kind": "CustomVariable",
         "spec": {
-          "name": "excluded_interface_role",
-          "label": "S2S interfaces",
-          "description": "Show all interfaces, or hide uplinks and interfaces with interconnect peers. Automatic hiding requires Cascade interface role metrics.",
-          "query": "Show : __none__, Hide : s2s",
+          "allowCustomValue": false,
           "current": {
-            "text": "Show",
-            "value": "__none__"
+            "text": "Hide",
+            "value": "s2s"
           },
-          "options": [
-            {
-              "text": "Show",
-              "value": "__none__",
-              "selected": true
-            },
-            {
-              "text": "Hide",
-              "value": "s2s",
-              "selected": false
-            }
-          ],
+          "description": "Show all interfaces, or hide uplinks and interfaces with interconnect peers. Automatic hiding requires Cascade interface role metrics.",
           "hide": "dontHide",
-          "skipUrlSync": false,
-          "multi": false,
           "includeAll": false,
-          "allowCustomValue": false
+          "label": "S2S interfaces",
+          "multi": false,
+          "name": "excluded_interface_role",
+          "options": [],
+          "query": "Show : __none__, Hide : s2s",
+          "skipUrlSync": false,
+          "valuesFormat": "csv"
         }
       },
       {

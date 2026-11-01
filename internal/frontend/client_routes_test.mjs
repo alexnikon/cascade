@@ -9,6 +9,7 @@ for (const mode of ['manual', 'exclude-ipset']) {
   test(`client editor sends ${mode} source and preserves the manual list`, async () => {
     let payload;
     const context = {
+      ...peerMethods,
       peerEditForm: { _peer: { id: 'client-1', interfaceId: 'wg10', peerType: 'client' }, name: 'Client', clientAllowedIPs: '192.0.2.0/24', clientAllowedIPsMode: mode, clientAllowedIPsAliasId: 'ipset-1', persistentKeepalive: 25 },
       expiryDateTimeToUTC: () => '',
       _peerIfaceId: peer => peer.interfaceId,

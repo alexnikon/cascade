@@ -54,6 +54,7 @@ type cascadeBackupPeer struct {
 	PeerType                string      `json:"peerType"`
 	Endpoint                string      `json:"endpoint"`
 	PersistentKeepalive     int         `json:"persistentKeepalive"`
+	PersistentKeepaliveV3   string      `json:"persistentKeepaliveV3"`
 	GroupID                 string      `json:"groupId"`
 	ExpiredAt               interface{} `json:"expiredAt"`
 	Enabled                 bool        `json:"enabled"`
@@ -142,6 +143,16 @@ func (m *Manager) importCascadeBackup(inp ImportInterfaceInput) (*ImportInterfac
 		protocol = "wireguard-1.0"
 	}
 
+	for i := range backup.Peers {
+		value, err := peer.NormalizeKeepaliveRange(backup.Peers[i].PersistentKeepaliveV3)
+		if err != nil {
+			return nil, err
+		}
+		if value != "" && protocol != "amneziawg-3.1" {
+			return nil, fmt.Errorf("persistentKeepaliveV3 requires AWG 3.1")
+		}
+		backup.Peers[i].PersistentKeepaliveV3 = value
+	}
 	iface, err := m.CreateInterface(CreateInput{
 		Protocol:       protocol,
 		Address:        address,
@@ -187,6 +198,7 @@ func (m *Manager) importCascadeBackup(inp ImportInterfaceInput) (*ImportInterfac
 			PeerType:                bp.PeerType,
 			Endpoint:                bp.Endpoint,
 			PersistentKeepalive:     bp.PersistentKeepalive,
+			PersistentKeepaliveV3:   bp.PersistentKeepaliveV3,
 			GroupID:                 bp.GroupID,
 			GenerateKeys:            false,
 			CreatedAt:               bp.CreatedAt,

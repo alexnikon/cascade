@@ -584,6 +584,12 @@
                   class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
               </div>
 
+              <div v-if="peerSupportsKeepaliveRange(peerEditForm._peer)">
+                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Keepalive range <span class="text-gray-400 font-normal">(optional, seconds)</span></label>
+                <input v-model="peerEditForm.persistentKeepaliveV3" type="text" placeholder="5-25"
+                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+                <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Overrides Persistent Keepalive. Leave empty to use the numeric value.</p>
+              </div>
             </div><!-- /modal-body -->
 
             <!-- Footer -->

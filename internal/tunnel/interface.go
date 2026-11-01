@@ -770,7 +770,7 @@ func (t *TunnelInterface) UpdatePeer(peerID string, upd peer.PeerUpdate) (*peer.
 
 	// Only reload the kernel when fields that appear in [Peer] config sections change.
 	wgFields := upd.Enabled != nil || upd.AllowedIPs != nil ||
-		upd.Endpoint != nil || upd.PersistentKeepalive != nil
+		upd.Endpoint != nil || upd.PersistentKeepalive != nil || upd.PersistentKeepaliveV3 != nil
 
 	if wgFields {
 		if err := t.RegenerateConfig(); err != nil {
@@ -1401,7 +1401,7 @@ func (t *TunnelInterface) generateWgConfig() string {
 	// [Peer] sections. Disabled peers return "" from ToWgConfig().
 	t.peersMu.RLock()
 	for _, p := range t.peers {
-		sb.WriteString(p.ToWgConfig())
+		sb.WriteString(p.ToWgConfig(t.Protocol))
 	}
 	t.peersMu.RUnlock()
 
@@ -1451,7 +1451,7 @@ func (t *TunnelInterface) generateSyncConfig() string {
 
 	t.peersMu.RLock()
 	for _, p := range t.peers {
-		sb.WriteString(p.ToWgConfig())
+		sb.WriteString(p.ToWgConfig(t.Protocol))
 	}
 	t.peersMu.RUnlock()
 

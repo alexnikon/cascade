@@ -303,6 +303,7 @@ new Vue({
       _peer: null,          // original peer reference (for type checks + API call)
       name: '',
       persistentKeepalive: 0,
+      persistentKeepaliveV3: '',
       endpoint: '',         // interconnect only
       allowedIPs: '',       // interconnect only (editable)
       clientAllowedIPs: '', // client only

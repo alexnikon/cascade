@@ -200,6 +200,7 @@ Click the pencil icon on the peer card. A modal opens with the following fields:
 - **Name** — change the display name
 - **Client Allowed IPs** — change routes pushed to the client
 - **Persistent Keepalive** — change the keepalive interval
+- **Keepalive range** — AWG 3.1 only: an optional inclusive interval such as `5-25` seconds (`1 <= min <= max <= 65535`). It overrides the numeric keepalive without changing it. Clear the range to restore the numeric value. Existing peers and new-peer defaults are unchanged.
 - **Bandwidth Limit** — per-client speed limit (see below)
 
 ### Bandwidth Limiting
@@ -316,6 +317,7 @@ Click the pencil icon on the peer card. Available fields:
 - **Endpoint** — change the remote server's IP:port (applied without restarting the tunnel)
 - **Allowed IPs** — change the routed subnets
 - **Persistent Keepalive** — maintain the connection through NAT
+- **Keepalive range** — AWG 3.1 only: use an optional interval such as `5-25` seconds, or leave empty to use the numeric keepalive.
 
 ---
 

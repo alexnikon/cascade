@@ -103,6 +103,7 @@ func peerJSON(p *peer.Peer) fiber.Map {
 		"clientAllowedIPsAliasId": p.ClientAllowedIPsAliasID,
 		"peerType":                p.PeerType,
 		"persistentKeepalive":     p.PersistentKeepalive,
+		"persistentKeepaliveV3":   p.PersistentKeepaliveV3,
 		"enabled":                 p.Enabled,
 		"createdAt":               p.CreatedAt,
 	}
@@ -610,8 +611,15 @@ func restoreInterface(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusNotFound, "interface not found")
 	}
 
-	// Validate alias bindings before removing the existing peers.
+	// Validate restored settings before removing the existing peers.
 	for _, inp := range body.File.Peers {
+		value, err := peer.NormalizeKeepaliveRange(inp.PersistentKeepaliveV3)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+		if value != "" && t.Protocol != "amneziawg-3.1" {
+			return fiber.NewError(fiber.StatusBadRequest, "persistentKeepaliveV3 requires AWG 3.1")
+		}
 		if inp.ClientAllowedIPsMode == "exclude-ipset" {
 			if _, err := aliases.ResolveClientAllowedIPs(inp.ClientAllowedIPsAliasID); err != nil {
 				return fiber.NewError(fiber.StatusBadRequest, err.Error())

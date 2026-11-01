@@ -879,6 +879,7 @@ CREATE TABLE web_access (id INTEGER PRIMARY KEY CHECK (id=1), policy TEXT NOT NU
 INSERT INTO web_access VALUES(1, '{"enabled":false,"interfaceId":"","clients":[]}');
 UPDATE peers SET one_time_link='';
 `},
+	{version: 47, sql: `ALTER TABLE peers ADD COLUMN persistent_keepalive_v3 TEXT NOT NULL DEFAULT '';`},
 }
 
 func runMigrations(db *sql.DB) error {

@@ -140,7 +140,7 @@ func TestToWgConfig_EnabledPeer(t *testing.T) {
 		PersistentKeepalive: 25,
 		Enabled:             true,
 	}
-	cfg := p.ToWgConfig()
+	cfg := p.ToWgConfig("")
 	if !strings.Contains(cfg, "[Peer]") {
 		t.Error("expected [Peer] section header")
 	}
@@ -165,7 +165,7 @@ func TestToWgConfig_DisabledPeer(t *testing.T) {
 		AllowedIPs: "10.8.0.3/32",
 		Enabled:    false,
 	}
-	cfg := p.ToWgConfig()
+	cfg := p.ToWgConfig("")
 	if cfg != "" {
 		t.Errorf("disabled peer should return empty config, got %q", cfg)
 	}
@@ -179,7 +179,7 @@ func TestToWgConfig_NoEndpointWhenEmpty(t *testing.T) {
 		Endpoint:   "",
 		Enabled:    true,
 	}
-	cfg := p.ToWgConfig()
+	cfg := p.ToWgConfig("")
 	if strings.Contains(cfg, "Endpoint =") {
 		t.Error("should not include Endpoint line when empty")
 	}
@@ -193,7 +193,7 @@ func TestToWgConfig_WithEndpoint(t *testing.T) {
 		Endpoint:   "vpn.example.com:51820",
 		Enabled:    true,
 	}
-	cfg := p.ToWgConfig()
+	cfg := p.ToWgConfig("")
 	if !strings.Contains(cfg, "Endpoint = vpn.example.com:51820") {
 		t.Errorf("expected Endpoint line, got: %s", cfg)
 	}

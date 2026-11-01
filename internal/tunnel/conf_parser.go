@@ -47,6 +47,7 @@ type ParsedPeer struct {
 	Endpoint     string
 	AllowedIPs   string
 	Keepalive    int
+	KeepaliveV3  string
 }
 
 // ParsedConf holds the result of parsing a WireGuard .conf file.
@@ -69,6 +70,7 @@ type ParsedConf struct {
 	PeerEndpoint     string
 	PeerAllowedIPs   string
 	PeerKeepalive    int
+	PeerKeepaliveV3  string
 }
 
 // ParseWGConf parses a WireGuard / AmneziaWG config file.
@@ -253,8 +255,18 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 					cur.AllowedIPs += ", " + val
 				}
 			case "persistentkeepalive":
-				if n, err := strconv.Atoi(val); err == nil {
+				cur.Keepalive = 0
+				cur.KeepaliveV3 = ""
+				if strings.Contains(val, "-") {
+					value, err := peer.NormalizeKeepaliveRange(val)
+					if err != nil {
+						return nil, err
+					}
+					cur.KeepaliveV3 = value
+				} else if n, err := strconv.Atoi(val); err == nil {
 					cur.Keepalive = n
+				} else {
+					return nil, fmt.Errorf("persistentKeepalive: invalid value %q", val)
 				}
 			}
 		}
@@ -276,6 +288,11 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 		c.AWG2 = awg
 	}
 
+	for _, p := range c.Peers {
+		if p.KeepaliveV3 != "" && c.Protocol != "amneziawg-3.1" {
+			return nil, fmt.Errorf("persistentKeepaliveV3 requires AWG 3.1")
+		}
+	}
 	// Populate flat first-peer fields for backward compatibility.
 	if len(c.Peers) > 0 {
 		c.PeerPublicKey = c.Peers[0].PublicKey
@@ -283,6 +300,7 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 		c.PeerEndpoint = c.Peers[0].Endpoint
 		c.PeerAllowedIPs = c.Peers[0].AllowedIPs
 		c.PeerKeepalive = c.Peers[0].Keepalive
+		c.PeerKeepaliveV3 = c.Peers[0].KeepaliveV3
 	}
 
 	return c, nil

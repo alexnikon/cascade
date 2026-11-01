@@ -61,7 +61,8 @@ func TestMigration46RetiresConfigurationLinkTokens(t *testing.T) {
 	_, err := d.Exec(`INSERT INTO interfaces(id,name,address) VALUES('legacy','legacy','10.8.0.1/24');
 INSERT INTO peers(id,interface_id,public_key,one_time_link) VALUES('legacy-peer','legacy','public-key','legacy-token');
 DROP TABLE web_access;
-DELETE FROM schema_migrations WHERE version=46;`)
+ALTER TABLE peers DROP COLUMN persistent_keepalive_v3;
+DELETE FROM schema_migrations WHERE version>=46;`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,5 +364,33 @@ func TestMigration_v11_TrafficColumnsExist(t *testing.T) {
 	}
 	if totalRx != 1024 || totalTx != 2048 {
 		t.Errorf("updated values: got rx=%d tx=%d, want 1024/2048", totalRx, totalTx)
+	}
+}
+
+func TestMigration47PreservesExistingPeerKeepalive(t *testing.T) {
+	dir := t.TempDir()
+	if err := Init(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(Close)
+	_, err := DB().Exec(`
+ INSERT INTO interfaces(id,name,address,listen_port,protocol,private_key,public_key) VALUES('legacy','legacy','10.8.0.1/24',51820,'amneziawg-3.1','private','public');
+ INSERT INTO peers(id,interface_id,name,public_key,persistent_keepalive) VALUES('legacy-peer','legacy','legacy','public',37);
+ ALTER TABLE peers DROP COLUMN persistent_keepalive_v3;
+ DELETE FROM schema_migrations WHERE version=47;`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	Close()
+	if err := Init(dir); err != nil {
+		t.Fatal(err)
+	}
+	var numeric int
+	var interval string
+	if err := DB().QueryRow("SELECT persistent_keepalive,persistent_keepalive_v3 FROM peers WHERE id='legacy-peer'").Scan(&numeric, &interval); err != nil {
+		t.Fatal(err)
+	}
+	if numeric != 37 || interval != "" {
+		t.Fatalf("migration changed peer: %d, %q", numeric, interval)
 	}
 }

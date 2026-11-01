@@ -182,10 +182,10 @@ Base path: `/api/tunnel-interfaces/:id/peers`
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/peers` | List peers. Returns `{ peers: [...] }` |
-| `POST` | `/peers` | Create peer. Body: `{ name, peerType (client/interconnect), clientAllowedIPs?, persistentKeepalive?, expiredAt? }`. Response includes `totalRx`/`totalTx` (accumulated traffic counters from SQLite, persist across restarts) and `latestHandshakeAt` (last handshake timestamp, persisted across restarts; `null` if peer never connected) |
+| `POST` | `/peers` | Create peer. Body: `{ name, peerType (client/interconnect), clientAllowedIPs?, persistentKeepalive?, persistentKeepaliveV3?, expiredAt? }`. Response includes `totalRx`/`totalTx` (accumulated traffic counters from SQLite, persist across restarts) and `latestHandshakeAt` (last handshake timestamp, persisted across restarts; `null` if peer never connected) |
 | `POST` | `/peers/import-json` | Create interconnect peer from exported JSON |
 | `GET` | `/peers/:peerId` | Get peer |
-| `PATCH` | `/peers/:peerId` | Update peer fields. Accepts: `name?, endpoint?, allowedIPs?, clientAllowedIPs?, persistentKeepalive?, enabled?, expiredAt?, rateDown?, rateUp?`. Fields `rateDown`/`rateUp` — bandwidth limit in **kbps** (0 = unlimited), enforced via `tc HTB + police` on the server; the UI accepts **Mbit/s** and converts automatically |
+| `PATCH` | `/peers/:peerId` | Update peer fields. Accepts: `name?, endpoint?, allowedIPs?, clientAllowedIPs?, persistentKeepalive?, persistentKeepaliveV3?, enabled?, expiredAt?, rateDown?, rateUp?`. Fields `rateDown`/`rateUp` — bandwidth limit in **kbps** (0 = unlimited), enforced via `tc HTB + police` on the server; the UI accepts **Mbit/s** and converts automatically |
 | `DELETE` | `/peers/:peerId` | Delete peer |
 | `GET` | `/peers/:peerId/config` | Download WireGuard config file |
 | `POST` | `/peers/:peerId/enable` | Enable peer |
@@ -195,6 +195,14 @@ Base path: `/api/tunnel-interfaces/:id/peers`
 | `PUT` | `/peers/:peerId/address` | Update overlay address. Body: `{ address }` → stored as AllowedIPs |
 | `PUT` | `/peers/:peerId/expireDate` | Set expiry. Body: `{ expireDate }` — RFC3339 or YYYY-MM-DD, empty clears |
 | `GET` | `/peers/:peerId/export-json` | Export interconnect peer as JSON (interconnect only) |
+
+`persistentKeepaliveV3` is an optional AWG 3.1-only string (`"5-25"`):
+use inclusive whole-second bounds with `1 <= min <= max <= 65535`.
+It overrides the existing numeric `persistentKeepalive` while preserving that
+fallback. In PATCH, omission preserves the range and `""` clears it; null and
+non-string values are rejected. A nonempty range on another protocol is rejected.
+The range is preserved in peer JSON and native interface exports/imports, and in
+AWG 3.1 `.conf` imports. It is never enabled automatically.
 
 Traffic totals (`totalRx`/`totalTx`) persist across restarts and measure usage since the last reset. Reset also lowers the current peer Prometheus counters and the interface totals derived from them. Existing Prometheus history is retained. Raw `transferRx`/`transferTx` remain technical WireGuard counters for rate calculation and are not reset. No interface restart or client config update is required. For S2S, reset affects only the selected peer on the selected server; counters on the opposite server are unchanged.
 

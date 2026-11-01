@@ -55,6 +55,7 @@ type Peer struct {
 	PeerType                string `json:"peerType"`         // client | interconnect
 	GroupID                 string `json:"groupId"`          // client-group alias ID; "" for interconnect peers
 	PersistentKeepalive     int    `json:"persistentKeepalive"`
+	PersistentKeepaliveV3   string `json:"persistentKeepaliveV3,omitempty"`
 	Enabled                 bool   `json:"enabled"`
 	CreatedAt               string `json:"createdAt"`
 	UpdatedAt               string `json:"updatedAt"`
@@ -104,6 +105,7 @@ type PeerInput struct {
 	PeerType                string `json:"peerType"`
 	GroupID                 string `json:"groupId"` // client-group alias ID (for client peers)
 	PersistentKeepalive     int    `json:"persistentKeepalive"`
+	PersistentKeepaliveV3   string `json:"persistentKeepaliveV3,omitempty"`
 	ExpiredAt               string `json:"expiredAt"` // RFC3339 or YYYY-MM-DD; "" = no expiry
 	// Special flags (not stored directly)
 	GenerateKeys   bool   `json:"generateKeys"`   // server generates wg key pair + PSK
@@ -125,6 +127,7 @@ type PeerUpdate struct {
 	ClientAllowedIPsAliasID *string `json:"clientAllowedIPsAliasId"`
 	ClientAllowedIPs        *string `json:"clientAllowedIPs"`
 	PersistentKeepalive     *int    `json:"persistentKeepalive"`
+	PersistentKeepaliveV3   *string `json:"persistentKeepaliveV3"`
 	Enabled                 *bool   `json:"enabled"`
 	ExpiredAt               *string `json:"expiredAt"`
 	RateDown                *int    `json:"rateDown"`
@@ -192,7 +195,7 @@ func GetPeers(interfaceID string) ([]Peer, error) {
 		       peer_type, group_id, persistent_keepalive, enabled,
 		       created_at, updated_at, expired_at, one_time_link,
 		       total_rx, total_tx, rate_down, rate_up, previous_group_id,
-		       latest_handshake_at, client_allowed_ips_mode, client_allowed_ips_alias_id
+		       latest_handshake_at, client_allowed_ips_mode, client_allowed_ips_alias_id, persistent_keepalive_v3
 		FROM peers
 		WHERE interface_id = ?
 		ORDER BY created_at
@@ -221,7 +224,7 @@ func GetPeer(id string) (*Peer, error) {
 		       peer_type, group_id, persistent_keepalive, enabled,
 		       created_at, updated_at, expired_at, one_time_link,
 		       total_rx, total_tx, rate_down, rate_up, previous_group_id,
-		       latest_handshake_at, client_allowed_ips_mode, client_allowed_ips_alias_id
+		       latest_handshake_at, client_allowed_ips_mode, client_allowed_ips_alias_id, persistent_keepalive_v3
 		FROM peers WHERE id = ?
 	`, id)
 	p, err := scanPeerRow(row)
@@ -259,6 +262,7 @@ func CreatePeer(interfaceID string, inp PeerInput) (*Peer, error) {
 		PeerType:                strOr(inp.PeerType, "client"),
 		GroupID:                 inp.GroupID,
 		PersistentKeepalive:     intOr(inp.PersistentKeepalive, 25),
+		PersistentKeepaliveV3:   inp.PersistentKeepaliveV3,
 		Enabled:                 true,
 		CreatedAt:               createdAt,
 		UpdatedAt:               now,
@@ -267,6 +271,9 @@ func CreatePeer(interfaceID string, inp PeerInput) (*Peer, error) {
 	p.DownloadableConfig = p.PrivateKey != ""
 
 	if err := validateClientRouting(&p); err != nil {
+		return nil, err
+	}
+	if err := p.validateKeepaliveRange(); err != nil {
 		return nil, err
 	}
 	if err := insertPeer(p); err != nil {
@@ -313,6 +320,12 @@ func UpdatePeer(id string, upd PeerUpdate) (*Peer, error) {
 	}
 	if upd.ClientAllowedIPs != nil || upd.ClientAllowedIPsMode != nil || upd.ClientAllowedIPsAliasID != nil {
 		if err := validateClientRouting(p); err != nil {
+			return nil, err
+		}
+	}
+	if upd.PersistentKeepaliveV3 != nil {
+		p.PersistentKeepaliveV3 = *upd.PersistentKeepaliveV3
+		if err := p.validateKeepaliveRange(); err != nil {
 			return nil, err
 		}
 	}
@@ -516,7 +529,7 @@ func DerivePublicKey(bin, privateKey string) (string, error) {
 
 // ToWgConfig returns the [Peer] section for the hub-side wg-quick config.
 // Returns "" for disabled peers — they are excluded from the kernel config.
-func (p *Peer) ToWgConfig() string {
+func (p *Peer) ToWgConfig(protocol string) string {
 	if !p.Enabled {
 		return ""
 	}
@@ -535,8 +548,8 @@ func (p *Peer) ToWgConfig() string {
 		fmt.Fprintf(&sb, "Endpoint = %s\n", p.Endpoint)
 	}
 
-	if p.PersistentKeepalive > 0 {
-		fmt.Fprintf(&sb, "PersistentKeepalive = %d\n", p.PersistentKeepalive)
+	if p.PersistentKeepalive > 0 || (protocol == "amneziawg-3.1" && p.PersistentKeepaliveV3 != "") {
+		fmt.Fprintf(&sb, "PersistentKeepalive = %s\n", p.KeepaliveValue(protocol))
 	}
 
 	return sb.String()
@@ -638,7 +651,7 @@ func (p *Peer) generateCompleteConfig(iface InterfaceData) string {
 		clientAllowedIPs = includeDNSRoute(clientAllowedIPs, iface.DNS)
 	}
 	fmt.Fprintf(&sb, "AllowedIPs = %s\n", clientAllowedIPs)
-	fmt.Fprintf(&sb, "PersistentKeepalive = %d\n", p.PersistentKeepalive)
+	fmt.Fprintf(&sb, "PersistentKeepalive = %s\n", p.KeepaliveValue(iface.Protocol))
 
 	return sb.String()
 }
@@ -733,7 +746,7 @@ func (p *Peer) generateTemplateConfig(iface InterfaceData) string {
 		clientAllowedIPs = includeDNSRoute(clientAllowedIPs, iface.DNS)
 	}
 	fmt.Fprintf(&sb, "AllowedIPs = %s\n", clientAllowedIPs)
-	fmt.Fprintf(&sb, "PersistentKeepalive = %d\n\n", p.PersistentKeepalive)
+	fmt.Fprintf(&sb, "PersistentKeepalive = %s\n\n", p.KeepaliveValue(iface.Protocol))
 
 	sb.WriteString("# ═══════════════════════════════════════════════════════════════\n")
 	sb.WriteString("# 1. Generate keys: wg genkey | tee privatekey | wg pubkey > publickey\n")
@@ -795,7 +808,7 @@ func scanPeerRow(s peerScanner) (*Peer, error) {
 		&p.TotalRx, &p.TotalTx,
 		&p.RateDown, &p.RateUp,
 		&p.PreviousGroupId,
-		&latestHandshakeAt, &p.ClientAllowedIPsMode, &p.ClientAllowedIPsAliasID,
+		&latestHandshakeAt, &p.ClientAllowedIPsMode, &p.ClientAllowedIPsAliasID, &p.PersistentKeepaliveV3,
 	)
 	if latestHandshakeAt != "" {
 		p.LatestHandshakeAt = &latestHandshakeAt
@@ -827,14 +840,14 @@ func insertPeer(p Peer) error {
 		     endpoint, allowed_ips, address, client_allowed_ips,
 		     peer_type, group_id, persistent_keepalive, enabled,
 		     created_at, updated_at, expired_at, one_time_link,
-		     rate_down, rate_up, previous_group_id, client_allowed_ips_mode, client_allowed_ips_alias_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		     rate_down, rate_up, previous_group_id, client_allowed_ips_mode, client_allowed_ips_alias_id, persistent_keepalive_v3)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		p.ID, p.InterfaceID, p.Name, p.PublicKey, p.PrivateKey, p.PresharedKey,
 		p.Endpoint, p.AllowedIPs, p.Address, p.ClientAllowedIPs,
 		p.PeerType, p.GroupID, p.PersistentKeepalive, boolInt(p.Enabled),
 		p.CreatedAt, p.UpdatedAt, p.ExpiredAt, "",
-		p.RateDown, p.RateUp, p.PreviousGroupId, p.ClientAllowedIPsMode, p.ClientAllowedIPsAliasID,
+		p.RateDown, p.RateUp, p.PreviousGroupId, p.ClientAllowedIPsMode, p.ClientAllowedIPsAliasID, p.PersistentKeepaliveV3,
 	)
 	return err
 }
@@ -845,13 +858,13 @@ func updatePeer(p Peer) error {
 		SET name = ?, endpoint = ?, allowed_ips = ?, address = ?,
 		    client_allowed_ips = ?, group_id = ?, persistent_keepalive = ?,
 		    enabled = ?, updated_at = ?, expired_at = ?, one_time_link = ?,
-		    rate_down = ?, rate_up = ?, previous_group_id = ?, client_allowed_ips_mode = ?, client_allowed_ips_alias_id = ?
+		    rate_down = ?, rate_up = ?, previous_group_id = ?, client_allowed_ips_mode = ?, client_allowed_ips_alias_id = ?, persistent_keepalive_v3 = ?
 		WHERE id = ?
 	`,
 		p.Name, p.Endpoint, p.AllowedIPs, p.Address,
 		p.ClientAllowedIPs, p.GroupID, p.PersistentKeepalive,
 		boolInt(p.Enabled), p.UpdatedAt, p.ExpiredAt, "",
-		p.RateDown, p.RateUp, p.PreviousGroupId, p.ClientAllowedIPsMode, p.ClientAllowedIPsAliasID,
+		p.RateDown, p.RateUp, p.PreviousGroupId, p.ClientAllowedIPsMode, p.ClientAllowedIPsAliasID, p.PersistentKeepaliveV3,
 		p.ID,
 	)
 	return err

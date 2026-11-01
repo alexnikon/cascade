@@ -469,14 +469,15 @@ func (m *Manager) ImportConf(name, confContent string) (*ImportConfResult, error
 		keepalive = 25
 	}
 	p, err := iface.AddPeer(peer.PeerInput{
-		Name:                "upstream",
-		PublicKey:           parsed.PeerPublicKey,
-		PresharedKey:        parsed.PeerPresharedKey,
-		Endpoint:            parsed.PeerEndpoint,
-		AllowedIPs:          allowedIPs,
-		ClientAllowedIPs:    allowedIPs,
-		PeerType:            "interconnect",
-		PersistentKeepalive: keepalive,
+		Name:                  "upstream",
+		PublicKey:             parsed.PeerPublicKey,
+		PresharedKey:          parsed.PeerPresharedKey,
+		Endpoint:              parsed.PeerEndpoint,
+		AllowedIPs:            allowedIPs,
+		ClientAllowedIPs:      allowedIPs,
+		PeerType:              "interconnect",
+		PersistentKeepalive:   keepalive,
+		PersistentKeepaliveV3: parsed.PeerKeepaliveV3,
 	})
 	if err != nil {
 		// Roll back the interface so no orphan is left in the DB.
@@ -573,12 +574,14 @@ func (m *Manager) ImportConfAsServer(name, confContent string) (*ImportConfAsSer
 		addr = strings.TrimSpace(strings.SplitN(addr, ",", 2)[0])
 		name := fmt.Sprintf("peer-%d", i+1)
 		_, addErr := iface.AddPeer(peer.PeerInput{
-			Name:         name,
-			PublicKey:    pp.PublicKey,
-			PresharedKey: pp.PresharedKey,
-			AllowedIPs:   addr,
-			Address:      addr,
-			PeerType:     "client",
+			Name:                  name,
+			PublicKey:             pp.PublicKey,
+			PresharedKey:          pp.PresharedKey,
+			AllowedIPs:            addr,
+			Address:               addr,
+			PeerType:              "client",
+			PersistentKeepalive:   pp.Keepalive,
+			PersistentKeepaliveV3: pp.KeepaliveV3,
 		})
 		if addErr != nil {
 			peersFailed = append(peersFailed, fmt.Sprintf("%s: %v", name, addErr))

@@ -172,11 +172,18 @@ async confirmDeletePeer() {
       }
     },
 
+peerSupportsKeepaliveRange(peer) {
+      const id = this._peerIfaceId(peer);
+      const iface = (this.tunnelInterfaces || []).find(item => item.id === id);
+      return iface?.protocol === 'amneziawg-3.1';
+    },
+
 openPeerEdit(peer) {
       this.peerEditForm = {
         _peer: peer,
         name: peer.name || '',
         persistentKeepalive: peer.persistentKeepalive || 0,
+        persistentKeepaliveV3: peer.persistentKeepaliveV3 || '',
         endpoint: peer.endpoint || '',
         allowedIPs: peer.allowedIPs || '',
         clientAllowedIPs: peer.clientAllowedIPs || '',
@@ -246,6 +253,9 @@ async savePeerEdit() {
         name: this.peerEditForm.name,
         persistentKeepalive: Number(this.peerEditForm.persistentKeepalive) || 0,
       };
+      if (this.peerSupportsKeepaliveRange(peer)) {
+        updates.persistentKeepaliveV3 = this.peerEditForm.persistentKeepaliveV3.trim();
+      }
       if (isInterconnect) {
         updates.endpoint = this.peerEditForm.endpoint;
         updates.allowedIPs = this.peerEditForm.allowedIPs;

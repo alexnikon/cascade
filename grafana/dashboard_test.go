@@ -236,7 +236,7 @@ func TestDashboardMonthTopPeersAndS2SFilter(t *testing.T) {
 			continue
 		}
 		found = true
-		if v["kind"] != "CustomVariable" || vs["query"] != "Show : __none__, Hide : s2s" || object(t, vs["current"], "current")["value"] != "__none__" {
+		if v["kind"] != "CustomVariable" || vs["query"] != "Show : __none__, Hide : s2s" || object(t, vs["current"], "current")["value"] != "s2s" {
 			t.Fatalf("unexpected S2S switch: %v", v)
 		}
 	}
