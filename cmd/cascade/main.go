@@ -325,6 +325,9 @@ func main() {
 		log.Fatalf("ipset init: %v", err)
 	}
 
+	ipsetMgr.StartJobRetention()
+	defer ipsetMgr.Close()
+
 	// 2. AliasManager — depends on IpsetManager.
 	aliasMgr := aliases.New(ipsetMgr)
 	aliases.SetInstance(aliasMgr)

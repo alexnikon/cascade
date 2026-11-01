@@ -1,6 +1,10 @@
 package tunnel
 
 import (
+	"encoding/json"
+	"github.com/alexnikon/cascade/internal/awgparams"
+	"github.com/alexnikon/cascade/internal/settings"
+	"strings"
 	"testing"
 
 	"github.com/alexnikon/cascade/internal/db"
@@ -37,3 +41,60 @@ func TestAWG31InterfacePersistenceRoundTrip(t *testing.T) {
 		t.Fatalf("AWG3 settings changed: %+v", loaded.AWG2)
 	}
 }
+
+func TestGeneratedTemplateMTUAndOptionalSettingsReachConfig(t *testing.T) {
+	db.Close()
+	if err := db.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	off := false
+	result, err := awgparams.GenerateProfile(awgparams.Options{ProtocolVersion: "3.1", MTU: intPtr(1400), UseHeaderProtection: &off, UseContentPadding: &off, UseRandomTimings: &off, UseRandomTrailers: &off, UseDisableCookies: &off})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(result.Params)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var template settings.Template
+	if err := json.Unmarshal(payload, &template); err != nil {
+		t.Fatal(err)
+	}
+	template.Name = "optional"
+	template.ProtocolVersion = result.ProtocolVersion
+	template.MTU = result.MTU
+	saved, err := settings.CreateTemplate(template)
+	if err != nil {
+		t.Fatal(err)
+	}
+	applied, err := settings.ApplyTemplate(saved.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iface, err := Create(InterfaceInput{ID: "wg10", Name: "optional", Protocol: "amneziawg-3.1", MTU: applied.MTU, Address: "10.8.0.1/24", PrivateKey: "private", PublicKey: "public", AWG2: awg2ParamsFromTemplate(applied)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadInterface(iface.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.MTU != 1400 {
+		t.Fatalf("MTU lost: %d", loaded.MTU)
+	}
+	for _, config := range []string{loaded.generateWgConfig(), loaded.generateSyncConfig()} {
+		for _, key := range []string{"HeaderProtectionKey =", "ContentPaddingAddition =", "RekeyAfterTime =", "RekeyTimeout =", "RejectAfterTime =", "KeepaliveTimeout =", "MaxHandshakeAttempts ="} {
+			if strings.Contains(config, key) {
+				t.Fatalf("disabled field emitted: %s", key)
+			}
+		}
+		if !strings.Contains(config, "RandomTrailers = off") || !strings.Contains(config, "DisableCookies = off") {
+			t.Fatal("explicit false flags lost")
+		}
+	}
+	if !strings.Contains(loaded.generateWgConfig(), "MTU = 1400") {
+		t.Fatal("MTU missing from interface config")
+	}
+}
+func intPtr(v int) *int { return &v }

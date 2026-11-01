@@ -247,7 +247,7 @@ See [API.md](API.md) for the full endpoint reference.
 ## Infrastructure
 
 ### Runtime
-- **Go 1.23** + **Fiber v2** — single static binary, no Node.js, no npm
+- **Go 1.27.3** + **Fiber v2** — single static binary, no Node.js, no npm
 - **SQLite** (modernc.org/sqlite, pure Go, no CGO) — single `wireguard.db` file
 - WAL journal mode — concurrent reads, serialised writes
 - Version-based migrations — schema evolves safely across upgrades

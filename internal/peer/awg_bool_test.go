@@ -1,6 +1,9 @@
 package peer
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestFormatAWGBoolUsesCanonicalToolsSyntax(t *testing.T) {
 	if got := FormatAWGBool(true); got != "on" {
@@ -31,5 +34,14 @@ func TestParseAWGBoolAcceptsCompatibleForms(t *testing.T) {
 	}
 	if _, err := ParseAWGBool("enabled"); err == nil {
 		t.Fatal("ParseAWGBool accepted an invalid value")
+	}
+}
+
+func TestClientConfigOmitsDisabledAWG31Strings(t *testing.T) {
+	off := false
+	var sb strings.Builder
+	writeAWG3Settings(&sb, "amneziawg-3.1", &AWGSettings{RandomTrailers: &off, DisableCookies: &off})
+	if got := sb.String(); got != "RandomTrailers = off\nDisableCookies = off\n" {
+		t.Fatalf("disabled field export: %q", got)
 	}
 }

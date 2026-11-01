@@ -178,6 +178,7 @@ func getInterface(c *fiber.Ctx) error {
 // Body: { name, protocol?, address?, listenPort?, disableRoutes?, settings? }
 func createInterface(c *fiber.Ctx) error {
 	var body struct {
+		MTU            int                `json:"mtu"`
 		Name           string             `json:"name"`
 		Protocol       string             `json:"protocol"`
 		Address        string             `json:"address"`
@@ -210,6 +211,7 @@ func createInterface(c *fiber.Ctx) error {
 		}
 	}
 	t, err := mgr().CreateInterface(tunnel.CreateInput{
+		MTU:            body.MTU,
 		Name:           strings.TrimSpace(body.Name),
 		Protocol:       body.Protocol,
 		Address:        addr,

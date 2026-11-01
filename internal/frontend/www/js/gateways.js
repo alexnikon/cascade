@@ -121,7 +121,7 @@ openGatewayEdit(gw) {
         monitorAddressV6: gw.monitorAddressV6 || '',
         monitor:          gw.monitor,
         monitorInterval:  gw.monitorInterval,
-        windowSeconds:    gw.windowSeconds ?? null,
+        windowSeconds:    gw.windowSeconds > 0 ? gw.windowSeconds : null,
         latencyThreshold: gw.latencyThreshold || 500,
         monitorHttp:      gw.monitorHttp ? { ...httpDefaults, ...gw.monitorHttp } : { ...httpDefaults },
         monitorRule:      gw.monitorRule || 'icmp_only',
@@ -294,6 +294,10 @@ async loadRemotes() {
     },
 
 async switchToRemote(remote) {
+      this._stopAliasJobPoll?.();
+      this.clientsPersist = {};
+      this.peersPersist = {};
+      this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
       this.api.setRemote(remote.id);
       this.activeRemoteId = remote.id;
       this.peerRefreshSeq += 1;
@@ -328,6 +332,10 @@ async switchToRemote(remote) {
     },
 
 switchToLocal() {
+      this._stopAliasJobPoll?.();
+      this.clientsPersist = {};
+      this.peersPersist = {};
+      this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
       this.api.clearRemote();
       this.activeRemoteId = null;
       this.peerRefreshSeq += 1;

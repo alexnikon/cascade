@@ -325,24 +325,13 @@ export class API {
     });
   }
 
-  /**
-   * generateTemplate — generate AWG 2.0 parameters (AmneziaWG-Architect endpoint).
-   * @param {object} opts
-   * @param {string} [opts.profile]    — CPS profile ('random', 'quic_initial', 'tls_client_hello', ...)
-   * @param {string} [opts.intensity]  — intensity ('low', 'medium', 'high')
-   * @param {string} [opts.host]       — custom SNI host
-   * @param {string} [opts.browser]    — Browser Fingerprint: chrome|firefox|safari|edge|yandex_desktop|yandex_mobile
-   * @param {number} [opts.iterCount]  — attempt counter
-   * @param {number} [opts.jc]         — base Jc value
-   * @param {string} [opts.saveName]   — save as a template when provided
-   * @returns {{ params, profiles[, template] }}
-   */
-  async generateTemplate({ profile, intensity, host, browser, iterCount, jc, saveName } = {}) {
-    return this.call({
-      method: 'post',
-      path: '/templates/generate',
-      body: { profile, intensity, host, browser, iterCount, jc, saveName },
-    });
+  // Catalogues and defaults are supplied by the pinned server-side generator.
+  async getGeneratorOptions() {
+    return this.call({ method: 'get', path: '/templates/generator-options' });
+  }
+
+  async generateTemplate(options = {}) {
+    return this.call({ method: 'post', path: '/templates/generate', body: options });
   }
 
   // ============================================================

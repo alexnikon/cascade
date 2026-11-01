@@ -116,6 +116,7 @@ type RuntimeInterfaceSnapshot struct {
 
 // InterfaceInput is the payload for creating a new interface.
 type InterfaceInput struct {
+	MTU            int
 	ID             string
 	Name           string
 	Address        string // CIDR e.g. "10.8.0.1/24"
@@ -206,6 +207,7 @@ func Create(inp InterfaceInput) (*TunnelInterface, error) {
 		PrivateKey:     inp.PrivateKey,
 		PublicKey:      inp.PublicKey,
 		AWG2:           inp.AWG2,
+		MTU:            inp.MTU,
 		CreatedAt:      time.Now().UTC().Format(time.RFC3339),
 		peers:          make(map[string]*peer.Peer),
 	}
@@ -1900,13 +1902,27 @@ func writeAWG3Settings(sb *strings.Builder, protocol string, a *peer.AWGSettings
 	if protocol != "amneziawg-3.1" {
 		return
 	}
-	fmt.Fprintf(sb, "HeaderProtectionKey = %s\n", a.HeaderProtectionKey)
-	fmt.Fprintf(sb, "ContentPaddingAddition = %s\n", a.ContentPaddingAddition)
-	fmt.Fprintf(sb, "RekeyAfterTime = %s\n", a.RekeyAfterTime)
-	fmt.Fprintf(sb, "RekeyTimeout = %s\n", a.RekeyTimeout)
-	fmt.Fprintf(sb, "RejectAfterTime = %s\n", a.RejectAfterTime)
-	fmt.Fprintf(sb, "KeepaliveTimeout = %s\n", a.KeepaliveTimeout)
-	fmt.Fprintf(sb, "MaxHandshakeAttempts = %s\n", a.MaxHandshakeAttempts)
+	if a.HeaderProtectionKey != "" {
+		fmt.Fprintf(sb, "HeaderProtectionKey = %s\n", a.HeaderProtectionKey)
+	}
+	if a.ContentPaddingAddition != "" {
+		fmt.Fprintf(sb, "ContentPaddingAddition = %s\n", a.ContentPaddingAddition)
+	}
+	if a.RekeyAfterTime != "" {
+		fmt.Fprintf(sb, "RekeyAfterTime = %s\n", a.RekeyAfterTime)
+	}
+	if a.RekeyTimeout != "" {
+		fmt.Fprintf(sb, "RekeyTimeout = %s\n", a.RekeyTimeout)
+	}
+	if a.RejectAfterTime != "" {
+		fmt.Fprintf(sb, "RejectAfterTime = %s\n", a.RejectAfterTime)
+	}
+	if a.KeepaliveTimeout != "" {
+		fmt.Fprintf(sb, "KeepaliveTimeout = %s\n", a.KeepaliveTimeout)
+	}
+	if a.MaxHandshakeAttempts != "" {
+		fmt.Fprintf(sb, "MaxHandshakeAttempts = %s\n", a.MaxHandshakeAttempts)
+	}
 	if a.RandomTrailers != nil {
 		fmt.Fprintf(sb, "RandomTrailers = %s\n", peer.FormatAWGBool(*a.RandomTrailers))
 	}

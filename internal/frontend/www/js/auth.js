@@ -3,9 +3,16 @@
  * Methods intentionally operate on the Vue instance passed as this.
  */
 export const authMethods = {
+    blurAuthField() {
+      this._authFocusSequence = (this._authFocusSequence || 0) + 1;
+      const input = document.activeElement;
+      if (input && ['login-username', 'login-password', 'totp-code'].includes(input.id)) input.blur();
+    },
     focusLoginField() {
+      const step = this.totpRequired;
+      const sequence = this._authFocusSequence = (this._authFocusSequence || 0) + 1;
       this.$nextTick(() => {
-        if (this.authenticated !== false) return;
+        if (this.authenticated !== false || this.totpRequired !== step || sequence !== this._authFocusSequence) return;
         const input = this.totpRequired ? this.$refs.loginTOTP : this.$refs.loginUsername;
         if (input) input.focus({ preventScroll: true });
       });
@@ -36,6 +43,8 @@ async login() {
           remember: this.remember,
         }));
         if (res && res.totp_required) {
+          this.blurAuthField();
+          this.lastAutoTOTP = '';
           this.totpRequired = true;
           this.totpCode = '';
           return;
@@ -49,15 +58,32 @@ async login() {
       }
     },
 
+    backToLogin() {
+      if (this.authenticating) return;
+      this.blurAuthField();
+      this.totpCode = '';
+      this.lastAutoTOTP = '';
+      this.totpRequired = false;
+    },
+
+    onTOTPInput(event) {
+      this.totpCode = event.target.value;
+      if (!/^\d{6}$/.test(this.totpCode)) {
+        this.lastAutoTOTP = '';
+        return;
+      }
+      if (!this.totpRequired || this.authenticating || this.lastAutoTOTP === this.totpCode) return;
+      this.lastAutoTOTP = this.totpCode;
+      this.loginStep2();
+    },
+
     // Step 2: submit TOTP code after password was accepted.
 
 async loginStep2() {
-      if (!this.totpCode || this.authenticating) return;
+      if (!/^\d{6}$/.test(this.totpCode) || this.authenticating) return;
       this.authenticating = true;
       try {
         await this._loginRequestWithDelay(() => this.api.verifyTOTP({ code: this.totpCode }));
-        this.totpRequired = false;
-        this.totpCode = '';
         await this._onLoginSuccess();
       } catch (err) {
         this.showToast(err.message || err.toString(), 'error');
@@ -70,7 +96,12 @@ async loginStep2() {
 
 async _onLoginSuccess() {
       const session = await this.api.getSession();
-      this.authenticated = session.authenticated;
+      if (!session.authenticated) throw new Error('Unable to confirm the authenticated session. Please try again.');
+      this.blurAuthField();
+      this.authenticated = true;
+      this.totpRequired = false;
+      this.totpCode = '';
+      this.lastAutoTOTP = '';
       this.requiresPassword = session.requiresPassword;
       await this.refresh();
       // Re-load data that may have got 401 before login.
@@ -102,6 +133,10 @@ logout(e) {
       this.api.deleteSession()
         .then(() => {
           this.authenticated = false;
+      this._stopAliasJobPoll?.();
+      this.clientsPersist = {};
+      this.peersPersist = {};
+      this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
           this.clients = null;
         })
         .catch((err) => {

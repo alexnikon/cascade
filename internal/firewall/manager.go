@@ -151,12 +151,13 @@ type Manager struct {
 	am *aliases.Manager
 	gm *gateway.Manager
 
-	rebuildMu     sync.Mutex // serialises rebuildChains calls
-	ruleApplyMu   sync.Map   // rule ID → *sync.Mutex; serialises route updates per rule
-	routeStateMu  sync.Mutex
-	activeGateway map[stateKey]resolvedGW // rule+family → last successfully applied gateway
-	appliedState  map[stateKey]pbrDesired // rule+family → last desired state written to the kernel
-	restoreDelay  time.Duration
+	rebuildMu      sync.Mutex // serialises rebuildChains calls
+	ruleRegistryMu sync.Mutex
+	ruleLocks      map[string]*ruleApplyLock
+	routeStateMu   sync.Mutex
+	activeGateway  map[stateKey]resolvedGW // rule+family → last successfully applied gateway
+	appliedState   map[stateKey]pbrDesired // rule+family → last desired state written to the kernel
+	restoreDelay   time.Duration
 
 	fallbackMu     sync.Mutex
 	fallbackActive map[stateKey]bool      // rule+family → currently in fallback/blackhole
@@ -1563,11 +1564,33 @@ func (m *Manager) applyRoutingForRule(rule *Rule) error {
 	return m.reconcileRoutingForRule(rule)
 }
 
+type ruleApplyLock struct {
+	mu    sync.Mutex
+	users int
+}
+
 func (m *Manager) withRuleApply(ruleID string, fn func() error) error {
-	value, _ := m.ruleApplyMu.LoadOrStore(ruleID, &sync.Mutex{})
-	mu := value.(*sync.Mutex)
-	mu.Lock()
-	defer mu.Unlock()
+	m.ruleRegistryMu.Lock()
+	if m.ruleLocks == nil {
+		m.ruleLocks = make(map[string]*ruleApplyLock)
+	}
+	lock := m.ruleLocks[ruleID]
+	if lock == nil {
+		lock = &ruleApplyLock{}
+		m.ruleLocks[ruleID] = lock
+	}
+	lock.users++
+	m.ruleRegistryMu.Unlock()
+	lock.mu.Lock()
+	defer func() {
+		lock.mu.Unlock()
+		m.ruleRegistryMu.Lock()
+		lock.users--
+		if lock.users == 0 {
+			delete(m.ruleLocks, ruleID)
+		}
+		m.ruleRegistryMu.Unlock()
+	}()
 	return fn()
 }
 

@@ -52,6 +52,7 @@ type Manager struct {
 
 // CreateInput is the payload for Manager.CreateInterface.
 type CreateInput struct {
+	MTU            int
 	Name           string
 	Protocol       string // default: "wireguard-1.0"
 	Address        string // CIDR e.g. "10.8.0.1/24"
@@ -225,6 +226,9 @@ func (m *Manager) startPolling() {
 // The interface is NOT started; call StartInterface explicitly.
 // If inp.Name is empty it defaults to the assigned interface ID.
 func (m *Manager) CreateInterface(inp CreateInput) (*TunnelInterface, error) {
+	if inp.MTU != 0 && (inp.MTU < 576 || inp.MTU > 9000) {
+		return nil, fmt.Errorf("mtu must be 0 or 576–9000")
+	}
 	if inp.Protocol == "" {
 		inp.Protocol = awgparams.ProtocolAWG3
 	}
@@ -293,6 +297,7 @@ func (m *Manager) CreateInterface(inp CreateInput) (*TunnelInterface, error) {
 		PrivateKey:     keys.PrivateKey,
 		PublicKey:      keys.PublicKey,
 		AWG2:           inp.AWG2,
+		MTU:            inp.MTU,
 	})
 	if err != nil {
 		return nil, err
@@ -1045,12 +1050,6 @@ func (m *Manager) BuildAWGParams(protocol string) (*peer.AWGSettings, error) {
 	return m.buildAWGParams(protocol)
 }
 
-// buildAWG2Params returns AWG2 params for QuickCreate.
-// Priority: default template → random generated profile.
-func (m *Manager) buildAWG2Params() (*peer.AWG2Settings, error) {
-	return m.buildAWGParams(awgparams.ProtocolAWG2)
-}
-
 func (m *Manager) buildAWGParams(protocol string) (*peer.AWGSettings, error) {
 	version := "2.0"
 	if protocol == awgparams.ProtocolAWG3 {
@@ -1067,8 +1066,11 @@ func (m *Manager) buildAWGParams(protocol string) (*peer.AWGSettings, error) {
 		return awgparams.GenerateAWG3(awgparams.Options{Profile: "random", Intensity: "medium"})
 	}
 	// No default template — generate a random profile.
-	generated := awgparams.Generate(awgparams.Options{Profile: "random", Intensity: "medium"})
-	return awg2ParamsFromGenerated(&generated), nil
+	result, err := awgparams.GenerateProfile(awgparams.Options{ProtocolVersion: "2.0", Profile: "random", Intensity: "medium"})
+	if err != nil {
+		return nil, err
+	}
+	return awg2ParamsFromGenerated(&result.Params), nil
 }
 
 // awg2ParamsFromTemplate converts settings.AWG2Params to peer.AWG2Settings.

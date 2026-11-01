@@ -370,7 +370,7 @@ func TestGenerateTemplateDefaultsToAWG31AndCanGenerateLegacyAWG2(t *testing.T) {
 		t.Fatalf("AWG3 status=%d body=%v", resp.StatusCode, decodeBody(resp))
 	}
 	params, _ := decodeBody(resp)["params"].(map[string]any)
-	if params["headerProtectionKey"] == nil || params["contentPaddingAddition"] != "10-100" {
+	if params["headerProtectionKey"] == nil || params["contentPaddingAddition"] == nil {
 		t.Fatalf("missing AWG3 defaults: %v", params)
 	}
 	resp = ta.do("POST", "/api/templates/generate", sta.token, map[string]any{"protocolVersion": "2.0"})
@@ -405,5 +405,85 @@ func TestSettingsClientRoutingRejectsInvalidChoiceAtomically(t *testing.T) {
 		if s.RouterName == "must-not-save" || s.DefaultClientAllowedIPsMode != "manual" {
 			t.Fatalf("partial invalid update: %+v", s)
 		}
+	}
+}
+
+func TestArchitectGenerateSaveReadAndApply(t *testing.T) {
+	sta := newSettingsTestApp(t)
+	ta := &testApp{app: sta.app, adminToken: sta.token}
+	for _, version := range []string{"2.0", "3.1"} {
+		payload := map[string]any{"protocolVersion": version, "profile": "stun", "mtu": 1400, "junkLevel": 0, "useHeaderProtection": false, "useContentPadding": false, "useRandomTimings": false, "useRandomTrailers": false, "useDisableCookies": false, "saveName": "reference-" + version}
+		resp := ta.do("POST", "/api/templates/generate", sta.token, payload)
+		body := decodeBody(resp)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("generate: %d %v", resp.StatusCode, body)
+		}
+		template := body["template"].(map[string]any)
+		id := template["id"].(string)
+		if template["protocolVersion"] != version || template["mtu"] != float64(1400) || template["jc"] != float64(0) {
+			t.Fatalf("generated fields lost: %v", template)
+		}
+		for _, path := range []string{"/api/templates/" + id, "/api/templates/" + id + "/apply"} {
+			method := "GET"
+			key := "template"
+			if strings.HasSuffix(path, "/apply") {
+				method = "POST"
+				key = "settings"
+			}
+			resp = ta.do(method, path, sta.token, nil)
+			body = decodeBody(resp)
+			if resp.StatusCode != http.StatusOK {
+				t.Fatal(body)
+			}
+			value := body[key].(map[string]any)
+			if value["mtu"] != float64(1400) || value["protocolVersion"] != version || value["jc"] != float64(0) {
+				t.Fatalf("roundtrip lost values: %v", value)
+			}
+		}
+		resp = ta.do("PUT", "/api/templates/"+id, sta.token, map[string]any{"mtu": 1280})
+		if resp.StatusCode != http.StatusOK {
+			t.Fatal(decodeBody(resp))
+		}
+		resp.Body.Close()
+		stored, err := settings.GetTemplate(id)
+		if err != nil || stored.MTU != 1280 {
+			t.Fatalf("MTU update lost: %v, %v", stored, err)
+		}
+	}
+	resp := ta.do("GET", "/api/templates/generator-options", sta.token, nil)
+	body := decodeBody(resp)
+	if resp.StatusCode != http.StatusOK || body["version"] != "4.5.1" || len(body["clients"].([]any)) != 14 {
+		t.Fatalf("catalogue missing: %v", body)
+	}
+}
+
+func TestArchitectRejectsMalformedRequestsAndFiltersServerTags(t *testing.T) {
+	t.Setenv("WG_QUICK_USERSPACE_IMPLEMENTATION", "amneziawg-go")
+	sta := newSettingsTestApp(t)
+	ta := &testApp{app: sta.app, adminToken: sta.token}
+	for _, raw := range []string{`{`, `null`, `[]`, `{"mtu":575}`, `{"junkLevel":-1}`, `{"useTagR":"false"}`, `{"protocolVersion":"3.0"}`, `{"profile":"missing"}`} {
+		req, err := http.NewRequest("POST", "http://localhost/api/templates/generate", strings.NewReader(raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+sta.token)
+		resp, err := sta.app.Test(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("accepted %q: %d %v", raw, resp.StatusCode, decodeBody(resp))
+		}
+		resp.Body.Close()
+	}
+	resp := ta.do("POST", "/api/templates/generate", sta.token, map[string]any{"clientId": "awg-kmod", "useTagC": true})
+	body := decodeBody(resp)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal(body)
+	}
+	params := body["params"].(map[string]any)
+	if strings.Contains(params["i1"].(string), "<c>") || body["options"].(map[string]any)["useTagC"] != false {
+		t.Fatal("unsupported server counter emitted")
 	}
 }

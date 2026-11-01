@@ -12,7 +12,7 @@
   <a href="https://github.com/alexnikon/cascade/actions/workflows/docker-publish.yml">
     <img src="https://github.com/alexnikon/cascade/actions/workflows/docker-publish.yml/badge.svg" alt="Build" />
   </a>
-  <img src="https://img.shields.io/badge/Go-1.23-blue" alt="Go 1.23" />
+  <img src="https://img.shields.io/badge/Go-1.27.3-blue" alt="Go 1.27.3" />
   <img src="https://img.shields.io/badge/AmneziaWG-3.1-purple" alt="AmneziaWG 3.1" />
 </p>
 
@@ -282,7 +282,7 @@ multi-server configuration, Grafana dashboard import, and migration from
 ## 🏗️ Stack
 | Layer | Technology |
 |-------|------------|
-| Backend | Go 1.23, Fiber v2 |
+| Backend | Go 1.27.3, Fiber v2 |
 | Frontend | Vue 2, Tailwind CSS (embedded in binary) |
 | Database | SQLite (`modernc.org/sqlite`, CGO-free) |
 | Reverse proxy | Caddy 2 (HTTP/3 + QUIC) |

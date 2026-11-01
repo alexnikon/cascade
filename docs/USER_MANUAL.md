@@ -79,7 +79,7 @@ Click **"+ New Interface"** on the Interfaces page.
 | Field | Description |
 |-------|-------------|
 | **Interface Name** | Human-readable name (optional) |
-| **Protocol** | `WireGuard 1.0`, `AmneziaWG 3.1` (new default), or `AmneziaWG 2.0` |
+| **Protocol** | `WireGuard`, `AmneziaWG 3.1` (new default), or `AmneziaWG 2.0` |
 | **Tunnel Address** | Interface IP in CIDR notation (e.g. `10.100.0.1/24`) |
 | **Listen Port** | UDP port (auto-selected from portPool, or set manually) |
 | **Disable Routes** | Disable automatic kernel route injection. Enable for S2S interconnect interfaces — you manage routes manually |
@@ -100,7 +100,7 @@ Each interface appears on its own tab. The interface card provides the following
 
 ### Choosing a Protocol
 
-| | WireGuard 1.0 | AmneziaWG 3.1 | AWG 2.0 |
+| | WireGuard | AmneziaWG 3.1 | AWG 2.0 |
 |--|---|---|---|
 | Compatibility | Any WireGuard client | Current AmneziaWG clients | Older AmneziaWG clients |
 | Obfuscation | None | Header protection, padding/rekey controls, and protocol imitation | Protocol imitation |

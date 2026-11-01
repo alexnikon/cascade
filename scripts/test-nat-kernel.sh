@@ -9,5 +9,5 @@ docker run --rm --cap-add NET_ADMIN \
   --workdir /src \
   --env CASCADE_NAT_KERNEL_TEST=1 \
   --env GOFLAGS=-mod=readonly \
-  golang:1.23-bookworm \
+  golang:1.27.3 \
   bash -c 'apt-get update -qq && apt-get install -y -qq iptables && go test ./internal/nat -run "^TestNAT" -count=1 -timeout 120s -v'

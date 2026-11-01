@@ -1086,9 +1086,10 @@ func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
 		`autocomplete="current-password"`,
 		`v-model="password"`,
 		`id="totp-form"`,
-		`v-model="totpCode" @keyup.enter="loginStep2"`,
+		`v-model="totpCode" @input="onTOTPInput"`,
+		`@submit.prevent="loginStep2"`,
+		`autocomplete="one-time-code"`,
 		`maxlength="6" placeholder="000000"`,
-		`type="button" @click="loginStep2"`,
 		`class="app-nav-menu"`,
 		`class="app-nav-footer"`,
 		`class="flex app-shell"`,
@@ -1134,7 +1135,7 @@ func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
 		`username: '',          // login form username field`,
 		`if (usernameInput) this.username = usernameInput.value.trim();`,
 		`if (passwordInput) this.password = passwordInput.value;`,
-		`if (!this.totpCode || this.authenticating) return;`,
+		`if (!/^\d{6}$/.test(this.totpCode) || this.authenticating) return;`,
 		`mobileNavOpen: false`,
 		`handleCompactViewportChange(event)`,
 		`window.applyCascadeTheme(theme, this.prefersDarkScheme);`,
@@ -1181,8 +1182,8 @@ func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
 		t.Fatal("loginStep2 implementation boundaries not found")
 	}
 	loginStep := app[loginStepStart : loginStepStart+loginStepEnd]
-	if !strings.Contains(loginStep, "this.totpCode = '';") {
-		t.Error("loginStep2 does not clear the TOTP code after successful verification")
+	if strings.Contains(loginStep, "this.totpRequired = false;") {
+		t.Error("loginStep2 returns to the password form before session confirmation")
 	}
 	catchStart := strings.Index(loginStep, "} catch (err) {")
 	if catchStart < 0 {
@@ -1193,11 +1194,9 @@ func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
 	}
 	for _, unexpected := range []string{
 		`blurActiveAuthInput()`,
-		`onTOTPInput(value)`,
 		`this.totpCode.length !== 6`,
 		`focusTOTPInput()`,
 		`ref="totpCodeInput"`,
-		`autocomplete="one-time-code"`,
 	} {
 		if strings.Contains(app, unexpected) || strings.Contains(index, unexpected) {
 			t.Errorf("frontend still contains reverted TOTP behavior %q", unexpected)

@@ -191,15 +191,6 @@ func (r *pbrRecorder) routeCount() int {
 	return len(r.routes)
 }
 
-func (r *pbrRecorder) lastRoute() string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if len(r.routes) == 0 {
-		return ""
-	}
-	return r.routes[len(r.routes)-1]
-}
-
 func tableFromCommand(cmd string) (int, bool)  { return trailingInt(cmd, "table") }
 func fwmarkFromCommand(cmd string) (int, bool) { return trailingInt(cmd, "fwmark") }
 

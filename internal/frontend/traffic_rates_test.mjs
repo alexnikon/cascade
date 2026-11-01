@@ -114,4 +114,14 @@ for (const path of paths) {
     assert.equal(Object.keys(app[path.cache]).length, 0);
     assert.equal(app[path.output], undefined);
   });
+  test(`${path.method} releases disappeared entities without clearing other interfaces`, async () => {
+    const app = context();
+    app[path.cache].removed = { interfaceId: 'wg10' };
+    app[path.cache].other = { interfaceId: 'wg11' };
+    await refresh.call(app);
+    assert.equal(app[path.cache].removed, undefined);
+    if (path.method === '_refreshPeersNow') assert.ok(app[path.cache].other);
+    else assert.equal(app[path.cache].other, undefined);
+  });
+
 }

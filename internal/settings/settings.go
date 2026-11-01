@@ -72,6 +72,7 @@ type Template struct {
 	Name                   string `json:"name"`
 	IsDefault              bool   `json:"isDefault"`
 	ProtocolVersion        string `json:"protocolVersion"`
+	MTU                    int    `json:"mtu"`
 	Host                   string `json:"host"` // self-stealing SNI host (empty = not set)
 	Jc                     int    `json:"jc"`
 	Jmin                   int    `json:"jmin"`
@@ -104,6 +105,7 @@ type Template struct {
 // AWGParams is a flat version-aware set returned by ApplyTemplate.
 type AWGParams struct {
 	ProtocolVersion        string `json:"protocolVersion"`
+	MTU                    int    `json:"mtu"`
 	Jc                     int    `json:"jc"`
 	Jmin                   int    `json:"jmin"`
 	Jmax                   int    `json:"jmax"`
@@ -297,7 +299,7 @@ func GetPeerDefaults() (*PeerDefaults, error) {
 // GetTemplates returns all templates ordered by created_at.
 func GetTemplates() ([]Template, error) {
 	rows, err := db.DB().Query(`
-		SELECT id, name, is_default, host, protocol_version,
+		SELECT id, name, is_default, host, protocol_version, mtu,
 		       jc, jmin, jmax, s1, s2, s3, s4,
 		       h1, h2, h3, h4, i1, i2, i3, i4, i5,
 		       COALESCE(header_protection_key, ''), COALESCE(content_padding_addition, ''),
@@ -317,7 +319,7 @@ func GetTemplates() ([]Template, error) {
 		var t Template
 		var isDefault, randomTrailers, disableCookies int
 		if err := rows.Scan(
-			&t.ID, &t.Name, &isDefault, &t.Host, &t.ProtocolVersion,
+			&t.ID, &t.Name, &isDefault, &t.Host, &t.ProtocolVersion, &t.MTU,
 			&t.Jc, &t.Jmin, &t.Jmax,
 			&t.S1, &t.S2, &t.S3, &t.S4,
 			&t.H1, &t.H2, &t.H3, &t.H4,
@@ -388,7 +390,7 @@ func CreateTemplate(data Template) (*Template, error) {
 	}
 
 	// Apply defaults for numeric fields.
-	if data.Jc == 0 {
+	if data.Jc == 0 && data.Jmin == 0 && data.Jmax == 0 {
 		data.Jc = 6
 	}
 	if data.Jmin == 0 {
@@ -431,13 +433,13 @@ func CreateTemplate(data Template) (*Template, error) {
 
 	_, err = tx.Exec(`
 		INSERT INTO templates
-		    (id, name, is_default, host, protocol_version, jc, jmin, jmax, s1, s2, s3, s4,
+		    (id, name, is_default, host, protocol_version, mtu, jc, jmin, jmax, s1, s2, s3, s4,
 		     h1, h2, h3, h4, i1, i2, i3, i4, i5,
 		     header_protection_key, content_padding_addition, rekey_after_time,
 		     rekey_timeout, reject_after_time, keepalive_timeout, max_handshake_attempts,
 		     random_trailers, disable_cookies, created_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		data.ID, data.Name, boolInt(data.IsDefault), data.Host, data.ProtocolVersion,
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		data.ID, data.Name, boolInt(data.IsDefault), data.Host, data.ProtocolVersion, data.MTU,
 		data.Jc, data.Jmin, data.Jmax,
 		data.S1, data.S2, data.S3, data.S4,
 		data.H1, data.H2, data.H3, data.H4,
@@ -471,6 +473,9 @@ func UpdateTemplate(id string, updates map[string]any) (*Template, error) {
 	}
 
 	// Apply updates to the struct.
+	if v, ok := updates["mtu"].(float64); ok {
+		t.MTU = int(v)
+	}
 	if v, ok := updates["name"].(string); ok {
 		t.Name = v
 	}
@@ -576,7 +581,7 @@ func UpdateTemplate(id string, updates map[string]any) (*Template, error) {
 
 	_, err = tx.Exec(`
 		UPDATE templates SET
-		    name=?, is_default=?, host=?, protocol_version=?, jc=?, jmin=?, jmax=?,
+		    name=?, is_default=?, host=?, protocol_version=?, mtu=?, jc=?, jmin=?, jmax=?,
 		    s1=?, s2=?, s3=?, s4=?,
 		    h1=?, h2=?, h3=?, h4=?,
 		    i1=?, i2=?, i3=?, i4=?, i5=?, header_protection_key=?,
@@ -584,7 +589,7 @@ func UpdateTemplate(id string, updates map[string]any) (*Template, error) {
 		    reject_after_time=?, keepalive_timeout=?, max_handshake_attempts=?,
 		    random_trailers=?, disable_cookies=?
 		WHERE id=?`,
-		t.Name, boolInt(t.IsDefault), t.Host, t.ProtocolVersion,
+		t.Name, boolInt(t.IsDefault), t.Host, t.ProtocolVersion, t.MTU,
 		t.Jc, t.Jmin, t.Jmax,
 		t.S1, t.S2, t.S3, t.S4,
 		t.H1, t.H2, t.H3, t.H4,
@@ -687,7 +692,7 @@ func ApplyDefaultTemplate(protocolVersion ...string) (*AWGParams, error) {
 
 func queryTemplate(where string, args ...any) (*Template, error) {
 	row := db.DB().QueryRow(`
-		SELECT id, name, is_default, host, protocol_version,
+		SELECT id, name, is_default, host, protocol_version, mtu,
 		       jc, jmin, jmax, s1, s2, s3, s4,
 		       h1, h2, h3, h4, i1, i2, i3, i4, i5,
 		       COALESCE(header_protection_key, ''), COALESCE(content_padding_addition, ''),
@@ -700,7 +705,7 @@ func queryTemplate(where string, args ...any) (*Template, error) {
 	var t Template
 	var isDefault, randomTrailers, disableCookies int
 	err := row.Scan(
-		&t.ID, &t.Name, &isDefault, &t.Host, &t.ProtocolVersion,
+		&t.ID, &t.Name, &isDefault, &t.Host, &t.ProtocolVersion, &t.MTU,
 		&t.Jc, &t.Jmin, &t.Jmax,
 		&t.S1, &t.S2, &t.S3, &t.S4,
 		&t.H1, &t.H2, &t.H3, &t.H4,
@@ -723,8 +728,8 @@ func queryTemplate(where string, args ...any) (*Template, error) {
 
 func templateToParams(t *Template) *AWGParams {
 	return &AWGParams{
-		ProtocolVersion: t.ProtocolVersion,
-		Jc:              t.Jc, Jmin: t.Jmin, Jmax: t.Jmax,
+		ProtocolVersion: t.ProtocolVersion, MTU: t.MTU,
+		Jc: t.Jc, Jmin: t.Jmin, Jmax: t.Jmax,
 		S1: t.S1, S2: t.S2, S3: t.S3, S4: t.S4,
 		H1: t.H1, H2: t.H2, H3: t.H3, H4: t.H4,
 		I1: t.I1, I2: t.I2, I3: t.I3, I4: t.I4, I5: t.I5,
@@ -772,6 +777,9 @@ func inferTemplateProtocol(t Template) string {
 }
 
 func validateTemplate(t Template) error {
+	if t.MTU != 0 && (t.MTU < 576 || t.MTU > 9000) {
+		return fmt.Errorf("mtu must be 0 or 576–9000")
+	}
 	protocol := awgparams.ProtocolAWG1
 	if t.ProtocolVersion == "2.0" {
 		protocol = awgparams.ProtocolAWG2

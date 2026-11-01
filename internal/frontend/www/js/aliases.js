@@ -378,27 +378,40 @@ async _startAliasGenerate(aliasId, opts) {
       }
     },
 
+_stopAliasJobPoll() {
+      this._aliasPollGeneration = (this._aliasPollGeneration || 0) + 1;
+      clearTimeout(this._aliasPollTimer);
+      this._aliasPollTimer = null;
+      this.aliasGeneratingId = null;
+    },
+
 _pollAliasJob(aliasId, jobId) {
-      const interval = setInterval(async () => {
+      this._stopAliasJobPoll();
+      this.aliasGeneratingId = aliasId;
+      const generation = this._aliasPollGeneration;
+      const poll = async () => {
         try {
           const status = await this.api.getAliasJobStatus({ id: aliasId, jobId });
+          if (generation !== this._aliasPollGeneration) return;
           this.aliasGenerateJobStatus = status;
+          if (status.status === 'running') {
+            this._aliasPollTimer = setTimeout(poll, 3000);
+            return;
+          }
+          this._stopAliasJobPoll();
           if (status.status === 'done') {
-            clearInterval(interval);
-            this.aliasGeneratingId = null;
             await this.loadAliases();
             this.showToast(`Generation done: ${status.entryCount} prefixes`, 'success');
-          } else if (status.status === 'error') {
-            clearInterval(interval);
-            this.aliasGeneratingId = null;
-            this.showToast(`Generation failed: ${status.error}`, 'error');
+          } else {
+            this.showToast(`Generation failed: ${status.error || 'Job no longer available'}`, 'error');
           }
         } catch (err) {
-          clearInterval(interval);
-          this.aliasGeneratingId = null;
+          if (generation !== this._aliasPollGeneration) return;
+          this._stopAliasJobPoll();
           console.error('_pollAliasJob error:', err);
         }
-      }, 3000);
+      };
+      this._aliasPollTimer = setTimeout(poll, 3000);
     },
 
 _aliasLabel(aliasId) {

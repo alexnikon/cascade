@@ -285,6 +285,7 @@
                       <input v-model.number="gatewayCreate.windowSeconds" type="number" min="10"
                         :placeholder="globalSettings.gatewayWindowSeconds"
                         class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Leave empty to use the window from Settings.</p>
                     </div>
                     <div>
                       <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Latency threshold (ms)</label>
@@ -452,6 +453,7 @@
                       <input v-model.number="gatewayEdit.windowSeconds" type="number" min="10"
                         :placeholder="globalSettings.gatewayWindowSeconds"
                         class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Leave empty to use the window from Settings.</p>
                     </div>
                     <div>
                       <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Latency threshold (ms)</label>

@@ -68,7 +68,7 @@
 [[ define "login" ]]
       <div v-if="authenticated === false" class="auth-screen">
         <!-- Step 1: username + password -->
-        <form v-if="!totpRequired" id="login-form" name="login" method="post" @submit.prevent="login"
+        <form v-if="!totpRequired" key="password-login" id="login-form" name="login" method="post" @submit.prevent="login"
           class="shadow-xl bg-white dark:bg-neutral-800 auth-card">
           <div class="auth-brand">
             <img src="./img/cascade_favicon.svg" class="auth-brand-mark" alt="" aria-hidden="true" />
@@ -123,7 +123,7 @@
         </form>
 
         <!-- Step 2: TOTP code (shown when totpRequired = true) -->
-        <div v-if="totpRequired" id="totp-form"
+        <form v-if="totpRequired" key="totp-login" id="totp-form" name="totp" @submit.prevent="loginStep2"
           class="shadow-xl bg-white dark:bg-neutral-800 auth-card">
           <div class="auth-brand">
             <img src="./img/cascade_favicon.svg" class="auth-brand-mark" alt="" aria-hidden="true" />
@@ -134,11 +134,11 @@
           </div>
           <div class="auth-field">
             <label for="totp-code">One-time code</label>
-            <input id="totp-code" ref="loginTOTP" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
-              v-model="totpCode" @keyup.enter="loginStep2"
+            <input id="totp-code" ref="loginTOTP" name="one-time-code" autocomplete="one-time-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
+              v-model="totpCode" @input="onTOTPInput"
               class="text-center tracking-widest font-mono text-lg" />
           </div>
-          <button type="button" @click="loginStep2" :disabled="authenticating" :aria-busy="String(authenticating)"
+          <button type="submit" :disabled="authenticating" :aria-busy="String(authenticating)"
             :aria-label="authenticating ? 'Verifying code' : 'Verify'" class="auth-primary">
             <span v-if="!authenticating">Verify</span>
             <svg v-else class="auth-spinner" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -146,11 +146,11 @@
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </button>
-          <button type="button" :disabled="authenticating" @click="totpRequired = false; totpCode = ''"
+          <button type="button" :disabled="authenticating" @click="backToLogin"
             class="w-full py-2 text-sm text-gray-500 dark:text-neutral-400 hover:text-gray-700 transition" style="margin-top:8px;">
             ← Back
           </button>
-        </div>
+        </form>
       </div>
 
       <div v-if="authenticated === null" class="text-gray-300 dark:text-red-300 pt-24 pb-12">

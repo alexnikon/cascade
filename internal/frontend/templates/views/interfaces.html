@@ -216,7 +216,7 @@
           <div v-if="currentInterface">
             <!-- Interface info card -->
             <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden mb-4">
-              <div class="flex flex-row flex-wrap gap-3" style="padding: 16px 20px; border-bottom: 1px solid var(--list-separator);">
+              <div class="panel-header flex flex-row flex-wrap gap-3" style="padding: 16px 20px; border-bottom: 1px solid var(--list-separator);">
                 <div class="flex-grow">
                   <h2 class="text-xl font-medium dark:text-neutral-200">
                     {{ currentInterface.name || currentInterface.id }}
@@ -238,7 +238,7 @@
                 <div class="flex flex-wrap gap-3 text-sm mb-4">
                   <div>
                     <span class="text-gray-500 dark:text-neutral-400">Protocol:</span>
-					<span class="font-medium dark:text-neutral-200 ml-1">{{ currentInterface.protocol === 'amneziawg-3.1' ? 'AWG 3.1' : (currentInterface.protocol === 'amneziawg-2.0' ? 'AWG 2.0' : 'WG 1.0') }}</span>
+					<span class="font-medium dark:text-neutral-200 ml-1">{{ currentInterface.protocol === 'amneziawg-3.1' ? 'AWG 3.1' : (currentInterface.protocol === 'amneziawg-2.0' ? 'AWG 2.0' : 'WireGuard') }}</span>
                   </div>
                   <div v-if="currentInterface.address">
                     <span class="text-gray-500 dark:text-neutral-400">Address:</span>
@@ -324,7 +324,7 @@
 
             <!-- Peers section -->
             <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
-              <div class="flex flex-row flex-auto items-center p-3 px-5 border-b-2 border-gray-100 dark:border-neutral-600">
+              <div class="panel-header flex flex-row flex-auto items-center p-3 px-5 border-b-2 border-gray-100 dark:border-neutral-600">
                 <div class="flex-grow">
                   <p class="text-2xl font-medium dark:text-neutral-200">{{ currentInterface && currentInterface.disableRoutes ? 'Peers' : 'Clients' }}</p>
                 </div>
@@ -643,9 +643,9 @@
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Protocol</label>
 				  <select v-content-select v-model="interfaceCreate.protocol" @change="interfaceCreate.selectedTemplateId=''; interfaceCreate.protocol.startsWith('amneziawg-') && generateAndFillInterfaceParams()"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                    <option value="wireguard-1.0">WireGuard 1.0</option>
-					<option value="amneziawg-3.1" :disabled="!globalSettings.awg3Supported">AmneziaWG 3.1</option>
+                    <option value="wireguard-1.0">WireGuard</option>
                     <option value="amneziawg-2.0">AmneziaWG 2.0</option>
+					<option value="amneziawg-3.1" :disabled="!globalSettings.awg3Supported">AmneziaWG 3.1</option>
                   </select>
                 </div>
 
@@ -669,9 +669,9 @@
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Protocol</label>
 				  <select v-content-select v-model="interfaceCreate.protocol" @change="interfaceCreate.selectedTemplateId=''; interfaceCreate.protocol.startsWith('amneziawg-') && generateAndFillInterfaceParams()"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                    <option value="wireguard-1.0">WireGuard 1.0</option>
-					<option value="amneziawg-3.1" :disabled="!globalSettings.awg3Supported">AmneziaWG 3.1</option>
+                    <option value="wireguard-1.0">WireGuard</option>
                     <option value="amneziawg-2.0">AmneziaWG 2.0</option>
+					<option value="amneziawg-3.1" :disabled="!globalSettings.awg3Supported">AmneziaWG 3.1</option>
                   </select>
                 </div>
 
@@ -730,6 +730,12 @@
 				<div v-if="interfaceCreate.protocol === 'amneziawg-3.1' && !globalSettings.awg3Supported" class="mb-4 p-3 rounded text-sm text-red-700 bg-red-50 dark:bg-red-900/20 dark:text-red-300">
 				  {{ globalSettings.awg3SupportError || 'This runtime does not support AWG 3.1.' }}
 				</div>
+
+                <div class="mb-4">
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">MTU (0 = auto)</label>
+                  <input v-model.number="interfaceCreate.mtu" type="number" min="0" max="9000"
+                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                </div>
 
 				<!-- Versioned AmneziaWG settings -->
 				<div v-if="interfaceCreate.protocol.startsWith('amneziawg-')" class="awg-settings-panel mb-4 p-4 rounded">
@@ -826,7 +832,7 @@
                   </div>
 
                   <!-- I1-I5: protocol imitation (optional) -->
-                  <div class="mt-3 pt-3 dark:border-purple-700" style="border-top: 1px solid #e9d5ff;">
+                  <div class="mt-3 pt-3">
                     <p class="text-xs text-purple-600 dark:text-purple-400 mb-2 font-medium">
                       I1–I5 — Protocol Imitation <span class="font-normal opacity-75">(optional, leave empty to disable)</span>
                     </p>
@@ -859,7 +865,7 @@
                     </div>
                   </div>
 
-				  <div v-if="interfaceCreate.protocol === 'amneziawg-3.1'" class="mt-3 pt-3 dark:border-purple-700" style="border-top:1px solid #e9d5ff;">
+				  <div v-if="interfaceCreate.protocol === 'amneziawg-3.1'" class="mt-3 pt-3">
 					<p class="text-xs font-medium text-purple-600 dark:text-purple-400 mb-2">AWG 3.1 transport protection</p>
 					<label class="block text-xs font-medium dark:text-neutral-300 mb-1">HeaderProtectionKey (32-byte Base64)</label>
 					<input v-model="interfaceCreate.settings.headerProtectionKey" class="w-full px-2 py-1 text-xs border rounded font-mono dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
@@ -872,12 +878,12 @@
 					  <label><input type="checkbox" v-model="interfaceCreate.settings.randomTrailers"> Random trailers</label>
 					  <label><input type="checkbox" v-model="interfaceCreate.settings.disableCookies"> Disable cookies</label>
 					</div>
-					<p class="text-xs text-gray-400 mt-2">S1-S4 must be at least 12. All ranges use min-max format.</p>
+					<p class="text-xs text-gray-400 mt-2">S1–S4 must be at least 12 when header protection is enabled. Optional fields may be empty; values may be single numbers or min-max ranges.</p>
 				  </div>
 
                   </div>
                 </div>
-              </div><!-- end manual form -->
+</div><!-- end manual form -->
 
             </div>
 
@@ -1086,7 +1092,7 @@
 				  :class="interfaceEdit.protocol.startsWith('amneziawg-')
                     ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
                     : 'bg-gray-100 text-gray-600 dark:bg-neutral-600 dark:text-neutral-300'">
-				  {{ interfaceEdit.protocol === 'amneziawg-3.1' ? 'AWG 3.1' : (interfaceEdit.protocol === 'amneziawg-2.0' ? 'AWG 2.0' : 'WG 1.0') }}
+				  {{ interfaceEdit.protocol === 'amneziawg-3.1' ? 'AWG 3.1' : (interfaceEdit.protocol === 'amneziawg-2.0' ? 'AWG 2.0' : 'WireGuard') }}
                 </span>
               </p>
             </div>

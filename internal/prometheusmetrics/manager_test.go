@@ -126,7 +126,7 @@ func TestManagerDoesNotPublishFailedDatabaseUpdate(t *testing.T) {
 
 func TestManagerMigratesLegacyPathToDefaultPort(t *testing.T) {
 	database := newSettingsDatabase(t)
-	manager, err := NewManager(database, Config{ConnectedPeerThreshold: time.Minute, HistoryEnabled: true})
+	_, err := NewManager(database, Config{ConnectedPeerThreshold: time.Minute, HistoryEnabled: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestManagerMigratesLegacyPathToDefaultPort(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manager, err = NewManager(database, Config{ConnectedPeerThreshold: time.Minute, HistoryEnabled: true})
+	manager, err := NewManager(database, Config{ConnectedPeerThreshold: time.Minute, HistoryEnabled: true})
 	if err != nil {
 		t.Fatal(err)
 	}

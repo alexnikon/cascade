@@ -279,6 +279,7 @@ openTemplateCreate() {
         name: '',
         isDefault: false,
 		protocolVersion: '3.1',
+        mtu: 0,
         jc: 6, jmin: 10, jmax: 50,
 		s1: 64, s2: 67, s3: 64, s4: 12,
         h1: '', h2: '', h3: '', h4: '',
@@ -286,7 +287,7 @@ openTemplateCreate() {
 		headerProtectionKey: this.generateHeaderProtectionKey(),
 		contentPaddingAddition: '10-100', rekeyAfterTime: '100-120', rekeyTimeout: '3-7',
 		rejectAfterTime: '150-180', keepaliveTimeout: '5-15', maxHandshakeAttempts: '15-20',
-		randomTrailers: true, disableCookies: true,
+		randomTrailers: true, disableCookies: false,
       };
       this.randomiseTemplateH();
       this.templateEditTarget = null;
@@ -395,53 +396,6 @@ importTemplateJSON() {
       input.click();
     },
 
-	// ── Generate AmneziaWG modal ───────────────────────────────────────────────
-
-openGenerateModal() {
-	  this.generateForm = { profile: 'random', intensity: 'medium', host: '', browser: '', saveName: '', protocolVersion: '3.1' };
-      this.generatedParams = null;
-      this.savingGeneratedTemplate = false;
-      this.showGenerateModal = true;
-    },
-
-async generateParams() {
-      this.generatingParams = true;
-      try {
-        const res = await this.api.generateTemplate({
-          profile:   this.generateForm.profile,
-          intensity: this.generateForm.intensity,
-          host:      this.generateForm.host || undefined,
-          browser:   this.generateForm.browser || undefined,
-		  protocolVersion: this.generateForm.protocolVersion,
-        });
-        this.generatedParams = res.params;
-      } catch (err) {
-        this.showToast(`Generate failed: ${err.message}`, 'error');
-      } finally {
-        this.generatingParams = false;
-      }
-    },
-
-async saveGeneratedTemplate() {
-      if (!this.generatedParams || this.savingGeneratedTemplate) return;
-      const name = this.generateForm.saveName.trim();
-      if (!name) {
-        this.showToast('Enter a template name before saving', 'error');
-        return;
-      }
-      this.savingGeneratedTemplate = true;
-      try {
-		await this.api.createTemplate({ name, protocolVersion: this.generateForm.protocolVersion, ...this.generatedParams });
-        await this.loadSettings();
-        this.showGenerateModal = false;
-        this.showToast(`Profile "${name}" saved`, 'success');
-      } catch (err) {
-        this.showToast(`Save failed: ${err.message}`, 'error');
-      } finally {
-        this.savingGeneratedTemplate = false;
-      }
-    },
-
 async copyPublicIP() {
       const ip = (this.globalSettings.resolvedPublicIP || '').trim();
       if (!ip) return;
@@ -453,32 +407,7 @@ async copyPublicIP() {
       }
     },
 
-useGeneratedInForm() {
-      if (!this.generatedParams) return;
-      const p = this.generatedParams;
-      this.templateForm = {
-        name: this.generateForm.saveName || '',
-        isDefault: false,
-		protocolVersion: this.generateForm.protocolVersion,
-        host: this.generateForm.host || '',
-        jc: p.jc, jmin: p.jmin, jmax: p.jmax,
-        s1: p.s1, s2: p.s2, s3: p.s3, s4: p.s4,
-        h1: p.h1, h2: p.h2, h3: p.h3, h4: p.h4,
-        i1: p.i1 || '', i2: p.i2 || '', i3: p.i3 || '',
-        i4: p.i4 || '', i5: p.i5 || '',
-		headerProtectionKey: p.headerProtectionKey || '',
-		contentPaddingAddition: p.contentPaddingAddition || '',
-		rekeyAfterTime: p.rekeyAfterTime || '', rekeyTimeout: p.rekeyTimeout || '',
-		rejectAfterTime: p.rejectAfterTime || '', keepaliveTimeout: p.keepaliveTimeout || '',
-		maxHandshakeAttempts: p.maxHandshakeAttempts || '',
-		randomTrailers: p.randomTrailers, disableCookies: p.disableCookies,
-      };
-      this.templateEditTarget = null;
-      this.showGenerateModal = false;
-      this.showTemplateModal = true;
-    },
-
-	/** Fill the interface form from a protocol-compatible template. */
+	/** Fill transport settings from a compatible template, preserving interface MTU. */
 
 onInterfaceTemplateSelect(templateId) {
 	  if (!templateId) return;

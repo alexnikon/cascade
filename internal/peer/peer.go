@@ -658,7 +658,7 @@ func (p *Peer) generateCompleteConfig(iface InterfaceData) string {
 
 // generateTemplateConfig produces an instructional config for manually-configured peers.
 func (p *Peer) generateTemplateConfig(iface InterfaceData) string {
-	proto := "WireGuard 1.0"
+	proto := "WireGuard"
 	bin := "wg-quick"
 	if isAWGProtocol(iface.Protocol) {
 		proto = "AmneziaWG " + strings.TrimPrefix(iface.Protocol, "amneziawg-")
@@ -766,13 +766,27 @@ func writeAWG3Settings(sb *strings.Builder, protocol string, s *AWGSettings) {
 	if protocol != "amneziawg-3.1" {
 		return
 	}
-	fmt.Fprintf(sb, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
-	fmt.Fprintf(sb, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
-	fmt.Fprintf(sb, "RekeyAfterTime = %s\n", s.RekeyAfterTime)
-	fmt.Fprintf(sb, "RekeyTimeout = %s\n", s.RekeyTimeout)
-	fmt.Fprintf(sb, "RejectAfterTime = %s\n", s.RejectAfterTime)
-	fmt.Fprintf(sb, "KeepaliveTimeout = %s\n", s.KeepaliveTimeout)
-	fmt.Fprintf(sb, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
+	if s.HeaderProtectionKey != "" {
+		fmt.Fprintf(sb, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
+	}
+	if s.ContentPaddingAddition != "" {
+		fmt.Fprintf(sb, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
+	}
+	if s.RekeyAfterTime != "" {
+		fmt.Fprintf(sb, "RekeyAfterTime = %s\n", s.RekeyAfterTime)
+	}
+	if s.RekeyTimeout != "" {
+		fmt.Fprintf(sb, "RekeyTimeout = %s\n", s.RekeyTimeout)
+	}
+	if s.RejectAfterTime != "" {
+		fmt.Fprintf(sb, "RejectAfterTime = %s\n", s.RejectAfterTime)
+	}
+	if s.KeepaliveTimeout != "" {
+		fmt.Fprintf(sb, "KeepaliveTimeout = %s\n", s.KeepaliveTimeout)
+	}
+	if s.MaxHandshakeAttempts != "" {
+		fmt.Fprintf(sb, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
+	}
 	if s.RandomTrailers != nil {
 		fmt.Fprintf(sb, "RandomTrailers = %s\n", FormatAWGBool(*s.RandomTrailers))
 	}

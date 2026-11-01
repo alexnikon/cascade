@@ -1,7 +1,6 @@
 package dnsalias
 
 import (
-	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -577,7 +576,7 @@ func TestResolver_StatusUnknownAliasIsNil(t *testing.T) {
 	r := newTestResolver(t, am, f, "127.0.0.1:1")
 	r.Start()
 
-	if st := r.Status(fmt.Sprintf("no-such-alias")); st != nil {
+	if st := r.Status("no-such-alias"); st != nil {
 		t.Errorf("Status for an unknown alias = %+v, want nil", st)
 	}
 }

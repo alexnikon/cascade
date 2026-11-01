@@ -7,3 +7,5 @@ go test -race ./internal/tunnel ./internal/metrics ./internal/dnsalias ./interna
 go test -race ./internal/api \
   -run '^(TestWebAccessGateRequiresVPNOrMachineToken|TestListAllPeersReturnsInterfaceMetadataAndSanitizedKeys|TestConfigDownloadUsesRestoredPrivateKey|TestBuildPeerRemoteConfigUsesAuthoritativePairWithoutCacheLookup|TestRepeatedPeerUpdateAndReloadPreserveCacheIdentity)$' \
   -count=1 -timeout 120s
+
+node --test internal/frontend/*_test.mjs

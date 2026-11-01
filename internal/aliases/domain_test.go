@@ -138,7 +138,8 @@ func TestDomainSetNames_FitKernelLimit(t *testing.T) {
 
 func TestDomainSetNames_AreDeterministic(t *testing.T) {
 	const id = "4ad41442-3622-4d0e-82b6-312b0cdf5e70"
-	if DomainSetV4(id) != DomainSetV4(id) {
+	first := DomainSetV4(id)
+	if first != DomainSetV4(id) {
 		t.Error("set names must be stable for the same alias ID")
 	}
 	if DomainSetV4(strings.ToUpper(id)) != DomainSetV4(id) {

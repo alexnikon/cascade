@@ -123,3 +123,15 @@ test('gateway startup is neutral while real results and administrative state rem
   assert.equal(gateways.gatewayStatusLabel('admin_down'), 'Admin Down');
   assert.equal(gateways.gatewayStatusLabel('unknown'), 'Unknown');
 });
+
+test('editing inherited gateway window keeps the field empty and saves inheritance', async () => {
+  const context = {
+    ...gateways, showToast() {},
+    api: { updateGateway: async body => { assert.equal(body.windowSeconds, null); }, getGateways: async () => ({ gateways: [] }) },
+  };
+  context.openGatewayEdit({ id: 'test', name: 'test', interface: 'eth0', gatewayIP: '192.0.2.1', monitorAddress: '', windowSeconds: 0 });
+  assert.equal(context.gatewayEdit.windowSeconds, null);
+  await context.saveGatewayEdit();
+  context.openGatewayEdit({ id: 'test', windowSeconds: 45 });
+  assert.equal(context.gatewayEdit.windowSeconds, 45);
+});

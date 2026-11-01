@@ -305,9 +305,9 @@ func (c *collector) collect() *Snapshot {
 		elapsed := now.Sub(c.prevNetTime).Seconds()
 		if elapsed > 0 {
 			for iface, cur := range net {
-				prev := c.prevNet[iface]
-				rxBytes := cur[0] - prev[0]
-				txBytes := cur[1] - prev[1]
+				prev, exists := c.prevNet[iface]
+				rxBytes := counterDelta(cur[0], prev[0], exists)
+				txBytes := counterDelta(cur[1], prev[1], exists)
 				snap.Net[iface] = NetStat{
 					RxMbps: float64(rxBytes) * 8 / elapsed / 1e6,
 					TxMbps: float64(txBytes) * 8 / elapsed / 1e6,
@@ -572,4 +572,11 @@ func readNetDev() (map[string][2]uint64, error) {
 		result[iface] = [2]uint64{rx, tx}
 	}
 	return result, scanner.Err()
+}
+
+func counterDelta(current, previous uint64, exists bool) uint64 {
+	if !exists || current < previous {
+		return 0
+	}
+	return current - previous
 }

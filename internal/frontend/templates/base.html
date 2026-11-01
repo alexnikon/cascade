@@ -6,8 +6,8 @@
   <title>Cascade</title>
   <meta charset="utf-8"/>
   <link href="./css/app.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10/dist/gridstack.min.css"/>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10/dist/gridstack-extra.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-extra.min.css"/>
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" sizes="180x180" href="./img/apple-touch-icon.png">
@@ -54,6 +54,7 @@
   html:not(.dark) {
     --surface-base: #e9ecf1;
     --light-panel: #fff;
+    --panel-header-bg: #f3f4f6;
     --light-inset: #f3f4f6;
     --light-divider: #d1d5db;
     --light-control-border: #b8c0cc;
@@ -85,6 +86,7 @@
   html.dark {
     --surface-base: #1c1c1e;
     --surface-panel: #2c2c2e;
+    --panel-header-bg: #343436;
     --surface-raised: #3a3a3c;
     --surface-inset: #343436;
     --input-bg: #3a3a3c;
@@ -301,6 +303,8 @@
     color: #9ca3af;
     border-bottom-color: rgba(255,255,255,0.07);
   }
+  /* Card heading bands share a subtle surface without changing text colors. */
+  .panel-header, .dash-card-header { background-color: var(--panel-header-bg); }
   .dashboard-toolbar {
     position: relative;
     z-index: 29;
@@ -407,7 +411,7 @@
 
   /* ── Sidebar & main area — light mode ── */
   .app-nav {
-    background: rgba(255,255,255,0.72);
+    background: transparent;
     backdrop-filter: blur(12px);
     border-right: none;
     height: 100%;
@@ -678,6 +682,20 @@
     flex-direction: column;
     gap: 16px;
   }
+  .awg-generator-settings { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+  .awg-generator-settings:disabled { opacity: 0.65; }
+  .awg-generator-section { border: 1px solid var(--light-control-border, #d1d5db); border-radius: 10px; padding: 12px; min-width: 0; }
+  .dark .awg-generator-section { border-color: #525252; }
+  .awg-generator-section summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+  .awg-generator-section[open] summary { margin-bottom: 14px; }
+  .awg-generator-toggle { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; margin: 12px 0 0; }
+  .awg-generator-recommended { margin-top: 0; }
+  .awg-generator-toggle input { margin-top: 3px; flex-shrink: 0; }
+  .awg-generator-toggle small, .awg-generator-hint { display: block; font-size: 12px; font-weight: 400; line-height: 1.5; opacity: 0.75; margin-top: 5px; }
+  .awg-generator-value { overflow-wrap: anywhere; margin-top: 6px; }
+  .awg-generator-warnings { padding-left: 18px; list-style: disc; margin-top: 14px; line-height: 1.5; }
+  .awg-generator-warnings li + li { margin-top: 8px; }
+  .awg-generator-save { display: flex; flex-direction: column; gap: 10px; }
   .awg-generator-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -734,7 +752,7 @@
     padding: 14px 22px 18px;
     border-top: 1px solid var(--light-divider, #e5e7eb);
     flex-shrink: 0;
-    background: rgba(255,255,255,0.72);
+    background: transparent;
   }
   .awg-generator-actions {
     display: grid;
@@ -756,7 +774,7 @@
     box-shadow: inset 0 0 0 1px #eab308;
   }
   .dark .awg-generator-preview { background: rgba(23,23,23,0.68); }
-  .dark .awg-generator-footer { background: rgba(10,18,36,0.72); }
+  .dark .awg-generator-footer { background: transparent; }
   @media (max-width: 640px) {
     .awg-generator-overlay { padding: 12px; }
     .awg-generator-panel {
@@ -1346,7 +1364,7 @@
 
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/gridstack@10/dist/gridstack-all.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script>
   <script src="./js/vendor/sortable.min.js"></script>
   <script src="./js/vendor/vue.min.js"></script>
   <script src="./js/vendor/vue-i18n.min.js"></script>

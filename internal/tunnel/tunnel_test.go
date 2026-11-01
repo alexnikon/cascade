@@ -790,22 +790,28 @@ func TestTrafficAccumulation_FlushOnlyDirty(t *testing.T) {
 }
 
 func TestGenerateWgConfig_MTUWritten(t *testing.T) {
-	iface := newTestIface()
-	iface.MTU = 1380
-	cfg := iface.generateWgConfig()
-
-	if !strings.Contains(cfg, "MTU = 1380") {
-		t.Errorf("config must include 'MTU = 1380' when MTU=1380, got:\n%s", cfg)
+	for _, protocol := range []string{"wireguard-1.0", "amneziawg-2.0", "amneziawg-3.1"} {
+		t.Run(protocol, func(t *testing.T) {
+			iface := newTestIface()
+			iface.Protocol = protocol
+			iface.MTU = 1380
+			if cfg := iface.generateWgConfig(); !strings.Contains(cfg, "MTU = 1380") {
+				t.Errorf("config must include explicit MTU, got:\n%s", cfg)
+			}
+		})
 	}
 }
 
 func TestGenerateWgConfig_MTUZeroOmitted(t *testing.T) {
-	iface := newTestIface()
-	iface.MTU = 0
-	cfg := iface.generateWgConfig()
-
-	if strings.Contains(cfg, "MTU =") {
-		t.Error("config must NOT include MTU line when MTU=0")
+	for _, protocol := range []string{"wireguard-1.0", "amneziawg-2.0", "amneziawg-3.1"} {
+		t.Run(protocol, func(t *testing.T) {
+			iface := newTestIface()
+			iface.Protocol = protocol
+			iface.MTU = 0
+			if strings.Contains(iface.generateWgConfig(), "MTU =") {
+				t.Error("auto MTU must omit the directive from the server config")
+			}
+		})
 	}
 }
 

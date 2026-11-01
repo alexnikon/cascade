@@ -4,8 +4,8 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -16,7 +16,6 @@ import (
 	"github.com/alexnikon/cascade/internal/awgcap"
 	"github.com/alexnikon/cascade/internal/awgparams"
 	"github.com/alexnikon/cascade/internal/firewall"
-	"github.com/alexnikon/cascade/internal/peer"
 	"github.com/alexnikon/cascade/internal/settings"
 )
 
@@ -85,7 +84,8 @@ type SettingsResponse struct {
 //	DELETE /api/templates/:id
 //	POST /api/templates/:id/set-default
 //	POST /api/templates/:id/apply
-//	POST /api/templates/generate         ← stub until AwgParamGenerator is ported
+//	POST /api/templates/generate
+//	GET  /api/templates/generator-options
 func RegisterSettings(api fiber.Router) {
 	// ── Global Settings ───────────────────────────────────────────────────────
 
@@ -214,68 +214,53 @@ func RegisterSettings(api fiber.Router) {
 		return c.JSON(fiber.Map{"templates": list})
 	})
 
-	// POST /api/templates/generate — generate versioned AmneziaWG parameters
-	// Registered BEFORE /:id routes so Fiber doesn't interpret "generate" as an id.
-	// Body: { profile?, intensity?, host?, browser?, iterCount?, jc?, saveName? }
-	// browser: "chrome"|"firefox"|"safari"|"edge"|"yandex_desktop"|"yandex_mobile"|"" (default: no BFP)
-	// Returns: { params, profiles } | { params, profiles, template } if saveName provided
+	// GET /api/templates/generator-options — pinned catalogues and version defaults.
+	api.Get("/templates/generator-options", func(c *fiber.Ctx) error {
+		options := awgparams.GeneratorOptions()
+		options["serverSupportsTagC"] = awgRunMode() == "kernel"
+		return c.JSON(options)
+	})
+
+	// POST /api/templates/generate — generate, optionally save, a versioned profile.
 	api.Post("/templates/generate", func(c *fiber.Ctx) error {
 		var body struct {
-			Profile         string `json:"profile"`
-			Intensity       string `json:"intensity"`
-			Host            string `json:"host"`
-			Browser         string `json:"browser"`
-			IterCount       int    `json:"iterCount"`
-			Jc              int    `json:"jc"`
-			SaveName        string `json:"saveName"`
-			ProtocolVersion string `json:"protocolVersion"`
+			awgparams.Options
+			SaveName string `json:"saveName"`
 		}
-		// Body is optional — ignore parse errors, use zero values → defaults
-		_ = c.BodyParser(&body)
-
-		opts := awgparams.Options{
-			Profile:   body.Profile,
-			Intensity: body.Intensity,
-			Host:      body.Host,
-			Browser:   body.Browser,
-			IterCount: body.IterCount,
-			Jc:        body.Jc,
-		}
-		version := body.ProtocolVersion
-		if version == "" {
-			version = "3.1"
-		}
-		var params any
-		if version == "2.0" {
-			params = awgparams.Generate(opts)
-		} else if version == "3.1" {
-			generated, err := awgparams.GenerateAWG3(opts)
-			if err != nil {
-				return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		if len(c.Body()) > 0 {
+			if strings.TrimSpace(string(c.Body())) == "null" {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid JSON body")
 			}
-			params = generated
-		} else {
-			return fiber.NewError(fiber.StatusBadRequest, "protocolVersion must be 2.0 or 3.1")
+			if err := json.Unmarshal(c.Body(), &body); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "Invalid JSON body")
+			}
 		}
-
-		if body.SaveName != "" {
-			tmpl, err := createGeneratedTemplate(body.SaveName, body.Host, version, params)
+		serverTagDisabled := body.UseTagC != nil && *body.UseTagC && awgRunMode() == "userspace"
+		if serverTagDisabled {
+			off := false
+			body.UseTagC = &off
+		}
+		result, err := awgparams.GenerateProfile(body.Options)
+		if err != nil {
+			if errors.Is(err, awgparams.ErrInvalidOptions) {
+				return fiber.NewError(fiber.StatusBadRequest, err.Error())
+			}
+			return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+		}
+		if serverTagDisabled {
+			result.Warnings = append(result.Warnings, "The Cascade userspace engine does not support <c>; the tag was disabled for server compatibility.")
+		}
+		if strings.TrimSpace(body.SaveName) != "" {
+			tmpl, err := createGeneratedTemplate(strings.TrimSpace(body.SaveName), result.Options.Host, result.ProtocolVersion, result.Params, result.MTU)
 			if err != nil {
 				return fiber.NewError(fiber.StatusBadRequest, err.Error())
 			}
-			log.Printf("awgparams: generated + saved as %q (protocol=%s)", body.SaveName, version)
-			return c.JSON(fiber.Map{
-				"params":   params,
-				"profiles": awgparams.Profiles,
-				"template": tmpl,
-			})
+			return c.JSON(struct {
+				*awgparams.Result
+				Template *settings.Template `json:"template"`
+			}{result, tmpl})
 		}
-
-		log.Printf("awgparams: generated protocol=%s intensity=%s", version, body.Intensity)
-		return c.JSON(fiber.Map{
-			"params":   params,
-			"profiles": awgparams.Profiles,
-		})
+		return c.JSON(result)
 	})
 
 	// POST /api/templates — create new template
@@ -376,27 +361,18 @@ func RegisterSettings(api fiber.Router) {
 	})
 }
 
-func createGeneratedTemplate(name, host, version string, generated any) (*settings.Template, error) {
-	t := settings.Template{Name: name, Host: host, ProtocolVersion: version}
-	switch p := generated.(type) {
-	case awgparams.Params:
-		t.Jc, t.Jmin, t.Jmax = p.Jc, p.Jmin, p.Jmax
-		t.S1, t.S2, t.S3, t.S4 = p.S1, p.S2, p.S3, p.S4
-		t.H1, t.H2, t.H3, t.H4 = p.H1, p.H2, p.H3, p.H4
-		t.I1, t.I2, t.I3, t.I4, t.I5 = p.I1, p.I2, p.I3, p.I4, p.I5
-	case *peer.AWGSettings:
-		t.Jc, t.Jmin, t.Jmax = p.Jc, p.Jmin, p.Jmax
-		t.S1, t.S2, t.S3, t.S4 = p.S1, p.S2, p.S3, p.S4
-		t.H1, t.H2, t.H3, t.H4 = p.H1, p.H2, p.H3, p.H4
-		t.I1, t.I2, t.I3, t.I4, t.I5 = p.I1, p.I2, p.I3, p.I4, p.I5
-		t.HeaderProtectionKey = p.HeaderProtectionKey
-		t.ContentPaddingAddition = p.ContentPaddingAddition
-		t.RekeyAfterTime, t.RekeyTimeout = p.RekeyAfterTime, p.RekeyTimeout
-		t.RejectAfterTime, t.KeepaliveTimeout = p.RejectAfterTime, p.KeepaliveTimeout
-		t.MaxHandshakeAttempts = p.MaxHandshakeAttempts
-		t.RandomTrailers, t.DisableCookies = p.RandomTrailers, p.DisableCookies
-	default:
-		return nil, fmt.Errorf("unsupported generated parameter type")
+func createGeneratedTemplate(name, host, version string, generated awgparams.Params, mtu int) (*settings.Template, error) {
+	payload, err := json.Marshal(generated)
+	if err != nil {
+		return nil, err
 	}
+	var t settings.Template
+	if err := json.Unmarshal(payload, &t); err != nil {
+		return nil, err
+	}
+	t.Name = name
+	t.Host = host
+	t.ProtocolVersion = version
+	t.MTU = mtu
 	return settings.CreateTemplate(t)
 }

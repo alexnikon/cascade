@@ -880,6 +880,7 @@ INSERT INTO web_access VALUES(1, '{"enabled":false,"interfaceId":"","clients":[]
 UPDATE peers SET one_time_link='';
 `},
 	{version: 47, sql: `ALTER TABLE peers ADD COLUMN persistent_keepalive_v3 TEXT NOT NULL DEFAULT '';`},
+	{version: 48, sql: `ALTER TABLE templates ADD COLUMN mtu INTEGER NOT NULL DEFAULT 0;`},
 }
 
 func runMigrations(db *sql.DB) error {

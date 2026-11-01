@@ -48,3 +48,17 @@ func TestProcessCPUPercentRequiresPreviousSample(t *testing.T) {
 		t.Fatalf("delta CPU = %f, want 100", got)
 	}
 }
+
+func TestCounterDelta(t *testing.T) {
+	for _, tt := range []struct {
+		current, previous uint64
+		exists            bool
+		want              uint64
+	}{
+		{100, 0, false, 0}, {10, 100, true, 0}, {120, 100, true, 20},
+	} {
+		if got := counterDelta(tt.current, tt.previous, tt.exists); got != tt.want {
+			t.Fatalf("delta = %d, want %d", got, tt.want)
+		}
+	}
+}

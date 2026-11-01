@@ -2822,3 +2822,21 @@ button.interface-transfer-download:hover:not(:disabled) { background: #047857 !i
     grid-auto-flow: row;
   }
 }
+
+/* Settings fields use stable widths for their expected value type. */
+.settings-page .settings-input { box-sizing:border-box; min-width:0; max-width:100%; }
+.settings-page .settings-input-number { width:8rem; }
+.settings-page .settings-input-medium { width:24rem; }
+.settings-page .settings-input-wide { width:40rem; }
+.settings-page .web-access-client label { max-width:24rem; }
+
+/* Keep both system backup actions stable across loading states. */
+.system-backup-action {
+  width: 11rem;
+  max-width: 100%;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}

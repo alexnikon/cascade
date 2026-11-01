@@ -7,7 +7,7 @@
 
           <!-- Router -->
           <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
-            <div class="p-5 border-b dark:border-neutral-600">
+            <div class="panel-header p-5 border-b dark:border-neutral-600">
               <p class="text-xl font-medium dark:text-neutral-200">Router</p>
               <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Identity and public address of this router</p>
             </div>
@@ -18,7 +18,7 @@
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Router name</label>
                 <input v-model="globalSettings.routerName" type="text"
                   :placeholder="globalSettings.hostname || 'e.g. Moscow-01'"
-                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                  class="settings-input settings-input-medium px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
                   Shown in the sidebar. Defaults to system hostname
                   <span v-if="globalSettings.hostname" class="font-mono">({{ globalSettings.hostname }})</span>.
@@ -43,7 +43,7 @@
                 <input v-if="globalSettings.publicIPMode === 'manual'"
                   v-model="globalSettings.publicIPManual" type="text"
                   placeholder="e.g. 45.150.39.158"
-                  class="w-64 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                  class="settings-input settings-input-medium px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
 
                 <!-- Resolved IP display -->
                 <div v-if="globalSettings.publicIPMode === 'auto'" class="flex items-center gap-2" style="margin-top:4px;">
@@ -77,7 +77,7 @@
 
           <!-- Administrative web access -->
           <section class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden" data-testid="web-access-settings">
-            <div class="p-5 border-b dark:border-neutral-600">
+            <div class="panel-header p-5 border-b dark:border-neutral-600">
               <h2 class="text-xl font-medium dark:text-neutral-200">{{ $t('webAccess.title') }}</h2>
               <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">{{ $t('webAccess.description') }}</p>
             </div>
@@ -126,7 +126,7 @@
 
           <!-- Global Settings -->
           <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
-            <div class="p-5 border-b dark:border-neutral-600">
+            <div class="panel-header p-5 border-b dark:border-neutral-600">
               <p class="text-xl font-medium dark:text-neutral-200">Global Settings</p>
               <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Applied by default to all new peers</p>
             </div>
@@ -134,19 +134,19 @@
               <div>
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">DNS servers</label>
                 <input v-model="globalSettings.dns" type="text" placeholder="1.1.1.1, 8.8.8.8"
-                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                  class="settings-input settings-input-wide px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Comma-separated. Used in client configs.</p>
               </div>
               <div>
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">MTU <span class="font-normal text-gray-400">(client configs)</span></label>
                 <input v-model.number="globalSettings.mtu" type="number" min="0" max="9000" placeholder="0 = auto"
-                  class="w-32 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                  class="settings-input settings-input-number px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">0 = omit MTU line (WireGuard picks automatically, typically 1420). Check actual value in the interface info card. Typical overrides: 1420 (WG default), 1280 (safe for all networks).</p>
               </div>
               <div>
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Default PersistentKeepalive (seconds)</label>
                 <input v-model.number="globalSettings.defaultPersistentKeepalive" type="number" min="0" max="300"
-                  class="w-32 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                  class="settings-input settings-input-number px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
               </div>
               <div>
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Default Client AllowedIPs</label>
@@ -164,7 +164,7 @@
                   All IPv4 except this alias uses the VPN. All IPv6 uses the VPN. Export uses the current alias contents; download and re-import after changes. Cascade DNS keeps its VPN route.
                 </p>
                 <input v-if="globalSettings.defaultClientAllowedIPsMode !== 'exclude-ipset'" v-model="globalSettings.defaultClientAllowedIPs" type="text" placeholder="0.0.0.0/0, ::/0"
-                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                  class="settings-input settings-input-wide px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
                 <p v-if="globalSettings.defaultClientAllowedIPsMode !== 'exclude-ipset'" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">What the client routes through the VPN (full tunnel = 0.0.0.0/0, ::/0).</p>
               </div>
 
@@ -174,7 +174,7 @@
                 <div>
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Subnet Pool</label>
                   <input v-model="globalSettings.subnetPool" type="text" placeholder="10.10.0.0/16"
-                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                    class="settings-input settings-input-medium px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
                     IPv4 CIDR. Quick-create auto-assigns the first free /24 from this range (e.g. 10.10.0.1/24).
                   </p>
@@ -182,7 +182,7 @@
                 <div style="margin-top:12px;">
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Port Pool</label>
                   <input v-model="globalSettings.portPool" type="text" placeholder="51831-65535"
-                    class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                    class="settings-input settings-input-wide px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
                     Ranges and/or individual ports: <span class="font-mono">51831-51840, 52000, 54321-54330</span>.
                     Quick-create picks the first available port with a UDP bind test.
@@ -197,19 +197,19 @@
                   <div>
                     <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Window (sec)</label>
                     <input v-model.number="globalSettings.gatewayWindowSeconds" type="number" min="10"
-                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      class="settings-input settings-input-number px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Sliding window size</p>
                   </div>
                   <div>
                     <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Healthy (%)</label>
                     <input v-model.number="globalSettings.gatewayHealthyThreshold" type="number" min="1" max="100"
-                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      class="settings-input settings-input-number px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Success rate ≥ → Healthy</p>
                   </div>
                   <div>
                     <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Degraded (%)</label>
                     <input v-model.number="globalSettings.gatewayDegradedThreshold" type="number" min="1" max="100"
-                      class="w-full px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                      class="settings-input settings-input-number px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Success rate ≥ → Degraded</p>
                   </div>
                 </div>
@@ -219,7 +219,7 @@
               <div style="border-top-width:1px; padding-top:12px;" class="dark:border-neutral-600">
                 <p class="text-sm font-semibold dark:text-neutral-300 mb-3">Language</p>
                 <div class="flex gap-2">
-                  <button v-for="l in [{code:'en',label:'English'},{code:'ru',label:'Русский'}]" :key="l.code"
+                  <button v-for="l in [{code:'en',label:'English'}]" :key="l.code"
                     @click="globalSettings.lang = l.code"
                     :class="(globalSettings.lang === l.code ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-neutral-600 text-gray-700 dark:text-neutral-300') + ' px-3 py-1 rounded text-sm font-medium transition'">
                     {{ l.label }}
@@ -257,16 +257,16 @@
 
                   <!-- Rate limits -->
                   <p class="text-xs font-medium dark:text-neutral-300 mb-2">Bandwidth limits <span class="font-normal text-gray-400">(0 = no limit)</span></p>
-                  <div class="flex gap-4 mb-3">
+                  <div class="flex flex-wrap gap-4 mb-3">
                     <div>
                       <label class="block text-xs text-gray-500 dark:text-neutral-400 mb-1">↓ Down (kbps)</label>
                       <input v-model.number="globalSettings.expiredPeerRateDown" type="number" min="0" placeholder="0"
-                        class="w-28 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                        class="settings-input settings-input-number px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
                     <div>
                       <label class="block text-xs text-gray-500 dark:text-neutral-400 mb-1">↑ Up (kbps)</label>
                       <input v-model.number="globalSettings.expiredPeerRateUp" type="number" min="0" placeholder="0"
-                        class="w-28 px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                        class="settings-input settings-input-number px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
                   </div>
 
@@ -301,7 +301,7 @@
 
 		  <!-- Versioned AmneziaWG templates -->
           <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
-            <div class="flex items-center p-5 border-b dark:border-neutral-600">
+            <div class="panel-header flex items-center p-5 border-b dark:border-neutral-600">
               <div class="flex-grow">
 				<p class="text-xl font-medium dark:text-neutral-200">Amnezia Templates</p>
 				<p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Use predefined templates or create your own. Supported up to version AWG 3.1</p>
@@ -317,11 +317,11 @@
                 </button>
                 <button @click="importTemplateJSON()"
                   class="px-4 py-2 text-sm font-medium rounded transition flex items-center gap-1.5 border border-purple-400 text-purple-600 dark:text-purple-400 dark:border-purple-500"
-                  title="Import profile from JSON file">
+                  title="Import template from JSON file">
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                   </svg>
-                  Import JSON
+                  Import Template
                 </button>
                 <button @click="openTemplateCreate()"
                   class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition text-sm font-medium flex items-center gap-1.5">
@@ -382,7 +382,7 @@
 
           <!-- Users Management -->
           <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
-            <div class="p-5 border-b dark:border-neutral-600 flex items-center justify-between">
+            <div class="panel-header p-5 border-b dark:border-neutral-600 flex items-center justify-between">
               <div>
                 <p class="text-xl font-medium dark:text-neutral-200">Users</p>
                 <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Manage accounts that can access the Web UI</p>
@@ -476,7 +476,7 @@
 
           <!-- Metrics Settings -->
           <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
-            <div class="p-5 border-b dark:border-neutral-600">
+            <div class="panel-header p-5 border-b dark:border-neutral-600">
               <p class="text-xl font-medium dark:text-neutral-200">Metrics</p>
               <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">Prometheus endpoint and local metrics history</p>
             </div>
@@ -500,7 +500,7 @@
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Metrics port</label>
                   <input v-model.number="metricsSettings.port" type="number" min="1" max="65535" placeholder="9351"
                     :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
-                    class="w-40 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                    class="settings-input settings-input-number px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1 font-mono">{{ metricsEndpointURL() }}</p>
                   <p class="text-xs mt-1" :class="metricsSettings.listening ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-neutral-500'">
                     {{ metricsSettings.listening ? 'Listening on all network interfaces' : (metricsSettings.listenError || 'Listener is stopped') }}
@@ -511,7 +511,7 @@
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Connected peer threshold (seconds)</label>
                   <input v-model.number="metricsSettings.connectedPeerThresholdSeconds" type="number" min="1"
                     :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
-                    class="w-40 px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                    class="settings-input settings-input-number px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                   <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">A peer with a newer handshake is reported as connected.</p>
                 </div>
 
@@ -530,8 +530,7 @@
                       :placeholder="metricsSettings.tokenConfigured ? 'Enter a new token to replace it' : 'Optional token'"
                       :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
                       @input="metricsSettings.clearToken = false"
-                      class="flex-grow px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm"
-                      style="min-width:220px;">
+                      class="settings-input settings-input-wide px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
                     <button v-if="metricsSettings.tokenConfigured && !metricsSettings.clearToken"
                       @click="removeMetricsToken" type="button"
                       :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
@@ -566,7 +565,7 @@
 
           <!-- System Backup -->
           <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
-            <div class="p-5 border-b dark:border-neutral-600">
+            <div class="panel-header p-5 border-b dark:border-neutral-600">
               <p class="text-xl font-medium dark:text-neutral-200">System Backup</p>
               <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">
                 Full backup includes database (all config, peers, rules) and ipset files.
@@ -586,7 +585,7 @@
                 </div>
                 <button @click="openBackupModal()"
                   :disabled="backupDownloading"
-                  class="btn font-medium text-sm rounded-lg text-white"
+                  class="btn system-backup-action font-medium text-sm rounded-lg text-white"
                   style="background:#2563eb; padding:8px 20px; white-space:nowrap;">
                   <span v-if="backupDownloading">Creating…</span>
                   <span v-else>⬇ Create Backup</span>
@@ -603,7 +602,7 @@
                       Current state is saved automatically before restore.
                     </p>
                   </div>
-                  <label class="btn bg-green-600 hover:bg-green-700 text-white font-medium text-sm rounded-lg cursor-pointer"
+                  <label class="btn system-backup-action bg-green-600 hover:bg-green-700 text-white font-medium text-sm rounded-lg cursor-pointer"
                     style="padding:8px 20px; white-space:nowrap;"
                     :style="(systemRestoring || restorePreviewLoading) ? 'opacity:0.6; pointer-events:none;' : ''">
                     <span v-if="systemRestoring">Restoring…</span>
@@ -727,7 +726,7 @@
 
           <!-- API Tokens -->
           <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
-            <div class="p-5 border-b dark:border-neutral-600 flex items-center justify-between">
+            <div class="panel-header p-5 border-b dark:border-neutral-600 flex items-center justify-between">
               <div>
                 <p class="text-xl font-medium dark:text-neutral-200">API Tokens</p>
                 <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">

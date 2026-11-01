@@ -18,15 +18,17 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/alexnikon/cascade/internal/util"
 )
 
 // JobStatus represents the current state of an async prefix-generation job.
 type JobStatus struct {
-	Status     string `json:"status"`              // "running" | "done" | "error" | "unknown"
-	EntryCount int    `json:"entryCount,omitempty"` // populated when status == "done"
-	Error      string `json:"error,omitempty"`      // populated when status == "error"
+	Status      string    `json:"status"`               // "running" | "done" | "error" | "unknown"
+	EntryCount  int       `json:"entryCount,omitempty"` // populated when status == "done"
+	CompletedAt time.Time `json:"-"`
+	Error       string    `json:"error,omitempty"` // populated when status == "error"
 }
 
 // GenerateOpts controls which prefixes to fetch.
@@ -39,19 +41,24 @@ type GenerateOpts struct {
 
 // Manager manages kernel ipsets for firewall aliases.
 type Manager struct {
-	dataDir string
-	jobs    sync.Map // jobID (string) → JobStatus
+	dataDir    string
+	jobs       sync.Map // jobID (string) → JobStatus
+	stop       chan struct{}
+	done       chan struct{}
+	closeOnce  sync.Once
+	workerOnce sync.Once
 }
 
 var nameRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,30}$`)
 
 // New creates a Manager, ensures the data directory exists, and restores saved ipsets.
 func New(dataDir string) (*Manager, error) {
-	m := &Manager{dataDir: dataDir}
+	m := &Manager{dataDir: dataDir, stop: make(chan struct{}), done: make(chan struct{})}
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return nil, fmt.Errorf("ipset: mkdir %s: %w", dataDir, err)
 	}
 	m.RestoreAll()
+
 	return m, nil
 }
 
@@ -341,29 +348,29 @@ func (m *Manager) runGeneratorAsync(jobID, name string, opts GenerateOpts) {
 	}
 
 	if err != nil {
-		m.jobs.Store(jobID, JobStatus{Status: "error", Error: err.Error()})
+		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: err.Error()})
 		return
 	}
 	if len(prefixes) == 0 {
-		m.jobs.Store(jobID, JobStatus{Status: "error", Error: "no prefixes returned — check source params"})
+		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: "no prefixes returned — check source params"})
 		return
 	}
 
 	if err := writeToFile(prefixes, outFile); err != nil {
-		m.jobs.Store(jobID, JobStatus{Status: "error", Error: err.Error()})
+		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: err.Error()})
 		return
 	}
 
 	if err := m.CreateSet(name); err != nil {
 		os.Remove(outFile) //nolint:errcheck
-		m.jobs.Store(jobID, JobStatus{Status: "error", Error: err.Error()})
+		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: err.Error()})
 		return
 	}
 
 	entryCount, err := m.LoadFromFile(name, outFile)
 	os.Remove(outFile) //nolint:errcheck
 	if err != nil {
-		m.jobs.Store(jobID, JobStatus{Status: "error", Error: err.Error()})
+		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: err.Error()})
 		return
 	}
 
@@ -371,7 +378,7 @@ func (m *Manager) runGeneratorAsync(jobID, name string, opts GenerateOpts) {
 		log.Printf("ipset: job %s: SaveSet failed: %v", jobID, err)
 	}
 
-	m.jobs.Store(jobID, JobStatus{Status: "done", EntryCount: entryCount})
+	m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "done", EntryCount: entryCount})
 	log.Printf("ipset: job %s done — %d entries loaded into %s", jobID, entryCount, name)
 }
 
@@ -386,4 +393,41 @@ func randomHex(n int) string {
 	b := make([]byte, n)
 	rand.Read(b) //nolint:errcheck
 	return hex.EncodeToString(b)
+}
+
+// StartJobRetention starts the retention worker once, for the application lifecycle.
+func (m *Manager) StartJobRetention() { m.workerOnce.Do(func() { go m.pruneJobs() }) }
+
+// Close stops the job retention worker. It is safe to call repeatedly.
+func (m *Manager) Close() {
+	if m.stop == nil {
+		return
+	}
+	m.StartJobRetention()
+	m.closeOnce.Do(func() { close(m.stop) })
+	<-m.done
+}
+
+func (m *Manager) pruneJobs() {
+	defer close(m.done)
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-m.stop:
+			return
+		case now := <-ticker.C:
+			m.pruneCompletedJobs(now)
+		}
+	}
+}
+
+func (m *Manager) pruneCompletedJobs(now time.Time) {
+	m.jobs.Range(func(key, value any) bool {
+		status := value.(JobStatus)
+		if !status.CompletedAt.IsZero() && now.Sub(status.CompletedAt) >= time.Hour {
+			m.jobs.CompareAndDelete(key, value)
+		}
+		return true
+	})
 }

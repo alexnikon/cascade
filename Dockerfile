@@ -2,29 +2,28 @@
 # Cascade — Go/Fiber build
 # ============================================================
 # Stage 1: Build Go binary
-FROM golang:1.23-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb AS builder
 
 WORKDIR /app
 
-# Copy source first (go mod tidy needs imports to resolve indirect deps).
-COPY go.mod ./
+# Cache dependency downloads independently of application source changes.
+COPY go.mod go.sum ./
+RUN go mod download
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
-
-# Resolve full dependency graph, update go.mod with indirect deps, generate go.sum.
-# Cached unless go.mod or source changes.
-RUN go mod tidy
 
 # Version metadata injected at build time so the binary knows its own version.
 # ARG VERSION defaults to "dev" for local builds without explicit --build-arg.
 # CI passes the git tag (e.g. "v1.2.3") and short commit hash.
+ARG TARGETOS
+ARG TARGETARCH
 ARG VERSION=dev
 ARG GIT_COMMIT=unknown
 
 # Build static binary.
 # CGO_ENABLED=0: fully static binary, no libc dependency.
 # -ldflags="-s -w": strip debug symbols → smaller binary.
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -mod=readonly \
     -ldflags="-s -w \
       -X github.com/alexnikon/cascade/internal/version.Version=${VERSION} \
       -X github.com/alexnikon/cascade/internal/version.GitCommit=${GIT_COMMIT}" \

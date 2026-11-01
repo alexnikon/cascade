@@ -40,13 +40,18 @@
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
                   Custom Host <span class="text-gray-400 dark:text-neutral-500 font-normal">(SNI, optional)</span>
                 </label>
-                <input v-model="templateForm.host" type="text" placeholder="e.g. 1.2.3.4 or example.com"
+                <input v-model="templateForm.host" type="text" placeholder="e.g. example.com"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                  Self-stealing SNI — enter your server's IP or domain. AWG traffic will appear as TLS to this host.
+                  Hostname embedded in generated mimicry packets. This does not change the tunnel endpoint.
                 </p>
               </div>
 
+              <div>
+                <label class="block text-sm font-medium dark:text-neutral-300 mb-1">CPS packet size budget (bytes, 0 = unspecified)</label>
+                <input v-model.number="templateForm.mtu" type="number" min="0" max="9000" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Generation metadata only. Editing it does not resize existing packets or change the interface MTU.</p>
+              </div>
               <!-- Jc / Jmin / Jmax -->
               <div>
                 <p class="text-xs font-semibold uppercase text-gray-400 dark:text-neutral-500 mb-2 tracking-wide">Junk Parameters</p>
@@ -94,7 +99,7 @@
                 </div>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mb-2">
                   Format: <code class="font-mono">start-end</code> (e.g. <code class="font-mono">5000000-55000000</code>).
-                  Re-randomised on every template apply.
+                  Copied unchanged when applied; both tunnel sides must use identical values.
                 </p>
                 <div class="grid grid-cols-2 gap-3">
                   <div v-for="k in ['h1','h2','h3','h4']" :key="k">
@@ -135,7 +140,7 @@
 				  <label><input type="checkbox" v-model="templateForm.randomTrailers"> Random trailers</label>
 				  <label><input type="checkbox" v-model="templateForm.disableCookies"> Disable cookies</label>
 				</div>
-				<p class="text-xs text-gray-400 mt-2">S1-S4 must be at least 12; ranges use min-max format.</p>
+				<p class="text-xs text-gray-400 mt-2">S1–S4 must be at least 12 when header protection is enabled. Leave optional fields empty to use protocol defaults; values may be single numbers or min-max ranges.</p>
 			  </div>
 
             </div><!-- /content area -->
@@ -169,10 +174,15 @@
 				    <h2 class="text-lg font-semibold dark:text-neutral-100">Generate AmneziaWG Profile</h2>
 				  </div>
 				  <p class="text-sm text-gray-500 dark:text-neutral-400" style="margin-top:5px; line-height:1.45;">
-				    Create a balanced obfuscation profile from tested protocol signatures.
+				    Generate obfuscation parameters with Architect 4.5.1 profiles and client limits.
 				  </p>
+                  <a href="https://architect.vai-rice.space/amneziawg" target="_blank" rel="noopener noreferrer"
+                    class="inline-flex items-center border border-gray-300 dark:border-neutral-500 rounded px-3 py-2 text-sm text-gray-700 dark:text-neutral-100 hover:bg-gray-100 dark:hover:bg-neutral-600"
+                    style="margin-top:10px; gap:6px;">
+                    Open Architect <span aria-hidden="true">↗</span>
+                  </a>
 				</div>
-                <button type="button" @click="showGenerateModal = false" aria-label="Close profile generator"
+                <button type="button" @click="showGenerateModal = false" :disabled="generatingParams || savingGeneratedTemplate" aria-label="Close profile generator"
                   class="text-gray-400 hover:text-gray-600 dark:hover:text-neutral-200"
                   style="padding:4px; flex-shrink:0;">
                   <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -182,108 +192,208 @@
               </div>
             </div>
             <div class="awg-generator-body dark:text-neutral-200">
-			  <div class="awg-generator-field">
-				<label>AWG version</label>
-				<div class="awg-generator-segmented">
-				  <button type="button" @click="generateForm.protocolVersion='3.1'" :class="{ 'is-active': generateForm.protocolVersion === '3.1' }" :aria-pressed="generateForm.protocolVersion === '3.1'">AWG 3.1</button>
-				  <button type="button" @click="generateForm.protocolVersion='2.0'" :class="{ 'is-active': generateForm.protocolVersion === '2.0' }" :aria-pressed="generateForm.protocolVersion === '2.0'">AWG 2.0</button>
-				</div>
-			  </div>
-              <div class="awg-generator-grid">
+              <fieldset class="awg-generator-settings" :disabled="generatingParams || savingGeneratedTemplate">
               <div class="awg-generator-field">
-                <label>Protocol profile</label>
-                <select v-content-select v-model="generateForm.profile"
-                  class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
-                  <option value="random">Random (any profile)</option>
-                  <option value="quic_initial">QUIC Initial (RFC 9000)</option>
-                  <option value="quic_0rtt">QUIC 0-RTT</option>
-                  <option value="tls_client_hello">TLS 1.3 ClientHello</option>
-                  <option value="dtls">DTLS 1.2 ClientHello</option>
-                  <option value="http3">HTTP/3 over QUIC</option>
-                  <option value="sip">SIP REGISTER</option>
-                  <option value="wireguard_noise">Noise_IK (WireGuard)</option>
-                  <option value="dns_query">DNS Query (RFC 1035)</option>
-                  <option value="tls_to_quic">TLS→QUIC (composite)</option>
-                  <option value="quic_burst">QUIC Burst (composite)</option>
-                </select>
-              </div>
-              <div class="awg-generator-field">
-                <label>Intensity</label>
+                <label>AWG version</label>
                 <div class="awg-generator-segmented">
-                  <button type="button" v-for="lvl in ['low','medium','high']" :key="lvl"
-                    @click="generateForm.intensity = lvl"
-                    :class="{ 'is-active': generateForm.intensity === lvl }"
-                    class="awg-intensity capitalize">
-                    {{ lvl }}
-                  </button>
+                <button type="button" @click="generateForm.protocolVersion='3.1'" :class="{ 'is-active': generateForm.protocolVersion === '3.1' }" :aria-pressed="generateForm.protocolVersion === '3.1'">AWG 3.1</button>
+                <button type="button" @click="generateForm.protocolVersion='2.0'" :class="{ 'is-active': generateForm.protocolVersion === '2.0' }" :aria-pressed="generateForm.protocolVersion === '2.0'">AWG 2.0</button>
+              </div>
                 </div>
-              </div>
-              </div>
+              <label class="awg-generator-toggle awg-generator-recommended">
+                  <input type="checkbox" v-model="generatorUseRecommended" @change="applyGeneratorRecommendations()">
+                  <span>Recommended settings for AWG {{ generateForm.protocolVersion }}<small>Restore Architect's recommended generation settings for this version. Keep the selected client, build and template name.</small></span>
+                </label>
               <div class="awg-generator-grid">
-              <div class="awg-generator-field">
-                <label>Custom host <span class="text-gray-400 font-normal">(optional)</span></label>
-                <input v-model="generateForm.host" type="text" placeholder="e.g. yandex.ru"
-                  autocomplete="off" spellcheck="false"
-                  class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
-                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Used for SNI; leave empty to choose randomly.</p>
-              </div>
-              <div class="awg-generator-field" v-show="generateForm.profile !== 'sip' && generateForm.profile !== 'dns_query'">
-                <label>Browser fingerprint <span class="text-gray-400 font-normal">(optional)</span></label>
-                <select v-content-select v-model="generateForm.browser"
-                  class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
-                  <option value="">None (protocol defaults)</option>
-                  <option value="chrome">Chrome</option>
-                  <option value="firefox">Firefox</option>
-                  <option value="safari">Safari</option>
-                  <option value="edge">Edge</option>
-                  <option value="yandex_desktop">Yandex Browser (Desktop)</option>
-                  <option value="yandex_mobile">Yandex Browser (Mobile)</option>
+                <div class="awg-generator-field">
+                <label>Protocol profile</label>
+                <select v-content-select v-model="generateForm.profile" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm" >
+                <option v-for="profile in generatorCatalog.profiles" :key="profile.id" :value="profile.id">{{ profile.label }}</option>
                 </select>
-                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Matches common QUIC/TLS packet sizes.</p>
+                </div>
+                <div class="awg-generator-field">
+                <label>Intensity</label>
+                <select v-content-select v-model="generateForm.intensity" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm" >
+                <option v-for="level in ['low','medium','high']" :key="level" :value="level">{{ level }}</option>
+                </select>
+                </div>
+                </div>
+                <details class="awg-generator-section" open>
+                <summary>Compatibility</summary>
+                <div class="awg-generator-grid">
+                <div class="awg-generator-field">
+                <label>Target client</label>
+                <select v-content-select v-model="generateForm.clientId" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm" @change="generateForm.clientRelease = ''">
+                <option v-for="client in generatorCatalog.clients" :key="client.id" :value="client.id">{{ client.name }}</option>
+                </select>
+                </div>
+                <div class="awg-generator-field">
+                <label>Client build</label>
+                <select v-content-select v-model="generateForm.clientRelease" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm" >
+                <option value="">Current build</option>
+                <option v-for="release in generatorClient().releases" :key="release.id" :value="release.id">{{ release.label }}</option>
+                </select>
+                </div>
+                </div>
+                <p class="awg-generator-hint">Client parser limits are applied automatically. A client selection does not guarantee support for AWG 3.1 in every build.</p>
+                <p v-if="generateForm.clientId === 'amneziavpn' &amp;&amp; generateForm.protocolVersion === '3.1' &amp;&amp; generateForm.useHeaderProtection" class="awg-generator-hint">Cascade generates the shared header-protection key. Amnezia VPN must use the same key as the server.</p>
+                </details>
+                <details class="awg-generator-section">
+                <summary>CPS &amp; Mimicry</summary>
+                <div class="awg-generator-grid">
+                <div class="awg-generator-field">
+                <label>Custom host (optional)</label>
+                <input v-model.trim="generateForm.host" type="text" placeholder="example.com" autocomplete="off" spellcheck="false" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                <p class="awg-generator-hint">Hostname embedded by the selected profile; leave empty for the regional pool.</p>
+                </div>
+                <div class="awg-generator-field">
+                <label>Host region</label>
+                <select v-content-select v-model="generateForm.hostRegion" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm" >
+                <option v-for="region in generatorCatalog.regions" :key="region" :value="region">{{ region === 'any' ? 'Any region' : region.toUpperCase() }}</option>
+                </select>
+                </div>
+                </div>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.mimicAll" :disabled="!generatorClient().limits.supportsI1I5">
+                <span>Mimic all five packets<small>Use the selected protocol in every CPS slot where supported.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useBrowserFp" :disabled="!generatorClient().limits.supportsI1I5">
+                <span>Browser fingerprint<small>Match the packet-size ranges of the selected browser.</small>
+                </span>
+                </label>
+                <div v-if="generateForm.useBrowserFp">
+                <div class="awg-generator-field">
+                <label>Browser</label>
+                <select v-content-select v-model="generateForm.browser" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm" >
+                <option v-for="browser in generatorCatalog.browsers" :key="browser.id" :value="browser.id">{{ browser.label }}</option>
+                </select>
+                </div>
+                </div>
+                <div class="awg-generator-grid">
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useTagC" :disabled="!generatorClient().limits.supportsCpsTagC || !generatorCatalog.serverSupportsTagC || !generatorClient().limits.supportsI1I5">
+                <span>Counter &lt;c&gt;<small>Available only when both client and server parsers accept it.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useTagT" :disabled="!generatorClient().limits.supportsI1I5">
+                <span>Timestamp &lt;t&gt;<small>Append a four-byte timestamp.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useTagR" :disabled="!generatorClient().limits.supportsI1I5">
+                <span>Random bytes &lt;r&gt;<small>Add random byte padding.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useTagRC" :disabled="!generatorClient().limits.supportsCpsTagRC || !generatorClient().limits.supportsI1I5">
+                <span>Random characters &lt;rc&gt;<small>Add random text characters.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useTagRD" :disabled="!generatorClient().limits.supportsCpsTagRD || !generatorClient().limits.supportsI1I5">
+                <span>Random digits &lt;rd&gt;<small>Add random decimal digits.</small>
+                </span>
+                </label>
+                </div>
+                <p v-if="!generatorClient().limits.supportsI1I5" class="awg-generator-hint">This client does not send I1–I5. CPS settings have no effect.</p>
+                </details>
+                <details class="awg-generator-section">
+                <summary>Junk &amp; Performance</summary>
+                <div class="awg-generator-grid">
+                <div class="awg-generator-field">
+                <label>CPS packet size budget (bytes)</label>
+                <input v-model.number="generateForm.mtu" type="number" min="576" max="9000" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                <p class="awg-generator-hint">Used to size generated CPS packets and saved as template metadata. Does not set the interface MTU.</p>
+                </div>
+                <div class="awg-generator-field">
+                <label>Junk level</label>
+                <input v-model.number="generateForm.junkLevel" type="number" min="0" max="128" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                <p class="awg-generator-hint">0 disables the junk train unless extreme mode is enabled. Recommended: 3–7.</p>
+                </div>
+                <div class="awg-generator-field">
+                <label>Failed attempts</label>
+                <input v-model.number="generateForm.iterCount" type="number" min="0" max="1000" class="awg-generator-control border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
+                <p class="awg-generator-hint">More than three failed attempts strengthens CPS padding.</p>
+                </div>
+                </div>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.routerMode" :disabled="false">
+                <span>Router mode<small>Reduce junk sizes and count; send only I1.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useExtremeMax" :disabled="false">
+                <span>Extreme mode<small>Use higher ceilings within the selected client limits.</small>
+                </span>
+                </label>
+                </details>
+                <details v-if="generateForm.protocolVersion === '3.1'" class="awg-generator-section">
+                <summary>AWG 3.1</summary>
+                <div class="awg-generator-grid">
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useHeaderProtection" :disabled="false">
+                <span>Header protection<small>Generate a shared ChaCha20 key; S1–S4 remain at least 12.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useContentPadding" :disabled="false">
+                <span>Content padding<small>Randomize additional transport padding.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useRandomTimings" :disabled="false">
+                <span>Random timings<small>Generate coordinated protocol timer ranges.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useRandomTrailers" :disabled="false">
+                <span>Random trailers<small>Append random packet tails; a smaller MTU is recommended.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useDisableCookies" :disabled="false">
+                <span>Disable cookies<small>Can disrupt NAT keepalive under load; off by default.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useNarrowH" :disabled="false">
+                <span>Narrow H ranges<small>Limit header windows to reduce trailer-related packet loss.</small>
+                </span>
+                </label>
+                </div>
+                <div v-if="generateForm.useHeaderProtection &amp;&amp; generateForm.useRandomTrailers" class="awg-generator-grid">
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useDisableH" :disabled="false">
+                <span>Use H1–H4 = 1–4<small>Header protection encrypts these values; avoids range-related packet loss.</small>
+                </span>
+                </label>
+                <label class="awg-generator-toggle">
+                <input type="checkbox" v-model="generateForm.useSameS" :disabled="false">
+                <span>Use equal S1–S4<small>Draw one padding value within all applicable limits.</small>
+                </span>
+                </label>
+                </div>
+                </details>
+                </fieldset>
+              <div v-if="generatedResult" class="awg-generator-preview text-xs font-mono" aria-live="polite">
+                <p class="font-sans mb-2">AWG {{ generatedResult.protocolVersion }} · {{ generatedResult.resolvedProfile }} · CPS packet size budget {{ generatedResult.mtu }} bytes</p>
+                <div v-for="(value, key) in generatedParams" :key="key" class="awg-generator-value"><strong>{{ key }}:</strong> {{ value }}</div>
+                <ul v-if="generatedResult.warnings.length" class="awg-generator-warnings font-sans"><li v-for="warning in generatedResult.warnings" :key="warning">{{ warning }}</li></ul>
               </div>
-              </div>
-              <div v-if="generatedParams" class="awg-generator-preview text-xs font-mono" style="display:flex; flex-direction:column; gap:6px;">
-                <div class="text-gray-500 dark:text-neutral-400 font-sans text-xs font-medium mb-1">
-                  Preview — Profile: <span class="text-yellow-600 dark:text-yellow-400">{{ generatedParams.profile }}</span>
-                </div>
-                <div class="flex flex-wrap gap-x-4 gap-y-1">
-                  <span><span class="text-gray-400">Jc=</span>{{ generatedParams.jc }}</span>
-                  <span><span class="text-gray-400">Jmin=</span>{{ generatedParams.jmin }}</span>
-                  <span><span class="text-gray-400">Jmax=</span>{{ generatedParams.jmax }}</span>
-                </div>
-                <div class="flex flex-wrap gap-x-4 gap-y-1">
-                  <span><span class="text-gray-400">S1=</span>{{ generatedParams.s1 }}</span>
-                  <span><span class="text-gray-400">S2=</span>{{ generatedParams.s2 }}</span>
-                  <span><span class="text-gray-400">S3=</span>{{ generatedParams.s3 }}</span>
-                  <span><span class="text-gray-400">S4=</span>{{ generatedParams.s4 }}</span>
-                </div>
-                <div style="display:flex; flex-direction:column; gap:2px;">
-                  <span class="truncate"><span class="text-gray-400">H1=</span>{{ generatedParams.h1 }}</span>
-                  <span class="truncate"><span class="text-gray-400">H2=</span>{{ generatedParams.h2 }}</span>
-                  <span class="truncate"><span class="text-gray-400">H3=</span>{{ generatedParams.h3 }}</span>
-                  <span class="truncate"><span class="text-gray-400">H4=</span>{{ generatedParams.h4 }}</span>
-                </div>
-                <div class="break-all"><span class="text-gray-400">I1=</span>{{ generatedParams.i1 }}</div>
-              </div>
-              <div v-if="generatedParams" style="display:flex; flex-direction:column; gap:10px;">
-                <label class="text-sm font-medium" for="generated-template-name">Template name</label>
-                <input v-model="generateForm.saveName" type="text" placeholder="Template name..."
-                  id="generated-template-name" autocomplete="off"
-                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+              <div v-if="generatedParams" class="awg-generator-save">
+                <label for="generated-template-name" class="text-sm font-medium">Template name</label>
+                <input v-model="generateForm.saveName" :disabled="generatingParams || savingGeneratedTemplate" id="generated-template-name" type="text" placeholder="Template name..." autocomplete="off" class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm">
                 <div class="awg-generator-actions">
-                  <button type="button" @click="useGeneratedInForm()"
-                    class="py-2 border border-purple-400 text-purple-600 dark:text-purple-400 dark:border-purple-500 rounded text-sm transition">
-                    Edit details
-                  </button>
-                  <button type="button" @click="saveGeneratedTemplate()" :disabled="!generateForm.saveName.trim() || savingGeneratedTemplate"
-                    class="py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded text-sm font-medium transition modal-action modal-action-save">
-                    {{ savingGeneratedTemplate ? 'Saving...' : 'Save & Close' }}
-                  </button>
+                  <button type="button" @click="useGeneratedInForm()" :disabled="generatingParams || savingGeneratedTemplate" class="py-2 border border-purple-400 text-purple-600 dark:text-purple-400 dark:border-purple-500 rounded text-sm transition">Edit details</button>
+                  <button type="button" @click="saveGeneratedTemplate()" :disabled="!generateForm.saveName.trim() || generatingParams || savingGeneratedTemplate" class="py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded text-sm font-medium transition modal-action modal-action-save">{{ savingGeneratedTemplate ? 'Saving...' : 'Save & Close' }}</button>
                 </div>
               </div>
             </div>
             <div class="awg-generator-footer">
-              <button type="button" @click="generateParams()" :disabled="generatingParams"
+              <button type="button" @click="generateParams()" :disabled="generatingParams || savingGeneratedTemplate"
                 class="w-full py-2 bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 text-white rounded font-medium text-sm transition flex items-center justify-center gap-2"
                 style="min-height:42px;">
                 <svg v-if="generatingParams" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">

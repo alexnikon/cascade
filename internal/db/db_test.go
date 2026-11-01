@@ -62,6 +62,7 @@ func TestMigration46RetiresConfigurationLinkTokens(t *testing.T) {
 INSERT INTO peers(id,interface_id,public_key,one_time_link) VALUES('legacy-peer','legacy','public-key','legacy-token');
 DROP TABLE web_access;
 ALTER TABLE peers DROP COLUMN persistent_keepalive_v3;
+ALTER TABLE templates DROP COLUMN mtu;
 DELETE FROM schema_migrations WHERE version>=46;`)
 	if err != nil {
 		t.Fatal(err)
@@ -377,7 +378,8 @@ func TestMigration47PreservesExistingPeerKeepalive(t *testing.T) {
  INSERT INTO interfaces(id,name,address,listen_port,protocol,private_key,public_key) VALUES('legacy','legacy','10.8.0.1/24',51820,'amneziawg-3.1','private','public');
  INSERT INTO peers(id,interface_id,name,public_key,persistent_keepalive) VALUES('legacy-peer','legacy','legacy','public',37);
  ALTER TABLE peers DROP COLUMN persistent_keepalive_v3;
- DELETE FROM schema_migrations WHERE version=47;`)
+ ALTER TABLE templates DROP COLUMN mtu;
+ DELETE FROM schema_migrations WHERE version>=47;`)
 	if err != nil {
 		t.Fatal(err)
 	}

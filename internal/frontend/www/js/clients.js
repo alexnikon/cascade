@@ -13,6 +13,10 @@ async refresh() {
       this.clientRefreshSeq = seq;
       const clients = await this.api.getClients();
       if (seq !== this.clientRefreshSeq || remoteKey !== (this.activeRemoteId || 'local')) return;
+      const live = new Set(clients.map(client => client.id));
+      for (const id of Object.keys(this.clientsPersist)) {
+        if (!live.has(id)) delete this.clientsPersist[id];
+      }
       const sampledAt = performance.now();
       this.clients = clients.map((client) => {
         if (client.name.includes('@') && client.name.includes('.') && this.avatarSettings.gravatar) {

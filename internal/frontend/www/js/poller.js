@@ -93,6 +93,11 @@ async _refreshPeersNow(_options = {}, interfaceId = this.activeInterfaceId) {
         const res = await this.api.getTunnelInterfacePeers({ interfaceId });
         if (seq !== this.peerRefreshSeq || interfaceId !== this.activeInterfaceId ||
             remoteKey !== (this.activeRemoteId || 'local')) return;
+        const live = new Set((res.peers || []).map(peer => peer.id));
+        for (const id of Object.keys(this.peersPersist)) {
+          const cached = this.peersPersist[id];
+          if (!live.has(id) && cached.interfaceId === interfaceId) delete this.peersPersist[id];
+        }
         const sampledAt = performance.now();
         const peers = (res.peers || []).map(peer => {
           // Tag with interfaceId so actions work from dashboard too
@@ -115,6 +120,7 @@ async _refreshPeersNow(_options = {}, interfaceId = this.activeInterfaceId) {
           }
 
           const pp = this.peersPersist[peer.id];
+          pp.interfaceId = peer.interfaceId || interfaceId;
           updateTransferRates(pp, peer, JSON.stringify([remoteKey, interfaceId]), sampledAt);
           peer.hoverTx = pp.hoverTx;
           peer.hoverRx = pp.hoverRx;
@@ -172,6 +178,10 @@ async _refreshAllPeersNow(_options = {}, remoteKey = this.activeRemoteId || 'loc
       try {
         const res = await this.api.getAllTunnelPeers();
         if (seq !== this.allPeerRefreshSeq || remoteKey !== (this.activeRemoteId || 'local')) return;
+        const live = new Set((res.peers || []).map(peer => peer.id));
+        for (const id of Object.keys(this.peersPersist)) {
+          if (!live.has(id)) delete this.peersPersist[id];
+        }
         const sampledAt = performance.now();
         const all = (res.peers || []).map(peer => {
           peer.interfaceName = peer.interfaceName || peer.interfaceId;
@@ -189,6 +199,7 @@ async _refreshAllPeersNow(_options = {}, remoteKey = this.activeRemoteId || 'loc
             this.peersPersist[peer.id] = {};
           }
           const pp = this.peersPersist[peer.id];
+          pp.interfaceId = peer.interfaceId;
           updateTransferRates(pp, peer, JSON.stringify([remoteKey, peer.interfaceId]), sampledAt);
           peer.hoverTx = pp.hoverTx;
           peer.hoverRx = pp.hoverRx;

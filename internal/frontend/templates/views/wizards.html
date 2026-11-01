@@ -20,7 +20,7 @@
                        :style="wizardVPN.protocol==='wireguard' ? 'border-color:#2563eb; background:#2563eb;' : 'border-color:#9ca3af;'">
                   </div>
                   <div>
-                    <div class="font-medium dark:text-neutral-100">WireGuard 1.0</div>
+                    <div class="font-medium dark:text-neutral-100">WireGuard</div>
                     <div class="text-sm text-gray-400 dark:text-neutral-400" style="margin-top:2px;">Standard WireGuard. Fast and widely supported.</div>
                   </div>
                 </div>
@@ -107,7 +107,7 @@
             <div style="border-radius:8px; padding:14px 16px; margin-bottom:20px; font-size:0.85rem;"
                  :style="theme==='dark' ? 'background:var(--surface-inset); color:#d4d4d4;' : 'background:#f3f4f6; color:#374151;'">
               <div style="font-weight:600; margin-bottom:8px;">Summary</div>
-              <div>Protocol: <strong>{{ wizardVPN.protocol === 'amneziawg' ? 'AmneziaWG 2.0' : 'WireGuard 1.0' }}</strong></div>
+              <div>Protocol: <strong>{{ wizardVPN.protocol === 'amneziawg' ? 'AmneziaWG 2.0' : 'WireGuard' }}</strong></div>
               <div v-if="wizardVPN.ifaceName">Name: <strong>{{ wizardVPN.ifaceName }}</strong></div>
               <div v-else>Name: <strong>Auto-assigned</strong></div>
               <div>Device: <strong>{{ wizardVPN.peerName || 'My Device' }}</strong></div>
@@ -323,7 +323,7 @@
                 <select v-content-select v-model="wizardUplink.inlineIfaceProto"
                         style="border-radius:6px; padding:6px 10px; font-size:0.85rem; width:110px;"
                         :style="{ background: theme==='dark' ? '#1a1a1a' : '#fff', color: theme==='dark' ? '#e5e5e5' : '#111827', border: theme==='dark' ? '1px solid #525252' : '1px solid var(--light-control-border, #d1d5db)' }">
-                  <option value="wireguard">WG 1.0</option>
+                  <option value="wireguard">WireGuard</option>
                   <option value="amneziawg-2.0">AWG 2.0</option>
 				  <option value="amneziawg-3.1">AWG 3.1</option>
                 </select>
@@ -859,7 +859,7 @@
                 <div style="display:flex; gap:8px;">
                   <button @click="wizardS2S.protocol = 'wireguard'"
                           style="flex:1; padding:8px; border-radius:6px; font-size:0.85rem; cursor:pointer; border:2px solid;"
-                          :style="wizardS2S.protocol === 'wireguard' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">WG 1.0</button>
+                          :style="wizardS2S.protocol === 'wireguard' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">WireGuard</button>
                   <button @click="wizardS2S.protocol = 'amneziawg-2.0'"
                           style="flex:1; padding:8px; border-radius:6px; font-size:0.85rem; cursor:pointer; border:2px solid;"
                           :style="wizardS2S.protocol === 'amneziawg-2.0' ? 'border-color:#3b82f6; background:#eff6ff; color:#1d4ed8;' : 'border-color:var(--light-control-border, #d1d5db); background:transparent; color:#6b7280;'">AWG 2.0</button>

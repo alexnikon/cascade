@@ -58,6 +58,7 @@ async createTunnelInterface() {
           disableRoutes: this.interfaceCreate.disableRoutes || false,
           domainAliasDNS: !!this.interfaceCreate.domainAliasDNS,
           dns: this.interfaceCreate.dns || '',
+          mtu: this.interfaceCreate.mtu || 0,
         };
 
         if (this.interfaceCreate.protocol.startsWith('amneziawg-')) {
@@ -166,7 +167,7 @@ async doImportConf() {
         this.loadFirewallInterfaces();
 
         const iface = res.interface || {};
-		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1');
+		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WireGuard');
         if (res.conflictWarning) {
           this.showToast(`⚠️ ${res.conflictWarning}`, 'error');
         }
@@ -249,7 +250,7 @@ async doImportInterface() {
         this.loadNatInterfaces();
         this.loadFirewallInterfaces();
         const iface = res.interface || {};
-		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WG1');
+		const proto = iface.protocol === 'amneziawg-3.1' ? ' · AWG3.1' : (iface.protocol === 'amneziawg-2.0' ? ' · AWG2' : ' · WireGuard');
         const msg = res.started
           ? `✅ Interface restored: ${iface.id} · ${iface.address}${proto} · ${res.peersCreated} peers`
           : `⚠️ Interface restored but failed to start: ${res.startError || ''}`;
@@ -267,6 +268,7 @@ async generateAndFillInterfaceParams() {
       try {
         const protocolVersion = this.interfaceCreate.protocol === 'amneziawg-2.0' ? '2.0' : '3.1';
         const { params } = await this.api.generateTemplate({ profile: 'random', intensity: 'medium', protocolVersion });
+        // The generator MTU sizes CPS packets; keep the interface MTU independent.
         Object.assign(this.interfaceCreate.settings, params);
         this.showToast(`AWG ${protocolVersion} parameters generated`, 'success');
       } catch (err) {
@@ -282,7 +284,7 @@ _resetInterfaceCreate() {
       this.createMode = 'quick';
       this.interfaceCreate = {
 		name: '', protocol: 'amneziawg-3.1', address: '', listenPort: '',
-        disableRoutes: false, domainAliasDNS: false, dns: '', selectedTemplateId: '',
+        disableRoutes: false, domainAliasDNS: false, dns: '', mtu: 0, selectedTemplateId: '',
         settings: {
           jc: 6, jmin: 10, jmax: 50, s1: 64, s2: 67, s3: 64, s4: 4,
           h1: '', h2: '', h3: '', h4: '',
@@ -330,12 +332,8 @@ async loadVersionInfo() {
       try {
         const res = await fetch('./api/version');
         if (res.ok) {
-          const prev = this.versionInfo;
           this.versionInfo = await res.json();
           this.updateBannerDismissed = false;
-          if (this.versionInfo.updateAvailable && !(prev && prev.updateAvailable)) {
-            this.showToast(`Update available: ${this.versionInfo.latestVersion}`, 'info', 6000);
-          }
         }
       } catch (_) {
         // silently ignore — non-critical

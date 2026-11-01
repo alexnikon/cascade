@@ -158,7 +158,7 @@ func TestProxyUpstreamFailure(t *testing.T) {
 }
 
 func TestProxyTCPFallbackAndEDNS(t *testing.T) {
-	r, f, _, proxyAddr := proxyHarness(t)
+	r, f, _, _ := proxyHarness(t)
 	a := createDomainAlias(t, r.am, "Video", "*.googlevideo.com")
 	r.Sync(a.ID)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -198,7 +198,7 @@ func TestProxyTCPFallbackAndEDNS(t *testing.T) {
 	if err := r.configureProxy("wg12", "127.0.0.1:0", func(ip net.IP) bool { return ip.IsLoopback() }); err != nil {
 		t.Fatal(err)
 	}
-	proxyAddr = r.proxies["wg12"].udp.PacketConn.LocalAddr().String()
+	proxyAddr := r.proxies["wg12"].udp.PacketConn.LocalAddr().String()
 	for _, transport := range []string{"udp", "tcp"} {
 		address := proxyAddr
 		if transport == "tcp" {
@@ -227,13 +227,13 @@ func TestProxyTCPFallbackAndEDNS(t *testing.T) {
 }
 
 func TestProxyUpstreamLoopExcluded(t *testing.T) {
-	r, _, _, addr := proxyHarness(t)
+	r, _, _, _ := proxyHarness(t)
 	r.RemoveInterface("wg12")
 	r.dc = testClient("127.0.0.1:53")
 	if err := r.configureProxy("wg12", "127.0.0.1:0", func(ip net.IP) bool { return ip.IsLoopback() }); err != nil {
 		t.Fatal(err)
 	}
-	addr = r.proxies["wg12"].udp.PacketConn.LocalAddr().String()
+	addr := r.proxies["wg12"].udp.PacketConn.LocalAddr().String()
 	r.proxyMu.Lock()
 	r.proxyStatus["self"] = aliases.DNSProxyStatus{Address: "127.0.0.1:53", Ready: true}
 	r.proxyMu.Unlock()

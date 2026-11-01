@@ -23,6 +23,7 @@ import { firewallMethods } from './firewall.js';
 import { peerMethods } from './peers.js';
 import { pollerMethods } from './poller.js';
 import { settingsMethods } from './settings.js';
+import { generatorMethods, generatorWatchers } from './awg-generator.js';
 import { wizardMethods } from './wizards.js';
 import { contentSelectDirective } from './select-width.js';
 new Vue({
@@ -45,6 +46,7 @@ new Vue({
     rememberMeEnabled: false,
 
     // TOTP login step 2
+    lastAutoTOTP: '',      // prevents repeated automatic submissions of an unchanged code
     totpCode: '',          // 6-digit code input during login
     totpRequired: false,   // true = password OK, show TOTP input
 
@@ -268,6 +270,7 @@ new Vue({
       disableRoutes: false,
       domainAliasDNS: false,
       dns: '',
+      mtu: 0,
       selectedTemplateId: '',   // UI-only template selection; not sent to the API
       settings: {
         jc: 6, jmin: 10, jmax: 50,
@@ -376,6 +379,7 @@ new Vue({
       isDefault: false,
       protocolVersion: '3.1',
       host: '',
+      mtu: 0,
       jc: 6, jmin: 10, jmax: 50,
       s1: 64, s2: 67, s3: 64, s4: 4,
       h1: '', h2: '', h3: '', h4: '',
@@ -396,6 +400,10 @@ new Vue({
       saveName: '',
       protocolVersion: '3.1',
     },
+    generatorCatalog: null,
+    generatorUseRecommended: true,
+    generatedResult: null,
+    generatedSignature: '',
     generatedParams: null,
     generatingParams: false,
     savingGeneratedTemplate: false,
@@ -880,6 +888,7 @@ new Vue({
     ...peerMethods,
     ...pollerMethods,
     ...settingsMethods,
+    ...generatorMethods,
     ...wizardMethods,
   },
   filters: {
@@ -1032,6 +1041,10 @@ new Vue({
     }).catch((err) => console.error(err));
   },
   beforeDestroy() {
+      this._stopAliasJobPoll?.();
+      this.clientsPersist = {};
+      this.peersPersist = {};
+      this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
     this.stopResourcePoller();
     this.metricsStopPoller();
     if (this.prefersDarkScheme) {
@@ -1060,6 +1073,7 @@ new Vue({
     }
   },
   watch: {
+    ...generatorWatchers,
     showInterfaceCreate() { this.showCreateAmneziaParams = false; },
     showInterfaceEdit() { this.showEditAmneziaParams = false; },
     authenticated(value) {
