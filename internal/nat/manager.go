@@ -58,8 +58,8 @@ type NatRule struct {
 	Source        string `json:"source"`        // '' | CIDR | IP
 	SourceAliasID string `json:"sourceAliasId"` // '' if direct CIDR/IP
 	OutInterface  string `json:"outInterface"`
-	Type          string `json:"type"`      // "MASQUERADE" | "SNAT"
-	ToSource      string `json:"toSource"`  // '' for MASQUERADE
+	Type          string `json:"type"`     // "MASQUERADE" | "SNAT"
+	ToSource      string `json:"toSource"` // '' for MASQUERADE
 	Comment       string `json:"comment"`
 	Enabled       bool   `json:"enabled"`
 	OrderIdx      int    `json:"orderIdx"`
@@ -101,7 +101,8 @@ type HostInterface struct {
 
 // Manager manages Source NAT rules.
 type Manager struct {
-	am *aliases.Manager // may be nil in tests
+	am   *aliases.Manager                   // may be nil in tests
+	exec func(string, bool) (string, error) // optional command runner for isolated tests
 }
 
 // New creates a Manager. Call RestoreAll() after construction.
@@ -350,7 +351,7 @@ func (m *Manager) UpdateRule(id string, inp NatRuleInput) (*NatRule, error) {
 	// Remove old kernel rule if it was active.
 	if old.Enabled {
 		if err := m.removeRule(old); err != nil {
-			log.Printf("nat: UpdateRule: remove old rule %q failed (may already be gone): %v", old.Name, err)
+			return nil, fmt.Errorf("remove old NAT rule: %w", err)
 		}
 	}
 
@@ -390,7 +391,7 @@ func (m *Manager) DeleteRule(id string) error {
 
 	if rule.Enabled {
 		if err := m.removeRule(rule); err != nil {
-			log.Printf("nat: DeleteRule: kernel remove for %q failed (may already be gone): %v", rule.Name, err)
+			return fmt.Errorf("remove NAT rule: %w", err)
 		}
 	}
 
@@ -518,6 +519,15 @@ func (m *Manager) resolveSrcParts(rule *NatRule) ([]string, error) {
 //	port*        → not applicable for L3 NAT, treated as any source
 //	domain       → destination-oriented by nature; likewise treated as any source
 func (m *Manager) resolveAliasSrcParts(aliasID string) ([]string, error) {
+	return m.resolveAliasSrcPartsVisited(aliasID, make(map[string]bool))
+}
+
+func (m *Manager) resolveAliasSrcPartsVisited(aliasID string, visiting map[string]bool) ([]string, error) {
+	if visiting[aliasID] {
+		return nil, fmt.Errorf("cyclic NAT source alias: %s", aliasID)
+	}
+	visiting[aliasID] = true
+	defer delete(visiting, aliasID)
 	if m.am == nil {
 		return []string{""}, nil
 	}
@@ -548,7 +558,7 @@ func (m *Manager) resolveAliasSrcParts(aliasID string) ([]string, error) {
 	case "group":
 		var parts []string
 		for _, memberID := range alias.MemberIDs {
-			sub, err := m.resolveAliasSrcParts(memberID)
+			sub, err := m.resolveAliasSrcPartsVisited(memberID, visiting)
 			if err != nil {
 				return nil, err
 			}
@@ -583,75 +593,101 @@ func (m *Manager) applyRule(rule *NatRule) error {
 	}
 	for i, addCmd := range addCmds {
 		// ExecSilent: iptables -C is an idempotency check — don't log (FIX-14).
-		if _, cerr := util.ExecSilent(chkCmds[i]); cerr == nil {
+		if _, cerr := m.runCommand(chkCmds[i], false); cerr == nil {
 			log.Printf("nat: applyRule (already in kernel): %s", addCmd)
 			continue
 		}
 		log.Printf("nat: applyRule: %s", addCmd)
-		if _, aerr := util.ExecDefault(addCmd); aerr != nil {
+		if _, aerr := m.runCommand(addCmd, true); aerr != nil {
 			return fmt.Errorf("iptables-nft: %w", aerr)
 		}
 	}
 	return nil
 }
 
-// RemoveForAlias removes kernel iptables rules for all enabled NAT rules that
-// reference aliasID as their source. Must be called BEFORE the alias is updated
-// in the DB so that buildCmds still uses the OLD alias content.
-func (m *Manager) RemoveForAlias(aliasID string) {
+// aliasTreeContains walks group membership without revisiting cyclic references.
+func (m *Manager) aliasTreeContains(aliasID, targetID string, visited map[string]bool) (bool, error) {
+	if aliasID == targetID {
+		return true, nil
+	}
+	if aliasID == "" || visited[aliasID] || m.am == nil {
+		return false, nil
+	}
+	visited[aliasID] = true
+	a, err := m.am.GetByID(aliasID)
+	if err != nil {
+		return false, err
+	}
+	if a == nil || a.Type != "group" {
+		return false, nil
+	}
+	for _, id := range a.MemberIDs {
+		found, err := m.aliasTreeContains(id, targetID, visited)
+		if err != nil || found {
+			return found, err
+		}
+	}
+	return false, nil
+}
+
+func (m *Manager) rulesReferencingAlias(aliasID string) ([]NatRule, error) {
 	rules, err := m.GetRules()
 	if err != nil {
-		log.Printf("nat: RemoveForAlias %s: load rules: %v", aliasID, err)
-		return
+		return nil, err
 	}
-	for i := range rules {
-		if !rules[i].Enabled || rules[i].SourceAliasID != aliasID {
+	var matched []NatRule
+	for _, rule := range rules {
+		if !rule.Enabled {
 			continue
 		}
-		if err := m.removeRule(&rules[i]); err != nil {
-			log.Printf("nat: RemoveForAlias %s: remove %q: %v", aliasID, rules[i].Name, err)
+		found, err := m.aliasTreeContains(rule.SourceAliasID, aliasID, make(map[string]bool))
+		if err != nil {
+			return nil, err
 		}
+		if found {
+			matched = append(matched, rule)
+		}
+	}
+	return matched, nil
+}
+
+// RemoveForAlias must run before the alias changes, while old CIDRs still resolve.
+// Exclude the entire affected batch from ownership checks, so its rules cannot
+// keep each other's obsolete kernel lines alive.
+func (m *Manager) RemoveForAlias(aliasID string) {
+	rules, err := m.rulesReferencingAlias(aliasID)
+	if err == nil {
+		err = m.removeRules(rules)
+	}
+	if err != nil {
+		log.Printf("nat: RemoveForAlias %s: %v", aliasID, err)
 	}
 }
 
-// RestoreForAlias re-applies kernel iptables rules for all enabled NAT rules that
-// reference aliasID. Must be called AFTER the alias is updated in the DB so that
-// buildCmds uses the NEW alias content.
+// RestoreForAlias installs the newly resolved content after an alias update.
 func (m *Manager) RestoreForAlias(aliasID string) {
-	rules, err := m.GetRules()
+	rules, err := m.rulesReferencingAlias(aliasID)
 	if err != nil {
-		log.Printf("nat: RestoreForAlias %s: load rules: %v", aliasID, err)
+		log.Printf("nat: RestoreForAlias %s: %v", aliasID, err)
 		return
 	}
 	for i := range rules {
-		if !rules[i].Enabled || rules[i].SourceAliasID != aliasID {
-			continue
-		}
 		if err := m.applyRule(&rules[i]); err != nil {
 			log.Printf("nat: RestoreForAlias %s: apply %q: %v", aliasID, rules[i].Name, err)
 		}
 	}
 }
 
-// ReapplyAll removes all enabled NAT rules from the kernel and re-adds them.
-// Called when a non-ipset alias changes so that the expanded CIDR-based rules
-// pick up the new alias content (added or removed entries).
+// ReapplyAll removes enabled rules as one batch, then restores current content.
 func (m *Manager) ReapplyAll() {
 	rules, err := m.GetRules()
+	if err == nil {
+		err = m.removeRules(rules)
+	}
 	if err != nil {
-		log.Printf("nat: ReapplyAll: load rules: %v", err)
+		log.Printf("nat: ReapplyAll: %v", err)
 		return
 	}
-	// Remove all first — clear stale CIDR-expanded rules.
-	for i := range rules {
-		if !rules[i].Enabled {
-			continue
-		}
-		if err := m.removeRule(&rules[i]); err != nil {
-			log.Printf("nat: ReapplyAll: remove %q: %v", rules[i].Name, err)
-		}
-	}
-	// Re-apply with current alias content.
 	for i := range rules {
 		if !rules[i].Enabled {
 			continue
@@ -662,15 +698,74 @@ func (m *Manager) ReapplyAll() {
 	}
 }
 
-// removeRule deletes a NAT rule from the kernel.
+func (m *Manager) runCommand(cmd string, logCommand bool) (string, error) {
+	if m.exec != nil {
+		return m.exec(cmd, logCommand)
+	}
+	return util.Exec(cmd, util.DefaultTimeout, logCommand)
+}
+
 func (m *Manager) removeRule(rule *NatRule) error {
-	cmds, err := m.buildCmds(rule, "D")
+	return m.removeRules([]NatRule{*rule})
+}
+
+// removeRules plans the complete deletion before touching the kernel. A line
+// owned by an enabled rule outside the batch must survive. Identical lines
+// within the batch are deleted only once, matching applyRule's idempotency.
+func (m *Manager) removeRules(batch []NatRule) error {
+	excluded := make(map[string]bool)
+	var candidates []string
+	for i := range batch {
+		if !batch[i].Enabled {
+			continue
+		}
+		excluded[batch[i].ID] = true
+		cmds, err := m.buildCmds(&batch[i], "A")
+		if err != nil {
+			return err
+		}
+		candidates = append(candidates, cmds...)
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+	rules, err := m.GetRules()
 	if err != nil {
 		return err
 	}
-	for _, cmd := range cmds {
-		log.Printf("nat: removeRule: %s", cmd)
-		if _, err := util.ExecDefault(cmd); err != nil {
+	protected := make(map[string]bool)
+	for i := range rules {
+		if !rules[i].Enabled || excluded[rules[i].ID] {
+			continue
+		}
+		cmds, err := m.buildCmds(&rules[i], "A")
+		if err != nil {
+			return err
+		}
+		for _, cmd := range cmds {
+			protected[cmd] = true
+		}
+	}
+	for _, cmd := range candidates {
+		if protected[cmd] {
+			continue
+		}
+		protected[cmd] = true
+		del := strings.Replace(cmd, "-A POSTROUTING", "-D POSTROUTING", 1)
+		// Missing lines are already in the desired state (for example after a restart).
+		check := strings.Replace(cmd, "-A POSTROUTING", "-C POSTROUTING", 1)
+		if _, err := m.runCommand(check, false); err != nil {
+			var commandErr *util.ExecError
+			if errors.As(err, &commandErr) {
+				err = commandErr.Err
+			}
+			var status interface{ ExitCode() int }
+			if errors.As(err, &status) && status.ExitCode() == 1 {
+				continue
+			}
+			return fmt.Errorf("check NAT rule before removal: %w", err)
+		}
+		if _, err := m.runCommand(del, true); err != nil {
 			return fmt.Errorf("iptables-nft: %w", err)
 		}
 	}
