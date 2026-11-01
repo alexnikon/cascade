@@ -212,5 +212,3 @@ before aggregation and ranking for panels controlled by the switch, so older
 targets without role metadata remain visible there even in Hide mode. Upgrade
 those targets to enable automatic hiding.
 
-To evaluate dashboard PromQL against synthetic counter resets, multiple targets,
-legacy metadata, and S2S exclusion, run `python3 grafana/check_promql.py /path/to/promtool`.
