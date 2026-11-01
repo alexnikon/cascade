@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-# TEST-1 fix: абсолютный путь к скрипту — работает из любой директории
+# TEST-1 fix: absolute script path works from any directory
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPT_FILE="$REPO_ROOT/deploy/tcp_tune.sh"
 DUPLICATE_FILE="$REPO_ROOT/deploy/caddy/scripts/tcp_tune.sh"
@@ -22,9 +22,9 @@ assert_eq() {
     if [[ "$got" == "$want" ]]; then pass "$desc"; else fail "$desc: got='$got' want='$want'"; fi
 }
 
-# TEST-2 fix: grep-based assertions — не зависят от пробелов/форматирования
+# TEST-2 fix: grep-based assertions — independent of whitespace and formatting
 assert_sysctl_apply() {
-    # Проверяет что строка `apply ... key value` присутствует в executable-строках
+    # Check that executable lines contain `apply ... key value`.
     local desc=$1 key=$2 val=$3
     if grep -v '^\s*#' "$SCRIPT_FILE" | grep -qE "apply[[:space:]].*${key}[[:space:]]+${val}[^0-9]?"; then
         pass "$desc"
@@ -34,7 +34,7 @@ assert_sysctl_apply() {
 }
 
 assert_sysctl_file() {
-    # Проверяет что key = val присутствует в sysctl.d heredoc
+    # Check that the sysctl.d heredoc contains key = val.
     local desc=$1 key=$2 val=$3
     if grep -qE "^${key}[[:space:]]*=[[:space:]]*${val}" "$SCRIPT_FILE"; then
         pass "$desc"
@@ -161,7 +161,7 @@ assert_sysctl_apply "M-3: apply keepalive=300"   "tcp_keepalive_time" "300"
 assert_sysctl_file  "M-3: sysctl.d keepalive=300" "net.ipv4.tcp_keepalive_time" "300"
 assert_not_sysctl_apply "M-3: keepalive not 60"  "tcp_keepalive_time" "60"
 
-# M-4: no_metrics_save не применяется (может упоминаться в комментарии)
+# M-4: no_metrics_save is not applied (comments may mention it)
 if grep -v '^\s*#' "$SCRIPT_FILE" | grep -qE 'apply.*tcp_no_metrics_save'; then
     fail "M-4: tcp_no_metrics_save still being applied"
 else
@@ -171,19 +171,19 @@ fi
 # M-6: IPv6 forwarding in sysctl.d
 assert_sysctl_file "M-6: ipv6 forwarding in sysctl.d" "net.ipv6.conf.all.forwarding" "1"
 
-# NEW-1: rp_filter = 2 (loose, не 1)
+# NEW-1: rp_filter = 2 (loose, not 1)
 assert_sysctl_apply "NEW-1: apply rp_filter all=2"     "conf.all.rp_filter"     "2"
 assert_sysctl_apply "NEW-1: apply rp_filter default=2" "conf.default.rp_filter" "2"
 assert_sysctl_file  "NEW-1: sysctl.d rp_filter all=2"     "net.ipv4.conf.all.rp_filter"     "2"
 assert_sysctl_file  "NEW-1: sysctl.d rp_filter default=2" "net.ipv4.conf.default.rp_filter" "2"
-# Значение 1 (strict) не должно быть — ломает WireGuard
+# Value 1 (strict) must be absent because it can break WireGuard.
 if grep -qE "^net\.ipv4\.conf\.(all|default)\.rp_filter[[:space:]]*=[[:space:]]*1" "$SCRIPT_FILE"; then
     fail "NEW-1: rp_filter=1 (strict) found in sysctl.d — should be 2 (loose)"
 else
     pass "NEW-1: rp_filter=1 (strict) absent — VPN-safe"
 fi
 
-# L-5: ICMP redirects и source_route
+# L-5: ICMP redirects and source_route
 assert_sysctl_file "L-5: accept_redirects=0"    "net.ipv4.conf.all.accept_redirects"   "0"
 assert_sysctl_file "L-5: send_redirects=0"      "net.ipv4.conf.all.send_redirects"     "0"
 assert_sysctl_file "L-5: accept_source_route=0" "net.ipv4.conf.all.accept_source_route" "0"
