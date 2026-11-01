@@ -6,6 +6,14 @@ services:
     container_name: cascade
     restart: unless-stopped
 
+    # A fresh installation is healthy before any tunnel interfaces exist.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$${PORT:-8888}/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
     # Load deploy config from .env (setup.sh writes here).
     # Variables defined here override the defaults in environment: below.
     env_file:

@@ -7,6 +7,7 @@ REPOSITORY="${CASCADE_REPOSITORY:-alexnikon/cascade}"
 INSTALL_DIR="${CASCADE_INSTALL_DIR:-/opt/cascade}"
 VERSION="$DEFAULT_VERSION"
 SETUP_ARGS=()
+YES=0
 
 usage() {
   cat <<'EOF'
@@ -36,6 +37,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --yes|--staging|--prefer-ipv6)
       SETUP_ARGS+=("$1")
+      [[ "$1" != "--yes" ]] || YES=1
       shift
       ;;
     -h|--help)
@@ -59,6 +61,18 @@ done
   echo "Install directory must be an absolute path other than /." >&2
   exit 1
 }
+
+for command in curl sha256sum tar; do
+  command -v "$command" >/dev/null 2>&1 || {
+    echo "Missing required command: $command. Install curl, ca-certificates, coreutils and tar before running install.sh." >&2
+    exit 1
+  }
+done
+
+if [[ "$YES" -eq 0 ]] && ! { true </dev/tty; } 2>/dev/null; then
+  echo "Interactive setup requires a terminal. Run with --yes to use defaults." >&2
+  exit 1
+fi
 
 if [[ -d "$INSTALL_DIR" && -n "$(find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
   echo "Install directory is not empty: $INSTALL_DIR" >&2
@@ -90,4 +104,9 @@ chmod 0755 "$INSTALL_DIR/deploy/setup.sh" "$INSTALL_DIR/deploy/switch-mode.sh" \
   "$INSTALL_DIR/deploy/tcp_tune.sh"
 
 echo "Runtime files installed in $INSTALL_DIR"
-bash "$INSTALL_DIR/deploy/setup.sh" "${SETUP_ARGS[@]}"
+if [[ "$YES" -eq 1 ]]; then
+  bash "$INSTALL_DIR/deploy/setup.sh" ${SETUP_ARGS[@]+"${SETUP_ARGS[@]}"}
+else
+  # Keep prompts separate from the script stream when invoked through curl | bash.
+  bash "$INSTALL_DIR/deploy/setup.sh" ${SETUP_ARGS[@]+"${SETUP_ARGS[@]}"} </dev/tty
+fi

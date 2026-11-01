@@ -28,11 +28,6 @@ source "$DEPENDENCY_HELPERS"
 # shellcheck source=deploy/lib/kernel-module.sh
 source "$KERNEL_MODULE_HELPERS"
 
-# ── Logging to file ──────────────────────────────────────────────────────────
-mkdir -p "$(dirname "$LOG_FILE")"
-exec > >(tee -a "$LOG_FILE") 2>&1
-echo "=== cascade setup started at $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
-
 # ── Colors ───────────────────────────────────────────────────────────────────
 G='\033[0;32m'; Y='\033[1;33m'; R='\033[0;31m'; B='\033[0;34m'; N='\033[0m'
 
@@ -68,17 +63,37 @@ fail() { echo -e "${R}  [✗]${N} $*"; exit 1; }
 YES=0
 PREFER_IPV6=0
 ACME_STAGING=${ACME_STAGING:-0}   # overridable from .env; --staging flag sets to 1
+STAGING_REQUESTED=0
 for arg in "$@"; do
-  [[ "$arg" == "--yes"        ]] && YES=1
-  [[ "$arg" == "--staging"    ]] && ACME_STAGING=1
-  [[ "$arg" == "--prefer-ipv6" ]] && PREFER_IPV6=1
+  case "$arg" in
+    --yes) YES=1 ;;
+    --staging) STAGING_REQUESTED=1 ;;
+    --prefer-ipv6) PREFER_IPV6=1 ;;
+    -h|--help)
+      echo "Usage: setup.sh [--yes] [--staging] [--prefer-ipv6]"
+      exit 0
+      ;;
+    *) fail "Unknown argument: $arg" ;;
+  esac
 done
+
+[[ $EUID -eq 0 ]] || fail "Run as root (sudo bash deploy/setup.sh)"
+if [[ "$YES" -eq 0 ]]; then
+  { true </dev/tty; } 2>/dev/null || fail "Interactive setup requires a terminal. Run with --yes to use defaults."
+  exec </dev/tty
+fi
 
 # ── Load .env ────────────────────────────────────────────────────────────────
 if [[ -f "$ENV_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$ENV_FILE"
 fi
+[[ "$STAGING_REQUESTED" -eq 0 ]] || ACME_STAGING=1
+
+# ── Logging to file ──────────────────────────────────────────────────────────
+mkdir -p "$(dirname "$LOG_FILE")"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "=== cascade setup started at $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
 
 CADDY_IMAGE="${CADDY_IMAGE:-caddy:alpine}"
 export CADDY_IMAGE
@@ -129,7 +144,7 @@ EOF
 generate_bridge_compose() {
   local port_range="$1" mgmt_port="$2"
   local tmpl="$RUNTIME_DIR/deploy/docker-compose.bridge.yml.example"
-  # Output to repo root — same directory as docker-compose.yml and docker-compose.isolated.yml.
+  # Output beside docker-compose.yml so relative runtime paths remain valid.
   # This ensures that env_file: .env resolves correctly (relative to runtime root),
   # matching the pattern used by docker-compose.yml.
   local out="$RUNTIME_DIR/docker-compose.bridge.yml"
@@ -157,9 +172,6 @@ detect_ip() {
   ip=$(ip route get 8.8.8.8 2>/dev/null | awk '/src/{print $7}')   && [[ -n "$ip" ]] && echo "$ip" && return
   echo ""
 }
-
-# ── Must run as root ──────────────────────────────────────────────────────────
-[[ $EUID -ne 0 ]] && fail "Run as root (sudo bash deploy/setup.sh)"
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 echo ""
@@ -519,18 +531,20 @@ echo ""
 echo -e "${B}── Step 4: Kernel parameters${N}"
 
 SYSCTL_FILE="/etc/sysctl.d/99-cascade.conf"
-if [[ -f "$SYSCTL_FILE" ]]; then
-  ok "sysctl config already present"
-else
-  cat > "$SYSCTL_FILE" << 'SYSCTL'
-net.ipv4.ip_forward = 1
-net.ipv6.conf.all.forwarding = 1
-net.core.rmem_max = 7340032
-net.core.wmem_max = 7340032
+# Step 0 may already have created this file with only vm.swappiness.
+# Refresh managed keys while preserving any unrelated settings.
+touch "$SYSCTL_FILE"
+while read -r key value; do
+  sed -i "/^[[:space:]]*${key//./\\.}[[:space:]]*=/d" "$SYSCTL_FILE"
+  printf '%s = %s\n' "$key" "$value" >> "$SYSCTL_FILE"
+done <<'SYSCTL'
+net.ipv4.ip_forward 1
+net.ipv6.conf.all.forwarding 1
+net.core.rmem_max 7340032
+net.core.wmem_max 7340032
 SYSCTL
-  sysctl --system -q
-  ok "sysctl applied (ip_forward, UDP buffers)"
-fi
+sysctl -p "$SYSCTL_FILE" -q
+ok "sysctl applied (ip_forward, UDP buffers)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STEP 4b — TCP/network stack tuning
@@ -691,7 +705,7 @@ done
 # exists yet at this point in setup.
 if [[ "${NETWORK_MODE:-host}" == "bridge" ]]; then
   info "Setting PortPool = $BRIDGE_PORT_RANGE in Cascade settings..."
-  if docker exec cascade sqlite3 /etc/wireguard/data/wireguard.db \
+  if docker exec cascade sqlite3 /etc/wireguard/data/cascade.db \
     "INSERT OR REPLACE INTO settings(key, value) VALUES('portPool', '${BRIDGE_PORT_RANGE}');"; then
     ok "PortPool set to $BRIDGE_PORT_RANGE"
   else
@@ -955,7 +969,11 @@ echo -e "    4. Enable TOTP in Settings → Users for added security"
 echo ""
 echo -e "  ${Y}Update:${N}"
 echo -e "    Edit the image tag in $RUNTIME_DIR/docker-compose.yml"
-echo -e "    cd $RUNTIME_DIR && sudo docker compose pull && sudo docker compose up -d"
+if [[ "${NETWORK_MODE:-host}" == "bridge" ]]; then
+  printf '    cd %q && sudo bash deploy/setup.sh --yes\n' "$RUNTIME_DIR"
+else
+  printf '    cd %q && sudo docker compose pull && sudo docker compose up -d\n' "$RUNTIME_DIR"
+fi
 echo ""
 echo -e "  ${Y}Logs:${N}"
 echo -e "    docker logs cascade"

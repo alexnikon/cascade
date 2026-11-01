@@ -62,6 +62,12 @@ dependencies.
 
 ## 🚀 Quick Install
 
+On minimal Ubuntu/Debian images, install the download prerequisites first:
+```bash
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates
+```
+
 ### Userspace mode — recommended
 Works on **any VPS**: no custom kernel, no reboot, no deadlocks.
 ```bash
@@ -70,6 +76,17 @@ curl -fsSL https://github.com/alexnikon/cascade/releases/latest/download/install
 ```
 
 > `--yes` picks all defaults: **userspace mode**, auto-detected public IP, random admin path.
+
+To select the network mode and server address interactively, omit `--yes`:
+```bash
+curl -fsSL https://github.com/alexnikon/cascade/releases/latest/download/install.sh \
+  | sudo bash
+```
+Interactive setup requires a terminal. For unattended installs, use `--yes`.
+To select a release or runtime directory, add `--version vX.Y.Z` or
+`--install-dir /opt/cascade` after `bash -s --`. The target directory must be empty.
+To resume an interrupted installation, run the extracted `deploy/setup.sh` from
+the runtime directory instead of running `install.sh` again.
 
 ### Kernel module mode
 Maximum throughput, but the AmneziaWG kernel module has **[known deadlock issues](https://github.com/amnezia-vpn/amneziawg-linux-kernel-module/issues/146)**
