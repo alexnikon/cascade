@@ -2422,6 +2422,8 @@ button.interface-filter-button {
     flex: 0 0 auto;
   }
 
+  .interface-peer-action > svg { width: 20px; height: 20px; }
+
   .interface-peer-action {
     align-items: center;
     border-radius: 0 !important;
@@ -2789,11 +2791,11 @@ button.interface-transfer-download:hover:not(:disabled) { background: #047857 !i
   user-select: text;
 }
 
-/* Compact peer cards reserve a separate column for touch controls. */
+/* Keep compact client details readable above the controls. */
 @media (max-width: 767px) {
   .peer-card-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 88px;
+    display: flex;
+    flex-direction: column;
     align-items: start;
     gap: 8px;
   }
@@ -2811,15 +2813,15 @@ button.interface-transfer-download:hover:not(:disabled) { background: #047857 !i
     align-self: flex-start;
   }
   .peer-card-traffic > div { min-width: 0; }
-  .peer-card-layout > div:last-child { align-self: start; }
+  .peer-card-layout > div:last-child { align-self: stretch; }
   .peer-card-layout .peer-row-controls {
-    flex-direction: column;
-    align-items: flex-end;
+    flex-direction: row;
+    align-items: center;
     flex-wrap: nowrap;
   }
   .peer-card-layout .peer-action-group {
-    grid-template-columns: repeat(2, 44px);
-    grid-auto-flow: row;
+    grid-template-columns: repeat(4, 44px);
+    grid-auto-flow: column;
   }
 }
 
@@ -2843,11 +2845,9 @@ button.interface-transfer-download:hover:not(:disabled) { background: #047857 !i
 
 /* Keep compact client controls together below the client details. */
 @media (max-width: 767px) {
-  .peer-card-layout { display: flex; flex-direction: column; }
-  .peer-card-layout > div:last-child { align-self: stretch; }
   .peer-card-layout > .flex.gap-3 { flex-direction: column; align-items: stretch; }
-  .peer-card-layout .peer-row-controls { flex-direction: row; align-items: center; justify-content: flex-end; }
-  .peer-card-layout .peer-action-group { grid-template-columns: repeat(4, 44px); grid-auto-flow: column; }
+  .peer-card-layout .peer-action-group { order: -1; }
+  .system-backup-action { margin-left: auto; }
   .amnezia-templates .panel-header > .flex:last-child,
   .amnezia-templates .settings-template-row > .flex:last-child { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
   .remote-actions { flex-wrap: wrap; white-space: normal; }

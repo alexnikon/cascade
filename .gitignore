@@ -42,3 +42,9 @@ docker-compose.override.yml
 # Build artifacts — compiled binaries
 /cascade
 /wiresteer
+
+# Local previews and verification reports
+/docker-compose.test.yml
+/docs/OPTIMIZATION.md
+/docs/BACKUP_RESTORE_CHECK.md
+/docs/installer-validation.md
