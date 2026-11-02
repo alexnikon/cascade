@@ -27,7 +27,6 @@
               <thead>
                 <tr class="bg-gray-50 dark:bg-neutral-600 text-gray-500 dark:text-neutral-400 text-xs uppercase">
                   <th class="text-left font-medium tc">Name</th>
-                  <th class="text-left font-medium tc">URL</th>
                   <th class="text-left font-medium tc">Added</th>
                   <th class="remote-actions-cell font-medium tc">Actions</th>
                 </tr>
@@ -37,12 +36,11 @@
                   class="border-t dark:border-neutral-600"
                   :style="{ 'border-top-color': theme === 'dark' ? '#525252' : '#f3f4f6' }">
                   <td class="tc font-medium dark:text-neutral-200">{{ remote.name }}</td>
-                  <td class="tc text-gray-500 dark:text-neutral-400">
-                    <a :href="remote.url" target="_blank" class="hover:underline" style="color:#2563eb;">{{ remote.url }}</a>
-                  </td>
                   <td class="tc text-gray-500 dark:text-neutral-400 text-xs">{{ remote.createdAt ? new Date(remote.createdAt).toLocaleDateString() : '—' }}</td>
                   <td class="tc remote-actions-cell">
                     <div class="remote-actions">
+                    <button @click="copyRemoteURL(remote)" class="rounded text-xs font-medium" style="padding:4px 10px;background:var(--badge-neutral-bg);color:var(--badge-neutral-text);">Copy URL</button>
+                    <a :href="remote.url" target="_blank" rel="noopener noreferrer" class="rounded text-xs font-medium" style="padding:4px 10px;background:var(--badge-neutral-bg);color:var(--badge-neutral-text);">Open remote</a>
                     <!-- Test button -->
                     <button @click="testRemote(remote)"
                       :disabled="remoteTesting[remote.id]"

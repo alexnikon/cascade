@@ -399,6 +399,14 @@ async deleteRemote(remote) {
       }
     },
 
+async copyRemoteURL(remote) {
+    try {
+        await navigator.clipboard.writeText(remote.url);
+        this.showToast('URL copied to clipboard', 'success');
+    } catch {
+        this.showToast('Failed to copy URL', 'error');
+    }
+},
 async testRemote(remote) {
       this.$set(this.remoteTesting, remote.id, true);
       this.$set(this.remoteTestResult, remote.id, null);

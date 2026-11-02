@@ -2840,3 +2840,15 @@ button.interface-transfer-download:hover:not(:disabled) { background: #047857 !i
   justify-content: center;
   box-sizing: border-box;
 }
+
+/* Keep compact client controls together below the client details. */
+@media (max-width: 767px) {
+  .peer-card-layout { display: flex; flex-direction: column; }
+  .peer-card-layout > div:last-child { align-self: stretch; }
+  .peer-card-layout > .flex.gap-3 { flex-direction: column; align-items: stretch; }
+  .peer-card-layout .peer-row-controls { flex-direction: row; align-items: center; justify-content: flex-end; }
+  .peer-card-layout .peer-action-group { grid-template-columns: repeat(4, 44px); grid-auto-flow: column; }
+  .amnezia-templates .panel-header > .flex:last-child,
+  .amnezia-templates .settings-template-row > .flex:last-child { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .remote-actions { flex-wrap: wrap; white-space: normal; }
+}
