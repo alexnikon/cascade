@@ -179,7 +179,8 @@ async saveMetricsSettings() {
         const payload = {
           enabled: this.metricsSettings.enabled,
           port: Number(this.metricsSettings.port),
-          connectedPeerThresholdSeconds: Number(this.metricsSettings.connectedPeerThresholdSeconds),
+          mode: this.metricsSettings.mode,
+          interfaceId: this.metricsSettings.interfaceId,
           historyEnabled: this.metricsSettings.historyEnabled,
           clearToken: this.metricsSettings.clearToken,
         };
@@ -193,6 +194,28 @@ async saveMetricsSettings() {
       }
     },
 
+generateMetricsToken() {
+      if (!this.metricsSettings.canManage || !this.metricsSettings.enabled) return;
+      try {
+        const bytes = new Uint8Array(32);
+        globalThis.crypto.getRandomValues(bytes);
+        this.metricsSettings.token = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        this.metricsSettings.clearToken = false;
+      } catch {
+        this.showToast('Failed to generate a secure token', 'error');
+      }
+    },
+
+async copyMetricsToken() {
+      if (!this.metricsSettings.canManage || !this.metricsSettings.enabled || !this.metricsSettings.token) return;
+      try {
+        await navigator.clipboard.writeText(this.metricsSettings.token);
+        this.showToast('Token copied to clipboard', 'success');
+      } catch {
+        this.showToast('Failed to copy token — select and copy manually', 'error');
+      }
+    },
+
 removeMetricsToken() {
       if (!this.metricsSettings.canManage) return;
       this.metricsSettings.token = '';
@@ -200,7 +223,12 @@ removeMetricsToken() {
     },
 
 metricsEndpointURL() {
-      return `http://${window.location.hostname}:${this.metricsSettings.port || 9351}/metrics`;
+      if (this.metricsSettings.mode === 'public_https') return this.metricsSettings.publicUrl;
+      const selected = (this.metricsSettings.interfaces || []).find(i => i.id === this.metricsSettings.interfaceId);
+      if (!selected) return 'Select a VPN interface to see the endpoint URL.';
+      const address = selected.address.split(',')[0].trim().split('/')[0];
+      const host = address.includes(':') ? `[${address}]` : address;
+      return `http://${host}:${this.metricsSettings.port || 9351}/metrics`;
     },
 
 async saveSettings() {

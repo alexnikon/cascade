@@ -751,7 +751,8 @@ func TestFrontendMetricsSettingsCardAndBindings(t *testing.T) {
 	for _, expected := range []string{
 		`v-model="metricsSettings.enabled"`,
 		`v-model.number="metricsSettings.port"`,
-		`v-model.number="metricsSettings.connectedPeerThresholdSeconds"`,
+		`v-model="metricsSettings.mode"`,
+		`v-model="metricsSettings.interfaceId"`,
 		`v-model="metricsSettings.token"`,
 		`v-model="metricsSettings.historyEnabled"`,
 		`@click="saveMetricsSettings"`,
@@ -760,6 +761,9 @@ func TestFrontendMetricsSettingsCardAndBindings(t *testing.T) {
 		if !strings.Contains(index, expected) {
 			t.Fatalf("Metrics card missing %q", expected)
 		}
+	}
+	if strings.Contains(index, `Connected peer threshold (seconds)`) {
+		t.Fatal("connected peer threshold must be fixed")
 	}
 	if strings.Contains(index, `v-model.trim="metricsSettings.path"`) {
 		t.Fatal("Metrics path must not be editable")

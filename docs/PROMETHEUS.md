@@ -7,66 +7,92 @@ monitor, and configuration database. A Prometheus scrape does not run `wg` or
 
 ## Configuration
 
-Administrators configure metrics in **Settings → Metrics**. Changes to the
-endpoint state, port, token, connected-peer threshold, and local history apply
-immediately without restarting Cascade.
+Administrators configure metrics in **Settings → Metrics**. Select exactly one
+access mode, then enable the endpoint:
 
-On the first startup after metrics settings are introduced, Cascade imports the
-following environment variables into its configuration database:
+- **VPN interface**: select a Cascade interface and TCP port (default `9351`).
+  The HTTP listener binds only to that interface's configured address. An optional
+  bearer token adds authentication within the VPN. If the interface stops, is
+  removed, or loses its address, access stops. Cascade automatically reconciles
+  the listener when the selected interface becomes available again.
+- **Public HTTPS**: scrape `https://PUBLIC_IP/metrics` (or the installed TLS
+  hostname) on port `443`. This uses the existing Caddy certificate and requires
+  a bearer token. No separate metrics TCP port is opened. It works independently
+  of VPN-only access restrictions on the administrative panel.
 
-```dotenv
-METRICS_ENABLED=true
-METRICS_CONNECTED_PEER_THRESHOLD=180s
-METRICS_TOKEN=replace-with-a-long-random-token
-METRICS_HISTORY_ENABLED=true
+Changes apply without restarting Cascade, Caddy, or the VPN. The local metrics
+history setting is independent of Prometheus access.
+
+**Upgrade behavior:** existing endpoints are disabled once when access modes are
+introduced. Select a mode and enable scraping again. The token, port, and local
+history are preserved. New installations also start with the endpoint disabled.
+`METRICS_ENABLED` no longer enables an endpoint at bootstrap.
+
+The initial optional token (`METRICS_TOKEN`) and local-history preference
+(`METRICS_HISTORY_ENABLED`, default `true`) are imported only once. Settings and
+SQLite are authoritative afterwards. Only a SHA-256 token hash is stored; the
+API never returns the token. A blank token field preserves the current token.
+An enabled Public HTTPS endpoint cannot have its token removed.
+
+### Caddy and certificates
+
+New deployment bundles include the `/metrics` route. Existing deployments must
+also upgrade their Caddyfile; updating only the Cascade image does not add routes.
+Review and apply the bundled helper from the runtime directory:
+
+```bash
+python3 deploy/update-web-access-proxy.py deploy/caddy/Caddyfile --check
+python3 deploy/update-web-access-proxy.py deploy/caddy/Caddyfile
+docker restart cascade-caddy
 ```
 
-| Variable | Default | Behavior |
-|----------|---------|----------|
-| `METRICS_ENABLED` | `false` | Initial endpoint state |
-| `METRICS_CONNECTED_PEER_THRESHOLD` | `180s` | Initial positive Go duration used by `cascade_peer_connected` |
-| `METRICS_TOKEN` | unset | Initial optional bearer token |
-| `METRICS_HISTORY_ENABLED` | `true` | Initial local metrics-history state |
+The helper preserves unrelated routes, rejects unrecognized metrics routes,
+validates the proposed configuration inside the running Caddy container before
+writing, and saves a backup. Review customized configurations manually.
 
-Environment variables are bootstrap values only. After the first import,
-Settings and SQLite are authoritative and later environment changes are
-ignored. Cascade stores only a SHA-256 token hash and never returns the token
-through the API. Leaving the token field blank preserves an existing token;
-use **Remove token** to clear it explicitly.
+Public HTTPS uses the existing acme.sh certificate issuance and renewal. Prometheus
+must validate the certificate for the exact IP or hostname being scraped. If
+installation fell back to a self-signed certificate, explicitly configure its
+trusted CA/certificate or install a publicly trusted certificate. Do not use
+`insecure_skip_verify: true`.
 
-The endpoint always uses `/metrics` on a dedicated listener bound to all network
-interfaces. Its port is configured in Settings and defaults to `9351`, so the
-default URL is `http://SERVER:9351/metrics`. It is independent of the Web UI
-port, Caddy, and `ADMIN_PATH`. If `METRICS_TOKEN` is unset, restrict access to
-the port using a trusted VPN or firewall. Do not expose it directly to the
-public Internet.
+The standard host deployment requires a `127.0.0.1` management bind. The standard
+bridge deployment publishes only the management port to host loopback; its Caddy
+requests arrive from the container's Ethernet gateway. Do not expose the backend
+management port publicly. Remove any old `9351:9351` Docker mapping; VPN access
+uses the tunnel address inside the container and HTTPS uses the existing
+management mapping. Custom networking requires a separate trust review.
 
-Host-network and isolated deployments need no Docker port mapping. A bridge
-deployment must explicitly publish the selected TCP port (for example,
-`9351:9351`); changing the setting cannot change Docker's published ports.
+### Prometheus configuration
 
-The output excludes private keys, preshared keys, credentials, API tokens,
-configuration secrets, runtime endpoints, and public keys. Peer IDs and names,
-allowed IPs, group names, interface metadata, and gateway names are operational
-metadata and should still be treated as internal information.
-
-## Prometheus configuration
+For public collection:
 
 ```yaml
 scrape_configs:
-  - job_name: cascade
+  - job_name: Cascade
+    scheme: https
+    metrics_path: /metrics
     authorization:
       type: Bearer
-      credentials: replace-with-a-long-random-token
+      credentials_file: /etc/prometheus/secrets/nlbox-cascade-token
     static_configs:
-      - targets:
-          - 10.8.0.1:9351
+      - targets: ["PUBLIC_IP:443"]
+        labels:
+          instance: nlbox
 ```
 
-For multiple Cascade servers, add all targets to the job. Prometheus's standard
-`instance` label identifies each server; Cascade does not add a redundant
-`server` label. Friendly names can be attached as target labels or with
-relabeling.
+Mount the token file read-only into Prometheus. Use a separate scrape job or
+credential configuration for servers with different tokens. Keep existing
+`job` and `instance` labels when replacing a target to preserve dashboard history.
+Prometheus must route the public target through ordinary Internet access, without
+a dependency on the VPN being monitored.
+
+For VPN collection, use `scheme: http` and the selected VPN address and port,
+for example `10.9.0.1:9351`. Omit `authorization` only if no token is configured.
+
+The output excludes private keys, preshared keys, credentials, API tokens,
+configuration secrets, runtime endpoints, and public keys. Peer IDs and names,
+allowed IPs, groups, and interface/gateway metadata are internal information.
 
 ## Grafana dashboard
 
@@ -148,7 +174,11 @@ state is also present on `cascade_gateway_info`.
 WireGuard is handshake-based and does not provide authoritative session state.
 `cascade_peer_connected` is therefore a recency signal: it is `1` only when the
 peer and interface are enabled and the most recent handshake is no older than
-the **Connected peer threshold** configured in Settings. A missing, invalid, future-only, or older
+the fixed **180-second** connected-peer threshold. This is a recent-handshake
+signal, not a reachability guarantee. The deprecated
+`METRICS_CONNECTED_PEER_THRESHOLD` environment variable and API threshold input
+are ignored. Raw handshake timestamps and ages remain available for custom
+PromQL thresholds. A missing, invalid, future-only, or older
 handshake produces `0`.
 
 ## Migration from awgexporter
@@ -212,3 +242,11 @@ before aggregation and ranking for panels controlled by the switch, so older
 targets without role metadata remain visible there even in Hide mode. Upgrade
 those targets to enable automatic hiding.
 
+
+## Local integration validation
+
+Run `bash scripts/test-public-metrics.sh` from a source checkout with a local
+Docker engine. The disposable privileged fixture checks real Caddy TLS, bearer
+authentication, host/bridge proxy isolation, VPN listener recovery and address
+changes, and public scraping while the VPN is down. It does not use host
+networking, a Docker socket mount, or production services.

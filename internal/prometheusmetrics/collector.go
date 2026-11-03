@@ -31,24 +31,23 @@ type Database interface {
 }
 
 type Collector struct {
-	runtime           RuntimeProvider
-	gateways          GatewayProvider
-	database          Database
-	started           time.Time
-	now               func() time.Time
-	version           string
-	commit            string
-	threshold         time.Duration
-	thresholdProvider func() time.Duration
-	errors            atomic.Uint64
+	runtime   RuntimeProvider
+	gateways  GatewayProvider
+	database  Database
+	started   time.Time
+	now       func() time.Time
+	version   string
+	commit    string
+	threshold time.Duration
+	errors    atomic.Uint64
 
 	desc map[string]*prometheus.Desc
 }
 
-func NewCollector(runtime RuntimeProvider, gateways GatewayProvider, database Database, version, commit string, threshold time.Duration) *Collector {
-	if threshold <= 0 {
-		threshold = defaultConnectedPeerThreshold
-	}
+// NewCollector retains the deprecated duration argument for source compatibility;
+// all consumers use the same fixed recent-handshake rule.
+func NewCollector(runtime RuntimeProvider, gateways GatewayProvider, database Database, version, commit string, _ time.Duration) *Collector {
+	threshold := defaultConnectedPeerThreshold
 	c := &Collector{runtime: runtime, gateways: gateways, database: database, started: time.Now(), now: time.Now, version: version, commit: commit, threshold: threshold, desc: map[string]*prometheus.Desc{}}
 	c.initDescriptions()
 	return c
@@ -118,9 +117,6 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 				c.emit(ch, "peer_enabled", prometheus.GaugeValue, boolFloat(peer.Enabled), peerLabels...)
 				c.emit(ch, "peer_persistent_keepalive_seconds", prometheus.GaugeValue, float64(peer.PersistentKeepalive), peerLabels...)
 				threshold := c.threshold
-				if c.thresholdProvider != nil {
-					threshold = c.thresholdProvider()
-				}
 				handshake, age, isConnected := handshakeValues(now, peer.LatestHandshakeAt, threshold)
 				if isConnected && peer.Enabled && iface.Enabled {
 					connected++
@@ -217,7 +213,7 @@ func handshakeValues(now time.Time, raw *string, threshold time.Duration) (float
 	}
 	age := now.Sub(parsed).Seconds()
 	if age < 0 {
-		age = 0
+		return float64(parsed.Unix()), 0, false
 	}
 	return float64(parsed.Unix()), age, age <= threshold.Seconds()
 }

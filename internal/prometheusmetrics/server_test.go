@@ -14,18 +14,19 @@ func TestServerPortConflictKeepsOldListenerAndSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	server := NewServer(manager, NewCollector(nil, nil, nil, "test", "test", time.Minute))
+	server.resolveVPN = func(string) (string, error) { return "127.0.0.1", nil }
 	t.Cleanup(func() { _ = server.Shutdown() })
 	oldPort := availablePort(t)
-	if _, err := server.Apply(Update{Enabled: true, Port: oldPort, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true}); err != nil {
+	if _, err := server.Apply(Update{Mode: ModeVPN, InterfaceID: "wg0", Enabled: true, Port: oldPort, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true}); err != nil {
 		t.Fatal(err)
 	}
-	occupied, err := net.Listen("tcp", "0.0.0.0:0")
+	occupied, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer occupied.Close()
 	occupiedPort := occupied.Addr().(*net.TCPAddr).Port
-	if _, err := server.Apply(Update{Enabled: true, Port: occupiedPort, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true}); err == nil {
+	if _, err := server.Apply(Update{Mode: ModeVPN, InterfaceID: "wg0", Enabled: true, Port: occupiedPort, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true}); err == nil {
 		t.Fatal("expected port conflict")
 	}
 	if got := manager.Current().Port; got != oldPort {
@@ -47,16 +48,18 @@ func TestServerStartupBindFailureIsNonFatal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	occupied, err := net.Listen("tcp", "0.0.0.0:0")
+	occupied, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer occupied.Close()
 	port := occupied.Addr().(*net.TCPAddr).Port
-	if _, err := manager.Update(Update{Enabled: true, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true}); err != nil {
+	if _, err := manager.Update(Update{Mode: ModeVPN, InterfaceID: "wg0", Enabled: true, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true}); err != nil {
 		t.Fatal(err)
 	}
 	server := NewServer(manager, NewCollector(nil, nil, nil, "test", "test", time.Minute))
+	server.resolveVPN = func(string) (string, error) { return "127.0.0.1", nil }
+	t.Cleanup(func() { _ = server.Shutdown() })
 	server.Start()
 	listening, listenError := server.Status()
 	if listening || listenError == "" {
@@ -70,8 +73,9 @@ func TestServerShutdownClosesListener(t *testing.T) {
 		t.Fatal(err)
 	}
 	server := NewServer(manager, NewCollector(nil, nil, nil, "test", "test", time.Minute))
+	server.resolveVPN = func(string) (string, error) { return "127.0.0.1", nil }
 	port := availablePort(t)
-	if _, err := server.Apply(Update{Enabled: true, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true}); err != nil {
+	if _, err := server.Apply(Update{Mode: ModeVPN, InterfaceID: "wg0", Enabled: true, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := server.Shutdown(); err != nil {

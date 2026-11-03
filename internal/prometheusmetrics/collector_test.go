@@ -118,21 +118,19 @@ func TestCollectorHandlesUnavailableSourcesAndDisconnectedPeer(t *testing.T) {
 	}
 }
 
-func TestCollectorUsesDynamicConnectedPeerThreshold(t *testing.T) {
-	handshake := "2026-08-28T09:58:00Z"
-	collector := NewCollector(fakeRuntime{[]tunnel.RuntimeInterfaceSnapshot{{
-		ID: "wg10", Enabled: true,
-		Peers: []tunnel.RuntimePeerSnapshot{{ID: "p", Enabled: true, LatestHandshakeAt: &handshake}},
-	}}}, nil, nil, "dev", "unknown", time.Minute)
-	collector.now = func() time.Time { return time.Date(2026, 8, 28, 10, 0, 0, 0, time.UTC) }
-	threshold := time.Minute
-	collector.thresholdProvider = func() time.Duration { return threshold }
-	if body := gatherText(t, collector); !strings.Contains(body, `cascade_peer_connected{interface="wg10",name="",peer_id="p"} 0`) {
-		t.Fatal(body)
-	}
-	threshold = 3 * time.Minute
-	if body := gatherText(t, collector); !strings.Contains(body, `cascade_peer_connected{interface="wg10",name="",peer_id="p"} 1`) {
-		t.Fatal(body)
+func TestCollectorUsesFixedConnectedPeerThreshold(t *testing.T) {
+	now := time.Date(2026, 8, 28, 10, 0, 0, 0, time.UTC)
+	for _, age := range []int{-1, 0, 179, 180, 181} {
+		handshake := now.Add(-time.Duration(age) * time.Second).Format(time.RFC3339)
+		collector := NewCollector(fakeRuntime{[]tunnel.RuntimeInterfaceSnapshot{{ID: "wg10", Enabled: true, Peers: []tunnel.RuntimePeerSnapshot{{ID: "p", Enabled: true, LatestHandshakeAt: &handshake}}}}}, nil, nil, "dev", "unknown", time.Second)
+		collector.now = func() time.Time { return now }
+		want := 0
+		if age >= 0 && age <= 180 {
+			want = 1
+		}
+		if body := gatherText(t, collector); !strings.Contains(body, fmt.Sprintf(`cascade_peer_connected{interface="wg10",name="",peer_id="p"} %d`, want)) {
+			t.Fatal(body)
+		}
 	}
 }
 
@@ -151,6 +149,7 @@ func TestServerEnabledDisabledAndToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	server := NewServer(manager, collector)
+	server.resolveVPN = func(string) (string, error) { return "127.0.0.1", nil }
 	t.Cleanup(func() { _ = server.Shutdown() })
 	port := availablePort(t)
 	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
@@ -168,7 +167,7 @@ func TestServerEnabledDisabledAndToken(t *testing.T) {
 		t.Fatalf("disabled status=%d", got)
 	}
 
-	if _, err := server.Apply(Update{Enabled: true, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true, Token: "token"}); err != nil {
+	if _, err := server.Apply(Update{Mode: ModeVPN, InterfaceID: "wg0", Enabled: true, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true, Token: "token"}); err != nil {
 		t.Fatal(err)
 	}
 	if got := request("/metrics", ""); got != fiber.StatusUnauthorized {
@@ -180,7 +179,7 @@ func TestServerEnabledDisabledAndToken(t *testing.T) {
 	if got := request("/other", "Bearer token"); got != fiber.StatusNotFound {
 		t.Fatalf("unexpected path status=%d", got)
 	}
-	if _, err := server.Apply(Update{Enabled: false, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true, ClearToken: true}); err != nil {
+	if _, err := server.Apply(Update{Mode: ModeVPN, InterfaceID: "wg0", Enabled: false, Port: port, ConnectedPeerThresholdSeconds: 60, HistoryEnabled: true, ClearToken: true}); err != nil {
 		t.Fatal(err)
 	}
 	if got := request("/metrics", ""); got != 0 {

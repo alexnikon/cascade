@@ -186,8 +186,8 @@ Configuration is collected interactively by `setup.sh` and saved to `/opt/cascad
 | `AWG_USERSPACE_IMPL` | `amneziawg-go` | `amneziawg-go` or `kernel` |
 | `NETWORK_MODE` | `host` | `host` or `bridge` — Docker network mode |
 | `BRIDGE_PORT_RANGE` | *(bridge only)* | Published UDP port range for WireGuard in bridge mode (e.g. `51831-65535`) |
-| `METRICS_ENABLED` | `false` | Initial native Prometheus endpoint state |
-| `METRICS_CONNECTED_PEER_THRESHOLD` | `180s` | Initial maximum handshake age considered connected |
+| `METRICS_ENABLED` | `false` | Deprecated; select and enable access in Settings → Metrics |
+| `METRICS_CONNECTED_PEER_THRESHOLD` | ignored | Connected peers use a fixed 180-second handshake age |
 | `METRICS_TOKEN` | unset | Initial optional bearer token for the metrics endpoint |
 | `METRICS_HISTORY_ENABLED` | `true` | Initial local metrics-history state |
 Additional settings (WireGuard defaults, DNS, etc.) are configurable in the Web UI under **Settings**.
@@ -266,7 +266,7 @@ Full reference: [docs/API.md](docs/API.md)
 
 Cascade has an optional native Prometheus endpoint backed by the same cached
 runtime state used by its UI and API. Administrators can enable and configure
-it in **Settings → Metrics**, then scrape `http://SERVER:9351/metrics`.
+it in **Settings → Metrics** using a selected VPN interface or public HTTPS with a required bearer token. Existing endpoints are disabled once on upgrade until an access mode is selected.
 Environment variables provide first-run bootstrap values only. See the
 [Prometheus monitoring guide](docs/PROMETHEUS.md) for security, metric names,
 multi-server configuration, Grafana dashboard import, and migration from

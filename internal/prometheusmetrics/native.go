@@ -10,7 +10,6 @@ import (
 // NewNativeCollector wires Prometheus to Cascade's process-local managers.
 func NewNativeCollector(database *sql.DB, version, commit string, manager *Manager) *Collector {
 	collector := NewCollector(nativeRuntimeProvider{}, nativeGatewayProvider{}, database, version, commit, manager.ConnectedPeerThreshold())
-	collector.thresholdProvider = manager.ConnectedPeerThreshold
 	return collector
 }
 

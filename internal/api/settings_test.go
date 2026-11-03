@@ -304,10 +304,11 @@ func TestGetSettingsIncludesAWG31RuntimeCapability(t *testing.T) {
 }
 
 func TestMetricsSettingsAdminUpdateAndSafeResponse(t *testing.T) {
+	t.Setenv("BIND_ADDR", "127.0.0.1")
 	sta := newSettingsTestApp(t)
 	ta := &testApp{app: sta.app, adminToken: sta.token}
 	resp := ta.do("PUT", "/api/settings/metrics", sta.token, map[string]any{
-		"enabled": true, "port": sta.metricsPort, "connectedPeerThresholdSeconds": 90,
+		"enabled": true, "mode": "public_https", "port": sta.metricsPort, "connectedPeerThresholdSeconds": 90,
 		"historyEnabled": false, "token": "do-not-return-this-token",
 	})
 	if resp.StatusCode != http.StatusOK {
@@ -331,7 +332,7 @@ func TestMetricsSettingsAdminUpdateAndSafeResponse(t *testing.T) {
 	if strings.Contains(encoded, "do-not-return-this-token") {
 		t.Fatalf("plaintext token leaked in response: %s", encoded)
 	}
-	if got := sta.metrics.Current(); got.Port != sta.metricsPort || got.ConnectedPeerThresholdSeconds != 90 || got.HistoryEnabled {
+	if got := sta.metrics.Current(); got.Port != sta.metricsPort || got.ConnectedPeerThresholdSeconds != 180 || got.HistoryEnabled {
 		t.Fatalf("runtime settings were not applied: %+v", got)
 	}
 }

@@ -14,7 +14,7 @@ func TestConfigFromEnv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !config.Enabled || config.Token != "secret" || config.ConnectedPeerThreshold != 4*time.Minute || config.HistoryEnabled {
+	if !config.Enabled || config.Token != "secret" || config.ConnectedPeerThreshold != 3*time.Minute || config.HistoryEnabled {
 		t.Fatalf("unexpected config: %+v", config)
 	}
 }
@@ -26,7 +26,7 @@ func TestConfigFromEnvRejectsInvalidValues(t *testing.T) {
 	}
 	t.Setenv("METRICS_ENABLED", "true")
 	t.Setenv("METRICS_CONNECTED_PEER_THRESHOLD", "0s")
-	if _, err := ConfigFromEnv(); err == nil {
-		t.Fatal("expected invalid threshold error")
+	if _, err := ConfigFromEnv(); err != nil {
+		t.Fatal("deprecated threshold should be ignored")
 	}
 }

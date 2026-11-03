@@ -89,13 +89,20 @@ Builds without recognizable version or commit metadata return `updateStatus: "un
 | `PUT` | `/api/settings/metrics` | Update metrics settings (admin only; token is write-only) |
 
 `GET /api/settings/metrics` returns `enabled`, `port`, the fixed `path` value
-`/metrics`, `listening`, a safe `listenError`, `connectedPeerThresholdSeconds`,
-`tokenConfigured`, `historyEnabled`, and `canManage`. It never returns the token.
+`/metrics`, `listening`, a safe `listenError`, `mode` (`vpn` or
+`public_https`), `interfaceId`, `interfaces`, `endpointUrl`, `publicUrl`,
+`publicSupported`, `publicError`, `configurationRequired`,
+`connectedPeerThresholdSeconds` (always `180`), `tokenConfigured`,
+`historyEnabled`, and `canManage`. A public backend ready state does not prove
+that Caddy or certificate trust has been configured at the external URL.
 
-`PUT /api/settings/metrics` accepts the complete settings payload:
-`{ enabled, port, connectedPeerThresholdSeconds, historyEnabled, token?, clearToken? }`.
-Changing an enabled listener's port is immediate. A port conflict returns **400**
-without changing the persisted settings or the existing listener.
+PUT accepts
+`{ enabled, mode, interfaceId, port, historyEnabled, token?, clearToken? }`.
+An enabled VPN endpoint requires an available selected interface; Public HTTPS
+requires a configured token and the standard local-proxy network setup.
+`connectedPeerThresholdSeconds` is accepted for compatibility and ignored.
+The token is write-only; blank preserves it. Removing it while Public HTTPS is
+enabled is rejected. Existing endpoints are disabled once on access-mode upgrade.
 
 **GET /api/settings — response fields:**
 

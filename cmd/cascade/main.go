@@ -164,6 +164,14 @@ func main() {
 
 	// Panic recovery — turns panics into HTTP 500 without crashing the server.
 	app.Use(recover.New())
+	// Prometheus is intentionally outside /api auth so a scraper can use a
+	// dedicated optional bearer token without acquiring a UI session.
+	metricsServer := prometheusmetrics.NewServer(metricsManager, prometheusmetrics.NewNativeCollector(
+		db.DB(), version.Version, version.GitCommit, metricsManager,
+	))
+
+	metricsServer.ConfigureProxy(cfg.BindHost, os.Getenv("NETWORK_MODE"))
+	app.Get(prometheusmetrics.InternalPath, metricsServer.PublicHandler)
 	app.Use(api.WebAccessMiddleware(webAccess))
 	app.Get("/_web-access/redirect", func(c *fiber.Ctx) error {
 		path := strings.Trim(os.Getenv("ADMIN_PATH"), "/")
@@ -202,12 +210,6 @@ func main() {
 		}
 		return err
 	})
-
-	// Prometheus is intentionally outside /api auth so a scraper can use a
-	// dedicated optional bearer token without acquiring a UI session.
-	metricsServer := prometheusmetrics.NewServer(metricsManager, prometheusmetrics.NewNativeCollector(
-		db.DB(), version.Version, version.GitCommit, metricsManager,
-	))
 
 	// ── API routes ────────────────────────────────────────────────────────────
 	// Must be registered BEFORE the static middleware so /api/* requests are

@@ -486,6 +486,11 @@
                 Metrics settings are read-only. Administrator access is required to change them.
               </p>
 
+              <p v-if="metricsSettings.configurationRequired" class="text-sm text-yellow-600 dark:text-yellow-400">
+                Prometheus access requires configuration. Select an access mode before enabling the endpoint.
+                Older endpoints were disabled during the access-mode upgrade; the token and local history are preserved.
+              </p>
+
               <label class="flex items-center gap-3" :class="metricsSettings.canManage ? 'cursor-pointer' : 'opacity-60'">
                 <input v-model="metricsSettings.enabled" type="checkbox" :disabled="!metricsSettings.canManage">
                 <span>
@@ -494,25 +499,42 @@
                 </span>
               </label>
 
-              <div :class="(!metricsSettings.enabled || !metricsSettings.canManage) ? 'opacity-60' : ''"
+              <div :class="!metricsSettings.canManage ? 'opacity-60' : ''"
                 style="display:flex; flex-direction:column; gap:16px;">
                 <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Metrics port</label>
-                  <input v-model.number="metricsSettings.port" type="number" min="1" max="65535" placeholder="9351"
-                    :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
-                    class="settings-input settings-input-number px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
-                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1 font-mono">{{ metricsEndpointURL() }}</p>
-                  <p class="text-xs mt-1" :class="metricsSettings.listening ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-neutral-500'">
-                    {{ metricsSettings.listening ? 'Listening on all network interfaces' : (metricsSettings.listenError || 'Listener is stopped') }}
-                  </p>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Access mode</label>
+                  <select v-content-select v-model="metricsSettings.mode" :disabled="!metricsSettings.canManage"
+                    class="settings-input px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                    <option disabled value="">Select access mode</option>
+                    <option value="vpn">VPN interface</option>
+                    <option value="public_https" :disabled="!metricsSettings.publicSupported">Public HTTPS</option>
+                  </select>
+                  <p v-if="metricsSettings.publicError" class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">{{ metricsSettings.publicError }}</p>
                 </div>
-
-                <div>
-                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Connected peer threshold (seconds)</label>
-                  <input v-model.number="metricsSettings.connectedPeerThresholdSeconds" type="number" min="1"
-                    :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
-                    class="settings-input settings-input-number px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
-                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">A peer with a newer handshake is reported as connected.</p>
+                <div v-if="metricsSettings.mode === 'vpn'">
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1">VPN interface</label>
+                  <select v-content-select v-model="metricsSettings.interfaceId" :disabled="!metricsSettings.canManage"
+                    class="settings-input px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                    <option disabled value="">Select VPN interface</option>
+                    <option v-for="iface in metricsSettings.interfaces" :key="iface.id" :value="iface.id" :disabled="!iface.enabled">
+                      {{ iface.name || iface.id }} — {{ iface.address }}{{ iface.enabled ? '' : ' (disabled)' }}
+                    </option>
+                  </select>
+                  <label class="block text-sm font-medium dark:text-neutral-300 mb-1 mt-3">Metrics port</label>
+                  <input v-model.number="metricsSettings.port" type="number" min="1" max="65535" placeholder="9351"
+                    :disabled="!metricsSettings.canManage"
+                    class="settings-input settings-input-number px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Only the selected interface address is used. Access stops while the interface is unavailable.</p>
+                </div>
+                <div v-if="metricsSettings.mode">
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 font-mono break-all">{{ metricsEndpointURL() }}</p>
+                  <p v-if="metricsSettings.endpointUrl === metricsEndpointURL()" class="text-xs mt-1" :class="metricsSettings.listening ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-neutral-500'">
+                    {{ metricsSettings.listening ? (metricsSettings.mode === 'public_https' ? 'HTTPS backend ready. Verify Caddy and certificate trust at the public URL.' : 'Listening on the selected VPN address') : (metricsSettings.listenError || 'Endpoint is stopped') }}
+                  </p>
+                  <p v-if="metricsSettings.mode === 'public_https'" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    Uses Caddy on port 443 and requires a bearer token. Prometheus must verify the TLS certificate.
+                    Upgrade existing Caddy configurations to enable the /metrics route.
+                  </p>
                 </div>
 
                 <div>
@@ -526,19 +548,27 @@
                     </span>
                   </div>
                   <div class="flex gap-2" style="flex-wrap:wrap;">
-                    <input v-model="metricsSettings.token" type="password" autocomplete="new-password"
-                      :placeholder="metricsSettings.tokenConfigured ? 'Enter a new token to replace it' : 'Optional token'"
+                    <input v-model="metricsSettings.token" :type="metricsSettings.token ? 'text' : 'password'" autocomplete="new-password"
+                      :placeholder="metricsSettings.tokenConfigured && !metricsSettings.clearToken ? '••••••••' : ''"
                       :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
                       @input="metricsSettings.clearToken = false"
                       class="settings-input settings-input-wide px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
-                    <button v-if="metricsSettings.tokenConfigured && !metricsSettings.clearToken"
+                    <button @click="generateMetricsToken" type="button"
+                      :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
+                      class="px-3 py-2 text-sm border rounded dark:border-neutral-500 dark:text-neutral-200 transition">
+                      {{ metricsSettings.tokenConfigured && !metricsSettings.clearToken ? 'Regenerate' : 'Generate' }}
+                    </button>
+                    <button v-if="metricsSettings.token" @click="copyMetricsToken" type="button"
+                      :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
+                      class="px-3 py-2 text-sm border rounded dark:border-neutral-500 dark:text-neutral-200 transition">Copy</button>
+                    <button v-if="metricsSettings.tokenConfigured && !metricsSettings.clearToken && !(metricsSettings.enabled && metricsSettings.mode === 'public_https')"
                       @click="removeMetricsToken" type="button"
                       :disabled="!metricsSettings.enabled || !metricsSettings.canManage"
                       class="button-danger px-3 py-2 text-sm border rounded transition">
                       Remove token
                     </button>
                   </div>
-                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Optional. The metrics port listens on all interfaces; without a token, restrict access using a VPN or firewall.</p>
+                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{ metricsSettings.mode === 'public_https' ? 'Required for Public HTTPS. Leave blank to keep the existing token.' : 'Optional within the VPN. Leave blank to keep the existing token.' }}</p>
                 </div>
               </div>
 

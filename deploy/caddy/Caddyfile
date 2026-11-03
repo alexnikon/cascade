@@ -57,6 +57,15 @@ https://:443 {
         -X-Powered-By
     }
 
+    # Cascade public metrics: Cascade checks access mode and bearer token.
+    handle /metrics {
+        reverse_proxy 127.0.0.1:{$CASCADE_PORT} {
+            rewrite /_internal/prometheus/metrics
+            header_up X-Cascade-Metrics-Proxy "1"
+            header_up X-Cascade-HTTPS-Port {http.request.local.port}
+        }
+    }
+
     # ── Admin interface (hidden path) ─────────────────────────────────────────
     #
     # handle_path strips the prefix before forwarding to Cascade.
@@ -69,6 +78,7 @@ https://:443 {
     #
     handle_path /{$ADMIN_PATH}/* {
         reverse_proxy 127.0.0.1:{$CASCADE_PORT} {
+            header_up -X-Cascade-Metrics-Proxy
             # Always overwrite client-supplied policy metadata.
             header_up X-Cascade-Proxy "1"
             header_up X-Cascade-Client-IP {remote_host}

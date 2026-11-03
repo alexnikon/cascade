@@ -15,18 +15,24 @@ import (
 )
 
 const (
-	settingBootstrap  = "prometheus_metrics_bootstrapped"
-	settingEnabled    = "prometheus_metrics_enabled"
-	settingPort       = "prometheus_metrics_port"
-	legacySettingPath = "prometheus_metrics_path"
-	settingThreshold  = "prometheus_metrics_connected_peer_threshold_seconds"
-	settingTokenHash  = "prometheus_metrics_token_sha256"
-	settingHistory    = "prometheus_metrics_history_enabled"
+	settingBootstrap     = "prometheus_metrics_bootstrapped"
+	settingEnabled       = "prometheus_metrics_enabled"
+	settingPort          = "prometheus_metrics_port"
+	legacySettingPath    = "prometheus_metrics_path"
+	settingThreshold     = "prometheus_metrics_connected_peer_threshold_seconds"
+	settingTokenHash     = "prometheus_metrics_token_sha256"
+	settingHistory       = "prometheus_metrics_history_enabled"
+	settingAccessMode    = "prometheus_metrics_access_mode"
+	settingInterface     = "prometheus_metrics_interface_id"
+	settingAccessVersion = "prometheus_metrics_access_version"
 )
 
 // Snapshot is an immutable copy of the active metrics configuration.
 type Snapshot struct {
 	Enabled                       bool
+	Mode                          string
+	InterfaceID                   string
+	ConfigurationRequired         bool
 	Port                          int
 	ConnectedPeerThresholdSeconds int
 	TokenConfigured               bool
@@ -38,8 +44,10 @@ type Snapshot struct {
 // token preserves the existing credential unless ClearToken is true.
 type Update struct {
 	Enabled                       bool   `json:"enabled"`
+	Mode                          string `json:"mode"`
+	InterfaceID                   string `json:"interfaceId"`
 	Port                          int    `json:"port"`
-	ConnectedPeerThresholdSeconds int    `json:"connectedPeerThresholdSeconds"`
+	ConnectedPeerThresholdSeconds int    `json:"connectedPeerThresholdSeconds"` // Deprecated input; ignored.
 	HistoryEnabled                bool   `json:"historyEnabled"`
 	Token                         string `json:"token,omitempty"`
 	ClearToken                    bool   `json:"clearToken,omitempty"`
@@ -73,13 +81,13 @@ func NewManager(database *sql.DB, bootstrap Config) (*Manager, error) {
 func (m *Manager) Current() Snapshot {
 	s := m.current.Load()
 	if s == nil {
-		return Snapshot{Port: DefaultPort, ConnectedPeerThresholdSeconds: int(defaultConnectedPeerThreshold.Seconds()), HistoryEnabled: true}
+		return Snapshot{ConfigurationRequired: true, Port: DefaultPort, ConnectedPeerThresholdSeconds: int(defaultConnectedPeerThreshold.Seconds()), HistoryEnabled: true}
 	}
 	return *s
 }
 
 func (m *Manager) ConnectedPeerThreshold() time.Duration {
-	return time.Duration(m.Current().ConnectedPeerThresholdSeconds) * time.Second
+	return defaultConnectedPeerThreshold
 }
 
 func (m *Manager) Authorize(token string) bool {
@@ -107,8 +115,14 @@ func (m *Manager) next(update Update) (Snapshot, error) {
 	if update.Port < 1 || update.Port > 65535 {
 		return Snapshot{}, invalid("port must be between 1 and 65535")
 	}
-	if update.ConnectedPeerThresholdSeconds <= 0 {
-		return Snapshot{}, invalid("connectedPeerThresholdSeconds must be greater than zero")
+	if update.Mode != "" && update.Mode != ModeVPN && update.Mode != ModePublicHTTPS {
+		return Snapshot{}, invalid("unknown metrics access mode")
+	}
+	if update.Enabled && update.Mode == "" {
+		return Snapshot{}, invalid("select a metrics access mode")
+	}
+	if update.Enabled && update.Mode == ModeVPN && update.InterfaceID == "" {
+		return Snapshot{}, invalid("select a VPN interface")
 	}
 	if update.ClearToken && update.Token != "" {
 		return Snapshot{}, invalid("token and clearToken cannot be used together")
@@ -116,8 +130,11 @@ func (m *Manager) next(update Update) (Snapshot, error) {
 
 	next := m.Current()
 	next.Enabled = update.Enabled
+	next.Mode = update.Mode
+	next.InterfaceID = update.InterfaceID
+	next.ConfigurationRequired = update.Mode == ""
 	next.Port = update.Port
-	next.ConnectedPeerThresholdSeconds = update.ConnectedPeerThresholdSeconds
+	next.ConnectedPeerThresholdSeconds = 180
 	next.HistoryEnabled = update.HistoryEnabled
 	if update.ClearToken {
 		next.TokenConfigured = false
@@ -125,6 +142,9 @@ func (m *Manager) next(update Update) (Snapshot, error) {
 	} else if update.Token != "" {
 		next.TokenConfigured = true
 		next.tokenHash = sha256.Sum256([]byte(update.Token))
+	}
+	if next.Enabled && next.Mode == ModePublicHTTPS && !next.TokenConfigured {
+		return Snapshot{}, invalid("Public HTTPS requires a bearer token")
 	}
 	return next, nil
 }
@@ -134,8 +154,8 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 	err := m.db.QueryRow(`SELECT value FROM settings WHERE key = ?`, settingBootstrap).Scan(&marker)
 	if errors.Is(err, sql.ErrNoRows) {
 		s := Snapshot{
-			Enabled: bootstrap.Enabled, Port: DefaultPort,
-			ConnectedPeerThresholdSeconds: int(bootstrap.ConnectedPeerThreshold.Seconds()),
+			Enabled: false, Port: DefaultPort, ConfigurationRequired: true,
+			ConnectedPeerThresholdSeconds: 180,
 			HistoryEnabled:                bootstrap.HistoryEnabled,
 		}
 		if bootstrap.Token != "" {
@@ -156,6 +176,7 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 	if err != nil {
 		return fmt.Errorf("load metrics settings: %w", err)
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var key, value string
 		if err := rows.Scan(&key, &value); err != nil {
@@ -163,10 +184,6 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 			return err
 		}
 		values[key] = value
-	}
-	threshold, err := strconv.Atoi(values[settingThreshold])
-	if err != nil || threshold <= 0 {
-		return errors.New("stored metrics connected peer threshold is invalid")
 	}
 	port := DefaultPort
 	if raw := values[settingPort]; raw != "" {
@@ -176,9 +193,19 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 		}
 	}
 	s := Snapshot{
-		Enabled: values[settingEnabled] == "true", Port: port,
-		ConnectedPeerThresholdSeconds: threshold,
+		Enabled: values[settingEnabled] == "true" && values[settingAccessVersion] == "1", Port: port,
+		Mode: values[settingAccessMode], InterfaceID: values[settingInterface],
+		ConfigurationRequired:         values[settingAccessVersion] != "1" || values[settingAccessMode] == "",
+		ConnectedPeerThresholdSeconds: 180,
 		HistoryEnabled:                values[settingHistory] != "false",
+	}
+	if s.ConfigurationRequired {
+		s.Enabled = false
+		s.Mode = ""
+		s.InterfaceID = ""
+	}
+	if s.Mode != "" && s.Mode != ModeVPN && s.Mode != ModePublicHTTPS {
+		return errors.New("stored metrics access mode is invalid")
 	}
 	if encoded := values[settingTokenHash]; encoded != "" {
 		decoded, err := hex.DecodeString(encoded)
@@ -187,6 +214,9 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 		}
 		copy(s.tokenHash[:], decoded)
 		s.TokenConfigured = true
+	}
+	if s.Enabled && ((s.Mode == ModePublicHTTPS && !s.TokenConfigured) || (s.Mode == ModeVPN && s.InterfaceID == "")) {
+		return errors.New("stored metrics access settings are incomplete")
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
@@ -209,6 +239,7 @@ func (m *Manager) persist(s Snapshot) error {
 	}
 	defer tx.Rollback()
 	values := map[string]string{
+		settingAccessVersion: "1", settingAccessMode: s.Mode, settingInterface: s.InterfaceID,
 		settingBootstrap: "1", settingEnabled: strconv.FormatBool(s.Enabled),
 		settingPort: strconv.Itoa(s.Port), settingThreshold: strconv.Itoa(s.ConnectedPeerThresholdSeconds),
 		settingHistory: strconv.FormatBool(s.HistoryEnabled), settingTokenHash: "",

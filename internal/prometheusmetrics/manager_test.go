@@ -28,7 +28,7 @@ func TestManagerBootstrapsOnceAndHashesToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := manager.Current(); !got.Enabled || got.Port != DefaultPort || got.ConnectedPeerThresholdSeconds != 180 || !got.TokenConfigured || got.HistoryEnabled {
+	if got := manager.Current(); got.Enabled || !got.ConfigurationRequired || got.Port != DefaultPort || got.ConnectedPeerThresholdSeconds != 180 || !got.TokenConfigured || got.HistoryEnabled {
 		t.Fatalf("unexpected bootstrap snapshot: %+v", got)
 	}
 	var stored string
@@ -46,7 +46,7 @@ func TestManagerBootstrapsOnceAndHashesToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := reloaded.Current(); got.Port != DefaultPort || !got.Enabled || got.HistoryEnabled {
+	if got := reloaded.Current(); got.Port != DefaultPort || got.Enabled || got.HistoryEnabled {
 		t.Fatalf("environment bootstrap unexpectedly overrode SQLite: %+v", got)
 	}
 }
@@ -56,7 +56,7 @@ func TestManagerUpdateTokenSemanticsAndValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	update := Update{Enabled: true, Port: 9352, ConnectedPeerThresholdSeconds: 90, HistoryEnabled: false, Token: "secret"}
+	update := Update{Mode: ModeVPN, InterfaceID: "wg0", Enabled: true, Port: 9352, ConnectedPeerThresholdSeconds: 90, HistoryEnabled: false, Token: "secret"}
 	if _, err := manager.Update(update); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestManagerUpdateTokenSemanticsAndValidation(t *testing.T) {
 	for _, invalid := range []Update{
 		{Port: 0, ConnectedPeerThresholdSeconds: 1},
 		{Port: 65536, ConnectedPeerThresholdSeconds: 1},
-		{Port: 9351, ConnectedPeerThresholdSeconds: 0},
+		{Port: 9351, Mode: "invalid"},
 	} {
 		if _, err := manager.Update(invalid); err == nil {
 			t.Fatalf("accepted invalid update: %+v", invalid)
@@ -99,7 +99,7 @@ func TestManagerConcurrentReadAndUpdate(t *testing.T) {
 		}()
 	}
 	for i := 1; i <= 10; i++ {
-		if _, err := manager.Update(Update{Enabled: i%2 == 0, Port: 9351, ConnectedPeerThresholdSeconds: i, HistoryEnabled: i%2 != 0}); err != nil {
+		if _, err := manager.Update(Update{Mode: ModeVPN, InterfaceID: "wg0", Enabled: i%2 == 0, Port: 9351, ConnectedPeerThresholdSeconds: i, HistoryEnabled: i%2 != 0}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -116,7 +116,7 @@ func TestManagerDoesNotPublishFailedDatabaseUpdate(t *testing.T) {
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := manager.Update(Update{Enabled: true, Port: 9352, ConnectedPeerThresholdSeconds: 90, HistoryEnabled: false}); err == nil {
+	if _, err := manager.Update(Update{Mode: ModeVPN, InterfaceID: "wg0", Enabled: true, Port: 9352, ConnectedPeerThresholdSeconds: 90, HistoryEnabled: false}); err == nil {
 		t.Fatal("expected persistence error")
 	}
 	if after := manager.Current(); after != before {
@@ -150,5 +150,40 @@ func TestManagerMigratesLegacyPathToDefaultPort(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatal("legacy metrics path was not removed")
+	}
+}
+
+func TestAccessMigrationDisablesOnlyOnceAndPreservesData(t *testing.T) {
+	database := newSettingsDatabase(t)
+	manager, err := NewManager(database, Config{Token: "kept-secret", HistoryEnabled: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`DELETE FROM settings WHERE key IN (?, ?, ?)`, settingAccessVersion, settingAccessMode, settingInterface); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE settings SET value='true' WHERE key=?`, settingEnabled); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`UPDATE settings SET value='invalid-old-value' WHERE key=?`, settingThreshold); err != nil {
+		t.Fatal(err)
+	}
+	manager, err = NewManager(database, Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := manager.Current()
+	if snapshot.Enabled || !snapshot.ConfigurationRequired || !snapshot.HistoryEnabled || !manager.Authorize("kept-secret") || snapshot.ConnectedPeerThresholdSeconds != 180 {
+		t.Fatalf("bad migration: %+v", snapshot)
+	}
+	if _, err := manager.Update(Update{Enabled: true, Mode: ModePublicHTTPS, Port: 9351, HistoryEnabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	manager, err = NewManager(database, Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot := manager.Current(); !snapshot.Enabled || snapshot.ConfigurationRequired || snapshot.Mode != ModePublicHTTPS {
+		t.Fatalf("restart repeated migration: %+v", snapshot)
 	}
 }
