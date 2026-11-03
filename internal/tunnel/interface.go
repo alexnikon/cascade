@@ -1346,14 +1346,13 @@ func (t *TunnelInterface) generateWgConfig() string {
 				mssArg = fmt.Sprintf("--set-mss %d", t.MSS)
 			}
 			tcpFlags := "-p tcp --tcp-flags SYN,RST SYN -j TCPMSS"
-			postUpMSS = fmt.Sprintf(
-				"; iptables-nft -t mangle -A FORWARD -i %s %s %s; iptables-nft -t mangle -A FORWARD -o %s %s %s",
-				t.ID, tcpFlags, mssArg, t.ID, tcpFlags, mssArg,
-			)
-			postDownMSS = fmt.Sprintf(
-				"; iptables-nft -t mangle -D FORWARD -i %s %s %s 2>/dev/null || true; iptables-nft -t mangle -D FORWARD -o %s %s %s 2>/dev/null || true",
-				t.ID, tcpFlags, mssArg, t.ID, tcpFlags, mssArg,
-			)
+			// Repeated startup must not append copies of surviving host rules.
+			// Stop removes every exact legacy copy of the old configuration.
+			for _, direction := range []string{"-i", "-o"} {
+				rule := fmt.Sprintf("FORWARD %s %s %s %s", direction, t.ID, tcpFlags, mssArg)
+				postUpMSS += fmt.Sprintf("; iptables-nft -w 5 -t mangle -C %s 2>/dev/null || iptables-nft -w 5 -t mangle -A %s", rule, rule)
+				postDownMSS += fmt.Sprintf("; while iptables-nft -w 5 -t mangle -D %s 2>/dev/null; do :; done", rule)
+			}
 		}
 		postUp := fmt.Sprintf(
 			"PostUp = %s; ip link set %s txqueuelen 500; iptables-nft -C FORWARD -i %s -j ACCEPT 2>/dev/null || iptables-nft -A FORWARD -i %s -j ACCEPT; iptables-nft -C FORWARD -o %s -j ACCEPT 2>/dev/null || iptables-nft -A FORWARD -o %s -j ACCEPT%s%s\n",
