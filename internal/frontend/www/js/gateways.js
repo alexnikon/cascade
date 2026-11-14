@@ -295,6 +295,10 @@ async loadRemotes() {
 
 async switchToRemote(remote) {
       this._stopAliasJobPoll?.();
+      this.activeSessions = [];
+      this.activeSessionsError = '';
+      this.activeSessionsLoading = false;
+      this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
       this.clientsPersist = {};
       this.peersPersist = {};
       this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
@@ -333,6 +337,10 @@ async switchToRemote(remote) {
 
 switchToLocal() {
       this._stopAliasJobPoll?.();
+      this.activeSessions = [];
+      this.activeSessionsError = '';
+      this.activeSessionsLoading = false;
+      this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
       this.clientsPersist = {};
       this.peersPersist = {};
       this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;

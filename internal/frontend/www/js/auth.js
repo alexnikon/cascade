@@ -40,7 +40,6 @@ async login() {
         const res = await this._loginRequestWithDelay(() => this.api.createSession({
           username: this.username,
           password: this.password,
-          remember: this.remember,
         }));
         if (res && res.totp_required) {
           this.blurAuthField();
@@ -97,8 +96,10 @@ async loginStep2() {
 async _onLoginSuccess() {
       const session = await this.api.getSession();
       if (!session.authenticated) throw new Error('Unable to confirm the authenticated session. Please try again.');
+      this.api._authGeneration = (this.api._authGeneration || 0) + 1;
       this.blurAuthField();
       this.authenticated = true;
+      this.startResourcePoller?.();
       this.totpRequired = false;
       this.totpCode = '';
       this.lastAutoTOTP = '';
@@ -123,25 +124,40 @@ async _onLoginSuccess() {
         this.loadSystemInterfaces();
       }
       if (this.activePage === 'settings') {
+        this.loadActiveSessions();
         this.loadUsers();
       }
     },
 
-logout(e) {
-      e.preventDefault();
-
-      this.api.deleteSession()
-        .then(() => {
-          this.authenticated = false;
+clearAuthentication() {
+      this.api._authGeneration = (this.api._authGeneration || 0) + 1;
       this._stopAliasJobPoll?.();
+      this.metricsStopPoller?.();
+      this.stopResourcePoller?.();
+      this.api.clearRemote();
+      this.activeRemoteId = null;
+      this.authenticated = false;
+      this.totpRequired = false;
+      this.totpCode = '';
+      this.lastAutoTOTP = '';
+      this.password = '';
+      this.currentUser = null;
+      this.activeSessions = [];
+      this.activeSessionsError = '';
+      this.activeSessionsLoading = false;
+      this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
       this.clientsPersist = {};
       this.peersPersist = {};
       this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
-          this.clients = null;
-        })
-        .catch((err) => {
-          this.showToast(err.message || err.toString(), 'error');
-        });
+      this.peerRefreshSeq = (this.peerRefreshSeq || 0) + 1;
+      this.allPeerRefreshSeq = (this.allPeerRefreshSeq || 0) + 1;
+      this.clients = null;
+    },
+
+logout(e) {
+      e?.preventDefault();
+      this.api.deleteSession()
+        .then(() => this.clearAuthentication())
+        .catch(err => this.showToast(err.message || err.toString(), 'error'));
     },
 };
-

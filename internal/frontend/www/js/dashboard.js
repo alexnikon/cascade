@@ -117,19 +117,14 @@ dashInitResizeObservers() {
       const grid = document.getElementById('dashboard-grid');
       if (!grid) return;
 
-      // Proportional scaling: 450px = 1.0 (reference), linear, clamped 0.55–1.5.
-      // Multiplied by per-widget fontScale (user +/- adjustment, default 1.0).
-      const zoomFor = (width, fontScale) =>
-        Math.max(0.55, Math.min(1.5, (width / 450) * (fontScale || 1.0)));
-
       const obs = new ResizeObserver(entries => {
         for (const entry of entries) {
           const gsItem = entry.target.closest('[gs-id]');
           const widgetId = gsItem ? gsItem.getAttribute('gs-id') : null;
           const widget = widgetId ? this.dashWidgets.find(w => w.id === widgetId) : null;
           if (widget && widget.type === 'monitoring') {
-            const header = entry.target.querySelector('.dash-card-header');
-            const height = Math.max(0, entry.contentRect.height - (header?.offsetHeight || 0) - 8);
+            // The body content box already excludes its padding and the card header.
+            const height = Math.max(0, entry.contentRect.height);
             if (!this.metricsChartHeights) this.$set(this, 'metricsChartHeights', {});
             if (this.metricsChartHeights[widgetId] !== height) this.$set(this.metricsChartHeights, widgetId, height);
           }
@@ -140,7 +135,7 @@ dashInitResizeObservers() {
         }
       });
 
-      grid.querySelectorAll('.grid-stack-item-content').forEach(c => obs.observe(c));
+      grid.querySelectorAll('.monitoring-body').forEach(body => obs.observe(body));
       this._dashResizeObs = obs;
     },
 
@@ -617,7 +612,10 @@ _updateAreaSeriesCache(widgetId, key) {
 
 metricsChartHeight(widgetId) {
       const widget = this.dashWidgets.find(w => w.id === widgetId);
-      return Math.max(90, Math.floor((this.metricsChartHeights[widgetId] || 90) / Math.max(1, widget?.graphs?.length || 0)));
+      const count = Math.max(1, widget?.graphs?.length || 0);
+      const available = this.metricsChartHeights[widgetId] ?? 90;
+      const height = Math.floor((available - 8 * (count - 1)) / count);
+      return Math.max(count <= 2 ? 1 : 90, height);
     },
 
 metricsGetCachedAreaSeries(widgetId, key) {
@@ -635,7 +633,7 @@ metricsAreaChartOptions(widgetId, key) {
       if (!this._chartOptionsCache) this._chartOptionsCache = {};
       if (!this._chartOptionsCache[ck]) {
         this._chartOptionsCache[ck] = {
-          chart: { id: widgetId+'_'+key, type:'area', animations:{ enabled:false }, toolbar:{ show:false }, zoom:{ allowMouseWheelZoom:false }, sparkline:{ enabled:false }, background:'transparent' },
+          chart: { ...(this.dashWidgets.some(widget => widget.id === widgetId) ? { parentHeightOffset:0 } : {}), id: widgetId+'_'+key, type:'area', animations:{ enabled:false }, toolbar:{ show:false }, zoom:{ allowMouseWheelZoom:false }, sparkline:{ enabled:false }, background:'transparent' },
           colors: [color],
           stroke: { curve:'smooth', width:2 },
           markers: { size: 0 },

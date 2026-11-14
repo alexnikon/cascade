@@ -43,7 +43,7 @@
                         style="opacity:0.5; background:none; border:none; cursor:pointer; padding:0; line-height:1; color:inherit; margin-left:2px;">✕</button>
                     </div>
                   </div>
-                  <div class="dash-card-body" :class="{ 'monitoring-body': w.type === 'monitoring', 'monitoring-body-single': w.type === 'monitoring' && (w.graphs || []).length === 1 }">
+                  <div class="dash-card-body" :class="{ 'monitoring-body': w.type === 'monitoring', 'monitoring-body-fit': w.type === 'monitoring' && (w.graphs || []).length <= 2 }">
 
                     <!-- ── server-info ── -->
                     <template v-if="w.type === 'server-info'">
@@ -372,7 +372,7 @@
                       <div v-if="!(w.graphs||[]).length" style="display:flex; align-items:center; justify-content:center; height:60px;">
                         <span class="text-xs text-gray-400 dark:text-neutral-500">Click ⚙ to add graphs</span>
                       </div>
-                      <div v-for="key in (w.graphs||[])" :key="key" style="position:relative; margin-bottom:2px;">
+                      <div v-for="key in (w.graphs||[])" :key="key" class="monitoring-chart">
                         <span style="position:absolute; top:4px; left:36px; z-index:1; font-size:9px; font-weight:600; pointer-events:none;"
                           :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{ metricsKeyLabel(key) }}</span>
                         <!-- Gateway: stacked bar showing proportional status distribution -->
@@ -380,7 +380,7 @@
                           type="bar"
                           :height="metricsChartHeight(w.id)"
                           :options="{
-                            chart: { id: w.id+'_'+key, type:'bar', stacked:true, stackType:'100%', animations:{ enabled:false }, toolbar:{ show:false }, zoom:{ allowMouseWheelZoom:false }, background:'transparent' },
+                            chart: { parentHeightOffset:0, id: w.id+'_'+key, type:'bar', stacked:true, stackType:'100%', animations:{ enabled:false }, toolbar:{ show:false }, zoom:{ allowMouseWheelZoom:false }, background:'transparent' },
                             plotOptions: { bar: { columnWidth:'95%', borderRadius:0 } },
                             colors: ['#9ca3af','#ef4444','#eab308','#22c55e'],
                             dataLabels: { enabled: false },

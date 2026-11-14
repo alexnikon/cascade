@@ -2852,3 +2852,28 @@ button.interface-transfer-download:hover:not(:disabled) { background: #047857 !i
   .amnezia-templates .settings-template-row > .flex:last-child { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
   .remote-actions { flex-wrap: wrap; white-space: normal; }
 }
+
+/* Session details wrap within the Settings table and compact card layout. */
+.active-sessions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.active-sessions-header > div { min-width: 0; }
+.active-sessions-header > button { flex-shrink: 0; }
+.active-sessions-table { table-layout: fixed; }
+.active-sessions-table td { overflow-wrap: anywhere; }
+.active-session-device { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.active-session-current {
+  border-radius: 4px;
+  padding: 2px 6px;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .active-sessions-header { align-items: flex-start; flex-wrap: wrap; }
+  .active-sessions-table { table-layout: auto; }
+}

@@ -16,6 +16,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/sessions"
 )
 
 // bcryptCost is the work factor for hashing new passwords.
@@ -23,6 +24,7 @@ const bcryptCost = 12
 
 // User is the public view of a user record (no sensitive fields).
 type User struct {
+	AuthVersion int64     `json:"-"`
 	ID          string    `json:"id"`
 	Username    string    `json:"username"`
 	IsAdmin     bool      `json:"is_admin"`
@@ -63,8 +65,8 @@ func GetByID(id string) (*User, error) {
 	var u User
 	var createdAt string
 	err := db.DB().QueryRow(
-		`SELECT id, username, is_admin, totp_enabled, created_at FROM users WHERE id = ?`, id,
-	).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.TOTPEnabled, &createdAt)
+		`SELECT id, username, is_admin, totp_enabled, created_at, auth_version FROM users WHERE id = ?`, id,
+	).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.TOTPEnabled, &createdAt, &u.AuthVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -80,9 +82,9 @@ func GetByUsername(username string) (*User, error) {
 	var u User
 	var createdAt string
 	err := db.DB().QueryRow(
-		`SELECT id, username, is_admin, totp_enabled, created_at FROM users WHERE username = ? COLLATE NOCASE`,
+		`SELECT id, username, is_admin, totp_enabled, created_at, auth_version FROM users WHERE username = ? COLLATE NOCASE`,
 		username,
-	).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.TOTPEnabled, &createdAt)
+	).Scan(&u.ID, &u.Username, &u.IsAdmin, &u.TOTPEnabled, &createdAt, &u.AuthVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -190,7 +192,7 @@ func Create(username, password string) (*User, error) {
 }
 
 // UpdatePassword replaces the password hash for the user with the given ID.
-func UpdatePassword(id, newPassword string) error {
+func UpdatePassword(id, newPassword string, keepSessionID ...string) error {
 	if newPassword == "" {
 		return errors.New("password is required")
 	}
@@ -201,10 +203,7 @@ func UpdatePassword(id, newPassword string) error {
 	if err != nil {
 		return fmt.Errorf("users.UpdatePassword bcrypt: %w", err)
 	}
-	_, err = db.DB().Exec(
-		`UPDATE users SET password_hash = ? WHERE id = ?`, string(hash), id,
-	)
-	return err
+	return changeCredentials(id, keepSessionID, `UPDATE users SET password_hash = ?, auth_version=auth_version+1 WHERE id = ?`, []any{string(hash), id}, "", "")
 }
 
 // UpdateUsername changes the username for the user with the given ID.
@@ -266,11 +265,12 @@ func VerifyPassword(username, password string) (*User, error) {
 
 	var id, hash, createdAt string
 	var isAdmin, totpEnabled bool
+	var authVersion int64
 	err := db.DB().QueryRow(
-		`SELECT id, username, password_hash, is_admin, totp_enabled, created_at
+		`SELECT id, username, password_hash, is_admin, totp_enabled, created_at, auth_version
 		   FROM users WHERE username = ? COLLATE NOCASE`,
 		username,
-	).Scan(&id, &username, &hash, &isAdmin, &totpEnabled, &createdAt)
+	).Scan(&id, &username, &hash, &isAdmin, &totpEnabled, &createdAt, &authVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("invalid credentials")
 	}
@@ -282,7 +282,7 @@ func VerifyPassword(username, password string) (*User, error) {
 		return nil, errors.New("invalid credentials")
 	}
 
-	u := &User{ID: id, Username: username, IsAdmin: isAdmin, TOTPEnabled: totpEnabled}
+	u := &User{ID: id, Username: username, IsAdmin: isAdmin, TOTPEnabled: totpEnabled, AuthVersion: authVersion}
 	u.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
 	return u, nil
 }
@@ -306,21 +306,46 @@ func GetTOTPSecret(userID string) (string, error) {
 }
 
 // SetTOTP saves the TOTP secret and marks totp_enabled = 1.
-func SetTOTP(userID, secret string) error {
-	_, err := db.DB().Exec(
-		`UPDATE users SET totp_secret = ?, totp_enabled = 1 WHERE id = ?`,
-		secret, userID,
-	)
-	return err
+func SetTOTP(userID, secret string, keepSessionID ...string) error {
+	return changeCredentials(userID, keepSessionID, `UPDATE users SET totp_secret=?,totp_enabled=1,auth_version=auth_version+1 WHERE id=?`, []any{secret, userID}, "", "")
 }
 
-// ClearTOTP removes the TOTP secret and marks totp_enabled = 0.
-func ClearTOTP(userID string) error {
-	_, err := db.DB().Exec(
-		`UPDATE users SET totp_secret = '', totp_enabled = 0 WHERE id = ?`,
-		userID,
-	)
-	return err
+// SetTOTPFromChallenge atomically consumes a setup challenge and enables 2FA.
+func SetTOTPFromChallenge(userID, secret, challenge, context, keepID string) error {
+	return changeCredentials(userID, []string{keepID}, `UPDATE users SET totp_secret=?,totp_enabled=1,auth_version=auth_version+1 WHERE id=?`, []any{secret, userID}, challenge, context)
+}
+
+// ClearTOTP disables 2FA and invalidates other browser authorizations.
+func ClearTOTP(userID string, keepSessionID ...string) error {
+	return changeCredentials(userID, keepSessionID, `UPDATE users SET totp_secret='',totp_enabled=0,auth_version=auth_version+1 WHERE id=?`, []any{userID}, "", "")
+}
+
+func changeCredentials(userID string, keepIDs []string, query string, args []any, challenge, context string) error {
+	tx, err := db.DB().Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if challenge != "" {
+		result, err := tx.Exec(`DELETE FROM auth_challenges WHERE token_hash=? AND user_id=? AND purpose='setup' AND context=? AND expires_at>? AND auth_version=(SELECT auth_version FROM users WHERE id=?)`, sessions.Hash(challenge), userID, context, time.Now().Unix(), userID)
+		if err != nil {
+			return err
+		}
+		if n, _ := result.RowsAffected(); n != 1 {
+			return sessions.ErrInvalid
+		}
+	}
+	if _, err := tx.Exec(query, args...); err != nil {
+		return err
+	}
+	keepID := ""
+	if len(keepIDs) > 0 {
+		keepID = keepIDs[0]
+	}
+	if err := sessions.InvalidateUserTx(tx, userID, keepID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // IsTOTPEnabled returns true if totp_enabled = 1 for the given user.

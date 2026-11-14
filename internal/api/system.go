@@ -21,6 +21,7 @@ import (
 	"github.com/alexnikon/cascade/internal/aliases"
 	"github.com/alexnikon/cascade/internal/db"
 	"github.com/alexnikon/cascade/internal/firewall"
+	"github.com/alexnikon/cascade/internal/sessions"
 	"github.com/alexnikon/cascade/internal/tunnel"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/scrypt"
@@ -239,9 +240,11 @@ func systemRestore(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 
-	// Validate the tar.gz before doing anything destructive.
-	if _, err := gzip.NewReader(bytes.NewReader(tarGzData)); err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "invalid gzip: "+err.Error())
+	// Sanitize offline, before replacing any live files. A restore must never
+	// resurrect browser credentials, even if the process stops during extraction.
+	tarGzData, err = sanitizeRestoreSessions(tarGzData)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid backup: "+err.Error())
 	}
 
 	// Step 1: Auto-backup current state to data/pre-restore-TIMESTAMP.tar.gz.
@@ -334,6 +337,88 @@ func systemRestore(c *fiber.Ctx) error {
 		os.Exit(0)
 	}()
 	return nil
+}
+
+func sanitizeRestoreSessions(data []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	tr := tar.NewReader(reader)
+	var out bytes.Buffer
+	gz := gzip.NewWriter(&out)
+	tw := tar.NewWriter(gz)
+	defer gz.Close()
+	defer tw.Close()
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		name := filepath.Base(header.Name)
+		if header.Typeflag == tar.TypeReg && (name == "cascade.db" || name == "awg.db" || name == "wireguard.db") {
+			contents, err := io.ReadAll(tr)
+			if err != nil {
+				return nil, err
+			}
+			contents, err = sanitizeRestoredDatabase(contents)
+			if err != nil {
+				return nil, err
+			}
+			header.Size = int64(len(contents))
+			if err := tw.WriteHeader(header); err != nil {
+				return nil, err
+			}
+			if _, err := tw.Write(contents); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := tw.WriteHeader(header); err != nil {
+				return nil, err
+			}
+			if _, err := io.Copy(tw, tr); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+func sanitizeRestoredDatabase(contents []byte) ([]byte, error) {
+	dir, err := os.MkdirTemp("", "cascade-restore-sessions-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	name := filepath.Join(dir, "restore.db")
+	if err := os.WriteFile(name, contents, 0600); err != nil {
+		return nil, err
+	}
+	d, err := sql.Open("sqlite", name)
+	if err != nil {
+		return nil, err
+	}
+	defer d.Close()
+	if err := sessions.ClearRestored(d); err != nil {
+		return nil, err
+	}
+	if _, err := d.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+		return nil, err
+	}
+	if err := d.Close(); err != nil {
+		return nil, err
+	}
+	return os.ReadFile(name)
 }
 
 // createAutoBackup creates a tar.gz of the current dataDir DB and .save files.

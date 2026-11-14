@@ -49,8 +49,20 @@ test('hidden tabs and unrelated pages do not start polling', () => {
   const {state:s,document:d}=fixture(); d.hidden=true; s.metricsStartPoller(); assert.equal(s.metricsPoller,undefined);
   d.hidden=false; s.activePage='interfaces'; s._metricsVisibilityHandler(); assert.equal(s.metricsPoller,undefined);
 });
-test('graphs share available height with a readable minimum', () => {
-  const {state:s}=fixture(); s.metricsChartHeights.w=360; assert.equal(s.metricsChartHeight('w'),360);
-  s.dashWidgets[0].graphs.push('mem'); assert.equal(s.metricsChartHeight('w'),180);
-  s.metricsChartHeights.w=100; assert.equal(s.metricsChartHeight('w'),90);
+test('one or two graphs fit the body while larger stacks retain a readable minimum', () => {
+  const {state:s}=fixture();
+  s.metricsChartHeights.w=360;
+  assert.equal(s.metricsChartHeight('w'),360);
+  s.dashWidgets[0].graphs.push('mem');
+  assert.equal(s.metricsChartHeight('w'),176);
+  s.metricsChartHeights.w=170;
+  assert.equal(s.metricsChartHeight('w'),81);
+  s.metricsChartHeights.w=171;
+  assert.equal(s.metricsChartHeight('w')*2+8 <= 171,true);
+  s.dashWidgets[0].graphs.push('eth0:rx');
+  assert.equal(s.metricsChartHeight('w'),90);
+  s.metricsChartHeights.w=400;
+  assert.equal(s.metricsChartHeight('w'),128);
+  s.dashWidgets[0].graphs=['cpu'];
+  assert.equal(s.metricsChartHeight('w'),400);
 });

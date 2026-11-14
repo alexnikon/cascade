@@ -149,7 +149,7 @@ switchPage(pageId) {
         this.pingLoadInterfaces();
       }
       if (pageId === 'interfaces') this.loadTunnelInterfaces();
-      if (pageId === 'settings') { this.loadSettings(); this.loadMetricsSettings(); this.loadUsers(); this.loadApiTokens(); this.loadPreRestoreBackups(); }
+      if (pageId === 'settings') { this.loadActiveSessions(); this.loadSettings(); this.loadMetricsSettings(); this.loadUsers(); this.loadApiTokens(); this.loadPreRestoreBackups(); }
       if (pageId === 'remotes') this.loadRemotes();
       if (pageId === 'gateways') {
         this.loadGateways();

@@ -1,0 +1,210 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
+import test from 'node:test';
+
+const settingsSource = await readFile(new URL('www/js/settings.js', import.meta.url), 'utf8');
+const authSource = await readFile(new URL('www/js/auth.js', import.meta.url), 'utf8');
+const apiSource = await readFile(new URL('www/js/api.js', import.meta.url), 'utf8');
+const { API } = await import(`data:text/javascript;base64,${Buffer.from(apiSource).toString('base64')}`);
+const { authMethods } = await import(`data:text/javascript;base64,${Buffer.from(authSource).toString('base64')}`);
+
+function fixture() {
+  const confirmations = [];
+  const messages = [];
+  let confirmResult = true;
+  const context = { window: { confirm(message) { confirmations.push(message); return confirmResult; } } };
+  vm.createContext(context);
+  vm.runInContext(settingsSource.replace(/^import\s[^;]+;/gm, '').replace('export const settingsMethods', 'globalThis.methods'), context);
+  const state = {
+    ...authMethods, ...context.methods,
+    authenticated: true, activeRemoteId: null, activeSessions: [],
+    activeSessionsError: '', activeSessionsLoading: false, revokingSessionID: null,
+    api: { clearRemote() {}, getSessions: async () => ({ sessions: [{ id: 'current' }] }) },
+    showToast: (message) => messages.push(message),
+  };
+  return { state, confirmations, messages, cancel() { confirmResult = false; } };
+}
+
+const session = { id: 'one', username: 'alice', device: 'Mac', browser: 'Safari', current: false };
+
+test('sessions load, display errors, and discard stale responses after a server switch', async () => {
+  const { state } = fixture();
+  await state.loadActiveSessions();
+  assert.equal(state.activeSessions[0].id, 'current');
+  assert.equal(state.activeSessionsLoading, false);
+  state.api.getSessions = async () => { throw new Error('Offline'); };
+  await state.loadActiveSessions();
+  assert.equal(state.activeSessions.length, 0);
+  assert.equal(state.activeSessionsError, 'Offline');
+  let finish;
+  state.api.getSessions = () => new Promise(resolve => { finish = resolve; });
+  const pending = state.loadActiveSessions();
+  state.activeRemoteId = 'remote';
+  finish({ sessions: [session] });
+  await pending;
+  assert.equal(state.activeSessions.length, 0);
+});
+
+test('only the latest list request controls the displayed state', async () => {
+  const { state } = fixture();
+  const requests = [];
+  state.api.getSessions = () => new Promise(resolve => requests.push(resolve));
+  const first = state.loadActiveSessions();
+  const second = state.loadActiveSessions();
+  requests[1]({ sessions: [{ id: 'latest' }] });
+  await second;
+  requests[0]({ sessions: [session] });
+  await first;
+  assert.equal(state.activeSessions[0].id, 'latest');
+});
+
+test('revocation requires confirmation identifying the user and device', async () => {
+  const f = fixture();
+  f.cancel();
+  f.state.api.revokeSession = () => { assert.fail('cancelled revocation sent a request'); };
+  await f.state.revokeActiveSession(session);
+  assert.match(f.confirmations[0], /alice.*Mac.*Safari/);
+});
+
+test('revoking another session refreshes the list; failures retain authentication', async () => {
+  const f = fixture();
+  f.state.api.revokeSession = async id => { assert.equal(id, session.id); return { current: false }; };
+  await f.state.revokeActiveSession(session);
+  assert.equal(f.state.authenticated, true);
+  assert.equal(f.state.activeSessions[0].id, 'current');
+  assert.equal(f.state.revokingSessionID, null);
+  f.state.api.revokeSession = async () => { throw new Error('Revoke failed'); };
+  await f.state.revokeActiveSession(session);
+  assert.equal(f.state.authenticated, true);
+  assert.equal(f.messages.at(-1), 'Revoke failed');
+});
+
+test('current local revocation clears auth and rejects in-flight list results', async () => {
+  const { state, confirmations } = fixture();
+  let finish;
+  state.api.getSessions = () => new Promise(resolve => { finish = resolve; });
+  const loading = state.loadActiveSessions();
+  state.api.revokeSession = async () => ({ current: true });
+  await state.revokeActiveSession({ ...session, current: true });
+  assert.equal(state.authenticated, false);
+  assert.equal(state.activeRemoteId, null);
+  assert.match(confirmations[0], /signed out/);
+  finish({ sessions: [session] });
+  await loading;
+  assert.equal(state.activeSessions.length, 0);
+  assert.equal(state.activeSessionsLoading, false);
+});
+
+test('remote revocation and responses from a previous server never sign out locally', async () => {
+  const { state } = fixture();
+  state.activeRemoteId = 'remote';
+  state.api.revokeSession = async () => ({ current: true });
+  await state.revokeActiveSession(session);
+  assert.equal(state.authenticated, true);
+  let finish;
+  state.api.revokeSession = () => new Promise(resolve => { finish = resolve; });
+  const pending = state.revokeActiveSession(session);
+  state.activeRemoteId = null;
+  finish({ current: true });
+  await pending;
+  assert.equal(state.authenticated, true);
+});
+
+function response(status, expired = false) {
+  return new Response(JSON.stringify(status >= 400 ? { error: 'Unauthorized' } : { authenticated: true }), {
+    status,
+    headers: expired ? { 'X-Cascade-Session-Expired': '1' } : {},
+  });
+}
+
+test('API preserves local authentication calls and concurrent remote routing', async () => {
+  globalThis.window = { location: { pathname: '/hidden/', origin: 'http://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  const paths = [];
+  const requests = [];
+  globalThis.fetch = url => { paths.push(url); return new Promise(resolve => requests.push(resolve)); };
+  try {
+    const api = new API();
+    api.setRemote('remote');
+    const local = api.getSession();
+    const remote = api.getSessions();
+    assert.equal(api._remoteId, 'remote');
+    assert.match(paths[0], /\/hidden\/api\/session$/);
+    assert.match(paths[1], /\/hidden\/api\/remotes\/remote\/proxy\/sessions$/);
+    requests[0](response(200)); requests[1](response(200));
+    await Promise.all([local, remote]);
+    const logout = api.deleteSession();
+    assert.match(paths[2], /\/hidden\/api\/session$/);
+    requests[2](response(200));
+    await logout;
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('API distinguishes revoked local sessions, remote authentication failures, and invalid credentials', async () => {
+  globalThis.window = { location: { pathname: '/', origin: 'http://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  try {
+    const api = new API();
+    let expired = 0;
+    let remoteErrors = 0;
+    api._onUnauthorized = () => { expired++; };
+    api._onRemoteError = () => { remoteErrors++; };
+    globalThis.fetch = async () => response(401);
+    await assert.rejects(api.createSession({ username: 'alice', password: 'wrong' }));
+    assert.equal(expired, 0);
+    api.setRemote('remote');
+    await assert.rejects(api.getSessions());
+    assert.equal(expired, 0);
+    assert.equal(remoteErrors, 1);
+    globalThis.fetch = async () => response(401, true);
+    await assert.rejects(api.getSessions());
+    assert.equal(expired, 1);
+    assert.equal(remoteErrors, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('a delayed expiry response cannot clear a newer browser authentication', async () => {
+  globalThis.window = { location: { pathname: '/', origin: 'http://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  try {
+    let finish;
+    globalThis.fetch = () => new Promise(resolve => { finish = resolve; });
+    const api = new API();
+    let expired = 0;
+    api._onUnauthorized = () => { expired++; };
+    const request = api.getSessions();
+    api._authGeneration++;
+    finish(response(401, true));
+    await assert.rejects(request);
+    assert.equal(expired, 0);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('peer config downloads still route to the selected server', async () => {
+  globalThis.window = { location: { pathname: '/', origin: 'http://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  const paths = [];
+  globalThis.fetch = async url => { paths.push(url); return new Response('[Interface]\nPrivateKey = sample'); };
+  try {
+    const api = new API();
+    assert.match(await api.getPeerConfig({ interfaceId: 'wg0', peerId: 'peer' }), /\[Interface\]/);
+    api.setRemote('remote');
+    await api.getPeerConfig({ interfaceId: 'wg0', peerId: 'peer' });
+    assert.equal(paths[0], 'http://cascade.test/api/tunnel-interfaces/wg0/peers/peer/config');
+    assert.equal(paths[1], 'http://cascade.test/api/remotes/remote/proxy/tunnel-interfaces/wg0/peers/peer/config');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('revoked authentication is handled on downloads as well as JSON requests', async () => {
+  globalThis.window = { location: { pathname: '/', origin: 'http://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => response(401, true);
+  try {
+    const api = new API();
+    let expired = 0;
+    api._onUnauthorized = () => { expired++; };
+    await assert.rejects(api.getPeerConfig({ interfaceId: 'wg0', peerId: 'peer' }));
+    assert.equal(expired, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});

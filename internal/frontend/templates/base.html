@@ -329,8 +329,16 @@
     overflow: auto;
     user-select: text;
   }
-  .dash-card-body.monitoring-body { padding: 4px 4px 0; min-height: 0; }
-  .dash-card-body.monitoring-body-single { overflow: hidden; }
+  .dash-card-body.monitoring-body {
+    padding: 4px 4px 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .dash-card-body.monitoring-body-fit { overflow: hidden; }
+  .monitoring-chart { position: relative; flex: 0 0 auto; }
+  .monitoring-chart > div { display: block; }
   .dash-gateway-table {
     display: grid;
     grid-template-columns: 10px minmax(0, 1fr) max-content max-content;

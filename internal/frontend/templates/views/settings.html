@@ -794,6 +794,65 @@
             </table>
           </div>
 
+          <!-- Active browser sessions -->
+          <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="panel-header p-5 border-b dark:border-neutral-600 active-sessions-header">
+              <div>
+                <p class="text-xl font-medium dark:text-neutral-200">Active sessions</p>
+                <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">
+                  Browser sign-ins on {{ activeRemote ? activeRemote.name : 'this server' }}.
+                  Sessions stay signed in for 400 days and renew while Cascade is in use.
+                </p>
+              </div>
+              <button @click="loadActiveSessions()" :disabled="activeSessionsLoading"
+                class="btn px-4 py-2 text-sm rounded border border-gray-300 dark:border-neutral-500 dark:text-neutral-200">
+                {{ activeSessionsLoading ? 'Refreshing…' : 'Refresh' }}
+              </button>
+            </div>
+            <div v-if="activeSessionsLoading && !activeSessions.length" role="status"
+              class="text-center text-gray-400 dark:text-neutral-500 py-8">Loading active sessions…</div>
+            <div v-else-if="activeSessionsError" role="alert" class="p-5 text-sm text-red-600 dark:text-red-400">
+              {{ activeSessionsError }}
+            </div>
+            <div v-else-if="!activeSessions.length" class="text-center text-gray-400 dark:text-neutral-500 py-8">
+              No active browser sessions.
+            </div>
+            <table v-else class="settings-card-table active-sessions-table w-full text-sm" :aria-busy="String(activeSessionsLoading)">
+              <thead>
+                <tr class="border-b dark:border-neutral-600 text-left">
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">Device</th>
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">User</th>
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">IP address</th>
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">Signed in</th>
+                  <th class="tc font-medium text-gray-500 dark:text-neutral-400">Last active</th>
+                  <th class="tc"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="session in activeSessions" :key="session.id" class="border-b last:border-b-0 dark:border-neutral-600">
+                  <td data-label="Device" class="tc dark:text-neutral-200">
+                    <div class="active-session-device">
+                      <span class="font-medium">{{ session.device }}</span>
+                      <span v-if="session.current" class="active-session-current">This session</span>
+                      <span class="text-xs text-gray-500 dark:text-neutral-400">{{ session.browser }} · {{ session.os }}</span>
+                    </div>
+                  </td>
+                  <td data-label="User" class="tc dark:text-neutral-200">{{ session.username }}</td>
+                  <td data-label="IP address" class="tc font-mono text-xs dark:text-neutral-300" :title="'Sign-in IP: ' + session.login_ip">{{ session.last_ip }}</td>
+                  <td data-label="Signed in" class="tc text-xs text-gray-500 dark:text-neutral-400">{{ new Date(session.created_at).toLocaleString() }}</td>
+                  <td data-label="Last active" class="tc text-xs text-gray-500 dark:text-neutral-400">{{ new Date(session.last_seen_at).toLocaleString() }}</td>
+                  <td data-label="Actions" class="tc api-token-actions">
+                    <button @click="revokeActiveSession(session)" :disabled="!!revokingSessionID"
+                      :aria-label="'Revoke session for ' + session.username + ' on ' + session.device"
+                      class="button-danger px-3 py-1 text-xs border rounded transition">
+                      {{ revokingSessionID === session.id ? 'Revoking…' : 'Revoke' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
         </div>
 
         <!-- ============================================================== -->

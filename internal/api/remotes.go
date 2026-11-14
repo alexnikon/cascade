@@ -28,7 +28,7 @@ import (
 // proxyClient is a shared HTTP client for proxy requests.
 // HTTP/2 is explicitly disabled: concurrent requests through a shared HTTP/2
 // ClientConn trigger a panic in Go's hpack encoder (id <= evictCount race),
-// crashing the process and clearing in-memory sessions. HTTP/1.1 uses a
+// crashing the process and interrupting active requests. HTTP/1.1 uses a
 // separate connection per request, avoiding the shared mutable state.
 // Timeout is 5 s to prevent goroutine pile-up when the remote is unreachable.
 var proxyClient = &http.Client{
@@ -95,7 +95,8 @@ func listRemotes(c *fiber.Ctx) error {
 
 // POST /api/remotes
 // Body: { name, url, username, password, totpCode? } — login mode, OR
-//       { name, url, token }                          — explicit-token mode.
+//
+//	{ name, url, token }                          — explicit-token mode.
 //
 // Login mode: connects to the remote, obtains an API token, stores it.
 // If the remote has 2FA enabled and totpCode is omitted, responds with
@@ -248,14 +249,15 @@ func proxyRemote(c *fiber.Ctx) error {
 	// the browser's local session cookie, causing immediate auth loss on the
 	// local server. Also skip hop-by-hop headers that must not be forwarded.
 	skipHeaders := map[string]bool{
-		"Set-Cookie":          true,
-		"Connection":          true,
-		"Transfer-Encoding":   true,
-		"Upgrade":             true,
-		"Proxy-Authenticate":  true,
-		"Proxy-Authorization": true,
-		"Te":                  true,
-		"Trailer":             true,
+		"Set-Cookie":                true,
+		"X-Cascade-Session-Expired": true,
+		"Connection":                true,
+		"Transfer-Encoding":         true,
+		"Upgrade":                   true,
+		"Proxy-Authenticate":        true,
+		"Proxy-Authorization":       true,
+		"Te":                        true,
+		"Trailer":                   true,
 	}
 	c.Status(resp.StatusCode)
 	for k, vals := range resp.Header {

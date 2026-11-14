@@ -239,6 +239,7 @@ func main() {
 
 	// Users management (multi-user auth + TOTP setup).
 	api.RegisterUsers(apiGroup)
+	api.RegisterSessions(apiGroup)
 
 	// API tokens (programmatic access without session/TOTP).
 	api.RegisterTokens(apiGroup)

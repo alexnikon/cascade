@@ -256,3 +256,57 @@ func TestObtainToken_EmptyRawToken_ReturnsError(t *testing.T) {
 		t.Error("empty raw_token: expected error, got nil")
 	}
 }
+
+func TestObtainTokenRotatesChallengeAndSupportsHTTPSCookie(t *testing.T) {
+	for _, useTOTP := range []bool{false, true} {
+		t.Run(map[bool]string{false: "password", true: "totp"}[useTOTP], func(t *testing.T) {
+			var loggedOut bool
+			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require := func(name, value string) {
+					t.Helper()
+					cookie, err := r.Cookie(name)
+					if err != nil || cookie.Value != value {
+						t.Errorf("%s: missing %s=%s", r.URL.Path, name, value)
+					}
+				}
+				switch r.Method + " " + r.URL.Path {
+				case "POST /api/session":
+					if useTOTP {
+						http.SetCookie(w, &http.Cookie{Name: "login_challenge_https", Value: "pending", Secure: true, Path: "/"})
+						w.Write([]byte(`{"totp_required":true}`))
+					} else {
+						http.SetCookie(w, &http.Cookie{Name: "session_id_https", Value: "full", Secure: true, Path: "/"})
+						w.Write([]byte(`{"authenticated":true}`))
+					}
+				case "POST /api/auth/totp/verify":
+					require("login_challenge_https", "pending")
+					http.SetCookie(w, &http.Cookie{Name: "login_challenge_https", Value: "", MaxAge: -1, Secure: true, Path: "/"})
+					http.SetCookie(w, &http.Cookie{Name: "session_id_https", Value: "full", Secure: true, Path: "/"})
+					w.Write([]byte(`{"authenticated":true}`))
+				case "POST /api/tokens":
+					require("session_id_https", "full")
+					if _, err := r.Cookie("login_challenge_https"); err == nil {
+						t.Error("consumed login challenge sent to token creation")
+					}
+					w.WriteHeader(http.StatusCreated)
+					w.Write([]byte(`{"raw_token":"ws_rotated"}`))
+				case "DELETE /api/session":
+					require("session_id_https", "full")
+					loggedOut = true
+					w.Write([]byte(`{"authenticated":false}`))
+				default:
+					t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+					w.WriteHeader(404)
+				}
+			}))
+			defer srv.Close()
+			previous := httpClient
+			httpClient = srv.Client()
+			defer func() { httpClient = previous }()
+			token, err := ObtainToken(srv.URL, "alice", "password", "123456", false)
+			if err != nil || token != "ws_rotated" || !loggedOut {
+				t.Fatalf("flow token=%s logout=%v err=%v", token, loggedOut, err)
+			}
+		})
+	}
+}

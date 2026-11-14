@@ -886,6 +886,33 @@ ALTER TABLE peers DROP COLUMN client_allowed_ips_mode;
 ALTER TABLE peers DROP COLUMN client_allowed_ips_alias_id;
 DELETE FROM settings WHERE key IN ('defaultClientAllowedIPsMode', 'defaultClientAllowedIPsAliasId');
 `},
+	{version: 50, sql: `
+ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE browser_sessions (
+    id TEXT PRIMARY KEY,
+    token_hash TEXT NOT NULL UNIQUE,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_agent TEXT NOT NULL,
+    login_ip TEXT NOT NULL,
+    last_ip TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    last_seen_at INTEGER NOT NULL,
+    renewed_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+);
+CREATE INDEX browser_sessions_user ON browser_sessions(user_id);
+CREATE INDEX browser_sessions_expiry ON browser_sessions(expires_at);
+CREATE TABLE auth_challenges (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    auth_version INTEGER NOT NULL,
+    purpose TEXT NOT NULL,
+    context TEXT NOT NULL DEFAULT '',
+    secret TEXT NOT NULL DEFAULT '',
+    expires_at INTEGER NOT NULL
+);
+CREATE INDEX auth_challenges_expiry ON auth_challenges(expires_at);
+`},
 }
 
 func runMigrations(db *sql.DB) error {

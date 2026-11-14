@@ -15,7 +15,28 @@
 | `GET` | `/api/session` | Current session state. Returns `{ authenticated, requiresPassword, totp_pending, username }` |
 | `POST` | `/api/session` | Login step 1. Body: `{ username, password, remember? }`. Returns `{ authenticated: true }` or `{ totp_required: true }` |
 | `DELETE` | `/api/session` | Logout |
-| `POST` | `/api/auth/totp/verify` | Login step 2 (TOTP). Body: `{ code }`. Returns `{ authenticated: true }`. Requires `totp_pending` session. |
+| `POST` | `/api/auth/totp/verify` | Login step 2 (TOTP). Body: `{ code }`. Returns `{ authenticated: true }`. Requires a valid ten-minute login challenge. |
+
+Browser sign-ins last 400 days and survive normal process/container restarts and updates when the data volume is preserved. Authenticated API activity, including background panel polling, renews the server expiry and cookie at most once per day; last activity is recorded at most once per minute. The legacy `remember` field is accepted but ignored. Password verification and TOTP login retain the response shapes above. Incomplete TOTP logins expire after ten minutes and do not authorize protected endpoints.
+
+HTTP uses the `session_id` cookie; HTTPS uses `session_id_https`. Both are persistent, `HttpOnly`, and `SameSite=Strict`; HTTPS cookies also use `Secure`. HTTPS is recognized only through the actual TLS connection or the existing trusted Caddy metadata. HTTP and HTTPS sign-ins, different hostnames/IPs, and different browser profiles are separate sessions. Clearing cookies or using private browsing can end sign-in earlier; browser retention policies still apply.
+
+### Active browser sessions
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/sessions` | List active browser sign-ins: `{ sessions: [...] }`. Administrators see all users; other users see only their own. |
+| `DELETE` | `/api/sessions/:id` | Revoke an accessible session: `{ ok: true, current: boolean }`. Returns `404` for absent/inaccessible sessions and `401` without an authenticated identity. |
+
+Each session contains `id`, `user_id`, `username`, `device`, `browser`, `os`, `login_ip`, `last_ip`, `created_at`, `last_seen_at`, `expires_at`, and `current`. Times use UTC RFC 3339. Device information is an approximate interpretation of User-Agent, with unknown values displayed explicitly. Session IDs are public management identifiers, not browser credentials; cookie tokens and their hashes are never returned.
+
+The current browser session sorts first, followed by most recent activity. Bearer requests have no current browser session, even if a browser cookie is also present. In Remote Server mode this list belongs to the selected server and uses its stored Bearer token; API tokens themselves are managed separately.
+
+Revocation and logout take effect on subsequent requests. Rejected browser authentication returns `401` with `X-Cascade-Session-Expired: 1`; credential-validation errors such as a wrong current password do not include this signal. The remote proxy strips this header from upstream responses so a remote authentication failure cannot sign out the local browser.
+
+Changing a password or enabling/disabling 2FA revokes the user's other browser sessions and all pending challenges. The current browser session is retained; an administrator resetting another user's password revokes all of that user's sessions. Deleting a user removes their sessions. Restoring a backup clears browser sessions and pending challenges before installation. API tokens retain their existing lifecycle.
+
+Upgrading from the former in-memory session store requires one sign-in because existing sessions cannot be migrated. For warning-free access over a VPN, see the [HTTPS over VPN guide](https://github.com/alexnikon/cascade/blob/master/deploy/caddy/README.md#browser-sign-in-and-https-over-vpn).
 
 ### Users management
 
@@ -24,8 +45,8 @@
 | `GET` | `/api/users` | List all users. Returns `{ users: [...] }` |
 | `POST` | `/api/users` | Create user. Body: `{ username, password }`. Returns `{ user }` |
 | `GET` | `/api/users/me` | Current user info |
-| `PATCH` | `/api/users/me` | Change own password. Body: `{ password }` |
-| `PATCH` | `/api/users/:id` | Update username or password. Body: `{ username?, password? }` |
+| `PATCH` | `/api/users/me` | Change own password. Body: `{ currentPassword, password }` |
+| `PATCH` | `/api/users/:id` | Update username or password. Body: `{ username?, password?, currentPassword? }` (the caller's current password is required for password changes) |
 | `DELETE` | `/api/users/:id` | Delete user (cannot delete the last user) |
 | `POST` | `/api/users/:id/set-admin` | Grant or revoke admin role. Body: `{ admin: bool }`. Admin only. Cannot revoke the last admin |
 
@@ -33,7 +54,7 @@
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/users/me/totp/setup` | Generate TOTP secret. Returns `{ secret, qr_uri, qr_png }`. Secret stored in session until confirmed. |
+| `GET` | `/api/users/me/totp/setup` | Generate TOTP secret. Returns `{ secret, qr_uri, qr_png }`. Secret held in a ten-minute challenge bound to the current browser session or Bearer token. |
 | `POST` | `/api/users/me/totp/enable` | Confirm and activate TOTP. Body: `{ code }` |
 | `POST` | `/api/users/me/totp/disable` | Deactivate TOTP. Body: `{ code }` (current TOTP code required) |
 
@@ -508,7 +529,7 @@ Legacy endpoints retained for frontend compatibility. Read-only, return safe def
 |--------|------|---------|
 | `GET` | `/api/lang` | `"en"` |
 | `GET` | `/api/release` | `999999` (suppresses update banner) |
-| `GET` | `/api/remember-me` | `true` |
+| `GET` | `/api/remember-me` | `false` (persistent sign-in is always enabled) |
 | `GET` | `/api/ui-traffic-stats` | `false` |
 | `GET` | `/api/ui-chart-type` | `0` |
 | `GET` | `/api/ui-sort-clients` | `false` |

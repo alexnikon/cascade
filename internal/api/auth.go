@@ -1,409 +1,337 @@
-// auth.go — session-based authentication middleware and login/logout endpoints.
-//
-// Supports multi-user authentication with optional TOTP (2FA).
-//
-// Two-step login flow:
-//  1. POST /api/session  { username, password }
-//     → If TOTP enabled: { totp_required: true }, session totp_pending=true
-//     → If TOTP disabled: { authenticated: true }, session authenticated=true
-//  2. POST /api/auth/totp/verify  { code }
-//     → Validates TOTP code, upgrades session to authenticated=true
-//
-// Authorization header fallback (for scripts / curl):
-//
-//	"username:password" (colon-separated) → verifies against users table
-//	raw password (no colon) → tries against "admin" user for backward compat
-//
-// Open mode: if no users exist in the DB, all requests pass through.
-// Session storage: in-memory (Fiber built-in).
-// Sessions do not survive container restart — this is intentional.
+// Browser authentication uses durable, revocable SQLite sessions. Pending login
+// and 2FA setup challenges expire after ten minutes and never authorize API use.
 package api
 
 import (
+	"errors"
+	"log"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
-	"github.com/gofiber/fiber/v2/middleware/session"
 	totpLib "github.com/pquerna/otp/totp"
 
+	"github.com/alexnikon/cascade/internal/sessions"
 	"github.com/alexnikon/cascade/internal/tokens"
 	"github.com/alexnikon/cascade/internal/users"
 )
 
-// localKeyTokenUserID is the fiber.Ctx Locals key set when a request is
-// authenticated via a Bearer API token (instead of a session cookie).
 const localKeyTokenUserID = "token_user_id"
+const localKeyBrowserSession = "browser_session"
 
-// ── Session key constants ─────────────────────────────────────────────────────
-
-const (
-	// sessKeyAuthenticated is set to true once the user is fully authenticated.
-	sessKeyAuthenticated = "authenticated"
-	// sessKeyTOTPPending is set to true when password was verified but TOTP is still required.
-	sessKeyTOTPPending = "totp_pending"
-	// sessKeyUserID holds the authenticated (or pending) user's ID.
-	sessKeyUserID = "user_id"
-	// sessKeyTOTPSetup holds a pending TOTP secret during the setup flow.
-	sessKeyTOTPSetup = "totp_setup_secret"
-)
-
-// ── Package-level auth state ──────────────────────────────────────────────────
-
-var authStore *session.Store
-
-// rememberMaxAge is the session lifetime when "remember me" is checked.
-const rememberMaxAge = 30 * 24 * time.Hour
-
-// defaultSessionAge is the default session lifetime.
-const defaultSessionAge = 24 * time.Hour
-
-// InitAuth initialises the auth subsystem.
-// Call once from main() before registering routes.
+// InitAuth cleans expired records without clearing valid sessions on restart.
 func InitAuth() {
-	authStore = session.New(session.Config{
-		Expiration:     defaultSessionAge,
-		KeyLookup:      "cookie:session_id",
-		CookieHTTPOnly: true,
-		CookieSameSite: "Strict",
-	})
+	if err := sessions.Cleanup(time.Now(), true); err != nil {
+		log.Printf("auth: session cleanup: %v", err)
+	}
 }
 
-// ── Middleware ────────────────────────────────────────────────────────────────
+// secureAuthTransport ignores untrusted Forwarded/X-Forwarded-Proto headers.
+func secureAuthTransport(c *fiber.Ctx) bool {
+	if c.Context().IsTLS() {
+		return true
+	}
+	_, trusted := proxyClientIP(c)
+	return trusted
+}
 
-// AuthMiddleware protects API routes.
-//
-// Pass-through when:
-//  1. No users exist in the DB (open mode — first-run or empty table).
-//  2. Session cookie contains authenticated=true.
-//  3. Authorization: Bearer ws_... — valid API token (sets token_user_id in locals).
-//  4. Authorization header: "username:password" or raw password (admin compat).
-//
-// Returns 401 JSON otherwise.
+func authCookieName(c *fiber.Ctx, name string) string {
+	if secureAuthTransport(c) {
+		return name + "_https"
+	}
+	return name
+}
+
+func setAuthCookie(c *fiber.Ctx, name, value string, expires time.Time) {
+	c.Set("Cache-Control", "no-store")
+	maxAge := int(time.Until(expires).Seconds())
+	if value == "" {
+		maxAge = -1
+		expires = time.Unix(1, 0)
+	}
+	c.Cookie(&fiber.Cookie{Name: authCookieName(c, name), Value: value, Path: "/", HTTPOnly: true,
+		Secure: secureAuthTransport(c), SameSite: "Strict", Expires: expires, MaxAge: maxAge})
+}
+
+func authIP(c *fiber.Ctx) string {
+	if ip, ok := proxyClientIP(c); ok {
+		return ip.String()
+	}
+	return c.Context().RemoteIP().String()
+}
+
+func browserSession(c *fiber.Ctx) (*sessions.Session, error) {
+	if s, ok := c.Locals(localKeyBrowserSession).(*sessions.Session); ok {
+		return s, nil
+	}
+	now := time.Now()
+	if err := sessions.Cleanup(now, false); err != nil {
+		return nil, err
+	}
+	token := c.Cookies(authCookieName(c, "session_id"))
+	s, err := sessions.Lookup(token, now)
+	if err != nil {
+		return nil, err
+	}
+	renewed, err := sessions.Touch(s, authIP(c), now)
+	if err != nil {
+		return nil, err
+	}
+	if renewed {
+		setAuthCookie(c, "session_id", token, s.ExpiresAt)
+	}
+	c.Locals(localKeyBrowserSession, s)
+	return s, nil
+}
+
+func currentBrowserSessionID(c *fiber.Ctx) string {
+	// A Bearer request never claims the browser cookie's identity or session.
+	if id, _ := c.Locals(localKeyTokenUserID).(string); id != "" {
+		return ""
+	}
+	if s, err := browserSession(c); err == nil {
+		return s.ID
+	}
+	return ""
+}
+
+func authContext(c *fiber.Ctx) string {
+	if id, _ := c.Locals(localKeyTokenUserID).(string); id != "" {
+		return "token:" + sessions.Hash(c.Get("Authorization"))
+	}
+	if id := currentBrowserSessionID(c); id != "" {
+		return "session:" + id
+	}
+	return ""
+}
+
+// AuthMiddleware preserves Bearer, legacy header and first-run open-mode access.
 func AuthMiddleware(c *fiber.Ctx) error {
-	// The web-access gate has already authenticated machine requests by token.
-	// Preserve that identity even if the request also carries a session cookie.
-	if id, ok := c.Locals(localKeyTokenUserID).(string); ok && id != "" {
+	if id, _ := c.Locals(localKeyTokenUserID).(string); id != "" {
 		return c.Next()
 	}
-	// Open mode: if no users are registered yet, allow everything.
 	n, err := users.Count()
-	if err == nil && n == 0 {
+	if err != nil {
+		return fiber.NewError(500, "db error")
+	}
+	if n == 0 {
 		return c.Next()
 	}
-
-	// Session check.
-	if authStore != nil {
-		sess, err := authStore.Get(c)
-		if err == nil && sess.Get(sessKeyAuthenticated) == true {
-			return c.Next()
-		}
-	}
-
-	// Authorization header: Bearer token or username:password fallback.
 	if hdr := c.Get("Authorization"); hdr != "" {
-		// Bearer API token — preferred for programmatic access.
 		if strings.HasPrefix(hdr, "Bearer ") {
-			rawToken := strings.TrimPrefix(hdr, "Bearer ")
-			if userID, err := tokens.VerifyAndTouch(rawToken); err == nil && userID != "" {
-				c.Locals(localKeyTokenUserID, userID)
+			if id, err := tokens.VerifyAndTouch(strings.TrimPrefix(hdr, "Bearer ")); err == nil && id != "" {
+				c.Locals(localKeyTokenUserID, id)
 				return c.Next()
 			}
-		}
-		// Legacy fallback: "username:password" or raw password for "admin".
-		if checkAuthHeader(hdr) {
+		} else if checkAuthHeader(hdr) {
 			return c.Next()
 		}
 	}
-
-	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-		"error": "Unauthorized",
-	})
+	if _, err := browserSession(c); err == nil {
+		return c.Next()
+	} else if !errors.Is(err, sessions.ErrInvalid) {
+		return fiber.NewError(500, "session lookup failed")
+	}
+	c.Set("X-Cascade-Session-Expired", "1")
+	return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
 }
 
-// checkAuthHeader tries to authenticate using the Authorization header value.
-// Supports two formats:
-//   - "username:password" — verified against the users table
-//   - raw password (no colon) — tried against the "admin" user for backward compat
 func checkAuthHeader(hdr string) bool {
 	if idx := strings.IndexByte(hdr, ':'); idx >= 0 {
-		username := hdr[:idx]
-		password := hdr[idx+1:]
-		u, err := users.VerifyPassword(username, password)
+		u, err := users.VerifyPassword(hdr[:idx], hdr[idx+1:])
 		return err == nil && u != nil
 	}
-	// No colon — treat as raw password for "admin" (backward compat).
 	u, err := users.VerifyPassword("admin", hdr)
 	return err == nil && u != nil
 }
 
-// ── Routes ────────────────────────────────────────────────────────────────────
+func clearLogin(c *fiber.Ctx) error {
+	if err := sessions.Logout(c.Cookies(authCookieName(c, "session_id"))); err != nil {
+		return err
+	}
+	if err := sessions.DeleteChallenge(c.Cookies(authCookieName(c, "login_challenge"))); err != nil {
+		return err
+	}
+	if err := sessions.DeleteChallenge(c.Cookies(authCookieName(c, "totp_setup"))); err != nil {
+		return err
+	}
+	for _, name := range []string{"session_id", "login_challenge", "totp_setup"} {
+		setAuthCookie(c, name, "", time.Time{})
+	}
+	c.Locals(localKeyBrowserSession, nil)
+	return nil
+}
 
-// RegisterAuth registers the session and TOTP-verify endpoints on the router group.
-// These routes are intentionally NOT behind AuthMiddleware.
-//
-//	GET    /api/session           — current session state
-//	POST   /api/session           — login (step 1: username + password)
-//	DELETE /api/session           — logout
-//	POST   /api/auth/totp/verify  — login step 2: verify TOTP code
+func createBrowserSession(c *fiber.Ctx, userID string, version int64, challenge string) error {
+	s, token, err := sessions.Create(userID, version, c.Get("User-Agent"), authIP(c), challenge, time.Now())
+	if errors.Is(err, sessions.ErrInvalid) {
+		return fiber.NewError(401, "Credentials changed. Please sign in again.")
+	}
+	if err != nil {
+		return fiber.NewError(500, "session save error")
+	}
+	setAuthCookie(c, "session_id", token, s.ExpiresAt)
+	setAuthCookie(c, "login_challenge", "", time.Time{})
+	return c.JSON(fiber.Map{"authenticated": true})
+}
+
+// RegisterAuth retains the existing public login/logout/session-state contract.
 func RegisterAuth(api fiber.Router) {
-	// GET /api/session — returns current authentication state.
 	api.Get("/session", func(c *fiber.Ctx) error {
-		// Check if any users exist.
+		c.Set("Cache-Control", "no-store")
 		n, err := users.Count()
 		if err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "db error")
+			return fiber.NewError(500, "db error")
 		}
-
-		// Open mode: no users in DB.
+		state := fiber.Map{"authenticated": n == 0, "requiresPassword": n != 0, "totp_pending": false, "username": ""}
 		if n == 0 {
-			return c.JSON(fiber.Map{
-				"authenticated":    true,
-				"requiresPassword": false,
-				"totp_pending":     false,
-				"username":         "",
-			})
+			return c.JSON(state)
 		}
-
-		if authStore == nil {
-			return c.JSON(fiber.Map{
-				"authenticated":    false,
-				"requiresPassword": true,
-				"totp_pending":     false,
-				"username":         "",
-			})
-		}
-
-		sess, err := authStore.Get(c)
-		if err != nil {
-			return c.JSON(fiber.Map{
-				"authenticated":    false,
-				"requiresPassword": true,
-				"totp_pending":     false,
-				"username":         "",
-			})
-		}
-
-		authenticated := sess.Get(sessKeyAuthenticated) == true
-		totpPending := sess.Get(sessKeyTOTPPending) == true
-
-		// Resolve username from session user_id when authenticated or pending.
-		username := ""
-		if userID, ok := sess.Get(sessKeyUserID).(string); ok && userID != "" {
-			if u, _ := users.GetByID(userID); u != nil {
-				username = u.Username
+		if s, err := browserSession(c); err == nil {
+			state["authenticated"], state["username"] = true, s.Username
+		} else if !errors.Is(err, sessions.ErrInvalid) {
+			return fiber.NewError(500, "session lookup failed")
+		} else if ch, err := sessions.GetChallenge(c.Cookies(authCookieName(c, "login_challenge")), "login", "", time.Now()); err == nil {
+			if u, err := users.GetByID(ch.UserID); err == nil && u != nil {
+				state["totp_pending"], state["username"] = true, u.Username
 			}
 		}
-
-		return c.JSON(fiber.Map{
-			"authenticated":    authenticated,
-			"requiresPassword": true,
-			"totp_pending":     totpPending,
-			"username":         username,
-		})
+		return c.JSON(state)
 	})
-
-	// POST /api/session — verify username + password (step 1).
-	// Body: { "username": "...", "password": "...", "remember": true/false }
-	// If username is empty, defaults to "admin" for backward compatibility.
-	//
-	// Brute-force protection (CRIT-3):
-	//   - Rate limit: 5 attempts / 1 min per IP → 429 + Retry-After: 60
-	//   - Artificial delay: 500ms on failure (+ bcrypt ~300ms = ~800ms total)
-	loginLimiter := limiter.New(limiter.Config{
-		Max:        5,
-		Expiration: 1 * time.Minute,
-		KeyGenerator: func(c *fiber.Ctx) string {
-			return c.IP()
-		},
+	loginLimiter := limiter.New(limiter.Config{Max: 5, Expiration: time.Minute, KeyGenerator: authIP,
 		LimitReached: func(c *fiber.Ctx) error {
 			c.Set("Retry-After", "60")
-			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-				"error": "Too many login attempts. Try again in 60 seconds.",
-			})
-		},
-	})
+			return c.Status(429).JSON(fiber.Map{"error": "Too many login attempts. Try again in 60 seconds."})
+		}})
 	api.Post("/session", loginLimiter, func(c *fiber.Ctx) error {
 		n, err := users.Count()
 		if err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "db error")
+			return fiber.NewError(500, "db error")
 		}
 		if n == 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "No password is configured",
-			})
+			return fiber.NewError(400, "No password is configured")
 		}
-
 		var body struct {
 			Username string `json:"username"`
 			Password string `json:"password"`
 			Remember bool   `json:"remember"`
 		}
 		if err := c.BodyParser(&body); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
+			return fiber.NewError(400, "invalid JSON body")
 		}
-
-		// Default username to "admin" for backward compat with old clients
-		// that only send password.
 		if body.Username == "" {
 			body.Username = "admin"
 		}
-
 		u, err := users.VerifyPassword(body.Username, body.Password)
 		if err != nil || u == nil {
-			// Artificial delay on failure: slows brute-force even when rate
-			// limit hasn't triggered yet (CRIT-3 level 2).
 			time.Sleep(500 * time.Millisecond)
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid credentials",
-			})
+			return fiber.NewError(401, "Invalid credentials")
 		}
-
-		sess, err := authStore.Get(c)
-		if err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "session error")
+		if err := clearLogin(c); err != nil {
+			return fiber.NewError(500, "session logout error")
 		}
-
-		// Remember me → extend session lifetime.
-		if body.Remember {
-			sess.SetExpiry(rememberMaxAge)
-		}
-
 		if u.TOTPEnabled {
-			// Password is correct but TOTP is still required.
-			sess.Set(sessKeyTOTPPending, true)
-			sess.Set(sessKeyUserID, u.ID)
-			if err := sess.Save(); err != nil {
-				return fiber.NewError(fiber.StatusInternalServerError, "session save error")
+			token, err := sessions.NewChallenge(u.ID, u.AuthVersion, "login", "", "", time.Now())
+			if errors.Is(err, sessions.ErrInvalid) {
+				return fiber.NewError(401, "Credentials changed. Please sign in again.")
 			}
+			if err != nil {
+				return fiber.NewError(500, "session save error")
+			}
+			setAuthCookie(c, "login_challenge", token, time.Now().Add(sessions.ChallengeLifetime))
 			return c.JSON(fiber.Map{"totp_required": true})
 		}
-
-		// No TOTP — fully authenticated.
-		sess.Set(sessKeyAuthenticated, true)
-		sess.Set(sessKeyUserID, u.ID)
-		if err := sess.Save(); err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "session save error")
-		}
-		return c.JSON(fiber.Map{"authenticated": true})
+		return createBrowserSession(c, u.ID, u.AuthVersion, "")
 	})
-
-	// DELETE /api/session — destroy the session (logout).
 	api.Delete("/session", func(c *fiber.Ctx) error {
-		if authStore != nil {
-			sess, err := authStore.Get(c)
-			if err == nil {
-				_ = sess.Destroy()
-			}
+		if err := clearLogin(c); err != nil {
+			return fiber.NewError(500, "session logout error")
 		}
 		return c.JSON(fiber.Map{"authenticated": false})
 	})
-
-	// POST /api/auth/totp/verify — step 2 of TOTP login.
-	// Requires totp_pending=true in the session (set by POST /api/session).
-	// Body: { "code": "123456" }
-	api.Post("/auth/totp/verify", func(c *fiber.Ctx) error {
-		if authStore == nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "auth not initialised")
+	totpLimiter := limiter.New(limiter.Config{Max: 5, Expiration: time.Minute, KeyGenerator: authIP})
+	api.Post("/auth/totp/verify", totpLimiter, func(c *fiber.Ctx) error {
+		raw := c.Cookies(authCookieName(c, "login_challenge"))
+		ch, err := sessions.GetChallenge(raw, "login", "", time.Now())
+		if errors.Is(err, sessions.ErrInvalid) {
+			return fiber.NewError(401, "No pending TOTP session")
 		}
-
-		sess, err := authStore.Get(c)
-		if err != nil || sess.Get(sessKeyTOTPPending) != true {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "No pending TOTP session",
-			})
+		if err != nil {
+			return fiber.NewError(500, "login challenge lookup failed")
 		}
-
-		userID, ok := sess.Get(sessKeyUserID).(string)
-		if !ok || userID == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "No pending TOTP session",
-			})
-		}
-
 		var body struct {
 			Code string `json:"code"`
 		}
 		if err := c.BodyParser(&body); err != nil {
-			return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
+			return fiber.NewError(400, "invalid JSON body")
 		}
-
-		secret, err := users.GetTOTPSecret(userID)
+		secret, err := users.GetTOTPSecret(ch.UserID)
 		if err != nil || secret == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "TOTP not configured for this user",
-			})
+			return fiber.NewError(401, "TOTP not configured for this user")
 		}
-
 		if !totpLib.Validate(body.Code, secret) {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Invalid TOTP code",
-			})
+			return fiber.NewError(401, "Invalid TOTP code")
 		}
-
-		// Upgrade session: clear pending flag, set authenticated.
-		sess.Delete(sessKeyTOTPPending)
-		sess.Set(sessKeyAuthenticated, true)
-		if err := sess.Save(); err != nil {
-			return fiber.NewError(fiber.StatusInternalServerError, "session save error")
-		}
-
-		return c.JSON(fiber.Map{"authenticated": true})
+		return createBrowserSession(c, ch.UserID, ch.AuthVersion, raw)
 	})
 }
 
-// ── Session helpers (used by users.go handlers) ───────────────────────────────
-
-// currentUserID extracts the user ID from the current request context.
-// Checks (in order):
-//  1. Locals["token_user_id"] — set by Bearer token auth in AuthMiddleware.
-//  2. Session cookie — set by POST /api/session login flow.
-//
-// Returns ("", false) if neither source provides a user ID.
 func currentUserID(c *fiber.Ctx) (string, bool) {
-	// Token-authenticated request: user ID is stored in locals.
-	if id, ok := c.Locals(localKeyTokenUserID).(string); ok && id != "" {
+	if id, _ := c.Locals(localKeyTokenUserID).(string); id != "" {
 		return id, true
 	}
-	// Session-authenticated request.
-	if authStore == nil {
-		return "", false
-	}
-	sess, err := authStore.Get(c)
+	s, err := browserSession(c)
 	if err != nil {
 		return "", false
 	}
-	id, ok := sess.Get(sessKeyUserID).(string)
-	return id, ok && id != ""
+	return s.UserID, true
 }
 
-// getAuthStore returns the package-level session store.
-// Used by users.go to store the TOTP setup secret in the session.
-func getAuthStore() *session.Store {
-	return authStore
-}
-
-// callerIsAdmin returns true if the caller of the current request has the admin role.
-//
-// Open mode (0 users in DB): returns true to preserve first-run / empty-table behaviour.
-// Bearer token or session: checks users.IsAdmin for the resolved user ID.
-// Unauthenticated (no user ID): returns false.
 func callerIsAdmin(c *fiber.Ctx) bool {
-	// Open mode: no users → everyone is implicitly admin.
-	n, err := users.Count()
-	if err == nil && n == 0 {
+	if n, err := users.Count(); err == nil && n == 0 {
 		return true
 	}
-
-	userID, ok := currentUserID(c)
-	if !ok || userID == "" {
+	id, ok := currentUserID(c)
+	if !ok {
 		return false
 	}
+	admin, err := users.IsAdmin(id)
+	return err == nil && admin
+}
 
-	admin, err := users.IsAdmin(userID)
-	if err != nil {
-		return false
-	}
-	return admin
+// RegisterSessions exposes browser authorizations separately from API tokens.
+func RegisterSessions(api fiber.Router) {
+	api.Get("/sessions", func(c *fiber.Ctx) error {
+		id, ok := currentUserID(c)
+		if !ok {
+			return fiber.NewError(401, "not authenticated")
+		}
+		list, err := sessions.List(id, callerIsAdmin(c), currentBrowserSessionID(c), time.Now())
+		if err != nil {
+			return fiber.NewError(500, "session list failed")
+		}
+		c.Set("Cache-Control", "no-store")
+		return c.JSON(fiber.Map{"sessions": list})
+	})
+	api.Delete("/sessions/:id", func(c *fiber.Ctx) error {
+		id, ok := currentUserID(c)
+		if !ok {
+			return fiber.NewError(401, "not authenticated")
+		}
+		current := c.Params("id") == currentBrowserSessionID(c)
+		deleted, err := sessions.Revoke(c.Params("id"), id, callerIsAdmin(c), time.Now())
+		if err != nil {
+			return fiber.NewError(500, "session revoke failed")
+		}
+		if !deleted {
+			return fiber.NewError(404, "session not found")
+		}
+		if current {
+			if err := clearLogin(c); err != nil {
+				return fiber.NewError(500, "session logout error")
+			}
+		}
+		return c.JSON(fiber.Map{"ok": true, "current": current})
+	})
 }

@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -66,7 +68,14 @@ func clientFor(skipTLS bool) *http.Client {
 // returned so the caller can prompt the user. Retrying with the code completes
 // the flow.
 func ObtainToken(baseURL, username, password, totpCode string, skipTLS bool) (string, error) {
-	c := clientFor(skipTLS)
+	// Each login flow owns its cookies, including the rotated TOTP credential.
+	client := *clientFor(skipTLS)
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return "", err
+	}
+	client.Jar = jar
+	c := &client
 	base := strings.TrimRight(baseURL, "/")
 
 	// ── Step 1: Login ──────────────────────────────────────────────────────
@@ -90,35 +99,35 @@ func ObtainToken(baseURL, username, password, totpCode string, skipTLS bool) (st
 		return "", fmt.Errorf("parse login response: %w", err)
 	}
 
-	// Extract session cookie — needed for TOTP verify and token creation.
-	var sessionCookie string
-	for _, ck := range loginResp.Cookies() {
-		if ck.Name == "session_id" {
-			sessionCookie = ck.Name + "=" + ck.Value
-			break
+	// Require a usable login credential, supporting current and older servers.
+	loginURL, _ := url.Parse(base + "/api/session")
+	hasCredential := false
+	for _, ck := range jar.Cookies(loginURL) {
+		switch ck.Name {
+		case "session_id", "session_id_https", "login_challenge", "login_challenge_https":
+			hasCredential = ck.Value != "" || hasCredential
 		}
 	}
-	if sessionCookie == "" {
-		return "", fmt.Errorf("no session_id cookie in login response")
+	if !hasCredential {
+		return "", fmt.Errorf("no session_id or login challenge cookie in login response")
 	}
+	// Clean up the temporary browser sign-in even if token creation fails.
+	defer func() {
+		logoutReq, _ := http.NewRequest(http.MethodDelete, base+"/api/session", nil)
+		if response, err := c.Do(logoutReq); err == nil {
+			response.Body.Close()
+		}
+	}()
 
 	// ── Step 2 (optional): TOTP verification ──────────────────────────────
 	if req, _ := loginData["totp_required"].(bool); req {
 		if totpCode == "" {
-			// Signal the caller to ask for the TOTP code.
-			// Log out the pending session to avoid dangling sessions.
-			logoutReq, _ := http.NewRequest(http.MethodDelete, base+"/api/session", nil)
-			logoutReq.Header.Set("Cookie", sessionCookie)
-			if r, e := c.Do(logoutReq); e == nil {
-				r.Body.Close()
-			}
 			return "", ErrTOTPRequired
 		}
 
 		verifyBody, _ := json.Marshal(map[string]string{"code": totpCode})
 		verifyReq, _ := http.NewRequest(http.MethodPost, base+"/api/auth/totp/verify", bytes.NewReader(verifyBody))
 		verifyReq.Header.Set("Content-Type", "application/json")
-		verifyReq.Header.Set("Cookie", sessionCookie)
 
 		verifyResp, err := c.Do(verifyReq)
 		if err != nil {
@@ -142,7 +151,6 @@ func ObtainToken(baseURL, username, password, totpCode string, skipTLS bool) (st
 	})
 	tokenReq, _ := http.NewRequest(http.MethodPost, base+"/api/tokens", bytes.NewReader(tokenBody))
 	tokenReq.Header.Set("Content-Type", "application/json")
-	tokenReq.Header.Set("Cookie", sessionCookie)
 
 	tokenResp, err := c.Do(tokenReq)
 	if err != nil {
@@ -162,13 +170,6 @@ func ObtainToken(baseURL, username, password, totpCode string, skipTLS bool) (st
 	rawToken, _ := tokenData["raw_token"].(string)
 	if rawToken == "" {
 		return "", fmt.Errorf("raw_token missing in token creation response")
-	}
-
-	// ── Step 4: Logout ─────────────────────────────────────────────────────
-	logoutReq, _ := http.NewRequest(http.MethodDelete, base+"/api/session", nil)
-	logoutReq.Header.Set("Cookie", sessionCookie)
-	if r, e := c.Do(logoutReq); e == nil {
-		r.Body.Close()
 	}
 
 	return rawToken, nil

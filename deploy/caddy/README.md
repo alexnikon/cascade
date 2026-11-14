@@ -88,3 +88,22 @@ from that directory (configured in `Caddyfile`), then gets reloaded automaticall
 First time:  acme.sh --standalone   (binds :80 itself, no Caddy needed)
 Renewals:    acme.sh --webroot /srv/acme  (Caddy serves the challenge)
 ```
+
+## Browser sign-in and HTTPS over VPN
+
+Cascade keeps browser sessions in SQLite for 400 days and renews them while the panel is in use, including background polling. Sessions survive restarts and upgrades as long as the data volume is preserved. You can review and revoke sign-ins in **Settings → Active sessions**. Password and 2FA changes revoke other browser sessions; restoring a backup clears all restored sessions. Upgrading from the previous in-memory store requires one fresh sign-in.
+
+A VPN encrypts packets inside its tunnel, but the browser still classifies an `http://` page as HTTP. Cascade cannot remove the browser's “Not secure” indicator or make HTTP password fields a secure context. To avoid warnings, use HTTPS with a certificate that the browser trusts and that matches the exact hostname or IP in the URL.
+
+Choose one of these approaches:
+
+1. **Keep the existing certified HTTPS address.** Open `https://<CERTIFIED_IP>/<ADMIN_PATH>/` and route that destination through the administrative VPN. For split-tunnel clients this usually means including the certified server IP as a `/32` route (or `/128` for IPv6) in the appropriate VPN profile. Verify the route with your network layout before changing it: the route to the VPN's own transport endpoint must continue to work. When VPN-only web access is enabled, the request must arrive through the selected administrative VPN with an allowed source address.
+2. **Use a domain over the VPN.** Issue a trusted certificate covering a hostname such as `cascade.example.com`, configure Caddy to serve that certificate, and resolve the hostname to Cascade's reachable VPN address using VPN DNS or a local hosts entry. Open `https://cascade.example.com/<ADMIN_PATH>/`. The certificate must cover `cascade.example.com`; an existing certificate covering only the public IP does not cover this name. DNS-based certificate validation can support a service that is reachable only through a VPN.
+
+Opening `https://<PRIVATE_VPN_IP>/` with a certificate issued for the public IP or a different hostname produces a certificate mismatch. A self-signed certificate also produces warnings unless its issuing authority is installed and trusted on each client. Prefer one stable, correctly certified address for daily use.
+
+HTTP sign-in remains supported through the VPN. HTTP and HTTPS use separate cookies, so signing in or out on one transport does not overwrite the other. Different IPs, hostnames, and browser profiles also have separate sign-ins; authorization is not automatically copied between them.
+
+The 400-day lifetime is a practical cookie retention ceiling, not a promise that every browser will retain a cookie for that long. Chrome caps explicit expiry at 400 days; browsers may remove cookies sooner, and clearing site data or ending a private browsing session can require another sign-in.
+
+References: [browser secure contexts](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Secure_Contexts), [Chrome cookie expiry limit](https://developer.chrome.com/blog/cookie-max-age-expires).

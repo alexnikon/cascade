@@ -19,11 +19,14 @@ package api
 
 import (
 	"encoding/base64"
+	"errors"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	totpLib "github.com/pquerna/otp/totp"
 	"rsc.io/qr"
 
+	"github.com/alexnikon/cascade/internal/sessions"
 	"github.com/alexnikon/cascade/internal/users"
 )
 
@@ -135,7 +138,7 @@ func updateMe(c *fiber.Ctx) error {
 		if err := users.VerifyPasswordByID(userID, body.CurrentPassword); err != nil {
 			return fiber.NewError(fiber.StatusUnauthorized, "current password is incorrect")
 		}
-		if err := users.UpdatePassword(userID, body.Password); err != nil {
+		if err := users.UpdatePassword(userID, body.Password, currentBrowserSessionID(c)); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	}
@@ -194,7 +197,7 @@ func updateUser(c *fiber.Ctx) error {
 		}
 	}
 	if body.Password != "" {
-		if err := users.UpdatePassword(id, body.Password); err != nil {
+		if err := users.UpdatePassword(id, body.Password, currentBrowserSessionID(c)); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	}
@@ -284,15 +287,19 @@ func totpSetup(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "failed to generate TOTP key")
 	}
 
-	// Store the pending secret in the session so /enable can verify & save it.
-	store := getAuthStore()
-	if store != nil {
-		sess, err := store.Get(c)
-		if err == nil {
-			sess.Set(sessKeyTOTPSetup, key.Secret())
-			_ = sess.Save()
-		}
+	// Bind setup to the current session or Bearer token, never just a user ID.
+	context := authContext(c)
+	if context == "" {
+		return fiber.NewError(401, "not authenticated")
 	}
+	if err := sessions.DeleteChallenge(c.Cookies(authCookieName(c, "totp_setup"))); err != nil {
+		return fiber.NewError(500, "failed to replace TOTP setup")
+	}
+	token, err := sessions.NewChallenge(userID, u.AuthVersion, "setup", context, key.Secret(), time.Now())
+	if err != nil {
+		return fiber.NewError(500, "failed to save TOTP setup")
+	}
+	setAuthCookie(c, "totp_setup", token, time.Now().Add(sessions.ChallengeLifetime))
 
 	// Generate QR PNG using rsc.io/qr and base64-encode it.
 	qrPNG, err := generateQRPNG(key.URL())
@@ -324,21 +331,13 @@ func totpEnable(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
 	}
 
-	// Retrieve the pending secret from the session.
-	store := getAuthStore()
-	if store == nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "auth not initialised")
+	raw := c.Cookies(authCookieName(c, "totp_setup"))
+	context := authContext(c)
+	ch, err := sessions.GetChallenge(raw, "setup", context, time.Now())
+	if err != nil || context == "" || ch.UserID != userID {
+		return fiber.NewError(400, "no TOTP setup in progress — call /setup first")
 	}
-
-	sess, err := store.Get(c)
-	if err != nil {
-		return fiber.NewError(fiber.StatusBadRequest, "no TOTP setup in progress")
-	}
-
-	secret, ok2 := sess.Get(sessKeyTOTPSetup).(string)
-	if !ok2 || secret == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "no TOTP setup in progress — call /setup first")
-	}
+	secret := ch.Secret
 
 	// Validate the code against the pending secret.
 	if !totpLib.Validate(body.Code, secret) {
@@ -348,13 +347,15 @@ func totpEnable(c *fiber.Ctx) error {
 	}
 
 	// Persist the secret and mark TOTP enabled.
-	if err := users.SetTOTP(userID, secret); err != nil {
+	if err := users.SetTOTPFromChallenge(userID, secret, raw, context, currentBrowserSessionID(c)); err != nil {
+		if errors.Is(err, sessions.ErrInvalid) {
+			return fiber.NewError(400, "TOTP setup expired or credentials changed. Start setup again.")
+		}
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 
-	// Clear the pending secret from the session.
-	sess.Delete(sessKeyTOTPSetup)
-	_ = sess.Save()
+	// The credential transaction has consumed all pending challenges.
+	setAuthCookie(c, "totp_setup", "", time.Time{})
 
 	u, _ := users.GetByID(userID)
 	return c.JSON(fiber.Map{"user": u})
@@ -390,7 +391,7 @@ func totpDisable(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := users.ClearTOTP(userID); err != nil {
+	if err := users.ClearTOTP(userID, currentBrowserSessionID(c)); err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
 

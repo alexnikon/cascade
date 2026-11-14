@@ -42,8 +42,6 @@ new Vue({
     username: '',          // login form username field
     password: null,
     requiresPassword: null,
-    remember: false,
-    rememberMeEnabled: false,
 
     // TOTP login step 2
     lastAutoTOTP: '',      // prevents repeated automatic submissions of an unchanged code
@@ -76,6 +74,10 @@ new Vue({
 
     // API Tokens
     apiTokens: [],
+    activeSessions: [],
+    activeSessionsLoading: false,
+    activeSessionsError: '',
+    revokingSessionID: null,
     showCreateTokenModal: false,
     createTokenForm: { name: '' },
     showNewTokenModal: false,   // shown after successful creation
@@ -933,6 +935,7 @@ new Vue({
     document.addEventListener('keydown', this.handleGlobalKeydown);
 
     this.api = new API();
+    this.api._onUnauthorized = () => this.clearAuthentication();
 
     // Auto-switch back to local when the remote becomes unreachable.
     // This fires when a proxy call returns 401 (token revoked/expired) or
@@ -979,11 +982,6 @@ new Vue({
       })
       .catch((err) => {
         this.showToast(err.message || err.toString(), 'error');
-      });
-
-    this.api.getRememberMeEnabled()
-      .then((rememberMeEnabled) => {
-        this.rememberMeEnabled = rememberMeEnabled;
       });
 
     // Version info — fetch immediately (unauthenticated endpoint) and refresh

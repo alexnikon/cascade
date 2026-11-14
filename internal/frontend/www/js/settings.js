@@ -5,6 +5,46 @@
 import { i18n } from './i18n.js';
 
 export const settingsMethods = {
+async loadActiveSessions() {
+      const remoteID = this.activeRemoteId;
+      const sequence = this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
+      this.activeSessionsLoading = true;
+      this.activeSessionsError = '';
+      try {
+        const result = await this.api.getSessions();
+        if (sequence !== this.activeSessionsSequence || remoteID !== this.activeRemoteId) return;
+        this.activeSessions = result.sessions || [];
+      } catch (err) {
+        if (sequence !== this.activeSessionsSequence || remoteID !== this.activeRemoteId) return;
+        this.activeSessions = [];
+        this.activeSessionsError = err.message || 'Unable to load active sessions.';
+      } finally {
+        if (sequence === this.activeSessionsSequence) this.activeSessionsLoading = false;
+      }
+    },
+
+async revokeActiveSession(session) {
+      if (this.revokingSessionID) return;
+      const name = `${session.device} / ${session.browser}`;
+      if (!window.confirm(`Revoke the session for ${session.username} on ${name}?${session.current ? ' You will be signed out.' : ''}`)) return;
+      const remoteID = this.activeRemoteId;
+      this.revokingSessionID = session.id;
+      try {
+        const result = await this.api.revokeSession(session.id);
+        if (remoteID !== this.activeRemoteId) return;
+        if (result.current && !remoteID) {
+          this.clearAuthentication();
+          return;
+        }
+        await this.loadActiveSessions();
+        this.showToast('Session revoked.');
+      } catch (err) {
+        if (remoteID === this.activeRemoteId) this.showToast(err.message, 'error');
+      } finally {
+        this.revokingSessionID = null;
+      }
+    },
+
 async loadWebAccess() {
       try {
         this.webAccess = await this.api.getWebAccess();

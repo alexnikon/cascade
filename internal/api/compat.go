@@ -41,7 +41,7 @@ func RegisterCompat(r fiber.Router) {
 
 	// GET /api/remember-me — whether the "remember me" checkbox is shown.
 	r.Get("/remember-me", func(c *fiber.Ctx) error {
-		return c.JSON(true)
+		return c.JSON(false)
 	})
 
 	// ── UI-feature-flag stubs ────────────────────────────────────────────────

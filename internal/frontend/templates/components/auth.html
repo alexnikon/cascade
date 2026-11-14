@@ -91,24 +91,6 @@
               autocomplete="current-password" required />
           </div>
 
-          <!-- Remember me -->
-          <label v-if="rememberMeEnabled"
-            class="inline-block mb-5 cursor-pointer whitespace-nowrap" :title="$t('titleRememberMe')">
-            <input type="checkbox" name="remember" class="sr-only" v-model="remember">
-
-            <div v-if="remember"
-              class="inline-block align-middle rounded-full w-10 h-6 mr-1 cursor-pointer transition-all" style="background:#16a34a;">
-              <div class="rounded-full w-4 h-4 m-1 ml-5 bg-white"></div>
-            </div>
-
-            <div v-if="!remember"
-              class="inline-block align-middle rounded-full w-10 h-6 mr-1 bg-gray-200 dark:bg-neutral-400 cursor-pointer hover:bg-gray-300 dark:hover:bg-neutral-500 transition-all">
-              <div class="rounded-full w-4 h-4 m-1 bg-white"></div>
-            </div>
-
-            <span class="text-sm">{{$t("rememberMe")}}</span>
-          </label>
-
           <button type="submit" :disabled="authenticating" :aria-busy="String(authenticating)"
             :aria-label="authenticating ? 'Signing in' : $t('signIn')" class="auth-primary">
             <span v-if="!authenticating">{{$t('signIn')}}</span>

@@ -14,6 +14,8 @@ export class API {
     // error (401 Unauthorized or 5xx server error). The app registers this to
     // auto-switch back to local mode when the remote becomes unavailable.
     this._onRemoteError = null;
+    this._onUnauthorized = null;
+    this._authGeneration = 0;
   }
 
   /** Switch all subsequent calls to go through a remote server proxy. */
@@ -24,16 +26,21 @@ export class API {
 
   /** Like call(), but always targets the local server regardless of activeRemoteId. */
   async callLocal(opts) {
-    const saved = this._remoteId;
-    this._remoteId = null;
-    try {
-      return await this.call(opts);
-    } finally {
-      this._remoteId = saved;
-    }
+    return this.call({ ...opts, local: true });
   }
 
-  async call({ method, path, body, allowStatus = [] }) {
+  // Downloads and multipart requests must react to revoked browser sessions too.
+  async _fetch(url, options) {
+    const generation = this._authGeneration;
+    const response = await fetch(url, options);
+    if (response.status === 401 && response.headers.get('X-Cascade-Session-Expired') === '1'
+        && generation === this._authGeneration && typeof this._onUnauthorized === 'function') {
+      this._onUnauthorized();
+    }
+    return response;
+  }
+
+  async call({ method, path, body, allowStatus = [], local = false }) {
     // Compute API base URL from the first path segment of the current page.
     // Works correctly whether the page was loaded with or without a trailing slash,
     // and whether there is a reverse-proxy prefix (e.g. Caddy ADMIN_PATH) or not.
@@ -48,13 +55,14 @@ export class API {
 
     // If a remote is active, route through the proxy endpoint.
     // Remotes-management calls (/remotes/*) always go to local.
-    const effectivePath = (this._remoteId && !path.startsWith('/remotes'))
-      ? `/remotes/${this._remoteId}/proxy${path}`
+    const requestRemoteId = local ? null : this._remoteId;
+    const effectivePath = (requestRemoteId && !path.startsWith('/remotes'))
+      ? `/remotes/${requestRemoteId}/proxy${path}`
       : path;
 
     let res;
     try {
-      res = await fetch(`${apiBase}${effectivePath}`, {
+      res = await this._fetch(`${apiBase}${effectivePath}`, {
         method: method.toUpperCase(), // Node.js 22 llhttp: HTTP method must be uppercase
         headers: {
           'Content-Type': 'application/json',
@@ -73,8 +81,9 @@ export class API {
     // notify the app so it can switch back to local mode gracefully.
     // This prevents the user from seeing a confusing "login window" when
     // the remote becomes temporarily unreachable.
-    const isProxyCall = this._remoteId && effectivePath.startsWith(`/remotes/${this._remoteId}/proxy`);
-    if (isProxyCall && (res.status === 401 || res.status >= 500)) {
+    const isProxyCall = requestRemoteId && effectivePath.startsWith(`/remotes/${requestRemoteId}/proxy`);
+    const localSessionExpired = res.status === 401 && res.headers.get('X-Cascade-Session-Expired') === '1';
+    if (!localSessionExpired && isProxyCall && requestRemoteId === this._remoteId && (res.status === 401 || res.status >= 500)) {
       if (typeof this._onRemoteError === 'function') {
         this._onRemoteError(res.status, effectivePath);
       }
@@ -135,14 +144,14 @@ export class API {
   }
 
   async getSession() {
-    return this.call({
+    return this.callLocal({
       method: 'get',
       path: '/session',
     });
   }
 
   async createSession({ username, password, remember }) {
-    return this.call({
+    return this.callLocal({
       method: 'post',
       path: '/session',
       body: { username, password, remember },
@@ -150,10 +159,18 @@ export class API {
   }
 
   async deleteSession() {
-    return this.call({
+    return this.callLocal({
       method: 'delete',
       path: '/session',
     });
+  }
+
+  async getSessions() {
+    return this.call({ method: 'get', path: '/sessions' });
+  }
+
+  async revokeSession(id) {
+    return this.call({ method: 'delete', path: `/sessions/${encodeURIComponent(id)}` });
   }
 
   async getClients() {
@@ -379,7 +396,7 @@ export class API {
 
   async exportTunnelInterface({ interfaceId, includePeers }) {
     const peers = includePeers ? '1' : '0';
-    const res = await fetch(`./api/tunnel-interfaces/${interfaceId}/export?peers=${peers}`, {
+    const res = await this._fetch(`./api/tunnel-interfaces/${interfaceId}/export?peers=${peers}`, {
       headers: { Authorization: `Bearer ${this.token}` },
     });
     if (!res.ok) throw new Error(await res.text());
@@ -484,10 +501,11 @@ export class API {
       ? `${window.location.origin}/${segs[0]}/api`
       : `${window.location.origin}/api`;
     const path = `/tunnel-interfaces/${interfaceId}/peers/${peerId}/config`;
-    const effectivePath = (this._remoteId && !path.startsWith('/remotes'))
-      ? `/remotes/${this._remoteId}/proxy${path}`
+    const requestRemoteId = this._remoteId;
+    const effectivePath = (requestRemoteId && !path.startsWith('/remotes'))
+      ? `/remotes/${requestRemoteId}/proxy${path}`
       : path;
-    const res = await fetch(`${apiBase}${effectivePath}`);
+    const res = await this._fetch(`${apiBase}${effectivePath}`);
     if (!res.ok) throw new Error(res.statusText);
     return res.text();
   }
@@ -566,7 +584,7 @@ export class API {
   async importClientConfigs({ interfaceId, files }) {
     const form = new FormData();
     for (const f of files) form.append('configs', f);
-    const res = await fetch(`./api/tunnel-interfaces/${interfaceId}/peers/import-client-configs`, {
+    const res = await this._fetch(`./api/tunnel-interfaces/${interfaceId}/peers/import-client-configs`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.token}` },
       body: form,
@@ -1033,7 +1051,7 @@ export class API {
 
   /** Verify TOTP code during login (step 2 after password). */
   async verifyTOTP({ code }) {
-    return this.call({ method: 'post', path: '/auth/totp/verify', body: { code } });
+    return this.callLocal({ method: 'post', path: '/auth/totp/verify', body: { code } });
   }
 
   // ============================================================
@@ -1076,7 +1094,7 @@ export class API {
    * @param {{ password?: string }}
    */
   async downloadSystemBackup({ password = '', includeMetrics = false } = {}) {
-    const res = await fetch(`${this._systemApiBase()}/backup`, {
+    const res = await this._fetch(`${this._systemApiBase()}/backup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password, includeMetrics }),
@@ -1102,7 +1120,7 @@ export class API {
     const form = new FormData();
     form.append('backup', file);
     if (password) form.append('password', password);
-    const res = await fetch(`${this._systemApiBase()}/restore/preview`, { method: 'POST', body: form });
+    const res = await this._fetch(`${this._systemApiBase()}/restore/preview`, { method: 'POST', body: form });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: res.statusText }));
       throw new Error(err.message || res.statusText);
@@ -1119,7 +1137,7 @@ export class API {
     form.append('backup', file);
     if (password) form.append('password', password);
     if (ifaceMap && Object.keys(ifaceMap).length > 0) form.append('ifaceMap', JSON.stringify(ifaceMap));
-    const res = await fetch(`${this._systemApiBase()}/restore`, { method: 'POST', body: form });
+    const res = await this._fetch(`${this._systemApiBase()}/restore`, { method: 'POST', body: form });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: res.statusText }));
       throw new Error(err.message || res.statusText);
