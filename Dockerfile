@@ -72,7 +72,6 @@ RUN apk add --no-cache \
     iperf3 \
     iputils-ping \
     traceroute \
-    tcpdump \
     coreutils
 
 # Use iptables-legacy as default iptables.

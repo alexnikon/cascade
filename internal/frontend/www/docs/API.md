@@ -580,3 +580,16 @@ backend must bind to loopback behind the updated Caddy proxy on port 443.
 
 One-time configuration links and generation endpoints have been removed. Use the
 authorized peer `/config` endpoint for downloads and wgbot delivery.
+
+## Network Diagnostics
+
+All endpoints require the existing API authentication. Utility streams use Server-Sent Events (`text/event-stream`), finish with `[done]`, and cancel their processes when the client disconnects.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/diagnostics/ping` | Existing reachability probe, including interface binding; used by the connection wizard. |
+| `GET` | `/api/diagnostics/ping/stream` | `host`, optional `source` (interface or IP), `count` (1–20), `size`, `df`, and `tos`. |
+| `GET` | `/api/diagnostics/traceroute/stream` | `host`, optional `source` (interface or IP), and `type=udp\|icmp\|tcp`. |
+
+
+Saved Dashboard widget layouts continue to use `page=dashboard`; the retired Diagnostics graph layout is no longer accepted.

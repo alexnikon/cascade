@@ -123,27 +123,9 @@ async disablePeer(peer) {
       }
     },
 
-async updatePeerName(peer, name) {
-      try {
-        await this.api.updatePeerName({ interfaceId: this._peerIfaceId(peer), peerId: peer.id, name });
-        await this._refreshPeersOrAll();
-      } catch (err) {
-        this.showToast(err.message || err.toString(), 'error');
-      }
-    },
-
 async updatePeerAddress(peer, address) {
       try {
         await this.api.updatePeerAddress({ interfaceId: this._peerIfaceId(peer), peerId: peer.id, address });
-        await this._refreshPeersOrAll();
-      } catch (err) {
-        this.showToast(err.message || err.toString(), 'error');
-      }
-    },
-
-async updatePeerExpireDate(peer, expireDate) {
-      try {
-        await this.api.updatePeerExpireDate({ interfaceId: this._peerIfaceId(peer), peerId: peer.id, expireDate });
         await this._refreshPeersOrAll();
       } catch (err) {
         this.showToast(err.message || err.toString(), 'error');

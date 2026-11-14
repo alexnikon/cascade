@@ -28,7 +28,7 @@
       <div class="section-server-label text-xs text-gray-500 dark:text-neutral-400 truncate">{{ activeServerLabel }}</div>
       <h1 class="section-title dark:text-neutral-200">{{ sectionTitle }}</h1>
     </div>
-    <div v-if="activePage !== 'settings' && !(activePage === 'routing' && activeRoutingTab !== 'static') && !(activePage === 'diagnostics' && diagActiveTab !== 'graphs')" class="section-toolbar-controls">
+    <div v-if="activePage !== 'settings' && !(activePage === 'routing' && activeRoutingTab !== 'static') && activePage !== 'diagnostics'" class="section-toolbar-controls">
 <div v-if="activePage === 'dashboard'" class="section-toolbar-actions"><div class="dashboard-toolbar flex items-center justify-between">
 
             <div class="flex gap-2">
@@ -114,12 +114,6 @@
                   style="padding:8px 16px;">
                   + Add Rule
                 </button>
-</div>
-<div v-if="activePage === 'diagnostics'" class="section-toolbar-actions"><button v-if="diagActiveTab === 'graphs'" @click="diagAddWidget()"
-              class="text-sm text-white rounded"
-              style="padding:7px 16px; background:#2563eb; border:none; cursor:pointer;">
-              + Add Graph
-            </button>
 </div>
 <div v-if="activePage === 'remotes'" class="section-toolbar-actions"><div style="display:flex; gap:8px;">
               <button @click="openSpeedtest()" :disabled="remotes.length === 0"
@@ -236,18 +230,6 @@
 <div class="section-toolbar-tabs" v-if="activePage === 'administration'">
             <button class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm">
               Admin Tunnel
-            </button>
-          </div>
-<div class="section-toolbar-tabs" v-if="activePage === 'diagnostics'">
-            <button @click="diagActiveTab='graphs'"
-              class="px-4 py-2 rounded-lg font-medium transition text-sm"
-              :class="diagActiveTab === 'graphs' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200'">
-              Graphs
-            </button>
-            <button @click="diagActiveTab='utilities'"
-              class="px-4 py-2 rounded-lg font-medium transition text-sm"
-              :class="diagActiveTab === 'utilities' ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-neutral-600 text-gray-700 dark:text-neutral-200'">
-              Utilities
             </button>
           </div>
 </header>

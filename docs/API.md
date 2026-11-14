@@ -536,3 +536,16 @@ Legacy endpoints retained for frontend compatibility. Read-only, return safe def
 Global settings expose the manual `defaultClientAllowedIPs` string. Client peer create, read, and update APIs expose the manual `clientAllowedIPs` string. New peers without an explicit list inherit the global default. When exporting a peer with an empty list, the global default is used; if both are empty, the full-tunnel default is `0.0.0.0/0, ::/0`.
 
 Client AllowedIPs are independent of Firewall aliases. Legacy routing mode and alias fields in requests and JSON backups are ignored and are omitted from responses and new backups. Existing saved manual values are preserved when upgrading. Cascade DNS retains its required VPN host route.
+
+## Network Diagnostics
+
+All endpoints require the existing API authentication. Utility streams use Server-Sent Events (`text/event-stream`), finish with `[done]`, and cancel their processes when the client disconnects.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/diagnostics/ping` | Existing reachability probe, including interface binding; used by the connection wizard. |
+| `GET` | `/api/diagnostics/ping/stream` | `host`, optional `source` (interface or IP), `count` (1–20), `size`, `df`, and `tos`. |
+| `GET` | `/api/diagnostics/traceroute/stream` | `host`, optional `source` (interface or IP), and `type=udp\|icmp\|tcp`. |
+
+
+Saved Dashboard widget layouts continue to use `page=dashboard`; the retired Diagnostics graph layout is no longer accepted.

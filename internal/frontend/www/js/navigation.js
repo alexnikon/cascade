@@ -66,21 +66,16 @@ handleCompactViewportChange(event) {
       // before updating the viewport flag so compact geometry cannot overwrite
       // the persisted desktop layout during a mobile-to-desktop transition.
       this._dashSaveEnabled = false;
-      this._diagSaveEnabled = false;
       this.isCompactViewport = event.matches;
       if (!event.matches) this.closeMobileNav(false);
       if (this.activePage === 'dashboard') {
         this.loadDashboard();
         return;
       }
-      if (this.activePage === 'diagnostics') {
-        this.loadDiagnostics();
-        return;
+      if (this.dashGrid) {
+        this.dashGrid.enableMove(!event.matches);
+        this.dashGrid.enableResize(!event.matches);
       }
-      [this.dashGrid, this.diagGrid].filter(Boolean).forEach(grid => {
-        grid.enableMove(!event.matches);
-        grid.enableResize(!event.matches);
-      });
     },
 
 handleGlobalKeydown(event) {
@@ -91,18 +86,7 @@ switchPage(pageId) {
       // FIX: destroy GridStack when leaving dashboard — clears ResizeObserver,
       // inline styles and CSS vars it set on parent elements (which caused a
       // vertical gap on the interfaces page after visiting dashboard).
-      if (this.activePage === 'diagnostics' && pageId !== 'diagnostics' && this.diagGrid) {
-        // Clear inline styles GridStack sets on content elements and the grid container.
-        // GridStack sets height on .diag-grid itself (e.g. height:60px for 1-row grid) and
-        // on .grid-stack-item-content children. Without this, Vue's DOM reuse could carry
-        // those heights over to unrelated elements on the next page.
-        document.querySelectorAll('.diag-grid .grid-stack-item-content').forEach(el => { el.style.cssText = ''; });
-        this.diagGrid.destroy(false);
-        // Clear AFTER destroy too — destroy(false) may re-apply inline styles during cleanup.
-        document.querySelectorAll('.diag-grid, .diag-grid .grid-stack-item-content, .diag-grid .grid-stack-item').forEach(el => { el.style.cssText = ''; });
-        this.diagGrid = null;
-        this.metricsStopPoller();
-      }
+      if (this.activePage === 'diagnostics' && pageId !== 'diagnostics') this.stopDiagnostics();
       if (this.activePage === 'dashboard' && pageId !== 'dashboard' && this.dashGrid) {
         // destroy(false) — remove GridStack listeners/styles but keep DOM nodes
         // so that Vue's v-if can cleanly remove the subtree without conflict.
@@ -144,8 +128,6 @@ switchPage(pageId) {
         this.metricsStartPoller();
       }
       if (pageId === 'diagnostics') {
-        this.loadDiagnostics();
-        this.metricsStartPoller();
         this.pingLoadInterfaces();
       }
       if (pageId === 'interfaces') this.loadTunnelInterfaces();

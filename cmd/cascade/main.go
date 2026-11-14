@@ -200,7 +200,7 @@ func main() {
 		if matched := c.Route(); matched != nil && matched.Path != "" {
 			route = matched.Path
 		}
-		metrics.RecordHTTPRequest(method, route, status, time.Since(start), len(c.Response().Body()))
+		metrics.RecordHTTPRequest(method, route, status, time.Since(start), responseMetricSize(c))
 		if method != "GET" || status >= 400 {
 			log.Printf("[%s] %s %s → %d (%s)",
 				time.Now().Format("15:04:05"),
@@ -570,4 +570,16 @@ func envBool(key string, def bool) bool {
 		}
 	}
 	return def
+}
+
+// Streaming bodies must remain unread so SSE and downloads reach the client
+// immediately. Buffered response accounting keeps its existing behavior.
+func responseMetricSize(c *fiber.Ctx) int {
+	if c.Response().IsBodyStream() {
+		if length := c.Response().Header.ContentLength(); length > 0 {
+			return length
+		}
+		return 0
+	}
+	return len(c.Response().Body())
 }

@@ -167,17 +167,11 @@ new Vue({
     refreshAllPeersPromiseKey: null, // remote identity associated with the request
     resourcePollSkipped: 0,         // diagnostics counter for coalesced refreshes
     metricsConfigWidget: null,      // widget being configured (modal open)
-    metricsConfigPage: 'dashboard', // page the config modal was opened from
     metricsConfigDraft: [],         // draft graphs[] for config modal
     metricsColorDraft: {},          // { [key]: '#rrggbb' } for config modal
     metricsTitleDraft: '',          // draft widget title for config modal
     metricsChartHeights: {},
     metricsWidgetPeriod: {},        // { [widgetId]: '5m'|'1h'|... }
-
-    // ── Diagnostics page ──────────────────────────────────────────────────────
-    diagWidgets: [],
-    diagGrid: null,
-    diagActiveTab: 'graphs', // 'graphs' | 'utilities'
 
     // ── Ping utility ──────────────────────────────────────────────────────────
     pingHost: '',
@@ -197,15 +191,6 @@ new Vue({
     traceType: 'udp',
     traceRunning: false,
     traceEventSource: null,
-
-    // ── Tcpdump utility ───────────────────────────────────────────────────────
-    tcpdumpIface: '',
-    tcpdumpFilter: '',
-    tcpdumpSave: false,
-    tcpdumpRunning: false,
-    tcpdumpEventSource: null,
-    tcpdumpPcapId: null,        // capture ID sent as first SSE event [captureid:<id>]
-    tcpdumpDownloadReady: false, // true once file is finalized and ready to download
 
     // Tunnel Interfaces
     tunnelInterfaces: [],
@@ -297,12 +282,8 @@ new Vue({
     peersPersist: {},
     peerDelete: null,      // peer for delete confirmation modal
     interfaceDelete: null, // interface for delete confirmation modal
-    peerEditNameId: null,
-    peerEditName: null,
     peerEditAddressId: null,
     peerEditAddress: null,
-    peerEditExpireDateId: null,
-    peerEditExpireDate: null,
     // Peer Edit Modal
     showPeerEditModal: false,
     peerEditForm: {
@@ -1043,6 +1024,7 @@ new Vue({
     }).catch((err) => console.error(err));
   },
   beforeDestroy() {
+    this.stopDiagnostics();
       this._stopAliasJobPoll?.();
       this.clientsPersist = {};
       this.peersPersist = {};

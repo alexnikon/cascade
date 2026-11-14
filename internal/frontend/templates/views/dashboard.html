@@ -32,6 +32,12 @@
                         <button @click="metricsOpenConfig(w.id)" title="Configure graphs"
                           style="opacity:0.6; background:none; border:none; cursor:pointer; padding:0 3px; line-height:1; color:inherit; font-size:0.85rem;">⚙</button>
                       </template>
+                      <button v-if="w.type === 'peers'" type="button"
+                        @pointerdown.stop @mousedown.stop @touchstart.stop
+                        @click.stop="dashPeersViewDirty(w.id) ? dashSavePeersView(w.id) : dashResetPeersView(w.id)"
+                        class="dash-peers-view-action"
+                        :class="{ 'is-dirty': dashPeersViewDirty(w.id) }"
+                        :title="dashPeersViewDirty(w.id) ? 'Save filter and sort' : 'Reset filter and sort'">{{ dashPeersViewDirty(w.id) ? 'Save' : 'Reset' }}</button>
                       <template v-if="w.type !== 'monitoring'">
                         <button @click="dashAdjustFontScale(w.id, -0.1)" title="Smaller text"
                           style="opacity:0.55; background:none; border:none; cursor:pointer; padding:0 2px; line-height:1; color:inherit; font-size:0.8rem;">−</button>
@@ -297,11 +303,6 @@
                             <option value="traffic">Sort: Traffic</option>
                             <option value="seen">Sort: Last seen</option>
                           </select>
-                          <button type="button"
-                            @click="dashPeersViewDirty(w.id) ? dashSavePeersView(w.id) : dashResetPeersView(w.id)"
-                            class="dash-peers-view-action"
-                            :class="{ 'is-dirty': dashPeersViewDirty(w.id) }"
-                            :title="dashPeersViewDirty(w.id) ? 'Save filter and sort' : 'Reset filter and sort'">{{ dashPeersViewDirty(w.id) ? 'Save' : 'Reset' }}</button>
                         </div>
 
                         <!-- scrollable peer list -->

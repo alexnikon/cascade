@@ -524,27 +524,11 @@ export class API {
     });
   }
 
-  async updatePeerName({ interfaceId, peerId, name }) {
-    return this.call({
-      method: 'put',
-      path: `/tunnel-interfaces/${interfaceId}/peers/${peerId}/name`,
-      body: { name },
-    });
-  }
-
   async updatePeerAddress({ interfaceId, peerId, address }) {
     return this.call({
       method: 'put',
       path: `/tunnel-interfaces/${interfaceId}/peers/${peerId}/address`,
       body: { address },
-    });
-  }
-
-  async updatePeerExpireDate({ interfaceId, peerId, expireDate }) {
-    return this.call({
-      method: 'put',
-      path: `/tunnel-interfaces/${interfaceId}/peers/${peerId}/expireDate`,
-      body: { expireDate },
     });
   }
 

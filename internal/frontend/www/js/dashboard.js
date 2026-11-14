@@ -265,11 +265,11 @@ metricsStartPoller() {
       if (!this._metricsVisibilityHandler) {
         this._metricsVisibilityHandler = () => {
           if (document.hidden) this.metricsStopPoller();
-          else if (['dashboard', 'diagnostics'].includes(this.activePage)) this.metricsStartPoller();
+          else if (this.activePage === 'dashboard') this.metricsStartPoller();
         };
         document.addEventListener('visibilitychange', this._metricsVisibilityHandler);
       }
-      if (document.hidden || !['dashboard', 'diagnostics'].includes(this.activePage) || this.metricsPoller) return;
+      if (document.hidden || this.activePage !== 'dashboard' || this.metricsPoller) return;
       this.metricsPoller = setInterval(() => this.metricsTick(), 5000);
       this.metricsTick();
       if (this._metricsHistoryPoller) clearInterval(this._metricsHistoryPoller);
@@ -297,8 +297,6 @@ async _metricsRefreshHistory() {
         let widgets = [];
         if (this.activePage === 'dashboard') {
           widgets = this.dashWidgets.filter(w => w.type === 'monitoring');
-        } else if (this.activePage === 'diagnostics') {
-          widgets = this.diagWidgets.filter(w => w.type === 'monitoring');
         }
         for (const w of widgets) {
           const period = this.metricsWidgetPeriod[w.id] || '5m';
@@ -331,7 +329,7 @@ async metricsTick() {
     },
 
 async _metricsTickNow() {
-      if (this.metricsConfigWidget || document.hidden || !['dashboard', 'diagnostics'].includes(this.activePage)) return;
+      if (this.metricsConfigWidget || document.hidden || this.activePage !== 'dashboard') return;
       const page = this.activePage, epoch = this._metricsEpoch;
       try {
         const snap = await this.api.getMetrics();
@@ -358,12 +356,11 @@ async _metricsTickNow() {
           this.metricsPruneUnavailableGraphs(snap);
         }
 
-        // Append to rolling buffers for realtime (5m) widgets — both dashboard and diagnostics
+        // Append to rolling buffers for realtime (5m) widgets
         const now = Math.floor(Date.now() / 5000) * 5000;
         const MAX_POINTS = 60;
         const allMonitoringWidgets = [
           ...this.dashWidgets.filter(w => w.type === 'monitoring'),
-          ...this.diagWidgets.filter(w => w.type === 'monitoring'),
         ];
         for (const w of allMonitoringWidgets) {
           const period = this.metricsWidgetPeriod[w.id] || '5m';
@@ -425,7 +422,6 @@ metricsPruneUnavailableGraphs(snap) {
       };
 
       this.dashWidgets = prunePage(this.dashWidgets, 'dashboard');
-      this.diagWidgets = prunePage(this.diagWidgets, 'diagnostics');
     },
 
 metricsValueFromSnap(snap, key) {
@@ -471,7 +467,7 @@ async metricsHistoryRequest(method, key, period) {
     },
 
 metricsRequestValid(widgetId, key, period, page, epoch) {
-      const widgets = page === 'dashboard' ? this.dashWidgets : this.diagWidgets;
+      const widgets = this.dashWidgets;
       return this.activePage === page && !document.hidden && this._metricsEpoch === epoch
         && (this.metricsWidgetPeriod[widgetId] || '5m') === period
         && widgets.some(w => w.id === widgetId && (w.graphs || []).includes(key));
@@ -562,18 +558,17 @@ _updateGatewaySeriesCache(widgetId, key) {
 async metricsOnPeriodChange(widgetId, period) {
       this._metricsEpoch = (this._metricsEpoch || 0) + 1;
       this.$set(this.metricsWidgetPeriod, widgetId, period);
-      const isDiag = this.activePage === 'diagnostics';
-      const list = isDiag ? this.diagWidgets : this.dashWidgets;
+      const list = this.dashWidgets;
       const idx = list.findIndex(w => w.id === widgetId);
       if (idx === -1) return;
       // Persist period into widget layout so it survives page refresh.
       // Debounced: rapid switching won't fire multiple concurrent PUT requests.
       const updated = { ...list[idx], period };
       list.splice(idx, 1, updated);
-      const page = isDiag ? 'diagnostics' : 'dashboard';
+      const page = 'dashboard';
       if (this._metricsPeriodSaveTimer) clearTimeout(this._metricsPeriodSaveTimer);
       this._metricsPeriodSaveTimer = setTimeout(() => {
-        this.api.putDashboardWidgets(isDiag ? this.diagWidgets : this.dashWidgets, page).catch(console.error);
+        this.api.putDashboardWidgets(this.dashWidgets, page).catch(console.error);
       }, 500);
       const w = updated;
       // Clear existing buffer so chart doesn't mix realtime and history points
@@ -626,7 +621,7 @@ metricsGetCachedAreaSeries(widgetId, key) {
     // Keyed by all fields that affect the options so changes (theme, period, color) get fresh object.
 
 metricsAreaChartOptions(widgetId, key) {
-      const w = [...this.dashWidgets, ...this.diagWidgets].find(w => w.id === widgetId);
+      const w = this.dashWidgets.find(w => w.id === widgetId);
       const period = this.metricsWidgetPeriod[widgetId] || '5m';
       const color = (w && w.graphColors && w.graphColors[key]) || '#22d3ee';
       const ck = `${widgetId}:${key}:${period}:${this.theme}:${color}`;
@@ -655,14 +650,11 @@ metricsCloseConfig() {
     },
 
 metricsOpenConfig(widgetId) {
-      // Snapshot the page at open time so Save writes to the correct list
-      // even if the user navigates away while the modal is open.
-      const page = this.activePage === 'diagnostics' ? 'diagnostics' : 'dashboard';
-      const list = page === 'diagnostics' ? this.diagWidgets : this.dashWidgets;
+      // Monitoring configuration belongs to Dashboard, including saves after navigation.
+      const list = this.dashWidgets;
       const w = list.find(w => w.id === widgetId);
       if (!w) return;
       this.metricsConfigWidget = widgetId;
-      this.metricsConfigPage = page;
       this.metricsConfigDraft = [...(w.graphs || [])];
       this.metricsColorDraft = Object.assign({}, w.graphColors || {});
       this.metricsTitleDraft = w.title || '';
@@ -676,9 +668,8 @@ metricsToggleGraph(key) {
 
 async metricsSaveConfig() {
       const widgetId = this.metricsConfigWidget;
-      const page = this.metricsConfigPage || 'dashboard';
-      const isDiag = page === 'diagnostics';
-      const list = isDiag ? this.diagWidgets : this.dashWidgets;
+      const page = 'dashboard';
+      const list = this.dashWidgets;
       const idx = list.findIndex(w => w.id === widgetId);
       if (idx === -1) return;
       const title = this.metricsTitleDraft.trim() || '';
@@ -686,7 +677,7 @@ async metricsSaveConfig() {
       list.splice(idx, 1, w);
       this._metricsEpoch = (this._metricsEpoch || 0) + 1;
       this.metricsCloseConfig();
-      this.api.putDashboardWidgets(isDiag ? this.diagWidgets : this.dashWidgets, page).catch(console.error);
+      this.api.putDashboardWidgets(this.dashWidgets, page).catch(console.error);
       // Load server samples for newly added graphs, including the live window.
       const period = this.metricsWidgetPeriod[widgetId] || '5m';
       for (const key of w.graphs) {

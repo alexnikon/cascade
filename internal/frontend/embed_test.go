@@ -401,8 +401,8 @@ func TestFrontendNavigationThemeAndDashboardDefaults(t *testing.T) {
 	if strings.Contains(index, "Traffic Charts") {
 		t.Error("legacy Traffic Charts setting is still embedded")
 	}
-	if got := strings.Count(app, `breakpoints: [{ w: 1023, c: 1, layout: 'list' }]`); got != 2 {
-		t.Errorf("responsive GridStack breakpoint count = %d, want 2", got)
+	if got := strings.Count(app, `breakpoints: [{ w: 1023, c: 1, layout: 'list' }]`); got != 1 {
+		t.Errorf("responsive GridStack breakpoint count = %d, want 1", got)
 	}
 	if strings.Contains(app, `breakpoints: [{ w: 1024, c: 1, layout: 'list' }]`) {
 		t.Error("GridStack still switches to compact layout at the desktop 1024px boundary")
@@ -660,7 +660,7 @@ func TestInterfacesPeerStatusAndEditHover(t *testing.T) {
 	if got := strings.Count(interfaces, `class="border-t-2 border-b-2 border-transparent">{{peer.name}}</span>`); got != 0 {
 		t.Errorf("Interfaces peer names with transparent border classes = %d, want 0", got)
 	}
-	if got := strings.Count(interfaces, `v-show="peerEditNameId !== peer.id">{{peer.name}}</span>`); got != 2 {
+	if got := strings.Count(interfaces, `<span>{{peer.name}}</span>`); got != 2 {
 		t.Errorf("borderless Interfaces peer names = %d, want 2", got)
 	}
 }
@@ -802,9 +802,9 @@ func TestFrontendDiagnosticsUtilitiesMobileLayout(t *testing.T) {
 		}
 	}
 	for className, want := range map[string]int{
-		`class="diag-utility-card rounded-lg"`: 3,
+		`class="diag-utility-card rounded-lg"`: 2,
 		`class="diag-utility-fields"`:          2,
-		`class="diag-utility-actions"`:         3,
+		`class="diag-utility-actions"`:         2,
 	} {
 		if got := strings.Count(index, className); got != want {
 			t.Errorf("Diagnostics Utilities hook %q count = %d, want %d", className, got, want)
@@ -1027,7 +1027,7 @@ func TestDashboardEntityRowsAreReadOnly(t *testing.T) {
 			t.Errorf("read-only dashboard does not contain %q", expected)
 		}
 	}
-	if got := strings.Count(peers, `class="dash-peers-view-action"`); got != 1 {
+	if got := strings.Count(index, `class="dash-peers-view-action"`); got != 1 {
 		t.Errorf("dashboard peers view action count = %d, want 1", got)
 	}
 	if strings.Contains(peers, "peerEffectiveRate(peer)") {
@@ -1150,16 +1150,12 @@ func TestFrontendLoginAndLayoutRegressions(t *testing.T) {
 		`if (this.uiTheme === 'auto')`,
 		`breakpoints: [{ w: 1023, c: 1, layout: 'list' }]`,
 		`this._dashSaveEnabled = false;`,
-		`this._diagSaveEnabled = false;`,
 		`if (this.activePage === 'dashboard') {`,
 		`this.loadDashboard();`,
-		`if (this.activePage === 'diagnostics') {`,
-		`this.loadDiagnostics();`,
 		`el.className = 'grid-stack';`,
 		`item.setAttribute('gs-w', widget.w);`,
 		`item.setAttribute('gs-h', widget.h);`,
 		`this._dashSaveEnabled && !this.isCompactViewport`,
-		`this._diagSaveEnabled && !this.isCompactViewport`,
 	} {
 		if !strings.Contains(app, expected) {
 			t.Errorf("app.js does not contain %q", expected)

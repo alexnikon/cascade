@@ -1103,16 +1103,16 @@ The **Monitoring** widget on the Dashboard shows real-time TX/RX traffic per Wir
 
 ### Diagnostics Page
 
-The **Diagnostics** page (sidebar) shows all monitoring widgets in a full-screen layout:
+The **Diagnostics** page opens network utilities directly, without Graphs or Utilities tabs. Monitoring charts remain on the Dashboard.
 
-- Per-interface traffic charts for all active interfaces
-- Gateway status history charts for all gateway groups
+- **Ping** — send ICMP probes to a host or IP, optionally binding a source interface and setting packet count, size, Don't Fragment, and TOS.
+- **Traceroute** — inspect the path to a destination using UDP, ICMP, or TCP probes, optionally binding a source interface.
 
-Use this page for a quick overview of the router's health without navigating between sections.
+Command output appears in the shared terminal. Stop ends the selected command; leaving Diagnostics closes its streams and terminates their processes.
 
 ### Gateway Status History
 
-Each gateway group card on the Diagnostics page includes a **stacked bar chart** showing
+Dashboard monitoring widgets can include a **stacked bar chart** showing
 the distribution of gateway states over time:
 
 | Color | State |

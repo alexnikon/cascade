@@ -7,7 +7,7 @@ function fixture() {
   const document = { hidden: false, addEventListener() {} };
   const context = vm.createContext({ document, console, setInterval, clearInterval, setTimeout, clearTimeout });
   vm.runInContext(source.replace('export const dashboardMethods', 'globalThis.methods'), context);
-  const state = { ...context.methods, activePage: 'dashboard', dashWidgets: [{ id:'w',type:'monitoring',graphs:['cpu'] }], diagWidgets: [],
+  const state = { ...context.methods, activePage: 'dashboard', dashWidgets: [{ id:'w',type:'monitoring',graphs:['cpu'] }],
     metricsWidgetPeriod: {}, metricsHistory: {}, metricsAreaSeriesCache: {}, metricsChartHeights: {},
     $set(o,k,v) { o[k]=v; }, api: {}, metricsKeyLabel: k => k };
   return { state, document };
@@ -47,7 +47,7 @@ test('identical pending requests are shared', async () => {
 });
 test('hidden tabs and unrelated pages do not start polling', () => {
   const {state:s,document:d}=fixture(); d.hidden=true; s.metricsStartPoller(); assert.equal(s.metricsPoller,undefined);
-  d.hidden=false; s.activePage='interfaces'; s._metricsVisibilityHandler(); assert.equal(s.metricsPoller,undefined);
+  d.hidden=false; for (const page of ['interfaces','diagnostics']) { s.activePage=page; s._metricsVisibilityHandler(); assert.equal(s.metricsPoller,undefined); }
 });
 test('one or two graphs fit the body while larger stacks retain a readable minimum', () => {
   const {state:s}=fixture();
@@ -65,4 +65,49 @@ test('one or two graphs fit the body while larger stacks retain a readable minim
   assert.equal(s.metricsChartHeight('w'),128);
   s.dashWidgets[0].graphs=['cpu'];
   assert.equal(s.metricsChartHeight('w'),400);
+});
+
+test('peers filter and sort save, reload and reset preserve the widget layout', async () => {
+  const { state: s } = fixture();
+  s.dashWidgets = [{ id: 'peers', type: 'peers', x: 2, fontScale: 1.2 }];
+  s.dashPeersState = {};
+  s.showToast = () => {};
+  let persisted;
+  s.api.putDashboardWidgets = async widgets => { persisted = JSON.parse(JSON.stringify(widgets)); };
+  const view = s.dashPeersGetState('peers');
+  view.iface = 'long-interface-name';
+  view.sort = 'seen';
+  assert.equal(s.dashPeersViewDirty('peers'), true);
+  await s.dashSavePeersView('peers');
+  assert.equal(s.dashPeersViewDirty('peers'), false);
+  s.dashWidgets = persisted;
+  s.dashPeersState = {};
+  assert.equal(s.dashPeersGetState('peers').iface, 'long-interface-name');
+  assert.equal(s.dashPeersGetState('peers').sort, 'seen');
+  await s.dashResetPeersView('peers');
+  assert.equal(s.dashPeersGetState('peers').iface, '');
+  assert.equal(s.dashPeersGetState('peers').sort, 'name');
+  assert.equal(persisted[0].peerFilter, undefined);
+  assert.equal(persisted[0].peerSort, undefined);
+  assert.equal(persisted[0].x, 2);
+  assert.equal(persisted[0].fontScale, 1.2);
+});
+
+test('peers header owns the borderless view action and editors are absent', async () => {
+  const dashboard = await readFile(new URL('templates/views/dashboard.html', import.meta.url), 'utf8');
+  const header = dashboard.slice(dashboard.indexOf('class="dash-card-header"'), dashboard.indexOf('class="dash-card-body"'));
+  assert.ok(header.indexOf('dash-peers-view-action') < header.indexOf('dashAdjustFontScale'));
+  assert.match(header, /@pointerdown\.stop @mousedown\.stop @touchstart\.stop/);
+  assert.match(header, /@click\.stop="dashPeersViewDirty/);
+  const toolbar = dashboard.slice(dashboard.indexOf('class="dash-peers-toolbar"'), dashboard.indexOf('<!-- scrollable peer list -->'));
+  assert.equal((toolbar.match(/<select /g) || []).length, 2);
+  assert.doesNotMatch(toolbar, /<button/);
+  const interfaces = await readFile(new URL('templates/views/interfaces.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(interfaces, /peerEditName|peerEditExpireDate|updatePeerName|updatePeerExpireDate/);
+  assert.match(interfaces, /updatePeerAddress/);
+  assert.match(interfaces, /peer\.expiredAt \| expiredDateFormat/);
+  const css = await readFile(new URL('www/css/app.css', import.meta.url), 'utf8');
+  assert.match(css, /\.dash-peers-toolbar \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+  assert.match(css, /\.dash-peers-view-action \{[^}]*border: none;/);
+  assert.match(css, /\.dash-peers-view-action:focus-visible/);
 });

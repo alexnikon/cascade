@@ -26,7 +26,7 @@ func RegisterDashboard(api fiber.Router) {
 }
 
 // getDashboardWidgets returns the widget layout for the current user.
-// Query param: ?page=dashboard (default) or ?page=diagnostics
+// Query param: ?page=dashboard (default).
 // Response: { "widgets": [...] }
 func getDashboardWidgets(c *fiber.Ctx) error {
 	uid, ok := currentUserID(c)
@@ -35,7 +35,7 @@ func getDashboardWidgets(c *fiber.Ctx) error {
 	}
 
 	page := c.Query("page", "dashboard")
-	if page != "dashboard" && page != "diagnostics" {
+	if page != "dashboard" {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid page")
 	}
 
@@ -121,7 +121,7 @@ func pruneStaleGatewayRefsFromWidgetsJSON(widgetsJSON string) (string, bool) {
 }
 
 // putDashboardWidgets saves the widget layout for the current user.
-// Query param: ?page=dashboard (default) or ?page=diagnostics
+// Query param: ?page=dashboard (default).
 // Body: { "widgets": [...] }
 func putDashboardWidgets(c *fiber.Ctx) error {
 	uid, ok := currentUserID(c)
@@ -130,7 +130,7 @@ func putDashboardWidgets(c *fiber.Ctx) error {
 	}
 
 	page := c.Query("page", "dashboard")
-	if page != "dashboard" && page != "diagnostics" {
+	if page != "dashboard" {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid page")
 	}
 

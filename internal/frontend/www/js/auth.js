@@ -130,6 +130,7 @@ async _onLoginSuccess() {
     },
 
 clearAuthentication() {
+      this.stopDiagnostics?.();
       this.api._authGeneration = (this.api._authGeneration || 0) + 1;
       this._stopAliasJobPoll?.();
       this.metricsStopPoller?.();

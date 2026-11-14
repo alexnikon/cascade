@@ -353,11 +353,11 @@
   .dash-gateway-row > span { white-space: nowrap; }
   .dash-gateway-latency { text-align: right; font-variant-numeric: tabular-nums; }
   /* Hide the resize artwork while retaining the handle's hit area and cursor. */
-  :is(#dashboard-grid, .diag-grid) .ui-resizable-handle {
+  #dashboard-grid .ui-resizable-handle {
     background-image: none !important;
   }
-  :is(#dashboard-grid, .diag-grid) .ui-resizable-handle::before,
-  :is(#dashboard-grid, .diag-grid) .ui-resizable-handle::after {
+  #dashboard-grid .ui-resizable-handle::before,
+  #dashboard-grid .ui-resizable-handle::after {
     content: none !important;
   }
   /* Sortable drag-and-drop */
@@ -1030,7 +1030,6 @@
     .dash-card-header {
       cursor: default;
     }
-    .diag-grid + *,
     #dashboard-grid + * {
       max-width: 100%;
     }
