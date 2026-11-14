@@ -1,15 +1,15 @@
 [[ define "diagnostics" ]]
         <!-- Diagnostics Page                                               -->
         <!-- ============================================================== -->
-        <div v-if="activePage === 'diagnostics'" key="page-diagnostics" style="display:flex; flex-direction:column; gap:16px; padding-bottom:40px;">
+        <div v-if="activePage === 'diagnostics'" key="page-diagnostics" class="diagnostics-page">
 
           <div>
 
             <!-- Utility cards row -->
-            <div class="diag-utilities-grid" style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start;">
+            <div class="diag-utilities-grid" class="diag-utilities-grid">
 
             <!-- Ping section -->
-            <div class="diag-utility-card rounded-lg" style="padding:16px 20px; flex:1 1 360px;"
+            <div class="diag-utility-card rounded-lg"
               :style="{ background: theme==='dark'?'#262626':'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark'?'#404040':'var(--light-divider, #e5e7eb)') }">
 
               <div style="font-size:0.95rem; font-weight:600; margin-bottom:16px;"
@@ -91,7 +91,7 @@
             </div>
 
             <!-- Traceroute section -->
-            <div class="diag-utility-card rounded-lg" style="padding:16px 20px; flex:1 1 360px;"
+            <div class="diag-utility-card rounded-lg"
               :style="{ background: theme==='dark'?'#262626':'var(--light-inset, #f9fafb)', border: '1px solid ' + (theme==='dark'?'#404040':'var(--light-divider, #e5e7eb)') }">
 
               <div style="font-size:0.95rem; font-weight:600; margin-bottom:16px;"
