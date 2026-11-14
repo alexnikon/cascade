@@ -158,14 +158,6 @@ func createPeer(c *fiber.Ctx) error {
 
 	// Apply global defaults from settings when not explicitly set.
 	d := peerDefaults()
-	if inp.ClientAllowedIPsMode == "" {
-		if inp.ClientAllowedIPs != "" || inp.PeerType == "interconnect" {
-			inp.ClientAllowedIPsMode = "manual"
-		} else {
-			inp.ClientAllowedIPsMode = d.ClientAllowedIPsMode
-			inp.ClientAllowedIPsAliasID = d.ClientAllowedIPsAliasID
-		}
-	}
 	if inp.ClientAllowedIPs == "" {
 		inp.ClientAllowedIPs = d.ClientAllowedIPs
 	}
@@ -401,13 +393,6 @@ func updatePeer(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
 	}
 
-	for _, key := range []string{"clientAllowedIPsMode", "clientAllowedIPsAliasId"} {
-		if value, exists := raw[key]; exists {
-			if _, ok := value.(string); !ok {
-				return fiber.NewError(fiber.StatusBadRequest, key+": must be a string")
-			}
-		}
-	}
 	upd := peer.PeerUpdate{PersistentKeepaliveV3: keepaliveRange}
 	if v, ok := raw["name"].(string); ok {
 		s := strings.TrimSpace(v)
@@ -416,12 +401,6 @@ func updatePeer(c *fiber.Ctx) error {
 	if v, ok := raw["allowedIPs"].(string); ok {
 		s := strings.TrimSpace(v)
 		upd.AllowedIPs = &s
-	}
-	if v, ok := raw["clientAllowedIPsMode"].(string); ok {
-		upd.ClientAllowedIPsMode = &v
-	}
-	if v, ok := raw["clientAllowedIPsAliasId"].(string); ok {
-		upd.ClientAllowedIPsAliasID = &v
 	}
 	if v, ok := raw["clientAllowedIPs"].(string); ok {
 		upd.ClientAllowedIPs = &v
@@ -525,9 +504,6 @@ func deletePeer(c *fiber.Ctx) error {
 func getPeerConfig(c *fiber.Ctx) error {
 	config, err := mgr().GetPeerRemoteConfig(c.Params("id"), c.Params("peerId"))
 	if err != nil {
-		if errors.Is(err, aliases.ErrClientRouting) {
-			return fiber.NewError(fiber.StatusUnprocessableEntity, err.Error())
-		}
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	}
 	c.Set("Content-Type", "text/plain; charset=utf-8")

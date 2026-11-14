@@ -212,6 +212,9 @@
     padding: 40px 24px;
   }
 
+  /* Keep the delete dialog and its backdrop above navigation and page toolbars. */
+  .interface-delete-modal { z-index: 50; }
+
   /* Modal panel — use together with bg-white dark:bg-neutral-700 rounded-lg */
   .modal-panel     { margin: 0 auto; border-radius: 0.5rem; }
   .modal-panel-xs  { max-width: 400px; }
@@ -325,6 +328,29 @@
     flex: 1;
     overflow: auto;
     user-select: text;
+  }
+  .dash-card-body.monitoring-body { padding: 4px 4px 0; min-height: 0; }
+  .dash-card-body.monitoring-body-single { overflow: hidden; }
+  .dash-gateway-table {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) max-content max-content;
+    column-gap: 8px;
+  }
+  .dash-gateway-row {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    align-items: center;
+  }
+  .dash-gateway-row > span { white-space: nowrap; }
+  .dash-gateway-latency { text-align: right; font-variant-numeric: tabular-nums; }
+  /* Hide the resize artwork while retaining the handle's hit area and cursor. */
+  :is(#dashboard-grid, .diag-grid) .ui-resizable-handle {
+    background-image: none !important;
+  }
+  :is(#dashboard-grid, .diag-grid) .ui-resizable-handle::before,
+  :is(#dashboard-grid, .diag-grid) .ui-resizable-handle::after {
+    content: none !important;
   }
   /* Sortable drag-and-drop */
   .drag-handle:active { cursor: grabbing; }

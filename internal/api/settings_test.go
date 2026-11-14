@@ -384,27 +384,38 @@ func TestGenerateTemplateDefaultsToAWG31AndCanGenerateLegacyAWG2(t *testing.T) {
 	}
 }
 
-func TestSettingsClientRoutingRejectsInvalidChoiceAtomically(t *testing.T) {
+func TestSettingsIgnoreRetiredClientRoutingFields(t *testing.T) {
 	ta := newSettingsTestApp(t)
-	for _, body := range []string{
-		`{"defaultClientAllowedIPsMode":"bad","routerName":"must-not-save"}`,
-		`{"defaultClientAllowedIPsMode":"exclude-ipset","defaultClientAllowedIPsAliasId":"missing","routerName":"must-not-save"}`,
+	for _, payload := range []map[string]any{
+		{"defaultClientAllowedIPsMode": "exclude-ipset", "defaultClientAllowedIPsAliasId": "missing"},
+		{"defaultClientAllowedIPsMode": 42, "defaultClientAllowedIPsAliasId": nil},
 	} {
-		var payload map[string]any
-		if err := json.Unmarshal([]byte(body), &payload); err != nil {
-			t.Fatal(err)
-		}
+		payload["defaultClientAllowedIPs"] = "192.0.2.0/24"
+		payload["routerName"] = "manual-router"
 		resp := ta.put(t, payload)
-		if resp.StatusCode != http.StatusBadRequest {
+		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("status=%d", resp.StatusCode)
 		}
+		var body map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
 		resp.Body.Close()
+		for _, key := range []string{"defaultClientAllowedIPsMode", "defaultClientAllowedIPsAliasId"} {
+			if _, exists := body[key]; exists {
+				t.Fatalf("retired field returned: %s", key)
+			}
+			var count int
+			if err := db.DB().QueryRow("SELECT count(*) FROM settings WHERE key=?", key).Scan(&count); err != nil || count != 0 {
+				t.Fatalf("retired setting persisted: %s count=%d err=%v", key, count, err)
+			}
+		}
 		s, err := settings.GetSettings()
 		if err != nil {
 			t.Fatal(err)
 		}
-		if s.RouterName == "must-not-save" || s.DefaultClientAllowedIPsMode != "manual" {
-			t.Fatalf("partial invalid update: %+v", s)
+		if s.RouterName != "manual-router" || s.DefaultClientAllowedIPs != "192.0.2.0/24" {
+			t.Fatalf("manual update lost: %+v", s)
 		}
 	}
 }

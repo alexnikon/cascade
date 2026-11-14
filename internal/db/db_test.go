@@ -1,10 +1,111 @@
 package db
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 )
+
+func TestMigration49RetiresClientAliasBindingsAndPreservesData(t *testing.T) {
+	if err := Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(Close)
+	d := DB()
+	// Reconstruct the v48 schema, including active and stale alias bindings.
+	_, err := d.Exec(`
+ALTER TABLE peers ADD COLUMN client_allowed_ips_mode TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE peers ADD COLUMN client_allowed_ips_alias_id TEXT NOT NULL DEFAULT '';
+DELETE FROM schema_migrations WHERE version=49;
+INSERT INTO interfaces(id,name,address) VALUES('wg10','Clients','10.8.0.1/24');
+INSERT INTO aliases(id,name,type,entries,ipset_name) VALUES('routes','excluded_routes','ipset','["192.0.2.0/24"]','cascade_routes');
+INSERT INTO firewall_rules(id,name,source,action) VALUES('rule','Alias rule','{"type":"alias","aliasId":"routes"}','ACCEPT');
+INSERT INTO settings(key,value) VALUES
+ ('defaultClientAllowedIPsMode','exclude-ipset'), ('defaultClientAllowedIPsAliasId','routes'),
+ ('defaultClientAllowedIPs','198.51.100.0/24'), ('routerName','Preserved router');
+INSERT INTO peers(id,interface_id,public_key,private_key,client_allowed_ips,client_allowed_ips_mode,client_allowed_ips_alias_id) VALUES
+ ('bound','wg10','bound-public','bound-private','203.0.113.0/24','exclude-ipset','routes'),
+ ('stale','wg10','stale-public','stale-private','','exclude-ipset','missing'),
+ ('manual','wg10','manual-public','manual-private','192.0.2.0/24','manual','');
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Compare complete unaffected rows, including keys, counters and rule metadata.
+	snapshot := func(query string) string {
+		t.Helper()
+		rows, err := d.Query(query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		columns, err := rows.Columns()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out strings.Builder
+		for rows.Next() {
+			values := make([]any, len(columns))
+			pointers := make([]any, len(columns))
+			for i := range values {
+				pointers[i] = &values[i]
+			}
+			if err := rows.Scan(pointers...); err != nil {
+				t.Fatal(err)
+			}
+			fmt.Fprintf(&out, "%#v\n", values)
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+	var columns []string
+	rows, err := d.Query(`SELECT name FROM pragma_table_info('peers') WHERE name NOT IN ('client_allowed_ips_mode','client_allowed_ips_alias_id') ORDER BY cid`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatal(err)
+		}
+		columns = append(columns, name)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	rows.Close()
+	queries := []string{
+		"SELECT " + strings.Join(columns, ",") + " FROM peers ORDER BY id",
+		"SELECT * FROM aliases ORDER BY id",
+		"SELECT * FROM firewall_rules ORDER BY id",
+		"SELECT * FROM settings WHERE key NOT IN ('defaultClientAllowedIPsMode','defaultClientAllowedIPsAliasId') ORDER BY key",
+	}
+	before := make([]string, len(queries))
+	for i, query := range queries {
+		before[i] = snapshot(query)
+	}
+	if err := runMigrations(d); err != nil {
+		t.Fatal(err)
+	}
+	for i, query := range queries {
+		if after := snapshot(query); after != before[i] {
+			t.Fatalf("migration changed preserved data for %s:\nbefore %s\nafter %s", query, before[i], after)
+		}
+	}
+	var retired int
+	if err := d.QueryRow(`SELECT count(*) FROM pragma_table_info('peers') WHERE name IN ('client_allowed_ips_mode','client_allowed_ips_alias_id')`).Scan(&retired); err != nil || retired != 0 {
+		t.Fatalf("retired columns=%d err=%v", retired, err)
+	}
+	if err := d.QueryRow(`SELECT count(*) FROM settings WHERE key IN ('defaultClientAllowedIPsMode','defaultClientAllowedIPsAliasId')`).Scan(&retired); err != nil || retired != 0 {
+		t.Fatalf("retired settings=%d err=%v", retired, err)
+	}
+	if err := runMigrations(d); err != nil {
+		t.Fatalf("repeated startup: %v", err)
+	}
+}
 
 func TestOpen_CreatesDBFile(t *testing.T) {
 	dir, err := os.MkdirTemp("", "cascade-db-test-*")
@@ -61,6 +162,8 @@ func TestMigration46RetiresConfigurationLinkTokens(t *testing.T) {
 	_, err := d.Exec(`INSERT INTO interfaces(id,name,address) VALUES('legacy','legacy','10.8.0.1/24');
 INSERT INTO peers(id,interface_id,public_key,one_time_link) VALUES('legacy-peer','legacy','public-key','legacy-token');
 DROP TABLE web_access;
+ALTER TABLE peers ADD COLUMN client_allowed_ips_mode TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE peers ADD COLUMN client_allowed_ips_alias_id TEXT NOT NULL DEFAULT '';
 ALTER TABLE peers DROP COLUMN persistent_keepalive_v3;
 ALTER TABLE templates DROP COLUMN mtu;
 DELETE FROM schema_migrations WHERE version>=46;`)
@@ -137,8 +240,8 @@ func TestOpen_MigrationVersionIsLatest(t *testing.T) {
 		t.Fatalf("query schema_migrations: %v", err)
 	}
 
-	// Current latest migration is v11 (traffic accumulation columns on peers).
-	want := len(migrations) // should equal 11
+	// Every migration has a consecutive version.
+	want := len(migrations)
 	if version != want {
 		t.Errorf("schema version = %d, want %d", version, want)
 	}
@@ -377,7 +480,9 @@ func TestMigration47PreservesExistingPeerKeepalive(t *testing.T) {
 	_, err := DB().Exec(`
  INSERT INTO interfaces(id,name,address,listen_port,protocol,private_key,public_key) VALUES('legacy','legacy','10.8.0.1/24',51820,'amneziawg-3.1','private','public');
  INSERT INTO peers(id,interface_id,name,public_key,persistent_keepalive) VALUES('legacy-peer','legacy','legacy','public',37);
- ALTER TABLE peers DROP COLUMN persistent_keepalive_v3;
+ ALTER TABLE peers ADD COLUMN client_allowed_ips_mode TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE peers ADD COLUMN client_allowed_ips_alias_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE peers DROP COLUMN persistent_keepalive_v3;
  ALTER TABLE templates DROP COLUMN mtu;
  DELETE FROM schema_migrations WHERE version>=47;`)
 	if err != nil {

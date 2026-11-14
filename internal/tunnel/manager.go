@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alexnikon/cascade/internal/aliases"
 	"github.com/alexnikon/cascade/internal/awgcap"
 	"github.com/alexnikon/cascade/internal/awgparams"
 	"github.com/alexnikon/cascade/internal/metrics"
@@ -892,15 +891,6 @@ func (m *Manager) BuildPeerRemoteConfig(t *TunnelInterface, p *peer.Peer) (strin
 		MTU:                     mtu,
 	}
 
-	if p.ClientAllowedIPsMode == "exclude-ipset" {
-		allowed, err := aliases.ResolveClientAllowedIPs(p.ClientAllowedIPsAliasID)
-		if err != nil {
-			return "", err
-		}
-		cp := *p
-		cp.ClientAllowedIPs = allowed
-		p = &cp
-	}
 	return p.GenerateRemoteConfig(ifaceData), nil
 }
 

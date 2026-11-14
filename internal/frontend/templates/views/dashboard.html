@@ -43,7 +43,7 @@
                         style="opacity:0.5; background:none; border:none; cursor:pointer; padding:0; line-height:1; color:inherit; margin-left:2px;">✕</button>
                     </div>
                   </div>
-                  <div class="dash-card-body">
+                  <div class="dash-card-body" :class="{ 'monitoring-body': w.type === 'monitoring', 'monitoring-body-single': w.type === 'monitoring' && (w.graphs || []).length === 1 }">
 
                     <!-- ── server-info ── -->
                     <template v-if="w.type === 'server-info'">
@@ -78,8 +78,9 @@
                       <div v-if="gatewaysLoading && !gatewaysLoaded" class="text-sm text-gray-400 dark:text-neutral-500">Loading…</div>
                       <div v-else-if="gatewaysError && !gatewaysLoaded" class="text-sm text-red-600 dark:text-red-400">Unable to load gateways.</div>
                       <div v-else-if="gatewaysLoaded && gateways.length === 0" class="text-sm text-gray-400 dark:text-neutral-500">No gateways</div>
-                      <div v-else v-for="gw in gateways" :key="gw.id"
-                        class="flex items-center gap-2 text-sm"
+                      <div v-else class="dash-gateway-table">
+                      <div v-for="gw in gateways" :key="gw.id"
+                        class="dash-gateway-row text-sm"
                         style="padding:4px 0; border-bottom:1px solid #f3f4f6;"
                         :style="{ 'border-bottom-color': theme === 'dark' ? '#525252' : '#f3f4f6' }">
                         <span @click="toggleGatewayAdminDown(gw)"
@@ -90,9 +91,10 @@
                             outline: gw.adminDown && gw.realStatus ? '2px solid ' + gatewayStatusColor(gw.realStatus) : 'none',
                             outlineOffset: '1px'
                           }"></span>
-                        <span class="font-medium dark:text-neutral-200 truncate" style="flex:1;">{{ gw.name }}</span>
+                        <span class="font-medium dark:text-neutral-200 truncate" style="min-width:0;" :title="gw.name">{{ gw.name }}</span>
                         <span class="text-xs font-mono" :style="{ color: gatewayStatusColor(gw.status) }">{{ gatewayStatusLabel(gw.status, gw) }}</span>
-                        <span v-if="gw.latency !== null" class="text-xs text-gray-400 dark:text-neutral-500 font-mono">{{ gw.latency }}ms</span>
+                        <span class="dash-gateway-latency text-xs text-gray-400 dark:text-neutral-500 font-mono">{{ gw.latency != null ? gw.latency + 'ms' : '' }}</span>
+                      </div>
                       </div>
                     </template>
 
@@ -376,9 +378,9 @@
                         <!-- Gateway: stacked bar showing proportional status distribution -->
                         <apexchart v-if="key.startsWith('gateway:') && !metricsConfigWidget"
                           type="bar"
-                          height="90"
+                          :height="metricsChartHeight(w.id)"
                           :options="{
-                            chart: { id: w.id+'_'+key, type:'bar', stacked:true, stackType:'100%', animations:{ enabled:false }, toolbar:{ show:false }, background:'transparent' },
+                            chart: { id: w.id+'_'+key, type:'bar', stacked:true, stackType:'100%', animations:{ enabled:false }, toolbar:{ show:false }, zoom:{ allowMouseWheelZoom:false }, background:'transparent' },
                             plotOptions: { bar: { columnWidth:'95%', borderRadius:0 } },
                             colors: ['#9ca3af','#ef4444','#eab308','#22c55e'],
                             dataLabels: { enabled: false },
@@ -394,7 +396,7 @@
                         <!-- Area chart for all other metrics -->
                         <apexchart v-else-if="!metricsConfigWidget"
                           type="area"
-                          height="90"
+                          :height="metricsChartHeight(w.id)"
                           :options="metricsAreaChartOptions(w.id, key)"
                           :series="metricsGetCachedAreaSeries(w.id, key)"
                         ></apexchart>

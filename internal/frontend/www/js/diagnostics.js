@@ -20,11 +20,9 @@ async loadDiagnostics() {
       for (const w of this.diagWidgets) {
         if (w.period) this.$set(this.metricsWidgetPeriod, w.id, w.period);
         const period = this.metricsWidgetPeriod[w.id] || '5m';
-        if (period !== '5m') {
-          for (const key of (w.graphs || [])) {
-            if (key.startsWith('gateway:')) this.metricsLoadGatewayDist(w.id, key, period);
-            else this.metricsLoadHistory(w.id, key, period);
-          }
+        for (const key of (w.graphs || [])) {
+          if (key.startsWith('gateway:') && period !== '5m') this.metricsLoadGatewayDist(w.id, key, period);
+          else this.metricsLoadHistory(w.id, key, period);
         }
       }
       await this.$nextTick();

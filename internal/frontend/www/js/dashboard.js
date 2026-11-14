@@ -21,11 +21,9 @@ async loadDashboard() {
         // Restore persisted period (saved in w.period field)
         if (w.period) this.$set(this.metricsWidgetPeriod, w.id, w.period);
         const period = this.metricsWidgetPeriod[w.id] || '5m';
-        if (period !== '5m') {
-          for (const key of (w.graphs || [])) {
-            if (key.startsWith('gateway:')) this.metricsLoadGatewayDist(w.id, key, period);
-            else this.metricsLoadHistory(w.id, key, period);
-          }
+        for (const key of (w.graphs || [])) {
+          if (key.startsWith('gateway:') && period !== '5m') this.metricsLoadGatewayDist(w.id, key, period);
+          else this.metricsLoadHistory(w.id, key, period);
         }
       }
       await this.$nextTick();
@@ -129,6 +127,12 @@ dashInitResizeObservers() {
           const gsItem = entry.target.closest('[gs-id]');
           const widgetId = gsItem ? gsItem.getAttribute('gs-id') : null;
           const widget = widgetId ? this.dashWidgets.find(w => w.id === widgetId) : null;
+          if (widget && widget.type === 'monitoring') {
+            const header = entry.target.querySelector('.dash-card-header');
+            const height = Math.max(0, entry.contentRect.height - (header?.offsetHeight || 0) - 8);
+            if (!this.metricsChartHeights) this.$set(this, 'metricsChartHeights', {});
+            if (this.metricsChartHeights[widgetId] !== height) this.$set(this.metricsChartHeights, widgetId, height);
+          }
           // CSS zoom on dash-card breaks ApexCharts tooltip coordinate mapping:
           // getBoundingClientRect() on SVG <g> elements does not account for ancestor
           // CSS zoom in all browsers, while event.clientX does → proportional drift.
@@ -263,26 +267,24 @@ async loadSystemInfo() {
     // ── Monitoring widget methods ──────────────────────────────────────────────
 
 metricsStartPoller() {
-      if (document.hidden || this.metricsPoller) return;
+      if (!this._metricsVisibilityHandler) {
+        this._metricsVisibilityHandler = () => {
+          if (document.hidden) this.metricsStopPoller();
+          else if (['dashboard', 'diagnostics'].includes(this.activePage)) this.metricsStartPoller();
+        };
+        document.addEventListener('visibilitychange', this._metricsVisibilityHandler);
+      }
+      if (document.hidden || !['dashboard', 'diagnostics'].includes(this.activePage) || this.metricsPoller) return;
       this.metricsPoller = setInterval(() => this.metricsTick(), 5000);
       this.metricsTick();
       if (this._metricsHistoryPoller) clearInterval(this._metricsHistoryPoller);
       this._metricsRefreshHistory();
       this._metricsHistoryPoller = setInterval(() => this._metricsRefreshHistory(), 30000);
-      // Pause poller when tab is hidden, resume (with immediate tick) when visible again
-      if (!this._metricsVisibilityHandler) {
-        this._metricsVisibilityHandler = () => {
-          if (document.hidden) {
-            this.metricsStopPoller();
-          } else {
-            this.metricsStartPoller();
-          }
-        };
-        document.addEventListener('visibilitychange', this._metricsVisibilityHandler);
-      }
+
     },
 
 metricsStopPoller() {
+      this._metricsEpoch = (this._metricsEpoch || 0) + 1;
       if (this.metricsPoller) {
         clearInterval(this.metricsPoller);
         this.metricsPoller = null;
@@ -305,9 +307,9 @@ async _metricsRefreshHistory() {
         }
         for (const w of widgets) {
           const period = this.metricsWidgetPeriod[w.id] || '5m';
-          if (period === '5m') continue;
+
           const requests = (w.graphs || []).map(key => {
-            if (key.startsWith('gateway:')) {
+            if (key.startsWith('gateway:') && period !== '5m') {
               return this.metricsLoadGatewayDist(w.id, key, period);
             }
             return this.metricsLoadHistory(w.id, key, period);
@@ -334,9 +336,11 @@ async metricsTick() {
     },
 
 async _metricsTickNow() {
-      if (this.metricsConfigWidget) return;
+      if (this.metricsConfigWidget || document.hidden || !['dashboard', 'diagnostics'].includes(this.activePage)) return;
+      const page = this.activePage, epoch = this._metricsEpoch;
       try {
         const snap = await this.api.getMetrics();
+        if (document.hidden || page !== this.activePage || epoch !== this._metricsEpoch) return;
         if (snap) snap.frontend = { resourcePollSkipped: this.resourcePollSkipped };
         this.metricsSnapshot = snap;
 
@@ -360,7 +364,7 @@ async _metricsTickNow() {
         }
 
         // Append to rolling buffers for realtime (5m) widgets — both dashboard and diagnostics
-        const now = Date.now();
+        const now = Math.floor(Date.now() / 5000) * 5000;
         const MAX_POINTS = 60;
         const allMonitoringWidgets = [
           ...this.dashWidgets.filter(w => w.type === 'monitoring'),
@@ -375,8 +379,9 @@ async _metricsTickNow() {
             const bufKey = `${w.id}:${key}`;
             let buf = this.metricsHistory[bufKey];
             if (!buf) { buf = []; this.$set(this.metricsHistory, bufKey, buf); }
+            buf = buf.filter(p => p.x > now - 300000 && p.x !== now);
             buf.push({ x: now, y: Math.round(val * 100) / 100 });
-            if (buf.length > MAX_POINTS) buf.shift();
+            this.$set(this.metricsHistory, bufKey, buf.slice(-MAX_POINTS));
             if (key.startsWith('gateway:')) this._updateGatewaySeriesCache(w.id, key);
             else this._updateAreaSeriesCache(w.id, key);
           }
@@ -460,21 +465,52 @@ metricsKeyLabel(key) {
       return key;
     },
 
+async metricsHistoryRequest(method, key, period) {
+      if (!this._metricsRequests) this._metricsRequests = new Map();
+      const id = `${method}:${key}:${period}`;
+      if (this._metricsRequests.has(id)) return this._metricsRequests.get(id);
+      const request = this.api[method]({ key, period });
+      this._metricsRequests.set(id, request);
+      try { return await request; }
+      finally { if (this._metricsRequests.get(id) === request) this._metricsRequests.delete(id); }
+    },
+
+metricsRequestValid(widgetId, key, period, page, epoch) {
+      const widgets = page === 'dashboard' ? this.dashWidgets : this.diagWidgets;
+      return this.activePage === page && !document.hidden && this._metricsEpoch === epoch
+        && (this.metricsWidgetPeriod[widgetId] || '5m') === period
+        && widgets.some(w => w.id === widgetId && (w.graphs || []).includes(key));
+    },
+
 async metricsLoadHistory(widgetId, key, period) {
+      const page = this.activePage, epoch = this._metricsEpoch;
       try {
-        const res = await this.api.getMetricsHistory({ key, period });
-        const points = (res.points || []).map(p => ({ x: p[0], y: Math.round(p[1] * 100) / 100 }));
-        this.$set(this.metricsHistory, `${widgetId}:${key}`, points);
-        this._updateAreaSeriesCache(widgetId, key);
-      } catch (e) { /* non-fatal */ }
+        const res = await this.metricsHistoryRequest('getMetricsHistory', key, period);
+        if (!this.metricsRequestValid(widgetId, key, period, page, epoch)) return;
+        const cacheKey = `${widgetId}:${key}`;
+        let points = (res.points || []).map(p => ({ x: p[0], y: Math.round(p[1] * 100) / 100 }));
+        if (period === '5m') {
+          const merged = new Map(points.map(p => [p.x, p]));
+          for (const p of this.metricsHistory[cacheKey] || []) {
+            if (!merged.has(p.x)) merged.set(p.x, p);
+          }
+          points = [...merged.values()].filter(p => p.x > Date.now() - 300000).sort((a,b) => a.x-b.x);
+          if (!points.length) return;
+        }
+        this.$set(this.metricsHistory, cacheKey, points);
+        if (key.startsWith('gateway:')) this._updateGatewaySeriesCache(widgetId, key);
+        else this._updateAreaSeriesCache(widgetId, key);
+      } catch (e) { /* Preserve existing samples on failure. */ }
     },
 
 async metricsLoadGatewayDist(widgetId, key, period) {
+      const page = this.activePage, epoch = this._metricsEpoch;
       try {
-        const res = await this.api.getMetricsGatewayDist({ key, period });
+        const res = await this.metricsHistoryRequest('getMetricsGatewayDist', key, period);
+        if (!this.metricsRequestValid(widgetId, key, period, page, epoch)) return;
         this.$set(this.metricsGatewayDist, `${widgetId}:${key}`, res.buckets || []);
         this._updateGatewaySeriesCache(widgetId, key);
-      } catch (e) { /* non-fatal */ }
+      } catch (e) { /* Preserve existing samples on failure. */ }
     },
 
 metricsGatewayTooltipFormatter(widgetId) {
@@ -529,6 +565,7 @@ _updateGatewaySeriesCache(widgetId, key) {
     },
 
 async metricsOnPeriodChange(widgetId, period) {
+      this._metricsEpoch = (this._metricsEpoch || 0) + 1;
       this.$set(this.metricsWidgetPeriod, widgetId, period);
       const isDiag = this.activePage === 'diagnostics';
       const list = isDiag ? this.diagWidgets : this.dashWidgets;
@@ -555,9 +592,8 @@ async metricsOnPeriodChange(widgetId, period) {
           Object.keys(this._chartOptionsCache).forEach(k => { if (k.startsWith(prefix)) delete this._chartOptionsCache[k]; });
         }
       }
-      if (period === '5m') return; // realtime — poller fills it from next tick
       for (const key of (w.graphs || [])) {
-        if (key.startsWith('gateway:')) {
+        if (key.startsWith('gateway:') && period !== '5m') {
           await this.metricsLoadGatewayDist(widgetId, key, period);
         } else {
           await this.metricsLoadHistory(widgetId, key, period);
@@ -571,10 +607,17 @@ async metricsOnPeriodChange(widgetId, period) {
 
 _updateAreaSeriesCache(widgetId, key) {
       const cacheKey = `${widgetId}:${key}`;
+      const period = this.metricsWidgetPeriod[widgetId] || '5m';
       const buf = this.metricsHistory[cacheKey] || [];
       this.$set(this.metricsAreaSeriesCache, cacheKey, [
-        { name: this.metricsKeyLabel(key), data: buf.slice() },
+        { name: this.metricsKeyLabel(key), data: buf.flatMap((p, i) => period === '5m' && i && p.x - buf[i-1].x > 10000
+          ? [{ x: buf[i-1].x + 5000, y: null }, p] : [p]) },
       ]);
+    },
+
+metricsChartHeight(widgetId) {
+      const widget = this.dashWidgets.find(w => w.id === widgetId);
+      return Math.max(90, Math.floor((this.metricsChartHeights[widgetId] || 90) / Math.max(1, widget?.graphs?.length || 0)));
     },
 
 metricsGetCachedAreaSeries(widgetId, key) {
@@ -592,14 +635,14 @@ metricsAreaChartOptions(widgetId, key) {
       if (!this._chartOptionsCache) this._chartOptionsCache = {};
       if (!this._chartOptionsCache[ck]) {
         this._chartOptionsCache[ck] = {
-          chart: { id: widgetId+'_'+key, type:'area', animations:{ enabled:false }, toolbar:{ show:false }, sparkline:{ enabled:false }, background:'transparent' },
+          chart: { id: widgetId+'_'+key, type:'area', animations:{ enabled:false }, toolbar:{ show:false }, zoom:{ allowMouseWheelZoom:false }, sparkline:{ enabled:false }, background:'transparent' },
           colors: [color],
           stroke: { curve:'smooth', width:2 },
           markers: { size: 0 },
           dataLabels: { enabled: false },
           fill: { type:'gradient', gradient:{ shadeIntensity:1, opacityFrom:0.4, opacityTo:0.05 } },
           xaxis: { type:'datetime', labels:{ show: period !== '5m', datetimeUTC:false, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, axisBorder:{ show:false }, axisTicks:{ show:false }, tooltip:{ enabled:false } },
-          yaxis: { labels:{ show:true, minWidth:42, maxWidth:42, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, min:0 },
+          yaxis: { labels:{ show:true, align:'right', padding:-8, offsetX:0, minWidth:0, maxWidth:100, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, min:0 },
           grid: { borderColor: this.theme==='dark'?'#404040':'#f0f0f0', padding:{ left:0, right:0, top:0 } },
           tooltip: { fixed:{ enabled:true, position:'topRight', offsetX:-12, offsetY:8 }, x:{ format:'HH:mm:ss' }, theme: this.theme==='dark'?'dark':'light' },
           theme: { mode: this.theme==='dark'?'dark':'light' },
@@ -643,15 +686,14 @@ async metricsSaveConfig() {
       const title = this.metricsTitleDraft.trim() || '';
       const w = { ...list[idx], graphs: [...this.metricsConfigDraft], graphColors: { ...this.metricsColorDraft }, title };
       list.splice(idx, 1, w);
+      this._metricsEpoch = (this._metricsEpoch || 0) + 1;
       this.metricsCloseConfig();
       this.api.putDashboardWidgets(isDiag ? this.diagWidgets : this.dashWidgets, page).catch(console.error);
-      // Load history for newly added graphs if not in realtime mode
+      // Load server samples for newly added graphs, including the live window.
       const period = this.metricsWidgetPeriod[widgetId] || '5m';
-      if (period !== '5m') {
-        for (const key of w.graphs) {
-          if (key.startsWith('gateway:')) await this.metricsLoadGatewayDist(widgetId, key, period);
-          else await this.metricsLoadHistory(widgetId, key, period);
-        }
+      for (const key of w.graphs) {
+        if (key.startsWith('gateway:') && period !== '5m') await this.metricsLoadGatewayDist(widgetId, key, period);
+        else await this.metricsLoadHistory(widgetId, key, period);
       }
     },
 

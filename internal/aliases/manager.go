@@ -376,9 +376,6 @@ func (m *Manager) Update(id string, data Alias) (*Alias, error) {
 // For client-group aliases, moves peers to default and then deletes.
 // Returns an error if the alias is referenced by a group.
 func (m *Manager) Delete(id string) error {
-	if err := checkClientRoutingReferences(id); err != nil {
-		return err
-	}
 	a, err := m.getOrNotFound(id)
 	if err != nil {
 		return err

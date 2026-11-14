@@ -510,10 +510,8 @@ Legacy endpoints retained for frontend compatibility. Read-only, return safe def
 - Interface IDs: string slugs — `"wg10"`, `"wg11"`, …
 - All other IDs: UUID v4
 
-### Client AllowedIPs source
+### Client AllowedIPs
 
-Global settings expose `defaultClientAllowedIPsMode` (`manual` or `exclude-ipset`) and `defaultClientAllowedIPsAliasId`, alongside the existing `defaultClientAllowedIPs` string. Client peer create, read, and update APIs expose `clientAllowedIPsMode` and `clientAllowedIPsAliasId` alongside `clientAllowedIPs`.
+Global settings expose the manual `defaultClientAllowedIPs` string. Client peer create, read, and update APIs expose the manual `clientAllowedIPs` string. New peers without an explicit list inherit the global default. When exporting a peer with an empty list, the global default is used; if both are empty, the full-tunnel default is `0.0.0.0/0, ::/0`.
 
-Omitting a mode on client creation inherits the global choice unless a nonempty manual `clientAllowedIPs` is supplied. Existing peers and interconnect peers default to `manual`. Updating `clientAllowedIPs` without a mode switches the peer to manual routing and clears its alias binding. Explicit `manual` also clears the binding. Alias mode requires a nonempty readable IPv4 alias of type `ipset`.
-
-Export computes the IPv4 complement of the current alias entries and appends `::/0`. The peer stores the source choice, not the computed CIDR list. An unavailable or invalid alias causes an export error. Deletion of an alias referenced by global settings or a client peer is rejected.
+Client AllowedIPs are independent of Firewall aliases. Legacy routing mode and alias fields in requests and JSON backups are ignored and are omitted from responses and new backups. Existing saved manual values are preserved when upgrading. Cascade DNS retains its required VPN host route.

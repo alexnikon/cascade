@@ -55,7 +55,7 @@
                           type="bar"
                           height="120"
                           :options="{
-                            chart: { id: w.id+'_'+key, type:'bar', stacked:true, stackType:'100%', animations:{ enabled:false }, toolbar:{ show:false }, background:'transparent' },
+                            chart: { id: w.id+'_'+key, type:'bar', stacked:true, stackType:'100%', animations:{ enabled:false }, toolbar:{ show:false }, zoom:{ allowMouseWheelZoom:false }, background:'transparent' },
                             plotOptions: { bar: { columnWidth:'95%', borderRadius:0 } },
                             colors: ['#9ca3af','#ef4444','#eab308','#22c55e'],
                             dataLabels: { enabled: false },

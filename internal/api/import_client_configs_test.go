@@ -43,7 +43,7 @@ const (
 	fiberTestTimeoutMS = 5_000
 
 	peerAPrivateKey = "GHUf/N5ORdfBUAJprb+ThFsRdcMwlgQ+lCB8u1pQKlg="
-	peerAPublicKey  = "3EbF7pQAmm4YU75vHRIRGWMgHIVjfjhV/xL8mvYWMWc="
+	peerAPublicKey  = "GrCA3GdrHFIKbMD2sSEsjwGFRibnzWdvyF3zdDtf2DI="
 
 	// A second, unrelated key pair — used to simulate a .conf whose private
 	// key does not correspond to any known peer's public key.
@@ -331,6 +331,14 @@ func TestImportClientConfigs_MatchedPeer(t *testing.T) {
 	if saved == nil {
 		t.Fatal("expected peer to exist")
 	}
+	t.Cleanup(func() {
+		if err := peer.SavePrivateKey(saved.ID, ""); err != nil {
+			t.Error(err)
+		}
+		if _, err := tunnel.Get().ReloadPeerFromDB(wgIfaceID, saved.ID); err != nil {
+			t.Error(err)
+		}
+	})
 	if saved.PrivateKey != peerAPrivateKey {
 		t.Errorf("stored PrivateKey = %q, want %q", saved.PrivateKey, peerAPrivateKey)
 	}

@@ -30,7 +30,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/alexnikon/cascade/internal/aliases"
 	"github.com/alexnikon/cascade/internal/db"
 	"github.com/alexnikon/cascade/internal/util"
 )
@@ -40,26 +39,24 @@ import (
 // Peer holds all persisted and runtime fields for a WireGuard peer.
 type Peer struct {
 	// Persisted fields (SQLite)
-	ID                      string `json:"id"`
-	InterfaceID             string `json:"interfaceId"`
-	Name                    string `json:"name"`
-	PublicKey               string `json:"publicKey"`
-	PrivateKey              string `json:"privateKey"` // "" for interconnect peers
-	PresharedKey            string `json:"presharedKey"`
-	Endpoint                string `json:"endpoint"`   // remote endpoint host:port
-	AllowedIPs              string `json:"allowedIPs"` // hub-side routing (e.g. "10.8.0.2/32")
-	Address                 string `json:"address"`    // tunnel IP with iface mask ("10.8.0.2/24")
-	ClientAllowedIPsMode    string `json:"clientAllowedIPsMode"`
-	ClientAllowedIPsAliasID string `json:"clientAllowedIPsAliasId"`
-	ClientAllowedIPs        string `json:"clientAllowedIPs"` // used in the client config [Peer] section
-	PeerType                string `json:"peerType"`         // client | interconnect
-	GroupID                 string `json:"groupId"`          // client-group alias ID; "" for interconnect peers
-	PersistentKeepalive     int    `json:"persistentKeepalive"`
-	PersistentKeepaliveV3   string `json:"persistentKeepaliveV3,omitempty"`
-	Enabled                 bool   `json:"enabled"`
-	CreatedAt               string `json:"createdAt"`
-	UpdatedAt               string `json:"updatedAt"`
-	ExpiredAt               string `json:"expiredAt"` // "" = no expiry
+	ID                    string `json:"id"`
+	InterfaceID           string `json:"interfaceId"`
+	Name                  string `json:"name"`
+	PublicKey             string `json:"publicKey"`
+	PrivateKey            string `json:"privateKey"` // "" for interconnect peers
+	PresharedKey          string `json:"presharedKey"`
+	Endpoint              string `json:"endpoint"`         // remote endpoint host:port
+	AllowedIPs            string `json:"allowedIPs"`       // hub-side routing (e.g. "10.8.0.2/32")
+	Address               string `json:"address"`          // tunnel IP with iface mask ("10.8.0.2/24")
+	ClientAllowedIPs      string `json:"clientAllowedIPs"` // used in the client config [Peer] section
+	PeerType              string `json:"peerType"`         // client | interconnect
+	GroupID               string `json:"groupId"`          // client-group alias ID; "" for interconnect peers
+	PersistentKeepalive   int    `json:"persistentKeepalive"`
+	PersistentKeepaliveV3 string `json:"persistentKeepaliveV3,omitempty"`
+	Enabled               bool   `json:"enabled"`
+	CreatedAt             string `json:"createdAt"`
+	UpdatedAt             string `json:"updatedAt"`
+	ExpiredAt             string `json:"expiredAt"` // "" = no expiry
 
 	// Bandwidth limits (kbps). 0 = unlimited.
 	// Applied via tc HTB (egress/download) + tc police (ingress/upload).
@@ -92,21 +89,19 @@ type Peer struct {
 
 // PeerInput is the create/update request payload.
 type PeerInput struct {
-	Name                    string `json:"name"`
-	PublicKey               string `json:"publicKey"`
-	PrivateKey              string `json:"privateKey"`
-	PresharedKey            string `json:"presharedKey"`
-	Endpoint                string `json:"endpoint"`
-	AllowedIPs              string `json:"allowedIPs"`
-	Address                 string `json:"address"`
-	ClientAllowedIPsMode    string `json:"clientAllowedIPsMode"`
-	ClientAllowedIPsAliasID string `json:"clientAllowedIPsAliasId"`
-	ClientAllowedIPs        string `json:"clientAllowedIPs"`
-	PeerType                string `json:"peerType"`
-	GroupID                 string `json:"groupId"` // client-group alias ID (for client peers)
-	PersistentKeepalive     int    `json:"persistentKeepalive"`
-	PersistentKeepaliveV3   string `json:"persistentKeepaliveV3,omitempty"`
-	ExpiredAt               string `json:"expiredAt"` // RFC3339 or YYYY-MM-DD; "" = no expiry
+	Name                  string `json:"name"`
+	PublicKey             string `json:"publicKey"`
+	PrivateKey            string `json:"privateKey"`
+	PresharedKey          string `json:"presharedKey"`
+	Endpoint              string `json:"endpoint"`
+	AllowedIPs            string `json:"allowedIPs"`
+	Address               string `json:"address"`
+	ClientAllowedIPs      string `json:"clientAllowedIPs"`
+	PeerType              string `json:"peerType"`
+	GroupID               string `json:"groupId"` // client-group alias ID (for client peers)
+	PersistentKeepalive   int    `json:"persistentKeepalive"`
+	PersistentKeepaliveV3 string `json:"persistentKeepaliveV3,omitempty"`
+	ExpiredAt             string `json:"expiredAt"` // RFC3339 or YYYY-MM-DD; "" = no expiry
 	// Special flags (not stored directly)
 	GenerateKeys   bool   `json:"generateKeys"`   // server generates wg key pair + PSK
 	AutoAllocateIP bool   `json:"autoAllocateIP"` // caller sets AllowedIPs before passing here
@@ -120,20 +115,18 @@ type PeerInput struct {
 // PeerUpdate contains the fields that can be changed via PATCH.
 // nil pointer = do not update that field.
 type PeerUpdate struct {
-	Name                    *string `json:"name"`
-	Endpoint                *string `json:"endpoint"`
-	AllowedIPs              *string `json:"allowedIPs"`
-	ClientAllowedIPsMode    *string `json:"clientAllowedIPsMode"`
-	ClientAllowedIPsAliasID *string `json:"clientAllowedIPsAliasId"`
-	ClientAllowedIPs        *string `json:"clientAllowedIPs"`
-	PersistentKeepalive     *int    `json:"persistentKeepalive"`
-	PersistentKeepaliveV3   *string `json:"persistentKeepaliveV3"`
-	Enabled                 *bool   `json:"enabled"`
-	ExpiredAt               *string `json:"expiredAt"`
-	RateDown                *int    `json:"rateDown"`
-	RateUp                  *int    `json:"rateUp"`
-	GroupID                 *string `json:"groupId"`         // client-group alias ID
-	PreviousGroupId         *string `json:"previousGroupId"` // set internally by expiry policy; not exposed via API
+	Name                  *string `json:"name"`
+	Endpoint              *string `json:"endpoint"`
+	AllowedIPs            *string `json:"allowedIPs"`
+	ClientAllowedIPs      *string `json:"clientAllowedIPs"`
+	PersistentKeepalive   *int    `json:"persistentKeepalive"`
+	PersistentKeepaliveV3 *string `json:"persistentKeepaliveV3"`
+	Enabled               *bool   `json:"enabled"`
+	ExpiredAt             *string `json:"expiredAt"`
+	RateDown              *int    `json:"rateDown"`
+	RateUp                *int    `json:"rateUp"`
+	GroupID               *string `json:"groupId"`         // client-group alias ID
+	PreviousGroupId       *string `json:"previousGroupId"` // set internally by expiry policy; not exposed via API
 }
 
 // InterfaceData carries the interface fields needed for config generation.
@@ -195,7 +188,7 @@ func GetPeers(interfaceID string) ([]Peer, error) {
 		       peer_type, group_id, persistent_keepalive, enabled,
 		       created_at, updated_at, expired_at, one_time_link,
 		       total_rx, total_tx, rate_down, rate_up, previous_group_id,
-		       latest_handshake_at, client_allowed_ips_mode, client_allowed_ips_alias_id, persistent_keepalive_v3
+		       latest_handshake_at, persistent_keepalive_v3
 		FROM peers
 		WHERE interface_id = ?
 		ORDER BY created_at
@@ -224,7 +217,7 @@ func GetPeer(id string) (*Peer, error) {
 		       peer_type, group_id, persistent_keepalive, enabled,
 		       created_at, updated_at, expired_at, one_time_link,
 		       total_rx, total_tx, rate_down, rate_up, previous_group_id,
-		       latest_handshake_at, client_allowed_ips_mode, client_allowed_ips_alias_id, persistent_keepalive_v3
+		       latest_handshake_at, persistent_keepalive_v3
 		FROM peers WHERE id = ?
 	`, id)
 	p, err := scanPeerRow(row)
@@ -247,32 +240,27 @@ func CreatePeer(interfaceID string, inp PeerInput) (*Peer, error) {
 		createdAt = inp.CreatedAt // preserve original timestamp (e.g. backup import)
 	}
 	p := Peer{
-		ID:                      uuid.New().String(),
-		InterfaceID:             interfaceID,
-		Name:                    strings.TrimSpace(inp.Name),
-		PublicKey:               strings.TrimSpace(inp.PublicKey),
-		PrivateKey:              strings.TrimSpace(inp.PrivateKey),
-		PresharedKey:            strings.TrimSpace(inp.PresharedKey),
-		Endpoint:                strings.TrimSpace(inp.Endpoint),
-		AllowedIPs:              strings.TrimSpace(inp.AllowedIPs),
-		Address:                 strings.TrimSpace(inp.Address),
-		ClientAllowedIPs:        inp.ClientAllowedIPs,
-		ClientAllowedIPsMode:    strOr(inp.ClientAllowedIPsMode, "manual"),
-		ClientAllowedIPsAliasID: inp.ClientAllowedIPsAliasID,
-		PeerType:                strOr(inp.PeerType, "client"),
-		GroupID:                 inp.GroupID,
-		PersistentKeepalive:     intOr(inp.PersistentKeepalive, 25),
-		PersistentKeepaliveV3:   inp.PersistentKeepaliveV3,
-		Enabled:                 true,
-		CreatedAt:               createdAt,
-		UpdatedAt:               now,
-		ExpiredAt:               normaliseExpiredAt(inp.ExpiredAt),
+		ID:                    uuid.New().String(),
+		InterfaceID:           interfaceID,
+		Name:                  strings.TrimSpace(inp.Name),
+		PublicKey:             strings.TrimSpace(inp.PublicKey),
+		PrivateKey:            strings.TrimSpace(inp.PrivateKey),
+		PresharedKey:          strings.TrimSpace(inp.PresharedKey),
+		Endpoint:              strings.TrimSpace(inp.Endpoint),
+		AllowedIPs:            strings.TrimSpace(inp.AllowedIPs),
+		Address:               strings.TrimSpace(inp.Address),
+		ClientAllowedIPs:      inp.ClientAllowedIPs,
+		PeerType:              strOr(inp.PeerType, "client"),
+		GroupID:               inp.GroupID,
+		PersistentKeepalive:   intOr(inp.PersistentKeepalive, 25),
+		PersistentKeepaliveV3: inp.PersistentKeepaliveV3,
+		Enabled:               true,
+		CreatedAt:             createdAt,
+		UpdatedAt:             now,
+		ExpiredAt:             normaliseExpiredAt(inp.ExpiredAt),
 	}
 	p.DownloadableConfig = p.PrivateKey != ""
 
-	if err := validateClientRouting(&p); err != nil {
-		return nil, err
-	}
 	if err := p.validateKeepaliveRange(); err != nil {
 		return nil, err
 	}
@@ -306,22 +294,6 @@ func UpdatePeer(id string, upd PeerUpdate) (*Peer, error) {
 	}
 	if upd.ClientAllowedIPs != nil {
 		p.ClientAllowedIPs = *upd.ClientAllowedIPs
-		// Existing API clients replacing the manual list detach an alias binding.
-		if upd.ClientAllowedIPsMode == nil {
-			p.ClientAllowedIPsMode = "manual"
-			p.ClientAllowedIPsAliasID = ""
-		}
-	}
-	if upd.ClientAllowedIPsMode != nil {
-		p.ClientAllowedIPsMode = *upd.ClientAllowedIPsMode
-	}
-	if upd.ClientAllowedIPsAliasID != nil {
-		p.ClientAllowedIPsAliasID = *upd.ClientAllowedIPsAliasID
-	}
-	if upd.ClientAllowedIPs != nil || upd.ClientAllowedIPsMode != nil || upd.ClientAllowedIPsAliasID != nil {
-		if err := validateClientRouting(p); err != nil {
-			return nil, err
-		}
 	}
 	if upd.PersistentKeepaliveV3 != nil {
 		p.PersistentKeepaliveV3 = *upd.PersistentKeepaliveV3
@@ -822,7 +794,7 @@ func scanPeerRow(s peerScanner) (*Peer, error) {
 		&p.TotalRx, &p.TotalTx,
 		&p.RateDown, &p.RateUp,
 		&p.PreviousGroupId,
-		&latestHandshakeAt, &p.ClientAllowedIPsMode, &p.ClientAllowedIPsAliasID, &p.PersistentKeepaliveV3,
+		&latestHandshakeAt, &p.PersistentKeepaliveV3,
 	)
 	if latestHandshakeAt != "" {
 		p.LatestHandshakeAt = &latestHandshakeAt
@@ -840,9 +812,6 @@ func scanPeerRow(s peerScanner) (*Peer, error) {
 	if p.PersistentKeepalive == 0 {
 		p.PersistentKeepalive = 25
 	}
-	if p.ClientAllowedIPs == "" {
-		p.ClientAllowedIPs = "0.0.0.0/0, ::/0"
-	}
 
 	return &p, nil
 }
@@ -854,14 +823,14 @@ func insertPeer(p Peer) error {
 		     endpoint, allowed_ips, address, client_allowed_ips,
 		     peer_type, group_id, persistent_keepalive, enabled,
 		     created_at, updated_at, expired_at, one_time_link,
-		     rate_down, rate_up, previous_group_id, client_allowed_ips_mode, client_allowed_ips_alias_id, persistent_keepalive_v3)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		     rate_down, rate_up, previous_group_id, persistent_keepalive_v3)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		p.ID, p.InterfaceID, p.Name, p.PublicKey, p.PrivateKey, p.PresharedKey,
 		p.Endpoint, p.AllowedIPs, p.Address, p.ClientAllowedIPs,
 		p.PeerType, p.GroupID, p.PersistentKeepalive, boolInt(p.Enabled),
 		p.CreatedAt, p.UpdatedAt, p.ExpiredAt, "",
-		p.RateDown, p.RateUp, p.PreviousGroupId, p.ClientAllowedIPsMode, p.ClientAllowedIPsAliasID, p.PersistentKeepaliveV3,
+		p.RateDown, p.RateUp, p.PreviousGroupId, p.PersistentKeepaliveV3,
 	)
 	return err
 }
@@ -872,13 +841,13 @@ func updatePeer(p Peer) error {
 		SET name = ?, endpoint = ?, allowed_ips = ?, address = ?,
 		    client_allowed_ips = ?, group_id = ?, persistent_keepalive = ?,
 		    enabled = ?, updated_at = ?, expired_at = ?, one_time_link = ?,
-		    rate_down = ?, rate_up = ?, previous_group_id = ?, client_allowed_ips_mode = ?, client_allowed_ips_alias_id = ?, persistent_keepalive_v3 = ?
+		    rate_down = ?, rate_up = ?, previous_group_id = ?, persistent_keepalive_v3 = ?
 		WHERE id = ?
 	`,
 		p.Name, p.Endpoint, p.AllowedIPs, p.Address,
 		p.ClientAllowedIPs, p.GroupID, p.PersistentKeepalive,
 		boolInt(p.Enabled), p.UpdatedAt, p.ExpiredAt, "",
-		p.RateDown, p.RateUp, p.PreviousGroupId, p.ClientAllowedIPsMode, p.ClientAllowedIPsAliasID, p.PersistentKeepaliveV3,
+		p.RateDown, p.RateUp, p.PreviousGroupId, p.PersistentKeepaliveV3,
 		p.ID,
 	)
 	return err
@@ -976,24 +945,4 @@ func includeDNSRoute(routes, server string) string {
 		bits = 32
 	}
 	return strings.Trim(routes, " ,") + fmt.Sprintf(", %s/%d", ip, bits)
-}
-
-// validateClientRouting validates and normalizes a persisted client routing choice.
-func validateClientRouting(p *Peer) error {
-	if p.ClientAllowedIPsMode == "" {
-		p.ClientAllowedIPsMode = "manual"
-	}
-	switch p.ClientAllowedIPsMode {
-	case "manual":
-		p.ClientAllowedIPsAliasID = ""
-		return nil
-	case "exclude-ipset":
-		if p.PeerType == "interconnect" {
-			return fmt.Errorf("ipset routing is only available for client peers")
-		}
-		_, err := aliases.ResolveClientAllowedIPs(p.ClientAllowedIPsAliasID)
-		return err
-	default:
-		return fmt.Errorf("clientAllowedIPsMode must be manual or exclude-ipset")
-	}
 }

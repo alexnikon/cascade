@@ -881,6 +881,11 @@ UPDATE peers SET one_time_link='';
 `},
 	{version: 47, sql: `ALTER TABLE peers ADD COLUMN persistent_keepalive_v3 TEXT NOT NULL DEFAULT '';`},
 	{version: 48, sql: `ALTER TABLE templates ADD COLUMN mtu INTEGER NOT NULL DEFAULT 0;`},
+	{version: 49, sql: `
+ALTER TABLE peers DROP COLUMN client_allowed_ips_mode;
+ALTER TABLE peers DROP COLUMN client_allowed_ips_alias_id;
+DELETE FROM settings WHERE key IN ('defaultClientAllowedIPsMode', 'defaultClientAllowedIPsAliasId');
+`},
 }
 
 func runMigrations(db *sql.DB) error {

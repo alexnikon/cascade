@@ -169,6 +169,7 @@ new Vue({
     metricsConfigDraft: [],         // draft graphs[] for config modal
     metricsColorDraft: {},          // { [key]: '#rrggbb' } for config modal
     metricsTitleDraft: '',          // draft widget title for config modal
+    metricsChartHeights: {},
     metricsWidgetPeriod: {},        // { [widgetId]: '5m'|'1h'|... }
 
     // ── Diagnostics page ──────────────────────────────────────────────────────
@@ -310,8 +311,6 @@ new Vue({
       endpoint: '',         // interconnect only
       allowedIPs: '',       // interconnect only (editable)
       clientAllowedIPs: '', // client only
-      clientAllowedIPsMode: 'manual',
-      clientAllowedIPsAliasId: '',
       rateDown: 0,          // kbps, 0 = unlimited
       rateUp: 0,            // kbps, 0 = unlimited
       groupId: '',          // client-group alias ID
@@ -328,8 +327,6 @@ new Vue({
       dns: '1.1.1.1, 8.8.8.8',
       defaultPersistentKeepalive: 25,
       defaultClientAllowedIPs: '0.0.0.0/0, ::/0',
-      defaultClientAllowedIPsMode: 'manual',
-      defaultClientAllowedIPsAliasId: '',
       subnetPool:       '10.10.0.0/16',
       portPool:         '51831-65535',
       defaultFwPolicy:  'accept',
