@@ -299,9 +299,7 @@ async switchToRemote(remote) {
       this.activeSessionsError = '';
       this.activeSessionsLoading = false;
       this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
-      this.clientsPersist = {};
       this.peersPersist = {};
-      this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
       this.api.setRemote(remote.id);
       this.activeRemoteId = remote.id;
       this.peerRefreshSeq += 1;
@@ -341,9 +339,7 @@ switchToLocal() {
       this.activeSessionsError = '';
       this.activeSessionsLoading = false;
       this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
-      this.clientsPersist = {};
       this.peersPersist = {};
-      this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
       this.api.clearRemote();
       this.activeRemoteId = null;
       this.peerRefreshSeq += 1;

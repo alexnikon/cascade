@@ -39,7 +39,6 @@ func readFrontendJavaScript(t *testing.T) string {
 		"www/js/utils.js",
 		"www/js/notifications.js",
 		"www/js/auth.js",
-		"www/js/clients.js",
 		"www/js/navigation.js",
 		"www/js/interfaces.js",
 		"www/js/gateways.js",
@@ -575,8 +574,8 @@ func TestFrontendClientCardsDoNotRenderAvatars(t *testing.T) {
 			t.Errorf("client card still contains avatar markup %q", obsolete)
 		}
 	}
-	if got := strings.Count(index, `class="peer-online-indicator"`); got != 3 {
-		t.Errorf("peer status indicator count = %d, want 3", got)
+	if got := strings.Count(index, `class="peer-online-indicator"`); got != 2 {
+		t.Errorf("peer status indicator count = %d, want 2", got)
 	}
 	for _, expected := range []string{
 		`.peer-online-indicator {`,
@@ -929,7 +928,7 @@ func TestFrontendClientExpiryUsesLocalDateTime(t *testing.T) {
 		return index[start : start+end]
 	}
 	quickCreate := section(`<div v-if="showQuickPeerCreate"`, `<div v-if="peerDelete"`)
-	peerEdit := section(`<div v-if="showPeerEditModal && peerEditForm._peer"`, `<div v-if="clientDelete"`)
+	peerEdit := section(`<div v-if="showPeerEditModal && peerEditForm._peer"`, `<div v-if="activePage === 'wizard-simple-vpn'"`)
 
 	for name, form := range map[string]string{
 		"New Client":  quickCreate,

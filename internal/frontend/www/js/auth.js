@@ -104,7 +104,6 @@ async _onLoginSuccess() {
       this.totpCode = '';
       this.lastAutoTOTP = '';
       this.requiresPassword = session.requiresPassword;
-      await this.refresh();
       // Re-load data that may have got 401 before login.
       this.loadTunnelInterfaces().then(() => {
         if (!this.activeInterfaceId) this.refreshAllPeers();
@@ -147,12 +146,9 @@ clearAuthentication() {
       this.activeSessionsError = '';
       this.activeSessionsLoading = false;
       this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
-      this.clientsPersist = {};
       this.peersPersist = {};
-      this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
       this.peerRefreshSeq = (this.peerRefreshSeq || 0) + 1;
       this.allPeerRefreshSeq = (this.allPeerRefreshSeq || 0) + 1;
-      this.clients = null;
     },
 
 logout(e) {

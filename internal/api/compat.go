@@ -71,9 +71,7 @@ func RegisterCompat(r fiber.Router) {
 // Called AFTER the auth middleware group is set up.
 func RegisterCompatAuth(r fiber.Router) {
 	// GET /api/wireguard/client — the old admin-tunnel client list.
-	// The Administration tab calls this every second via refresh().
-	// Return an empty array so the page renders without errors.
-	// Full implementation is deferred (KNOWN-2: AdminInstance).
+	// Preserve the empty legacy client list for API compatibility.
 	r.Get("/wireguard/client", func(c *fiber.Ctx) error {
 		return c.JSON([]fiber.Map{})
 	})

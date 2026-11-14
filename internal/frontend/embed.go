@@ -32,7 +32,6 @@ var requiredTemplateNames = []string{
 	"firewall-banner",
 	"dashboard",
 	"diagnostics",
-	"administration",
 	"interfaces",
 	"settings",
 	"gateways",

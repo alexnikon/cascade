@@ -35,7 +35,6 @@ async resourcePollTick() {
         return this.resourcePollPromise;
       }
       this.resourcePollPromise = (async () => {
-        await this.refresh();
         if (this.activePage === 'interfaces') {
           if (this.activeInterfaceId) {
             await this.refreshPeers({ scheduled: true });

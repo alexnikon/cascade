@@ -9,7 +9,6 @@ import { i18n } from './i18n.js';
 import { bytes, commonMethods } from './utils.js';
 import { notificationMethods } from './notifications.js';
 import { authMethods } from './auth.js';
-import { clientMethods } from './clients.js';
 import { navigationMethods } from './navigation.js';
 import { interfaceMethods } from './interfaces.js';
 import { gatewayMethods } from './gateways.js';
@@ -83,31 +82,16 @@ new Vue({
     showNewTokenModal: false,   // shown after successful creation
     newTokenValue: '',          // raw token — displayed once, never stored
 
-    clients: null,
-    clientsPersist: {},
-    clientDelete: null,
-    clientCreate: null,
-    clientCreateName: '',
-    clientExpiredDate: '',
-    clientEditName: null,
-    clientEditNameId: null,
-    clientEditAddress: null,
-    clientEditAddressId: null,
-    clientEditExpireDate: null,
-    clientEditExpireDateId: null,
-
     uiTrafficStats: false,
 
     avatarSettings: {
       'dicebear': null,
       'gravatar': false,
     },
-    enableSortClient: false,
-    sortClient: true, // Sort clients by name, true = asc, false = desc
     enableExpireTime: false,
 
     // Sidebar navigation
-    activePage: 'dashboard', // 'dashboard' | 'interfaces' | 'gateways' | 'routing' | 'firewall' | 'settings' | 'administration'
+    activePage: 'dashboard', // 'dashboard' | 'interfaces' | 'gateways' | 'routing' | 'firewall' | 'settings'
     activeInterfaceId: null,  // ID of the selected interface tab
     hoverPage: null,          // hovered sidebar page
     mobileNavOpen: false,
@@ -124,7 +108,6 @@ new Vue({
       { id: 'diagnostics',      label: 'Diagnostics' },
       { id: 'remotes',          label: 'Remotes' },
       { id: 'settings',         label: 'Settings' },
-      { id: 'administration',   label: 'Administration' },
       { id: '_header_wizards',  label: 'Wizards', type: 'header' },
       { id: 'wizard-simple-vpn', label: 'Simple Client VPN' },
       { id: 'wizard-uplink-vpn', label: 'Cascade via WireGuard Uplink' },
@@ -861,7 +844,6 @@ new Vue({
     ...commonMethods,
     ...notificationMethods,
     ...authMethods,
-    ...clientMethods,
     ...navigationMethods,
     ...interfaceMethods,
     ...gatewayMethods,
@@ -940,9 +922,6 @@ new Vue({
         // Apart from unnecessary 401 responses, dashboard preload used to turn
         // a port-forwarding error into a misleading green "error" toast.
         if (!session.authenticated) return;
-        this.refresh().catch((err) => {
-          this.showToast(err.message || err.toString(), 'error');
-        });
         // Load tunnel interfaces at startup (default page); then populate dashboard immediately
         this.loadTunnelInterfaces().then(() => {
           if (!this.activeInterfaceId) this.refreshAllPeers();
@@ -987,13 +966,6 @@ new Vue({
         this.uiTrafficStats = false;
       });
 
-    this.api.getUiSortClients()
-      .then((res) => {
-        this.enableSortClient = res;
-      })
-      .catch(() => {
-        this.enableSortClient = false;
-      });
 
     this.api.getWGEnableExpireTime()
       .then((res) => {
@@ -1026,9 +998,7 @@ new Vue({
   beforeDestroy() {
     this.stopDiagnostics();
       this._stopAliasJobPoll?.();
-      this.clientsPersist = {};
       this.peersPersist = {};
-      this.clientRefreshSeq = (this.clientRefreshSeq || 0) + 1;
     this.stopResourcePoller();
     this.metricsStopPoller();
     if (this.prefersDarkScheme) {

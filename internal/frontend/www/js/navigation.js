@@ -100,7 +100,7 @@ switchPage(pageId) {
         this._dashResizeObs.disconnect();
         this._dashResizeObs = null;
       }
-      this.activePage = pageId;
+      this.activePage = pageId === 'administration' ? 'dashboard' : pageId;
       if (this.isCompactViewport) this.closeMobileNav(false);
       // Reset scroll and any GridStack inline styles AFTER Vue updates the DOM.
       this.$nextTick(() => {

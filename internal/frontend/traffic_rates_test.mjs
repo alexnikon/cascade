@@ -49,7 +49,6 @@ test('servers and interfaces keep independent baselines for matching peer IDs', 
 });
 
 const paths = [
-  { file: 'clients.js', exported: 'clientMethods', method: 'refresh', api: 'getClients', output: 'clients', cache: 'clientsPersist', list: true },
   { file: 'poller.js', exported: 'pollerMethods', method: '_refreshPeersNow', api: 'getTunnelInterfacePeers', output: 'selectedInterfacePeers', cache: 'peersPersist' },
   { file: 'poller.js', exported: 'pollerMethods', method: '_refreshAllPeersNow', api: 'getAllTunnelPeers', output: 'allPeers', cache: 'peersPersist' },
 ];
