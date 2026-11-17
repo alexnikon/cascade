@@ -16,6 +16,7 @@ export class API {
     this._onRemoteError = null;
     this._onUnauthorized = null;
     this._authGeneration = 0;
+    this._sessionCheck = null;
   }
 
   /** Switch all subsequent calls to go through a remote server proxy. */
@@ -35,12 +36,12 @@ export class API {
     const response = await fetch(url, options);
     if (response.status === 401 && response.headers.get('X-Cascade-Session-Expired') === '1'
         && generation === this._authGeneration && typeof this._onUnauthorized === 'function') {
-      this._onUnauthorized();
+      await this._confirmSessionExpiry(generation);
     }
     return response;
   }
 
-  async call({ method, path, body, allowStatus = [], local = false }) {
+  _apiBase() {
     // Compute API base URL from the first path segment of the current page.
     // Works correctly whether the page was loaded with or without a trailing slash,
     // and whether there is a reverse-proxy prefix (e.g. Caddy ADMIN_PATH) or not.
@@ -49,9 +50,35 @@ export class API {
     //   /a3c8ac6953f44ce1bf1e0c06   → /a3c8ac6953f44ce1bf1e0c06/api  (no trailing slash — safe)
     //   /                           → /api  (direct access, no proxy prefix)
     const segs = window.location.pathname.split('/').filter(Boolean);
-    const apiBase = segs.length > 0
+    return segs.length > 0
       ? `${window.location.origin}/${segs[0]}/api`
       : `${window.location.origin}/api`;
+  }
+
+  async _confirmSessionExpiry(generation) {
+    if (this._sessionCheck?.generation !== generation) {
+      const check = { generation };
+      this._sessionCheck = check;
+      check.promise = (async () => {
+        let session;
+        try {
+          const response = await fetch(`${this._apiBase()}/session`, { cache: 'no-store' });
+          if (response.ok) session = await response.json();
+        } catch {
+          // An unavailable session endpoint cannot confirm that the session ended.
+        } finally {
+          if (this._sessionCheck === check) this._sessionCheck = null;
+        }
+        if (session?.authenticated === false && generation === this._authGeneration) {
+          this._onUnauthorized?.();
+        }
+      })();
+    }
+    await this._sessionCheck?.promise;
+  }
+
+  async call({ method, path, body, allowStatus = [], local = false }) {
+    const apiBase = this._apiBase();
 
     // If a remote is active, route through the proxy endpoint.
     // Remotes-management calls (/remotes/*) always go to local.

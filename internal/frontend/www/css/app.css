@@ -2223,8 +2223,9 @@ button.interface-filter-button {
 
 .dash-peers-toolbar {
   align-items: center;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 6px;
   max-width: 100%;
   min-width: 0;
@@ -2235,7 +2236,9 @@ button.interface-filter-button {
   box-sizing: border-box;
   height: 28px;
   min-width: 0 !important;
-  width: 100%;
+  max-width: 100%;
+  width: auto;
+  flex: 0 1 auto;
 }
 
 .dash-peers-view-action {
@@ -2243,8 +2246,9 @@ button.interface-filter-button {
   box-sizing: border-box;
   display: inline-flex;
   flex-shrink: 0;
-  height: 28px;
+  height: 18px;
   justify-content: center;
+  line-height: 1;
   min-width: 48px;
   background: transparent;
   border: none;
@@ -2252,7 +2256,7 @@ button.interface-filter-button {
   color: #6b7280;
   cursor: pointer;
   font-size: 0.68rem;
-  padding: 3px 7px;
+  padding: 0 7px;
   white-space: nowrap;
 }
 

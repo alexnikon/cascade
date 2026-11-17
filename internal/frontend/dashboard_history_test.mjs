@@ -107,7 +107,7 @@ test('peers header owns the borderless view action and editors are absent', asyn
   assert.match(interfaces, /updatePeerAddress/);
   assert.match(interfaces, /peer\.expiredAt \| expiredDateFormat/);
   const css = await readFile(new URL('www/css/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.dash-peers-toolbar \{[^}]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+  assert.match(css, /\.dash-peers-toolbar \{[^}]*display: flex;[^}]*flex-wrap: wrap;[^}]*justify-content: flex-start;/);
   assert.match(css, /\.dash-peers-view-action \{[^}]*border: none;/);
   assert.match(css, /\.dash-peers-view-action:focus-visible/);
 });

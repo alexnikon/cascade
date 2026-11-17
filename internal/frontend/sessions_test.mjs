@@ -157,7 +157,8 @@ test('API distinguishes revoked local sessions, remote authentication failures, 
     await assert.rejects(api.getSessions());
     assert.equal(expired, 0);
     assert.equal(remoteErrors, 1);
-    globalThis.fetch = async () => response(401, true);
+    globalThis.fetch = async url => url.endsWith('/api/session')
+      ? Response.json({ authenticated: false }) : response(401, true);
     await assert.rejects(api.getSessions());
     assert.equal(expired, 1);
     assert.equal(remoteErrors, 1);
@@ -199,12 +200,64 @@ test('peer config downloads still route to the selected server', async () => {
 test('revoked authentication is handled on downloads as well as JSON requests', async () => {
   globalThis.window = { location: { pathname: '/', origin: 'http://cascade.test' } };
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => response(401, true);
+  globalThis.fetch = async url => url.endsWith('/api/session')
+      ? Response.json({ authenticated: false }) : response(401, true);
   try {
     const api = new API();
     let expired = 0;
     api._onUnauthorized = () => { expired++; };
     await assert.rejects(api.getPeerConfig({ interfaceId: 'wg0', peerId: 'peer' }));
     assert.equal(expired, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test('transient local 401s share a session check and keep a live session', async () => {
+  globalThis.window = { location: { pathname: '/hidden/', origin: 'https://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  const api = new API();
+  api.setRemote('remote');
+  let checks = 0;
+  let finish;
+  let expired = 0;
+  api._onUnauthorized = () => { expired++; };
+  try {
+    globalThis.fetch = async (url, options) => {
+      if (!url.endsWith('/api/session')) return response(401, true);
+      assert.equal(url, 'https://cascade.test/hidden/api/session');
+      assert.equal(options.cache, 'no-store');
+      checks++;
+      return new Promise(resolve => { finish = resolve; });
+    };
+    const pending = Promise.allSettled([api.getSessions(), api.getSessions()]);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(checks, 1);
+    finish(Response.json({ authenticated: true }));
+    assert.ok((await pending).every(result => result.status === 'rejected'));
+    assert.equal(expired, 0);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('failed and stale session checks cannot clear authentication', async () => {
+  globalThis.window = { location: { pathname: '/', origin: 'http://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  const api = new API();
+  let expired = 0;
+  api._onUnauthorized = () => { expired++; };
+  try {
+    globalThis.fetch = async url => {
+      if (url.endsWith('/api/session')) throw new Error('offline');
+      return response(401, true);
+    };
+    await assert.rejects(api.getSessions(), /Unauthorized/);
+    let finish;
+    globalThis.fetch = async url => url.endsWith('/api/session')
+      ? new Promise(resolve => { finish = resolve; }) : response(401, true);
+    const pending = assert.rejects(api.getSessions(), /Unauthorized/);
+    await new Promise(resolve => setImmediate(resolve));
+    api._authGeneration++;
+    finish(Response.json({ authenticated: false }));
+    await pending;
+    assert.equal(expired, 0);
   } finally { globalThis.fetch = originalFetch; }
 });
