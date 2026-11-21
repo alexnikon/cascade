@@ -55,6 +55,20 @@ export class API {
       : `${window.location.origin}/api`;
   }
 
+  async _withDeadline(ms, run) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+      return await run(controller.signal);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  _isSessionExpired(response) {
+    return response.status === 401 && response.headers.get('X-Cascade-Session-Expired') === '1';
+  }
+
   async _confirmSessionExpiry(generation) {
     if (this._sessionCheck?.generation !== generation) {
       const check = { generation };
@@ -62,8 +76,10 @@ export class API {
       check.promise = (async () => {
         let session;
         try {
-          const response = await fetch(`${this._apiBase()}/session`, { cache: 'no-store' });
-          if (response.ok) session = await response.json();
+          session = await this._withDeadline(6000, async signal => {
+            const response = await fetch(`${this._apiBase()}/session`, { cache: 'no-store', signal });
+            return response.ok ? await response.json() : null;
+          });
         } catch {
           // An unavailable session endpoint cannot confirm that the session ended.
         } finally {
@@ -72,12 +88,13 @@ export class API {
         if (session?.authenticated === false && generation === this._authGeneration) {
           this._onUnauthorized?.();
         }
+        return session?.authenticated;
       })();
     }
-    await this._sessionCheck?.promise;
+    return this._sessionCheck?.promise;
   }
 
-  async call({ method, path, body, allowStatus = [], local = false }) {
+  async call({ method, path, body, allowStatus = [], local = false, read = false }) {
     const apiBase = this._apiBase();
 
     // If a remote is active, route through the proxy endpoint.
@@ -87,21 +104,48 @@ export class API {
       ? `/remotes/${requestRemoteId}/proxy${path}`
       : path;
 
-    let res;
-    try {
-      res = await this._fetch(`${apiBase}${effectivePath}`, {
-        method: method.toUpperCase(), // Node.js 22 llhttp: HTTP method must be uppercase
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: body
-          ? JSON.stringify(body)
-          : undefined,
-      });
-    } catch (cause) {
-      const error = new Error('Unable to reach the Cascade server.');
-      error.cause = cause;
-      throw error;
+    const url = `${apiBase}${effectivePath}`;
+    const options = {
+      method: method.toUpperCase(),
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    };
+    const generation = this._authGeneration;
+    const remote = this._remoteId;
+    const context = this._readContext?.();
+    const safeRead = read && options.method === 'GET';
+    const stillCurrent = () => generation === this._authGeneration && remote === this._remoteId;
+    let res, json, invalidJSON;
+    let sessionConfirmed = false;
+    for (let attempt = 0; attempt < (safeRead ? 2 : 1); attempt++) {
+      try {
+        [res, json, invalidJSON] = await (safeRead ? this._withDeadline(12000, async signal => {
+          const response = await fetch(url, { ...options, signal });
+          if (response.status === 204) return [response];
+          try {
+            return [response, await response.json()];
+          } catch (error) {
+            if (signal.aborted || !(error instanceof SyntaxError)) throw error;
+            return [response, undefined, true];
+          }
+        }) : this._fetch(url, options).then(response => [response]));
+      } catch (cause) {
+        if (safeRead && attempt === 0 && stillCurrent()) continue;
+        const error = new Error('Unable to reach the Cascade server.');
+        error.cause = cause;
+        if (safeRead && stillCurrent()) this._onReadResult?.(context, path, false);
+        throw error;
+      }
+
+      if (!safeRead || !stillCurrent()) break;
+      if (this._isSessionExpired(res)) {
+        if (sessionConfirmed) break;
+        sessionConfirmed = (await this._confirmSessionExpiry(generation)) === true;
+        if (sessionConfirmed && attempt === 0 && stillCurrent()) continue;
+      } else if (attempt === 0 && [502, 503, 504].includes(res.status) && !allowStatus.includes(res.status)) {
+        continue;
+      }
+      break;
     }
 
     // If a proxy call fails with an unrecoverable status (401 or 5xx),
@@ -116,20 +160,21 @@ export class API {
       }
     }
 
-    if (res.status === 204) {
-      return undefined;
+    if (safeRead && stillCurrent()) {
+      this._onReadResult?.(context, path, !invalidJSON && (res.ok || allowStatus.includes(res.status)));
     }
+    if (res.status === 204) return undefined;
 
-    let json;
-    try {
-      json = await res.json();
-    } catch (_) {
-      // The server returned an empty or non-JSON response body.
-      throw new Error(`Server error ${res.status}: ${res.statusText}`);
+    if (!safeRead) {
+      try {
+        json = await res.json();
+      } catch {
+        invalidJSON = true;
+      }
     }
-
+    if (invalidJSON) throw new Error(`Server error ${res.status}: ${res.statusText}`);
     if (!res.ok && !allowStatus.includes(res.status)) {
-      throw new Error(json.message || json.error || res.statusText);
+      throw new Error(json?.message || json?.error || res.statusText);
     }
 
     return json;
@@ -193,7 +238,7 @@ export class API {
   }
 
   async getSessions() {
-    return this.call({ method: 'get', path: '/sessions' });
+    return this.call({ method: 'get', read: true, path: '/sessions' });
   }
 
   async revokeSession(id) {
@@ -205,7 +250,7 @@ export class API {
   // ============================================================
 
   async getDashboardWidgets(page = 'dashboard') {
-    return this.call({ method: 'get', path: `/dashboard/widgets?page=${page}` });
+    return this.call({ method: 'get', read: true, path: `/dashboard/widgets?page=${page}` });
   }
 
   async putDashboardWidgets(widgets, page = 'dashboard') {
@@ -213,7 +258,7 @@ export class API {
   }
 
   async getSystemInfo() {
-    return this.call({ method: 'get', path: '/dashboard/system-info' });
+    return this.call({ method: 'get', read: true, path: '/dashboard/system-info' });
   }
 
   // ============================================================
@@ -222,7 +267,7 @@ export class API {
 
   async getSettings() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/settings',
     });
   }
@@ -236,7 +281,7 @@ export class API {
   }
 
   async getMetricsSettings() {
-    return this.call({ method: 'get', path: '/settings/metrics' });
+    return this.call({ method: 'get', read: true, path: '/settings/metrics' });
   }
 
   async updateMetricsSettings(settings) {
@@ -299,7 +344,7 @@ export class API {
 
   async getTunnelInterfaces() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/tunnel-interfaces',
     });
   }
@@ -395,14 +440,14 @@ export class API {
 
   async getTunnelInterfacePeers({ interfaceId }) {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: `/tunnel-interfaces/${interfaceId}/peers`,
     });
   }
 
   async getAllTunnelPeers() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/peers',
     });
   }
@@ -555,7 +600,7 @@ export class API {
 
   async getSystemInterfaces() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/system/interfaces',
     });
   }
@@ -566,7 +611,7 @@ export class API {
 
   async getGateways() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/gateways',
     });
   }
@@ -600,7 +645,7 @@ export class API {
 
   async getGatewayGroups() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/gateway-groups',
     });
   }
@@ -634,14 +679,14 @@ export class API {
 
   async getRoutingTables() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/routing/tables',
     });
   }
 
   async getKernelRoutes(table = 'main') {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: `/routing/table?table=${encodeURIComponent(table)}`,
     });
   }
@@ -654,7 +699,7 @@ export class API {
 
   async getStaticRoutes() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/routing/routes',
     });
   }
@@ -701,7 +746,7 @@ export class API {
    */
   async getNatInterfaces() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/nat/interfaces',
     });
   }
@@ -712,7 +757,7 @@ export class API {
    */
   async getNatRules() {
     return this.call({
-      method: 'get',
+      method: 'get', read: true,
       path: '/nat/rules',
     });
   }
@@ -776,11 +821,11 @@ export class API {
    * @returns {{ aliases: Array<object> }}
    */
   async getAliases() {
-    return this.call({ method: 'get', path: '/aliases' });
+    return this.call({ method: 'get', read: true, path: '/aliases' });
   }
 
   async getClientGroups() {
-    return this.call({ method: 'get', path: '/aliases/client-groups' });
+    return this.call({ method: 'get', read: true, path: '/aliases/client-groups' });
   }
 
   async createClientGroup(data) {
@@ -863,12 +908,12 @@ export class API {
 
   /** Host network interfaces for the Interface dropdown. */
   async getFirewallInterfaces() {
-    return this.call({ method: 'get', path: '/firewall/interfaces' });
+    return this.call({ method: 'get', read: true, path: '/firewall/interfaces' });
   }
 
   /** All firewall rules, sorted by order. */
   async getFirewallRules() {
-    return this.call({ method: 'get', path: '/firewall/rules' });
+    return this.call({ method: 'get', read: true, path: '/firewall/rules' });
   }
 
   /**
@@ -933,7 +978,7 @@ export class API {
 
   /** List all users. */
   async getUsers() {
-    return this.call({ method: 'get', path: '/users' });
+    return this.call({ method: 'get', read: true, path: '/users' });
   }
 
   /** Create a new user. */
@@ -986,7 +1031,7 @@ export class API {
 
   /** List all API tokens for the current user. */
   async getApiTokens() {
-    return this.call({ method: 'get', path: '/tokens' });
+    return this.call({ method: 'get', read: true, path: '/tokens' });
   }
 
   /**
@@ -1075,13 +1120,13 @@ export class API {
    * List pre-restore auto-backups saved on the server.
    */
   async listSystemBackups() {
-    return this.call({ method: 'get', path: '/system/backups' });
+    return this.call({ method: 'get', read: true, path: '/system/backups' });
   }
 
   // ── Remote servers ──────────────────────────────────────────────────────────
 
   async getRemotes() {
-    return this.call({ method: 'get', path: '/remotes/' });
+    return this.call({ method: 'get', read: true, path: '/remotes/' });
   }
 
   /**
@@ -1161,15 +1206,15 @@ export class API {
   // ── Metrics ────────────────────────────────────────────────────────────────
 
   async getMetrics() {
-    return this.call({ method: 'get', path: '/metrics/' });
+    return this.call({ method: 'get', read: true, path: '/metrics/' });
   }
 
   async getMetricsHistory({ key, period }) {
-    return this.call({ method: 'get', path: `/metrics/history?key=${encodeURIComponent(key)}&period=${period}` });
+    return this.call({ method: 'get', read: true, path: `/metrics/history?key=${encodeURIComponent(key)}&period=${period}` });
   }
 
   async getMetricsGatewayDist({ key, period }) {
-    return this.call({ method: 'get', path: `/metrics/gateway-dist?key=${encodeURIComponent(key)}&period=${period}` });
+    return this.call({ method: 'get', read: true, path: `/metrics/gateway-dist?key=${encodeURIComponent(key)}&period=${period}` });
   }
 
 }

@@ -311,9 +311,9 @@ iperf3-based throughput measurement between any two managed Cascade servers.
 Real-time and historical metrics for interfaces and gateways.
 
 ### Traffic Metrics
-- Per-interface RX/TX bytes/s collected every 5 seconds from `/proc/net/dev`
+- Per-interface RX/TX rates are sampled every 5 seconds from `/proc/net/dev` and displayed in bits per second
 - Stored in a separate **`metrics.db`** (not cascade.db) to avoid WAL contention during high-frequency writes
-- Configurable retention periods: 5 min (realtime), 1 h, 24 h, 7 days
+- Configurable local history retention: 1 hour, 1 day, 1 week, 1 month (30 days, default), or forever
 - ApexCharts area graphs per interface — color-coded, animated in realtime, paused when tab is hidden
 - Metrics DB optionally included in backup archive
 

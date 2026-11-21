@@ -2,7 +2,7 @@
 // and persists them to SQLite for historical queries.
 //
 // Collection interval: every 5 seconds.
-// Retention: 30 days (cleanup runs once per day).
+// Retention is configurable through metrics settings.
 //
 // Keys written to metrics_history:
 //
@@ -14,6 +14,7 @@ package metrics
 
 import (
 	"bufio"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -31,8 +32,55 @@ import (
 
 const (
 	collectInterval = 5 * time.Second
-	retentionDays   = 30
 )
+
+type Retention string
+
+const DefaultRetention Retention = "30d"
+
+func (r Retention) Duration() time.Duration {
+	switch r {
+	case "1h":
+		return time.Hour
+	case "1d":
+		return 24 * time.Hour
+	case "7d":
+		return 7 * 24 * time.Hour
+	case DefaultRetention:
+		return 30 * 24 * time.Hour
+	default:
+		return 0
+	}
+}
+
+func (r Retention) Valid() bool { return r == "forever" || r.Duration() > 0 }
+
+func (r Retention) cleanupInterval() time.Duration {
+	switch r {
+	case "1h":
+		return time.Minute
+	case "1d":
+		return 15 * time.Minute
+	case "7d":
+		return time.Hour
+	default:
+		return 24 * time.Hour
+	}
+}
+
+var historyRetention = DefaultRetention
+var historyPolicyVersion uint64
+
+// SetHistoryPolicy publishes the persisted collection policy under the write lock.
+func SetHistoryPolicy(enabled bool, retention Retention) {
+	historyWriteMu.Lock()
+	defer historyWriteMu.Unlock()
+	if historyEnabled.Load() != enabled || historyRetention != retention {
+		historyPolicyVersion++
+	}
+	historyRetention = retention
+	historyEnabled.Store(enabled)
+}
 
 // Snapshot holds a single point-in-time reading of all metrics.
 type Snapshot struct {
@@ -52,6 +100,7 @@ type GatewayStatusFn func() map[string]int
 
 var gatewayFnAtom atomic.Value // stores GatewayStatusFn
 var historyEnabled atomic.Bool
+var historyWriteMu sync.Mutex
 
 func init() {
 	historyEnabled.Store(parseHistoryEnabled(os.Getenv("METRICS_HISTORY_ENABLED")))
@@ -66,7 +115,63 @@ func HistoryEnabled() bool { return historyEnabled.Load() }
 
 // SetHistoryEnabled enables or disables persistence of periodic metrics.
 // Runtime samples continue to be collected for the dashboard either way.
-func SetHistoryEnabled(enabled bool) { historyEnabled.Store(enabled) }
+func SetHistoryEnabled(enabled bool) {
+	historyWriteMu.Lock()
+	defer historyWriteMu.Unlock()
+	historyEnabled.Store(enabled)
+}
+
+// ClearHistory removes persisted samples and reclaims the database and WAL space.
+// The caller must disable history writes before calling it.
+func ClearHistory() error {
+	database := db.TryMetricsDB()
+	if database == nil {
+		return nil
+	}
+	if _, err := database.Exec(`DELETE FROM metrics_history`); err != nil {
+		return fmt.Errorf("delete metrics history: %w", err)
+	}
+	return compactHistory(database)
+}
+
+// CompactRetention deletes expired samples and reclaims their SQLite space.
+func CompactRetention(retention Retention) error {
+	historyWriteMu.Lock()
+	defer historyWriteMu.Unlock()
+	database := db.TryMetricsDB()
+	if database == nil || retention.Duration() == 0 {
+		return nil
+	}
+	if err := deleteExpired(database, time.Now(), retention); err != nil {
+		return err
+	}
+	return compactHistory(database)
+}
+
+func deleteExpired(database *sql.DB, now time.Time, retention Retention) error {
+	_, err := database.Exec(`DELETE FROM metrics_history WHERE ts < ?`, now.Add(-retention.Duration()).Unix())
+	return err
+}
+
+func compactHistory(database *sql.DB) error {
+	var freePages int
+	if err := database.QueryRow(`PRAGMA freelist_count`).Scan(&freePages); err != nil {
+		return fmt.Errorf("check free metrics pages: %w", err)
+	}
+	if freePages > 0 {
+		if _, err := database.Exec(`VACUUM`); err != nil {
+			return fmt.Errorf("compact metrics database: %w", err)
+		}
+	}
+	var busy, frames, checkpointed int
+	if err := database.QueryRow(`PRAGMA wal_checkpoint(TRUNCATE)`).Scan(&busy, &frames, &checkpointed); err != nil {
+		return fmt.Errorf("truncate metrics WAL: %w", err)
+	}
+	if busy != 0 {
+		return fmt.Errorf("truncate metrics WAL: database is busy")
+	}
+	return nil
+}
 
 func parseHistoryEnabled(raw string) bool {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
@@ -113,7 +218,8 @@ type collector struct {
 	last *Snapshot
 
 	// cleanup: track last retention run
-	lastCleanup time.Time
+	lastCleanup       time.Time
+	lastPolicyVersion uint64
 }
 
 var (
@@ -333,6 +439,11 @@ func (c *collector) persist(snap *Snapshot) {
 	if !HistoryEnabled() {
 		return
 	}
+	historyWriteMu.Lock()
+	defer historyWriteMu.Unlock()
+	if !HistoryEnabled() {
+		return
+	}
 	ts := time.Now().Unix()
 	database := db.MetricsDB()
 
@@ -388,16 +499,27 @@ func (c *collector) maybeCleanup() {
 	if !HistoryEnabled() {
 		return
 	}
-	if time.Since(c.lastCleanup) < 24*time.Hour {
+	historyWriteMu.Lock()
+	defer historyWriteMu.Unlock()
+	if !HistoryEnabled() {
 		return
 	}
-	cutoff := time.Now().AddDate(0, 0, -retentionDays).Unix()
-	if _, err := db.MetricsDB().Exec(
-		`DELETE FROM metrics_history WHERE ts < ?`, cutoff,
-	); err != nil {
-		log.Printf("metrics: cleanup: %v", err)
+	retention := historyRetention
+	if retention.Duration() == 0 {
+		return
 	}
-	c.lastCleanup = time.Now()
+	now := time.Now()
+	if c.lastPolicyVersion == historyPolicyVersion && now.Sub(c.lastCleanup) < retention.cleanupInterval() {
+		return
+	}
+	if err := deleteExpired(db.MetricsDB(), now, retention); err != nil {
+		log.Printf("metrics: cleanup: %v", err)
+		// Retry transient failures without logging on every collection tick.
+		c.lastCleanup = now.Add(-retention.cleanupInterval() + time.Minute)
+	} else {
+		c.lastCleanup = now
+	}
+	c.lastPolicyVersion = historyPolicyVersion
 }
 
 // ── /proc readers ─────────────────────────────────────────────────────────────

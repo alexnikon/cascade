@@ -300,6 +300,7 @@ async switchToRemote(remote) {
       this.activeSessionsLoading = false;
       this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
       this.peersPersist = {};
+      this.metricsResetServerData();
       this.api.setRemote(remote.id);
       this.activeRemoteId = remote.id;
       this.peerRefreshSeq += 1;
@@ -340,6 +341,7 @@ switchToLocal() {
       this.activeSessionsLoading = false;
       this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
       this.peersPersist = {};
+      this.metricsResetServerData();
       this.api.clearRemote();
       this.activeRemoteId = null;
       this.peerRefreshSeq += 1;

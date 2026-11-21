@@ -130,6 +130,9 @@ func MetricsDB() *sql.DB {
 	return metricsInstance
 }
 
+// TryMetricsDB returns the history database if initialized.
+func TryMetricsDB() *sql.DB { return metricsInstance }
+
 // Close closes both databases. Call on graceful shutdown.
 func Close() {
 	if metricsInstance != nil {

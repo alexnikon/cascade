@@ -200,12 +200,12 @@
               <div v-if="speedtestResult" style="background:#f0fdf4; border-radius:8px; padding:16px 20px; margin-bottom:16px;">
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; text-align:center;">
                   <div>
-                    <div style="font-size:1.75rem; font-weight:700; color:#16a34a;">{{ speedtestResult.sendMbps.toFixed(1) }}</div>
-                    <div style="font-size:0.75rem; color:#6b7280; margin-top:2px;">Mbps ↑ Upload</div>
+                    <div style="font-size:1.75rem; font-weight:700; color:#16a34a;">{{ formatBitRate(speedtestResult.sendMbps * 1e6) }}</div>
+                    <div style="font-size:0.75rem; color:#6b7280; margin-top:2px;">↑ Upload</div>
                   </div>
                   <div>
-                    <div style="font-size:1.75rem; font-weight:700; color:#2563eb;">{{ speedtestResult.recvMbps.toFixed(1) }}</div>
-                    <div style="font-size:0.75rem; color:#6b7280; margin-top:2px;">Mbps ↓ Download</div>
+                    <div style="font-size:1.75rem; font-weight:700; color:#2563eb;">{{ formatBitRate(speedtestResult.recvMbps * 1e6) }}</div>
+                    <div style="font-size:0.75rem; color:#6b7280; margin-top:2px;">↓ Download</div>
                   </div>
                 </div>
                 <div style="display:flex; justify-content:center; gap:24px; margin-top:12px; font-size:0.8rem; color:#6b7280;">
@@ -257,8 +257,8 @@
                     <thead>
                       <tr :style="{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280' }">
                         <th class="text-left" style="padding:3px 6px 3px 0;">Route</th>
-                        <th class="text-right" style="padding:3px 4px;">↑ Mbps</th>
-                        <th class="text-right" style="padding:3px 4px;">↓ Mbps</th>
+                        <th class="text-right" style="padding:3px 4px;">↑ Upload</th>
+                        <th class="text-right" style="padding:3px 4px;">↓ Download</th>
                         <th class="text-right" style="padding:3px 0;">RTT ms</th>
                       </tr>
                     </thead>
@@ -275,11 +275,11 @@
                           <div v-if="r.status === 'error'" style="color:#dc2626;">{{ r.error }}</div>
                           <div v-if="r.status === 'running'" style="color:#f59e0b;">running…</div>
                         </td>
-                        <td class="text-right" style="padding:4px;" :style="{ color: r.sendMbps ? '#16a34a' : '#9ca3af' }">
-                          {{ r.sendMbps ? r.sendMbps.toFixed(1) : '—' }}
+                        <td class="text-right" style="padding:4px;" :style="{ color: r.sendMbps != null ? '#16a34a' : '#9ca3af' }">
+                          {{ r.sendMbps != null ? formatBitRate(r.sendMbps * 1e6) : '—' }}
                         </td>
-                        <td class="text-right" style="padding:4px;" :style="{ color: r.recvMbps ? '#2563eb' : '#9ca3af' }">
-                          {{ r.recvMbps ? r.recvMbps.toFixed(1) : '—' }}
+                        <td class="text-right" style="padding:4px;" :style="{ color: r.recvMbps != null ? '#2563eb' : '#9ca3af' }">
+                          {{ r.recvMbps != null ? formatBitRate(r.recvMbps * 1e6) : '—' }}
                         </td>
                         <td class="text-right" style="padding:4px 0;" :style="{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280' }">
                           {{ r.latencyMs ? r.latencyMs.toFixed(1) : '—' }}

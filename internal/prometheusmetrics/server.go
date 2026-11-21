@@ -100,6 +100,8 @@ func (s *Server) desiredAddress(config Snapshot) (string, error) {
 func (s *Server) Apply(update Update) (Snapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.manager.mu.Lock()
+	defer s.manager.mu.Unlock()
 	next, err := s.manager.next(update)
 	if err != nil {
 		return Snapshot{}, err
@@ -120,13 +122,12 @@ func (s *Server) Apply(update Update) (Snapshot, error) {
 			return Snapshot{}, invalid("selected metrics address or port is unavailable")
 		}
 	}
-	if err := s.manager.persist(next); err != nil {
+	if err := s.manager.apply(next); err != nil {
 		if candidate != nil {
 			_ = candidate.Close()
 		}
 		return Snapshot{}, err
 	}
-	s.manager.publish(next)
 	if address == "" {
 		s.closeLocked()
 	} else if candidate != nil {
@@ -134,7 +135,7 @@ func (s *Server) Apply(update Update) (Snapshot, error) {
 		s.startLocked(candidate, address)
 	}
 	s.listenErr = ""
-	return next, nil
+	return next, s.manager.finishHistoryUpdate(next)
 }
 
 func (s *Server) reconcileLocked() {

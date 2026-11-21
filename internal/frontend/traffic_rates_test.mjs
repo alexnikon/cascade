@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 const utilsSource = await readFile(new URL('www/js/utils.js', import.meta.url), 'utf8');
-const { updateTransferRates, sortByProperty, bytes } = await import(`data:text/javascript;base64,${Buffer.from(utilsSource).toString('base64')}`);
+const { updateTransferRates, sortByProperty, bytes, formatBitRate } = await import(`data:text/javascript;base64,${Buffer.from(utilsSource).toString('base64')}`);
 
 test('fractional byte rates retain the B unit', () => {
   assert.equal(bytes(0.2), '0.2 B');
@@ -69,7 +69,7 @@ for (const path of paths) {
     api: { [path.api]: async () => response(0, 0) },
   });
 
-  test(`${path.method} displays bytes per second and retains hover state`, async () => {
+  test(`${path.method} calculates bytes per second and retains hover state`, async () => {
     const app = context();
     app[path.cache]['peer-1'] = { hoverTx: true, hoverRx: false };
     now = 0;
@@ -124,3 +124,25 @@ for (const path of paths) {
   });
 
 }
+
+test('formats transfer rates with decimal bit units', () => {
+  assert.equal(formatBitRate(0), '0 b/s');
+  assert.equal(formatBitRate(0.25), '0.25 b/s');
+  assert.equal(formatBitRate(446.64 * 8), '3.57 Kb/s');
+  assert.equal(formatBitRate(125000 * 8), '1 Mb/s');
+  assert.equal(formatBitRate(1e9), '1 Gb/s');
+  assert.equal(formatBitRate(null), '—');
+});
+
+test('both Interfaces views show individual limits and convert byte rates', async () => {
+  const template = await readFile(new URL('templates/views/interfaces.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(template, /peerEffectiveRate|Group limit:/);
+  for (const field of ['transferTxCurrent', 'transferRxCurrent']) {
+    assert.equal(template.split(`formatBitRate(peer.${field} * 8)`).length - 1, 4);
+  }
+  for (const field of ['rateDown', 'rateUp']) {
+    assert.equal(template.split(`peer.${field} > 0`).length - 1, 2);
+  }
+  assert.match(template, /bytes\(peer.totalTx\)/);
+  assert.match(template, /peerGroupName\(peer.groupId\)/);
+});

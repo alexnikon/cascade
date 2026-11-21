@@ -111,3 +111,46 @@ test('peers header owns the borderless view action and editors are absent', asyn
   assert.match(css, /\.dash-peers-view-action \{[^}]*border: none;/);
   assert.match(css, /\.dash-peers-view-action:focus-visible/);
 });
+
+test('network chart ticks and tooltips convert stored megabits to bits per second', async () => {
+  const utils = await readFile(new URL('www/js/utils.js', import.meta.url), 'utf8');
+  const { formatBitRate } = await import(`data:text/javascript;base64,${Buffer.from(utils).toString('base64')}`);
+  const { state } = fixture();
+  state.formatBitRate = formatBitRate;
+  const network = state.metricsAreaChartOptions('w', 'net:wg0:rx');
+  assert.equal(network.yaxis.labels.formatter(0.00357312), '3.57 Kb/s');
+  assert.equal(network.tooltip.y.formatter(1250), '1.25 Gb/s');
+  assert.equal(network.tooltip.y.formatter(null), '—');
+  const cpu = state.metricsAreaChartOptions('w', 'cpu');
+  assert.equal(cpu.yaxis.labels.formatter, undefined);
+  assert.equal(cpu.tooltip.y, undefined);
+});
+
+test('returning to the tab fetches fresh metrics while the old request is pending', async () => {
+  const { state, document } = fixture();
+  let releaseOld, releaseNew;
+  let calls = 0;
+  state.metricsAvailableKeys = [];
+  state.metricsPruneUnavailableGraphs = () => {};
+  state.api.getMetrics = () => ++calls === 1
+    ? new Promise(resolve => { releaseOld = resolve; })
+    : new Promise(resolve => { releaseNew = resolve; });
+  state.api.getMetricsHistory = async () => ({ points: [] });
+  state.metricsStartPoller();
+  const oldTick = state.metricsTickPromise;
+  try {
+    document.hidden = true;
+    state._metricsVisibilityHandler();
+    document.hidden = false;
+    state._metricsVisibilityHandler();
+    const newTick = state.metricsTickPromise;
+    assert.equal(calls, 2);
+    releaseOld({ cpu: 10 });
+    await oldTick;
+    assert.equal(state.metricsTickPromise, newTick);
+    assert.equal(state.metricsSnapshot, undefined);
+    releaseNew({ cpu: 42 });
+    await newTick;
+    assert.equal(state.metricsSnapshot.cpu, 42);
+  } finally { state.metricsStopPoller(); }
+});

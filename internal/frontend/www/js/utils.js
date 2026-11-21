@@ -34,6 +34,18 @@ export function bytes(bytes, decimals, kib, maxunit) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
+export function formatBitRate(bitsPerSecond) {
+  if (!Number.isFinite(bitsPerSecond)) return '—';
+  const units = ['b/s', 'Kb/s', 'Mb/s', 'Gb/s', 'Tb/s'];
+  let value = Math.max(0, bitsPerSecond);
+  let unit = 0;
+  while (unit < units.length - 1 && Number(value.toFixed(2)) >= 1000) {
+    value /= 1000;
+    unit++;
+  }
+  return `${Number(value.toFixed(2))} ${units[unit]}`;
+}
+
 export function sortByProperty(array, property, sort = true) {
   if (sort) {
     return array.sort((a, b) => (typeof a[property] === 'string' ? a[property].localeCompare(b[property]) : a[property] - b[property]));

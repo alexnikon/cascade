@@ -4,12 +4,18 @@
  */
 export const dashboardMethods = {
 async loadDashboard() {
+      const generation = (this._dashboardLoadGeneration || 0) + 1;
+      this._dashboardLoadGeneration = generation;
+      const remote = this.activeRemoteId;
+      const isCurrent = () => this.authenticated && this.activePage === 'dashboard'
+        && this.activeRemoteId === remote && this._dashboardLoadGeneration === generation;
       try {
         const res = await this.api.getDashboardWidgets();
+        if (!isCurrent()) return;
         const saved = res.widgets || [];
         this.dashWidgets = saved.length > 0 ? saved : this.dashDefaultWidgets();
-      } catch (e) {
-        this.dashWidgets = this.dashDefaultWidgets();
+      } catch {
+        return;
       }
       // Pre-load NAT + aliases data (aliases needed to resolve sourceAliasId names)
       if (this.natRules.length === 0) this.loadNatRules();
@@ -27,7 +33,7 @@ async loadDashboard() {
         }
       }
       await this.$nextTick();
-      this.dashInitGrid();
+      if (isCurrent()) this.dashInitGrid();
     },
 
 dashInitGrid() {
@@ -269,7 +275,7 @@ metricsStartPoller() {
         };
         document.addEventListener('visibilitychange', this._metricsVisibilityHandler);
       }
-      if (document.hidden || this.activePage !== 'dashboard' || this.metricsPoller) return;
+      if (this.authenticated === false || document.hidden || this.activePage !== 'dashboard' || this.metricsPoller) return;
       this.metricsPoller = setInterval(() => this.metricsTick(), 5000);
       this.metricsTick();
       if (this._metricsHistoryPoller) clearInterval(this._metricsHistoryPoller);
@@ -278,8 +284,20 @@ metricsStartPoller() {
 
     },
 
+metricsResetServerData() {
+      this.metricsStopPoller();
+      this.metricsSnapshot = null;
+      this.metricsAvailableKeys = [];
+      this.metricsHistory = {};
+      this.metricsGatewayDist = {};
+      this.metricsGatewaySeriesCache = {};
+      this.metricsAreaSeriesCache = {};
+    },
+
 metricsStopPoller() {
       this._metricsEpoch = (this._metricsEpoch || 0) + 1;
+      this.metricsTickPromise = null;
+      this.metricsHistoryPromise = null;
       if (this.metricsPoller) {
         clearInterval(this.metricsPoller);
         this.metricsPoller = null;
@@ -293,12 +311,14 @@ metricsStopPoller() {
 async _metricsRefreshHistory() {
       if (this.metricsConfigWidget || document.hidden) return;
       if (this.metricsHistoryPromise) return this.metricsHistoryPromise;
-      this.metricsHistoryPromise = (async () => {
+      const epoch = this._metricsEpoch;
+      const promise = (async () => {
         let widgets = [];
         if (this.activePage === 'dashboard') {
           widgets = this.dashWidgets.filter(w => w.type === 'monitoring');
         }
         for (const w of widgets) {
+          if (epoch !== this._metricsEpoch) return;
           const period = this.metricsWidgetPeriod[w.id] || '5m';
 
           const requests = (w.graphs || []).map(key => {
@@ -310,10 +330,11 @@ async _metricsRefreshHistory() {
           await Promise.all(requests);
         }
       })();
+      this.metricsHistoryPromise = promise;
       try {
-        return await this.metricsHistoryPromise;
+        return await promise;
       } finally {
-        this.metricsHistoryPromise = null;
+        if (this.metricsHistoryPromise === promise) this.metricsHistoryPromise = null;
       }
     },
 
@@ -446,7 +467,7 @@ metricsKeyLabel(key) {
         const [, iface, dir] = key.split(':');
         const ti = (this.tunnelInterfaces || []).find(t => t.id === iface);
         const label = ti && ti.name ? `${ti.name} (${iface})` : iface;
-        return `${label} ${dir.toUpperCase()} Mbps`;
+        return `${label} ${dir.toUpperCase()}`;
       }
       if (key.startsWith('gateway:')) {
         const id = key.slice(8);
@@ -458,7 +479,7 @@ metricsKeyLabel(key) {
 
 async metricsHistoryRequest(method, key, period) {
       if (!this._metricsRequests) this._metricsRequests = new Map();
-      const id = `${method}:${key}:${period}`;
+      const id = JSON.stringify([this.activeRemoteId, this._metricsEpoch, method, key, period]);
       if (this._metricsRequests.has(id)) return this._metricsRequests.get(id);
       const request = this.api[method]({ key, period });
       this._metricsRequests.set(id, request);
@@ -621,6 +642,9 @@ metricsGetCachedAreaSeries(widgetId, key) {
     // Keyed by all fields that affect the options so changes (theme, period, color) get fresh object.
 
 metricsAreaChartOptions(widgetId, key) {
+      const formatNetworkRate = key.startsWith('net:')
+        ? (value) => this.formatBitRate(value == null ? value : value * 1e6)
+        : undefined;
       const w = this.dashWidgets.find(w => w.id === widgetId);
       const period = this.metricsWidgetPeriod[widgetId] || '5m';
       const color = (w && w.graphColors && w.graphColors[key]) || '#22d3ee';
@@ -635,9 +659,9 @@ metricsAreaChartOptions(widgetId, key) {
           dataLabels: { enabled: false },
           fill: { type:'gradient', gradient:{ shadeIntensity:1, opacityFrom:0.4, opacityTo:0.05 } },
           xaxis: { type:'datetime', labels:{ show: period !== '5m', datetimeUTC:false, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, axisBorder:{ show:false }, axisTicks:{ show:false }, tooltip:{ enabled:false } },
-          yaxis: { labels:{ show:true, align:'right', padding:-8, offsetX:0, minWidth:0, maxWidth:100, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, min:0 },
+          yaxis: { labels:{ formatter: formatNetworkRate, show:true, align:'right', padding:-8, offsetX:0, minWidth:0, maxWidth:100, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, min:0 },
           grid: { borderColor: this.theme==='dark'?'#404040':'#f0f0f0', padding:{ left:0, right:0, top:0 } },
-          tooltip: { fixed:{ enabled:true, position:'topRight', offsetX:-12, offsetY:8 }, x:{ format:'HH:mm:ss' }, theme: this.theme==='dark'?'dark':'light' },
+          tooltip: { ...(formatNetworkRate ? { y: { formatter: formatNetworkRate } } : {}), fixed:{ enabled:true, position:'topRight', offsetX:-12, offsetY:8 }, x:{ format:'HH:mm:ss' }, theme: this.theme==='dark'?'dark':'light' },
           theme: { mode: this.theme==='dark'?'dark':'light' },
         };
       }

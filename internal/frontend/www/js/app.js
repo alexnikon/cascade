@@ -6,7 +6,7 @@
 
 import { API } from './api.js';
 import { i18n } from './i18n.js';
-import { bytes, commonMethods } from './utils.js';
+import { bytes, commonMethods, formatBitRate } from './utils.js';
 import { notificationMethods } from './notifications.js';
 import { authMethods } from './auth.js';
 import { navigationMethods } from './navigation.js';
@@ -91,6 +91,8 @@ new Vue({
     enableExpireTime: false,
 
     // Sidebar navigation
+    pageReadErrors: {},
+    pageReadGeneration: 0,
     activePage: 'dashboard', // 'dashboard' | 'interfaces' | 'gateways' | 'routing' | 'firewall' | 'settings'
     activeInterfaceId: null,  // ID of the selected interface tab
     hoverPage: null,          // hovered sidebar page
@@ -336,6 +338,7 @@ new Vue({
       configurationRequired: false,
       tokenConfigured: false,
       historyEnabled: true,
+      historyRetention: '30d',
       canManage: false,
       token: '',
       clearToken: false,
@@ -841,6 +844,7 @@ new Vue({
   },
   methods: {
     bytes,
+    formatBitRate,
     ...commonMethods,
     ...notificationMethods,
     ...authMethods,
@@ -899,6 +903,12 @@ new Vue({
 
     this.api = new API();
     this.api._onUnauthorized = () => this.clearAuthentication();
+    this.api._readContext = () => JSON.stringify([this.pageReadGeneration, this.activePage, this.activeInterfaceId, this.activeRemoteId]);
+    this.api._onReadResult = (context, path, ok) => {
+      if (!this.authenticated || this.isWizardPage || context !== this.api._readContext()) return;
+      if (ok) this.$delete(this.pageReadErrors, path);
+      else this.$set(this.pageReadErrors, path, true);
+    };
 
     // Auto-switch back to local when the remote becomes unreachable.
     // This fires when a proxy call returns 401 (token revoked/expired) or
@@ -1031,7 +1041,10 @@ new Vue({
     showInterfaceCreate() { this.showCreateAmneziaParams = false; },
     showInterfaceEdit() { this.showEditAmneziaParams = false; },
     authenticated(value) {
-      if (value === false) this.focusLoginField();
+      if (value === false) {
+        this.pageReadErrors = {};
+        this.focusLoginField();
+      }
     },
     totpRequired() {
       this.focusLoginField();
@@ -1051,6 +1064,7 @@ new Vue({
       }
     },
     activeInterfaceId(newId) {
+      if (this.activePage === 'interfaces') this.pageReadErrors = {};
       if (newId) {
         this.selectedInterfacePeers = [];
         this.selectedPeersLoaded = false;

@@ -3,6 +3,9 @@ package metrics
 import (
 	"os"
 	"testing"
+	"time"
+
+	"github.com/alexnikon/cascade/internal/db"
 )
 
 func TestParseHistoryEnabled(t *testing.T) {
@@ -60,5 +63,101 @@ func TestCounterDelta(t *testing.T) {
 		if got := counterDelta(tt.current, tt.previous, tt.exists); got != tt.want {
 			t.Fatalf("delta = %d, want %d", got, tt.want)
 		}
+	}
+}
+
+func TestClearHistoryWhileCollectorIsWriting(t *testing.T) {
+	if err := db.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	previous := HistoryEnabled()
+	t.Cleanup(func() { SetHistoryEnabled(previous) })
+	SetHistoryEnabled(true)
+	c := &collector{}
+	c.persist(&Snapshot{CPU: 7})
+
+	database := db.MetricsDB()
+	// Hold the only SQLite connection so the collector queues a write.
+	conn, err := database.Conn(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	written := make(chan struct{})
+	go func() {
+		defer close(written)
+		c.persist(&Snapshot{CPU: 8})
+	}()
+	deadline := time.Now().Add(time.Second)
+	for database.Stats().WaitCount == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("collector did not queue a write")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	disabled := make(chan struct{})
+	go func() {
+		SetHistoryEnabled(false)
+		close(disabled)
+	}()
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+	<-disabled
+	if err := ClearHistory(); err != nil {
+		t.Fatal(err)
+	}
+	<-written
+	c.persist(&Snapshot{CPU: 9})
+
+	SetHistoryEnabled(true)
+	c.persist(&Snapshot{CPU: 10})
+	points, err := History("cpu", 0, time.Now().Unix(), 1)
+	if err != nil || len(points) != 1 || points[0][1] != 10 {
+		t.Fatalf("expected only the new sample after re-enabling: points=%v err=%v", points, err)
+	}
+}
+
+func TestRetentionCutoffs(t *testing.T) {
+	if err := db.Init(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	t.Cleanup(func() { SetHistoryPolicy(true, DefaultRetention) })
+	database := db.MetricsDB()
+	now := time.Now().Truncate(time.Second)
+	for _, test := range []struct {
+		retention Retention
+		age       time.Duration
+	}{
+		{"1h", time.Hour},
+		{"1d", 24 * time.Hour},
+		{"7d", 7 * 24 * time.Hour},
+		{"30d", 30 * 24 * time.Hour},
+		{"forever", 365 * 24 * time.Hour},
+	} {
+		t.Run(string(test.retention), func(t *testing.T) {
+			if _, err := database.Exec(`DELETE FROM metrics_history`); err != nil {
+				t.Fatal(err)
+			}
+			cutoff := now.Add(-test.age).Unix()
+			if _, err := database.Exec(`INSERT INTO metrics_history VALUES (?, 'older', 1), (?, 'boundary', 1)`, cutoff-1, cutoff); err != nil {
+				t.Fatal(err)
+			}
+			want := 1
+			if test.retention == "forever" {
+				SetHistoryPolicy(true, test.retention)
+				(&collector{}).maybeCleanup()
+				want = 2
+			} else if err := deleteExpired(database, now, test.retention); err != nil {
+				t.Fatal(err)
+			}
+			var count int
+			var first string
+			if err := database.QueryRow(`SELECT count(*), min(key) FROM metrics_history`).Scan(&count, &first); err != nil || count != want || first != "boundary" {
+				t.Fatalf("remaining rows=%d first=%q err=%v", count, first, err)
+			}
+		})
 	}
 }

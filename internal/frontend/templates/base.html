@@ -1370,6 +1370,10 @@
 
 <div class="section-scroll-content" :class="{ 'dashboard-scroll-content': activePage === 'dashboard', 'wizard-scroll-content': isWizardPage }">
 [[ template "firewall-banner" . ]]
+<div v-if="Object.keys(pageReadErrors).length" class="p-3 text-sm text-red-600 dark:text-red-400" role="status">
+  Some data could not be loaded.
+  <button type="button" class="ml-2 underline" @click="retryPageData()">Retry</button>
+</div>
 [[ template "dashboard" . ]]
 [[ template "diagnostics" . ]]
 [[ template "interfaces" . ]]

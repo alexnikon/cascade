@@ -216,6 +216,7 @@ test('loading dashboard preserves saved geometry and reset restores nonoverlappi
   let destroys = 0;
   const app = {
     ...dashboardMethods,
+    authenticated: true, activePage: 'dashboard',
     natRules: [{}], dnatRules: [{}], aliases: [{}], metricsWidgetPeriod: {},
     api: {
       async getDashboardWidgets() { return { widgets: saved }; },

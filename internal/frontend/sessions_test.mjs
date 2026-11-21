@@ -261,3 +261,44 @@ test('failed and stale session checks cannot clear authentication', async () => 
     assert.equal(expired, 0);
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test('page reads recover once after transient authentication and server errors', async () => {
+  globalThis.window = { location: { pathname: '/', origin: 'http://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  const api = new API();
+  try {
+    for (const first of [() => response(401, true), () => response(503), () => { throw Error('offline'); }]) {
+      let requests = 0;
+      globalThis.fetch = async url => {
+        if (url.endsWith('/api/session')) return Response.json({ authenticated: true });
+        return ++requests === 1 ? first() : Response.json({ widgets: [] });
+      };
+      assert.deepEqual(await api.getDashboardWidgets(), { widgets: [] });
+      assert.equal(requests, 2);
+    }
+    let writes = 0;
+    globalThis.fetch = async () => { writes++; return response(503); };
+    await assert.rejects(api.putDashboardWidgets([]));
+    assert.equal(writes, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('timeout aborts a stalled response body and frees the next read', async () => {
+  globalThis.window = { location: { pathname: '/', origin: 'http://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  const api = new API();
+  const withDeadline = api._withDeadline.bind(api);
+  api._withDeadline = (_ms, run) => withDeadline(20, run);
+  let requests = 0;
+  try {
+    globalThis.fetch = async (_url, { signal }) => {
+      if (++requests === 2) return Response.json({ widgets: [] });
+      return {
+        status: 200,
+        json: () => new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason))),
+      };
+    };
+    assert.deepEqual(await api.getDashboardWidgets(), { widgets: [] });
+    assert.equal(requests, 2);
+  } finally { globalThis.fetch = originalFetch; }
+});

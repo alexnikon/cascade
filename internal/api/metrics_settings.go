@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -28,6 +29,7 @@ type metricsSettingsResponse struct {
 	ListenError                   string                        `json:"listenError"`
 	ConnectedPeerThresholdSeconds int                           `json:"connectedPeerThresholdSeconds"`
 	TokenConfigured               bool                          `json:"tokenConfigured"`
+	HistoryRetention              string                        `json:"historyRetention"`
 	HistoryEnabled                bool                          `json:"historyEnabled"`
 	CanManage                     bool                          `json:"canManage"`
 }
@@ -73,6 +75,7 @@ func RegisterMetricsSettings(api fiber.Router, manager *prometheusmetrics.Manage
 			ConnectedPeerThresholdSeconds: snapshot.ConnectedPeerThresholdSeconds,
 			TokenConfigured:               snapshot.TokenConfigured,
 			HistoryEnabled:                snapshot.HistoryEnabled,
+			HistoryRetention:              string(snapshot.HistoryRetention),
 			CanManage:                     callerIsAdmin(c),
 		})
 	}
@@ -94,6 +97,14 @@ func RegisterMetricsSettings(api fiber.Router, manager *prometheusmetrics.Manage
 			var validationErr *prometheusmetrics.ValidationError
 			if errors.As(err, &validationErr) {
 				return fiber.NewError(fiber.StatusBadRequest, err.Error())
+			}
+			if errors.Is(err, prometheusmetrics.ErrRetentionCleanup) {
+				log.Printf("metrics settings: %v", err)
+				return fiber.NewError(fiber.StatusInternalServerError, prometheusmetrics.ErrRetentionCleanup.Error())
+			}
+			if errors.Is(err, prometheusmetrics.ErrHistoryCleanup) {
+				log.Printf("metrics settings: %v", err)
+				return fiber.NewError(fiber.StatusInternalServerError, prometheusmetrics.ErrHistoryCleanup.Error())
 			}
 			return fiber.NewError(fiber.StatusInternalServerError, "failed to persist metrics settings")
 		}

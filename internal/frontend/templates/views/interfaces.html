@@ -66,17 +66,17 @@
                               :title="'Group: ' + peerGroupName(peer.groupId)">
                               {{peerGroupName(peer.groupId)}}
                             </span>
-                            <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateDown > 0"
+                            <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peer.rateDown > 0"
                               style="margin-left:4px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
-                              :style="peerEffectiveRate(peer).fromGroup ? {background:'var(--badge-indigo-bg)',color:'var(--badge-indigo-text)'} : {background:'var(--badge-red-bg)',color:'var(--badge-red-text)'}"
-                              :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Download limit: ') + formatRate(peerEffectiveRate(peer).rateDown) + 'bit/s'">
-                              <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↓{{formatRate(peerEffectiveRate(peer).rateDown)}}
+                              :style="{background:'var(--badge-red-bg)',color:'var(--badge-red-text)'}"
+                              :title="'Download limit: ' + formatBitRate(peer.rateDown * 1000)">
+                              ↓{{formatBitRate(peer.rateDown * 1000)}}
                             </span>
-                            <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateUp > 0"
+                            <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peer.rateUp > 0"
                               style="margin-left:4px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
-                              :style="peerEffectiveRate(peer).fromGroup ? {background:'var(--badge-indigo-bg)',color:'var(--badge-indigo-text)'} : {background:'var(--badge-green-bg)',color:'var(--badge-green-text)'}"
-                              :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Upload limit: ') + formatRate(peerEffectiveRate(peer).rateUp) + 'bit/s'">
-                              <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↑{{formatRate(peerEffectiveRate(peer).rateUp)}}
+                              :style="{background:'var(--badge-green-bg)',color:'var(--badge-green-text)'}"
+                              :title="'Upload limit: ' + formatBitRate(peer.rateUp * 1000)">
+                              ↑{{formatBitRate(peer.rateUp * 1000)}}
                             </span>
                           </div>
                           <!-- Address + AllowedIPs -->
@@ -88,7 +88,7 @@
                               <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                               </svg>
-                              {{peer.transferTxCurrent | bytes}}/s
+                              {{formatBitRate(peer.transferTxCurrent * 8)}}
                             </span>
                             <!-- Inline Transfer RX -->
                             <span v-if="!uiTrafficStats && peer.transferRxCurrent" class="whitespace-nowrap" :title="'Total upload: ' + bytes(peer.totalRx)">
@@ -96,7 +96,7 @@
                               <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                               </svg>
-                              {{peer.transferRxCurrent | bytes}}/s
+                              {{formatBitRate(peer.transferRxCurrent * 8)}}
                             </span>
                             <!-- Last seen -->
                             <span class="text-gray-400 dark:text-neutral-500 whitespace-nowrap"
@@ -121,7 +121,7 @@
                                 <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                               </svg>
                               <div>
-                                <span class="text-gray-700 dark:text-neutral-200">{{peer.transferTxCurrent | bytes}}/s</span>
+                                <span class="text-gray-700 dark:text-neutral-200">{{formatBitRate(peer.transferTxCurrent * 8)}}</span>
                                 <br><span class="font-regular" style="font-size:0.85em">{{bytes(peer.totalTx)}}</span>
                               </div>
                             </span>
@@ -132,7 +132,7 @@
                                 <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                               </svg>
                               <div>
-                                <span class="text-gray-700 dark:text-neutral-200">{{peer.transferRxCurrent | bytes}}/s</span>
+                                <span class="text-gray-700 dark:text-neutral-200">{{formatBitRate(peer.transferRxCurrent * 8)}}</span>
                                 <br><span class="font-regular" style="font-size:0.85em">{{bytes(peer.totalRx)}}</span>
                               </div>
                             </span>
@@ -395,17 +395,17 @@
                             :title="'Group: ' + peerGroupName(peer.groupId)">
                             {{peerGroupName(peer.groupId)}}
                           </span>
-                          <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateDown > 0"
+                          <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peer.rateDown > 0"
                             style="margin-left:6px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
-                            :style="peerEffectiveRate(peer).fromGroup ? {background:'var(--badge-indigo-bg)',color:'var(--badge-indigo-text)'} : {background:'var(--badge-red-bg)',color:'var(--badge-red-text)'}"
-                            :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Download limit: ') + formatRate(peerEffectiveRate(peer).rateDown) + 'bit/s'">
-                            <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↓{{formatRate(peerEffectiveRate(peer).rateDown)}}
+                            :style="{background:'var(--badge-red-bg)',color:'var(--badge-red-text)'}"
+                            :title="'Download limit: ' + formatBitRate(peer.rateDown * 1000)">
+                            ↓{{formatBitRate(peer.rateDown * 1000)}}
                           </span>
-                          <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peerEffectiveRate(peer).rateUp > 0"
+                          <span class="ui-badge" v-if="peer.peerType !== 'interconnect' && peer.rateUp > 0"
                             style="margin-left:4px;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;display:inline-block;letter-spacing:0.02em;"
-                            :style="peerEffectiveRate(peer).fromGroup ? {background:'var(--badge-indigo-bg)',color:'var(--badge-indigo-text)'} : {background:'var(--badge-green-bg)',color:'var(--badge-green-text)'}"
-                            :title="(peerEffectiveRate(peer).fromGroup?'Group limit: ':'Upload limit: ') + formatRate(peerEffectiveRate(peer).rateUp) + 'bit/s'">
-                            <span v-if="peerEffectiveRate(peer).fromGroup" style="opacity:0.7;">G</span>↑{{formatRate(peerEffectiveRate(peer).rateUp)}}
+                            :style="{background:'var(--badge-green-bg)',color:'var(--badge-green-text)'}"
+                            :title="'Upload limit: ' + formatBitRate(peer.rateUp * 1000)">
+                            ↑{{formatBitRate(peer.rateUp * 1000)}}
                           </span>
                         </div>
                         <!-- Address (AllowedIPs) -->
@@ -433,7 +433,7 @@
                             <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                               <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            {{peer.transferTxCurrent | bytes}}/s
+                            {{formatBitRate(peer.transferTxCurrent * 8)}}
                           </span>
                           <!-- Inline Transfer RX -->
                           <span v-if="!uiTrafficStats && peer.transferRx" class="whitespace-nowrap" :title="'Total upload: ' + bytes(peer.totalRx)">
@@ -441,7 +441,7 @@
                             <svg class="align-middle h-3 inline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                               <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                             </svg>
-                            {{peer.transferRxCurrent | bytes}}/s
+                            {{formatBitRate(peer.transferRxCurrent * 8)}}
                           </span>
                           <!-- Last seen -->
                           <span class="text-gray-400 dark:text-neutral-500 whitespace-nowrap"
@@ -470,7 +470,7 @@
                               <path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
                             <div>
-                              <span class="text-gray-700 dark:text-neutral-200">{{peer.transferTxCurrent | bytes}}/s</span>
+                              <span class="text-gray-700 dark:text-neutral-200">{{formatBitRate(peer.transferTxCurrent * 8)}}</span>
                               <br><span class="font-regular" style="font-size:0.85em">{{bytes(peer.totalTx)}}</span>
                             </div>
                           </span>
@@ -481,7 +481,7 @@
                               <path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                             </svg>
                             <div>
-                              <span class="text-gray-700 dark:text-neutral-200">{{peer.transferRxCurrent | bytes}}/s</span>
+                              <span class="text-gray-700 dark:text-neutral-200">{{formatBitRate(peer.transferRxCurrent * 8)}}</span>
                               <br><span class="font-regular" style="font-size:0.85em">{{bytes(peer.totalRx)}}</span>
                             </div>
                           </span>

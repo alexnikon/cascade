@@ -87,6 +87,10 @@ switchPage(pageId) {
       // inline styles and CSS vars it set on parent elements (which caused a
       // vertical gap on the interfaces page after visiting dashboard).
       if (this.activePage === 'diagnostics' && pageId !== 'diagnostics') this.stopDiagnostics();
+      if (this.activePage === 'dashboard' && pageId !== 'dashboard') {
+        this._dashboardLoadGeneration = (this._dashboardLoadGeneration || 0) + 1;
+        this.metricsStopPoller();
+      }
       if (this.activePage === 'dashboard' && pageId !== 'dashboard' && this.dashGrid) {
         // destroy(false) — remove GridStack listeners/styles but keep DOM nodes
         // so that Vue's v-if can cleanly remove the subtree without conflict.
@@ -94,12 +98,13 @@ switchPage(pageId) {
         // Clear GridStack-set inline styles from the grid container and items after destroy.
         document.querySelectorAll('#dashboard-grid, #dashboard-grid .grid-stack-item-content, #dashboard-grid .grid-stack-item').forEach(el => { el.style.cssText = ''; });
         this.dashGrid = null;
-        this.metricsStopPoller();
       }
       if (this._dashResizeObs) {
         this._dashResizeObs.disconnect();
         this._dashResizeObs = null;
       }
+      this.pageReadErrors = {};
+      this.pageReadGeneration = (this.pageReadGeneration || 0) + 1;
       this.activePage = pageId === 'administration' ? 'dashboard' : pageId;
       if (this.isCompactViewport) this.closeMobileNav(false);
       // Reset scroll and any GridStack inline styles AFTER Vue updates the DOM.
@@ -120,6 +125,15 @@ switchPage(pageId) {
         // the window to be the scroll container while on the previous page.
         window.scrollTo(0, 0);
       });
+      this.loadPageData(this.activePage);
+    },
+
+retryPageData() {
+      if (this.activePage === 'dashboard') this.metricsStopPoller();
+      this.loadPageData(this.activePage);
+    },
+
+loadPageData(pageId) {
       if (pageId === 'dashboard') {
         // loadDashboard already calls dashInitGrid after await $nextTick —
         // do not call it separately here to avoid a double-init race.
@@ -130,7 +144,11 @@ switchPage(pageId) {
       if (pageId === 'diagnostics') {
         this.pingLoadInterfaces();
       }
-      if (pageId === 'interfaces') this.loadTunnelInterfaces();
+      if (pageId === 'interfaces') {
+        this.loadTunnelInterfaces();
+        if (this.activeInterfaceId) this.refreshPeers();
+        else this.refreshAllPeers();
+      }
       if (pageId === 'settings') { this.loadActiveSessions(); this.loadSettings(); this.loadMetricsSettings(); this.loadUsers(); this.loadApiTokens(); this.loadPreRestoreBackups(); }
       if (pageId === 'remotes') this.loadRemotes();
       if (pageId === 'gateways') {

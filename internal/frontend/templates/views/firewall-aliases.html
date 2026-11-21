@@ -168,12 +168,12 @@
               <!-- Rate limits (client-group) -->
               <div v-if="aliasCreate.type === 'client-group'" style="display:flex; gap:12px;">
                 <div style="flex:1;">
-                  <label class="text-sm font-medium dark:text-neutral-300">Download limit <span class="text-gray-400 font-normal">(kbps, 0=unlimited)</span></label>
+                  <label class="text-sm font-medium dark:text-neutral-300">Download limit <span class="text-gray-400 font-normal">(Kb/s, 0=unlimited)</span></label>
                   <input v-model.number="aliasCreate.rateDown" type="number" min="0" placeholder="0"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                 </div>
                 <div style="flex:1;">
-                  <label class="text-sm font-medium dark:text-neutral-300">Upload limit <span class="text-gray-400 font-normal">(kbps, 0=unlimited)</span></label>
+                  <label class="text-sm font-medium dark:text-neutral-300">Upload limit <span class="text-gray-400 font-normal">(Kb/s, 0=unlimited)</span></label>
                   <input v-model.number="aliasCreate.rateUp" type="number" min="0" placeholder="0"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                 </div>
@@ -358,12 +358,12 @@
               <!-- Rate limits (client-group) -->
               <div v-if="aliasEdit.type === 'client-group'" style="display:flex; gap:12px;">
                 <div style="flex:1;">
-                  <label class="text-sm font-medium dark:text-neutral-300">Download limit <span class="text-gray-400 font-normal">(kbps, 0=unlimited)</span></label>
+                  <label class="text-sm font-medium dark:text-neutral-300">Download limit <span class="text-gray-400 font-normal">(Kb/s, 0=unlimited)</span></label>
                   <input v-model.number="aliasEdit.rateDown" type="number" min="0" placeholder="0"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                 </div>
                 <div style="flex:1;">
-                  <label class="text-sm font-medium dark:text-neutral-300">Upload limit <span class="text-gray-400 font-normal">(kbps, 0=unlimited)</span></label>
+                  <label class="text-sm font-medium dark:text-neutral-300">Upload limit <span class="text-gray-400 font-normal">(Kb/s, 0=unlimited)</span></label>
                   <input v-model.number="aliasEdit.rateUp" type="number" min="0" placeholder="0"
                     class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm mt-1">
                 </div>

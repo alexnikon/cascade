@@ -246,12 +246,12 @@
                   <p class="text-xs font-medium dark:text-neutral-300 mb-2">Bandwidth limits <span class="font-normal text-gray-400">(0 = no limit)</span></p>
                   <div class="flex flex-wrap gap-4 mb-3">
                     <div>
-                      <label class="block text-xs text-gray-500 dark:text-neutral-400 mb-1">↓ Down (kbps)</label>
+                      <label class="block text-xs text-gray-500 dark:text-neutral-400 mb-1">↓ Down (Kb/s)</label>
                       <input v-model.number="globalSettings.expiredPeerRateDown" type="number" min="0" placeholder="0"
                         class="settings-input settings-input-number px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
                     <div>
-                      <label class="block text-xs text-gray-500 dark:text-neutral-400 mb-1">↑ Up (kbps)</label>
+                      <label class="block text-xs text-gray-500 dark:text-neutral-400 mb-1">↑ Up (Kb/s)</label>
                       <input v-model.number="globalSettings.expiredPeerRateUp" type="number" min="0" placeholder="0"
                         class="settings-input settings-input-number px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
                     </div>
@@ -564,8 +564,21 @@
                   <input v-model="metricsSettings.historyEnabled" type="checkbox" :disabled="!metricsSettings.canManage">
                   <span>
                     <span class="block text-sm font-medium dark:text-neutral-200">Store metrics history</span>
-                    <span class="block text-xs text-gray-400 dark:text-neutral-500">Persist dashboard history in metrics.db. Live metrics remain available when disabled.</span>
+                    <span class="block text-xs text-gray-400 dark:text-neutral-500">Turning this off and saving deletes stored dashboard history. Live metrics remain available.</span>
                   </span>
+                </label>
+                <label class="block mt-3">
+                  <span class="block text-sm font-medium dark:text-neutral-200">Metrics history retention</span>
+                  <select v-content-select v-model="metricsSettings.historyRetention"
+                    :disabled="!metricsSettings.canManage || !metricsSettings.historyEnabled"
+                    aria-describedby="metrics-history-retention-help">
+                    <option value="1h">1 hour</option>
+                    <option value="1d">1 day</option>
+                    <option value="7d">1 week</option>
+                    <option value="30d">1 month</option>
+                    <option value="forever">Forever</option>
+                  </select>
+                  <span id="metrics-history-retention-help" class="block text-xs text-gray-400 dark:text-neutral-500">Shortening the retention period deletes older samples.</span>
                 </label>
               </div>
 

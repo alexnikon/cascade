@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -38,6 +39,7 @@ type settingsTestApp struct {
 	metrics       *prometheusmetrics.Manager
 	metricsServer *prometheusmetrics.Server
 	metricsPort   int
+	dataDir       string
 }
 
 func newSettingsTestApp(t *testing.T) *settingsTestApp {
@@ -90,7 +92,7 @@ func newSettingsTestApp(t *testing.T) *settingsTestApp {
 	metricsPort := availableMetricsPort(t)
 	t.Cleanup(func() { _ = metricsServer.Shutdown() })
 
-	return &settingsTestApp{app: app, token: rawToken, metrics: metricsManager, metricsServer: metricsServer, metricsPort: metricsPort}
+	return &settingsTestApp{app: app, token: rawToken, metrics: metricsManager, metricsServer: metricsServer, metricsPort: metricsPort, dataDir: dir}
 }
 
 func availableMetricsPort(t *testing.T) int {
@@ -497,5 +499,157 @@ func TestArchitectRejectsMalformedRequestsAndFiltersServerTags(t *testing.T) {
 	params := body["params"].(map[string]any)
 	if strings.Contains(params["i1"].(string), "<c>") || body["options"].(map[string]any)["useTagC"] != false {
 		t.Fatal("unsupported server counter emitted")
+	}
+}
+
+func TestMetricsHistoryCleanup(t *testing.T) {
+	for _, mode := range []string{"disable", "startup", "retry"} {
+		t.Run(mode, func(t *testing.T) {
+			sta := newSettingsTestApp(t)
+			ta := &testApp{app: sta.app}
+			database := db.MetricsDB()
+			path := filepath.Join(sta.dataDir, "metrics.db")
+			if _, err := database.Exec(`WITH RECURSIVE sample(i) AS (
+				VALUES(1) UNION ALL SELECT i+1 FROM sample WHERE i<5000
+			) INSERT INTO metrics_history SELECT i, 'sample-' || i, 1.25 FROM sample`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := database.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			save := func(enabled bool, status int) {
+				t.Helper()
+				resp := ta.do("PUT", "/api/settings/metrics", sta.token, map[string]any{
+					"port": sta.metricsPort, "historyEnabled": enabled,
+				})
+				body := decodeBody(resp)
+				if resp.StatusCode != status {
+					t.Fatalf("status=%d, want %d: %v", resp.StatusCode, status, body)
+				}
+				if status == http.StatusInternalServerError && body["error"] != prometheusmetrics.ErrHistoryCleanup.Error() {
+					t.Fatalf("unexpected cleanup failure response: %v", body)
+				}
+			}
+			switch mode {
+			case "startup":
+				if _, err := db.DB().Exec(`UPDATE settings SET value='false' WHERE key='prometheus_metrics_history_enabled'`); err != nil {
+					t.Fatal(err)
+				}
+				reloaded, err := prometheusmetrics.NewManager(db.DB(), prometheusmetrics.Config{HistoryEnabled: true})
+				if err != nil || reloaded.Current().HistoryEnabled {
+					t.Fatalf("failed to load disabled history: %v", err)
+				}
+			case "retry":
+				if _, err := database.Exec(`ALTER TABLE metrics_history RENAME TO unavailable_history`); err != nil {
+					t.Fatal(err)
+				}
+				save(false, http.StatusInternalServerError)
+				if sta.metrics.Current().HistoryEnabled {
+					t.Fatal("history remained enabled after cleanup failure")
+				}
+				save(true, http.StatusInternalServerError)
+				if _, err := database.Exec(`ALTER TABLE unavailable_history RENAME TO metrics_history`); err != nil {
+					t.Fatal(err)
+				}
+				save(false, http.StatusOK)
+			default:
+				save(false, http.StatusOK)
+				save(false, http.StatusOK)
+			}
+			var count int
+			if err := database.QueryRow(`SELECT count(*) FROM metrics_history`).Scan(&count); err != nil || count != 0 {
+				t.Fatalf("history count=%d, err=%v", count, err)
+			}
+			after, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if after.Size() >= before.Size()/2 {
+				t.Fatalf("metrics database shrank from %d to %d bytes", before.Size(), after.Size())
+			}
+			wal, err := os.Stat(path + "-wal")
+			if (err == nil && wal.Size() != 0) || (err != nil && !os.IsNotExist(err)) {
+				t.Fatalf("expected an empty or absent WAL: %v, %v", wal, err)
+			}
+			if mode != "startup" {
+				save(true, http.StatusOK)
+			}
+		})
+	}
+}
+
+func TestMetricsRetentionSettings(t *testing.T) {
+	for _, previous := range []string{"30d", "forever"} {
+		t.Run(previous, func(t *testing.T) {
+			sta := newSettingsTestApp(t)
+			ta := &testApp{app: sta.app}
+			save := func(retention string, status int, want string) {
+				t.Helper()
+				payload := map[string]any{"port": sta.metricsPort, "historyEnabled": true}
+				if retention != "" {
+					payload["historyRetention"] = retention
+				}
+				resp := ta.do("PUT", "/api/settings/metrics", sta.token, payload)
+				body := decodeBody(resp)
+				if resp.StatusCode != status || (status == http.StatusOK && body["historyRetention"] != want) {
+					t.Fatalf("status=%d body=%v", resp.StatusCode, body)
+				}
+			}
+			save("", http.StatusOK, "30d")
+			save("bad", http.StatusBadRequest, "")
+			save(previous, http.StatusOK, previous)
+			save("", http.StatusOK, previous)
+			database := db.MetricsDB()
+			if _, err := database.Exec(`WITH RECURSIVE sample(i) AS (
+				VALUES(1) UNION ALL SELECT i+1 FROM sample WHERE i < 5000
+			) INSERT INTO metrics_history SELECT i, 'expired-' || i, 1 FROM sample`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := database.Exec(`INSERT INTO metrics_history VALUES (?, 'recent', 1)`, time.Now().Unix()); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := database.Exec(`PRAGMA wal_checkpoint(TRUNCATE)`); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(sta.dataDir, "metrics.db")
+			before, err := os.Stat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if previous == "forever" {
+				save("forever", http.StatusOK, "forever")
+				if _, err := database.Exec(`ALTER TABLE metrics_history RENAME TO unavailable_history`); err != nil {
+					t.Fatal(err)
+				}
+				save("1h", http.StatusInternalServerError, "")
+				if _, err := database.Exec(`ALTER TABLE unavailable_history RENAME TO metrics_history`); err != nil {
+					t.Fatal(err)
+				}
+				// Reload runs the recorded pending compaction.
+				reloaded, err := prometheusmetrics.NewManager(db.DB(), prometheusmetrics.Config{HistoryEnabled: true})
+				if err != nil || reloaded.Current().HistoryRetention != "1h" {
+					t.Fatalf("retention failed to reload: %v", err)
+				}
+			} else {
+				save("1h", http.StatusOK, "1h")
+			}
+			var count int
+			var key string
+			if err := database.QueryRow(`SELECT count(*), min(key) FROM metrics_history`).Scan(&count, &key); err != nil || count != 1 || key != "recent" {
+				t.Fatalf("remaining rows=%d key=%q err=%v", count, key, err)
+			}
+			after, err := os.Stat(path)
+			if err != nil || after.Size() >= before.Size()/2 {
+				t.Fatalf("database did not shrink: %v, %v", after, err)
+			}
+			wal, err := os.Stat(path + "-wal")
+			if (err == nil && wal.Size() != 0) || (err != nil && !os.IsNotExist(err)) {
+				t.Fatalf("expected empty WAL: %v, %v", wal, err)
+			}
+		})
 	}
 }

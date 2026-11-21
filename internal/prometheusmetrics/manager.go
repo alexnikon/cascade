@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,16 +17,18 @@ import (
 )
 
 const (
-	settingBootstrap     = "prometheus_metrics_bootstrapped"
-	settingEnabled       = "prometheus_metrics_enabled"
-	settingPort          = "prometheus_metrics_port"
-	legacySettingPath    = "prometheus_metrics_path"
-	settingThreshold     = "prometheus_metrics_connected_peer_threshold_seconds"
-	settingTokenHash     = "prometheus_metrics_token_sha256"
-	settingHistory       = "prometheus_metrics_history_enabled"
-	settingAccessMode    = "prometheus_metrics_access_mode"
-	settingInterface     = "prometheus_metrics_interface_id"
-	settingAccessVersion = "prometheus_metrics_access_version"
+	settingBootstrap        = "prometheus_metrics_bootstrapped"
+	settingEnabled          = "prometheus_metrics_enabled"
+	settingPort             = "prometheus_metrics_port"
+	legacySettingPath       = "prometheus_metrics_path"
+	settingThreshold        = "prometheus_metrics_connected_peer_threshold_seconds"
+	settingTokenHash        = "prometheus_metrics_token_sha256"
+	settingRetention        = "prometheus_metrics_history_retention"
+	settingRetentionPending = "prometheus_metrics_history_retention_pending"
+	settingHistory          = "prometheus_metrics_history_enabled"
+	settingAccessMode       = "prometheus_metrics_access_mode"
+	settingInterface        = "prometheus_metrics_interface_id"
+	settingAccessVersion    = "prometheus_metrics_access_version"
 )
 
 // Snapshot is an immutable copy of the active metrics configuration.
@@ -37,24 +41,28 @@ type Snapshot struct {
 	ConnectedPeerThresholdSeconds int
 	TokenConfigured               bool
 	HistoryEnabled                bool
+	HistoryRetention              internalmetrics.Retention
+	retentionPending              bool
 	tokenHash                     [sha256.Size]byte
 }
 
 // Update is the complete public settings payload. Token is write-only; an empty
 // token preserves the existing credential unless ClearToken is true.
 type Update struct {
-	Enabled                       bool   `json:"enabled"`
-	Mode                          string `json:"mode"`
-	InterfaceID                   string `json:"interfaceId"`
-	Port                          int    `json:"port"`
-	ConnectedPeerThresholdSeconds int    `json:"connectedPeerThresholdSeconds"` // Deprecated input; ignored.
-	HistoryEnabled                bool   `json:"historyEnabled"`
-	Token                         string `json:"token,omitempty"`
-	ClearToken                    bool   `json:"clearToken,omitempty"`
+	Enabled                       bool                       `json:"enabled"`
+	Mode                          string                     `json:"mode"`
+	InterfaceID                   string                     `json:"interfaceId"`
+	Port                          int                        `json:"port"`
+	ConnectedPeerThresholdSeconds int                        `json:"connectedPeerThresholdSeconds"` // Deprecated input; ignored.
+	HistoryEnabled                bool                       `json:"historyEnabled"`
+	HistoryRetention              *internalmetrics.Retention `json:"historyRetention,omitempty"`
+	Token                         string                     `json:"token,omitempty"`
+	ClearToken                    bool                       `json:"clearToken,omitempty"`
 }
 
 // Manager persists settings and publishes lock-free runtime snapshots.
 type Manager struct {
+	mu      sync.Mutex
 	db      *sql.DB
 	current atomic.Pointer[Snapshot]
 }
@@ -75,13 +83,16 @@ func NewManager(database *sql.DB, bootstrap Config) (*Manager, error) {
 	if err := m.bootstrapOrLoad(bootstrap); err != nil {
 		return nil, err
 	}
+	if err := m.finishHistoryUpdate(m.Current()); err != nil {
+		log.Printf("metrics settings at startup: %v", err)
+	}
 	return m, nil
 }
 
 func (m *Manager) Current() Snapshot {
 	s := m.current.Load()
 	if s == nil {
-		return Snapshot{ConfigurationRequired: true, Port: DefaultPort, ConnectedPeerThresholdSeconds: int(defaultConnectedPeerThreshold.Seconds()), HistoryEnabled: true}
+		return Snapshot{ConfigurationRequired: true, Port: DefaultPort, ConnectedPeerThresholdSeconds: int(defaultConnectedPeerThreshold.Seconds()), HistoryEnabled: true, HistoryRetention: internalmetrics.DefaultRetention}
 	}
 	return *s
 }
@@ -100,15 +111,59 @@ func (m *Manager) Authorize(token string) bool {
 }
 
 func (m *Manager) Update(update Update) (Snapshot, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	next, err := m.next(update)
 	if err != nil {
 		return Snapshot{}, err
 	}
-	if err := m.persist(next); err != nil {
+	if err := m.apply(next); err != nil {
 		return Snapshot{}, err
 	}
+	return next, m.finishHistoryUpdate(next)
+}
+
+var ErrRetentionCleanup = errors.New("retention saved; cleanup failed, save again to retry")
+
+var ErrHistoryCleanup = errors.New("failed to clear metrics history; history storage remains disabled")
+
+func (m *Manager) clearHistory() error {
+	if err := internalmetrics.ClearHistory(); err != nil {
+		return fmt.Errorf("%w: %w", ErrHistoryCleanup, err)
+	}
+	return nil
+}
+
+func (m *Manager) finishHistoryUpdate(next Snapshot) error {
+	if !next.HistoryEnabled {
+		return m.clearHistory()
+	}
+	if !next.retentionPending {
+		return nil
+	}
+	if err := internalmetrics.CompactRetention(next.HistoryRetention); err != nil {
+		return fmt.Errorf("%w: %w", ErrRetentionCleanup, err)
+	}
+	if _, err := m.db.Exec(`UPDATE settings SET value = 'false' WHERE key = ?`, settingRetentionPending); err != nil {
+		return fmt.Errorf("%w: %w", ErrRetentionCleanup, err)
+	}
+	next.retentionPending = false
+	m.current.Store(&next)
+	return nil
+}
+
+// apply persists and publishes a validated update while the caller holds mu.
+func (m *Manager) apply(next Snapshot) error {
+	if next.HistoryEnabled && !m.Current().HistoryEnabled {
+		if err := m.clearHistory(); err != nil {
+			return err
+		}
+	}
+	if err := m.persist(next); err != nil {
+		return err
+	}
 	m.publish(next)
-	return next, nil
+	return nil
 }
 
 func (m *Manager) next(update Update) (Snapshot, error) {
@@ -135,7 +190,22 @@ func (m *Manager) next(update Update) (Snapshot, error) {
 	next.ConfigurationRequired = update.Mode == ""
 	next.Port = update.Port
 	next.ConnectedPeerThresholdSeconds = 180
+	if update.HistoryRetention != nil {
+		retention := *update.HistoryRetention
+		if !retention.Valid() {
+			return Snapshot{}, invalid("unknown metrics history retention")
+		}
+		if retention != next.HistoryRetention {
+			oldDuration, newDuration := next.HistoryRetention.Duration(), retention.Duration()
+			next.retentionPending = next.HistoryEnabled && newDuration > 0 &&
+				(oldDuration == 0 || newDuration < oldDuration)
+			next.HistoryRetention = retention
+		}
+	}
 	next.HistoryEnabled = update.HistoryEnabled
+	if !next.HistoryEnabled {
+		next.retentionPending = false
+	}
 	if update.ClearToken {
 		next.TokenConfigured = false
 		next.tokenHash = [sha256.Size]byte{}
@@ -157,6 +227,7 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 			Enabled: false, Port: DefaultPort, ConfigurationRequired: true,
 			ConnectedPeerThresholdSeconds: 180,
 			HistoryEnabled:                bootstrap.HistoryEnabled,
+			HistoryRetention:              internalmetrics.DefaultRetention,
 		}
 		if bootstrap.Token != "" {
 			s.TokenConfigured = true
@@ -198,6 +269,14 @@ func (m *Manager) bootstrapOrLoad(bootstrap Config) error {
 		ConfigurationRequired:         values[settingAccessVersion] != "1" || values[settingAccessMode] == "",
 		ConnectedPeerThresholdSeconds: 180,
 		HistoryEnabled:                values[settingHistory] != "false",
+		HistoryRetention:              internalmetrics.Retention(values[settingRetention]),
+		retentionPending:              values[settingRetentionPending] == "true",
+	}
+	if s.HistoryRetention == "" {
+		s.HistoryRetention = internalmetrics.DefaultRetention
+	}
+	if !s.HistoryRetention.Valid() {
+		return errors.New("stored metrics history retention is invalid")
 	}
 	if s.ConfigurationRequired {
 		s.Enabled = false
@@ -242,6 +321,7 @@ func (m *Manager) persist(s Snapshot) error {
 		settingAccessVersion: "1", settingAccessMode: s.Mode, settingInterface: s.InterfaceID,
 		settingBootstrap: "1", settingEnabled: strconv.FormatBool(s.Enabled),
 		settingPort: strconv.Itoa(s.Port), settingThreshold: strconv.Itoa(s.ConnectedPeerThresholdSeconds),
+		settingRetention: string(s.HistoryRetention), settingRetentionPending: strconv.FormatBool(s.retentionPending),
 		settingHistory: strconv.FormatBool(s.HistoryEnabled), settingTokenHash: "",
 	}
 	if s.TokenConfigured {
@@ -264,5 +344,5 @@ func (m *Manager) persist(s Snapshot) error {
 func (m *Manager) publish(s Snapshot) {
 	copy := s
 	m.current.Store(&copy)
-	internalmetrics.SetHistoryEnabled(s.HistoryEnabled)
+	internalmetrics.SetHistoryPolicy(s.HistoryEnabled, s.HistoryRetention)
 }

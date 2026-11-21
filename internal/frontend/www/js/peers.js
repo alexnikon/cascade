@@ -191,37 +191,12 @@ expiryDateTimeForInput(value) {
       return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
     },
 
-    // Format kbps rate for display. 0 = unlimited.
-
-formatRate(kbps) {
-      if (!kbps || kbps <= 0) return '';
-      if (kbps >= 1000) return (kbps / 1000).toFixed(kbps % 1000 === 0 ? 0 : 1) + 'M';
-      return kbps + 'K';
-    },
-
     // Return the client group name for a given groupId. Returns '' if not found.
 
 peerGroupName(groupId) {
       if (!groupId) return '';
       const g = this.clientGroups.find(g => g.id === groupId);
       return g ? g.name : '';
-    },
-
-    // Returns effective rate limits for a peer: individual limits take precedence,
-    // otherwise falls back to the peer's group limits.
-    // Returns { rateDown, rateUp, fromGroup } — fromGroup=true when limits come from group.
-
-peerEffectiveRate(peer) {
-      if (peer.rateDown > 0 || peer.rateUp > 0) {
-        return { rateDown: peer.rateDown, rateUp: peer.rateUp, fromGroup: false };
-      }
-      if (peer.groupId) {
-        const g = this.clientGroups.find(g => g.id === peer.groupId);
-        if (g && (g.rateDown > 0 || g.rateUp > 0)) {
-          return { rateDown: g.rateDown, rateUp: g.rateUp, fromGroup: true };
-        }
-      }
-      return { rateDown: 0, rateUp: 0, fromGroup: false };
     },
 
 async savePeerEdit() {

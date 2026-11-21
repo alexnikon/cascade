@@ -215,6 +215,7 @@ async loadMetricsSettings() {
 
 async saveMetricsSettings() {
       if (!this.metricsSettings.canManage) return;
+      this.metricsSettingsSaved = false;
       try {
         const payload = {
           enabled: this.metricsSettings.enabled,
@@ -222,6 +223,7 @@ async saveMetricsSettings() {
           mode: this.metricsSettings.mode,
           interfaceId: this.metricsSettings.interfaceId,
           historyEnabled: this.metricsSettings.historyEnabled,
+          historyRetention: this.metricsSettings.historyRetention,
           clearToken: this.metricsSettings.clearToken,
         };
         if (this.metricsSettings.token) payload.token = this.metricsSettings.token;
