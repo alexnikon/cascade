@@ -184,6 +184,7 @@ Configuration is collected interactively by `setup.sh` and saved to `/opt/cascad
 | `ACME_EMAIL` | optional | Email for Let's Encrypt notifications |
 | `ACME_STAGING` | `0` | `1` = use LE staging CA (untrusted cert, no rate limits — for testing) |
 | `AWG_USERSPACE_IMPL` | `amneziawg-go` | `amneziawg-go` or `kernel` |
+| `GODEBUG` | `disablethp=1` | Disables transparent huge pages for Go heaps in the container. If you set other Go debug options, include `disablethp=1` to keep this behavior. |
 | `NETWORK_MODE` | `host` | `host` or `bridge` — Docker network mode |
 | `BRIDGE_PORT_RANGE` | *(bridge only)* | Published UDP port range for WireGuard in bridge mode (e.g. `51831-65535`) |
 | `METRICS_ENABLED` | `false` | Deprecated; select and enable access in Settings → Metrics |

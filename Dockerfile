@@ -46,6 +46,9 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -mod=readonly \
 # ============================================================
 FROM amneziavpn/amneziawg-go:3.1.20260814@sha256:4450928744b051589bb3ba5cf6dd0cd8d7dc470b9432dc32d03d5ff5ede11b7a
 
+# Reduce Go heap RSS on hosts with transparent huge pages enabled.
+ENV GODEBUG=disablethp=1
+
 # The official image checks the fork's platform-neutral release manifest.
 # Operators can override this value or set it to an empty string.
 
