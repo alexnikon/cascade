@@ -461,6 +461,50 @@
             </table>
           </div>
 
+          <section class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
+            <div class="panel-header p-5 border-b dark:border-neutral-600">
+              <h2 class="text-xl font-medium dark:text-neutral-200">Domain alias DNS</h2>
+              <p class="text-sm text-gray-500 dark:text-neutral-400 mt-1">DNS servers for background updates of exact domain names in firewall aliases.</p>
+            </div>
+            <div class="p-5 flex flex-col gap-3" :aria-busy="String(!domainAliasDNS || domainAliasDNS.loading || domainAliasDNS.saving)">
+              <p v-if="!domainAliasDNS || domainAliasDNS.loading" role="status" class="text-sm dark:text-neutral-300">Loading DNS settings…</p>
+              <template v-else>
+                <p v-if="domainAliasDNS.error" role="alert" class="text-sm text-red-700 dark:text-red-300">{{ domainAliasDNS.error }}</p>
+                <button v-if="!domainAliasDNS.status && domainAliasDNS.error" type="button"
+                  @click="loadDomainAliasDNS" class="px-3 py-2 text-sm border rounded dark:border-neutral-500 dark:text-neutral-200">Retry</button>
+                <template v-if="domainAliasDNS.status">
+                  <p class="text-sm dark:text-neutral-300">
+                    <span class="font-medium">Active DNS servers</span>
+                    <span class="font-mono" style="overflow-wrap:anywhere;">{{ domainAliasDNS.status.effectiveServers.join(', ') }}</span>
+                  </p>
+                  <form v-if="domainAliasDNS.status.canManage" @submit.prevent="saveDomainAliasDNS">
+                    <fieldset :disabled="domainAliasDNS.saving" class="flex flex-col gap-3" style="align-items:flex-start; min-width:0;">
+                      <div>
+                        <label for="domain-alias-dns-mode" class="block text-sm font-medium dark:text-neutral-300 mb-1">Resolver</label>
+                        <select id="domain-alias-dns-mode" v-content-select v-model="domainAliasDNS.mode"
+                          class="settings-content-select px-3 py-2 border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                          <option value="system">System DNS</option>
+                          <option value="custom">Custom DNS</option>
+                        </select>
+                      </div>
+                      <div v-if="domainAliasDNS.mode === 'custom'" class="w-full">
+                        <label for="domain-alias-dns-servers" class="block text-sm font-medium dark:text-neutral-300 mb-1">DNS server addresses</label>
+                        <input id="domain-alias-dns-servers" v-model="domainAliasDNS.servers" type="text" required
+                          spellcheck="false" autocomplete="off" aria-describedby="domain-alias-dns-help"
+                          class="settings-input settings-input-wide px-3 py-2 border rounded font-mono text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                        <p id="domain-alias-dns-help" class="mt-1 text-xs text-gray-500 dark:text-neutral-400">Enter one to three IP addresses, separated by commas, in priority order.</p>
+                      </div>
+                      <button type="submit" class="px-4 py-2 text-white rounded transition text-sm font-medium bg-purple-600 hover:bg-purple-700">{{ domainAliasDNS.saving ? 'Saving…' : 'Save DNS' }}</button>
+                    </fieldset>
+                  </form>
+                  <p v-else class="text-sm text-gray-500 dark:text-neutral-400">
+                    {{ domainAliasDNS.status.mode === 'system' ? 'System DNS' : 'Custom DNS' }} · Administrator access is required to make changes.
+                  </p>
+                </template>
+              </template>
+            </div>
+          </section>
+
           <!-- Metrics Settings -->
           <div class="content-panel shadow-md rounded-lg bg-white dark:bg-neutral-700 overflow-hidden">
             <div class="panel-header p-5 border-b dark:border-neutral-600">

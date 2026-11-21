@@ -247,6 +247,7 @@ func main() {
 	// Settings + Templates (registered before other managers are ready, but
 	// settings package only needs db which is already initialised above).
 	api.RegisterSettings(apiGroup)
+	api.RegisterDomainAliasDNSSettings(apiGroup)
 	api.RegisterMetricsSettings(apiGroup, metricsManager, metricsServer)
 	api.RegisterWebAccess(apiGroup, webAccess, cfg.BindHost)
 
@@ -429,6 +430,9 @@ func main() {
 	//     Runs after the alias and firewall managers exist so the sets are ready
 	//     for the rules that match them.
 	dnsResolver := dnsalias.New(aliasMgr, ipsetMgr)
+	if err := dnsResolver.LoadUpstreams(db.DB()); err != nil {
+		log.Printf("dnsalias: load upstreams, using system DNS: %v", err)
+	}
 	dnsalias.SetInstance(dnsResolver)
 	dnsResolver.Start()
 	for _, iface := range tunnel.Get().GetAllInterfaces() {

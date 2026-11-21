@@ -213,6 +213,53 @@ async loadSettings() {
       }
     },
 
+async loadDomainAliasDNS() {
+      const remoteID = this.activeRemoteId;
+      const selection = this._serverSelectionGeneration;
+      const authGeneration = this.api._authGeneration;
+      const existing = this.domainAliasDNS;
+      if (existing?.saving && existing.isCurrent()) return;
+      const draft = {
+        loading: true, saving: false, error: '', status: null, mode: 'system', servers: '',
+        isCurrent: () => this.domainAliasDNS === draft && remoteID === this.activeRemoteId
+          && selection === this._serverSelectionGeneration && authGeneration === this.api._authGeneration,
+      };
+      this.domainAliasDNS = draft;
+      try {
+        const status = await this.api.getDomainAliasDNS();
+        if (draft.isCurrent()) {
+          draft.status = status;
+          draft.mode = status.mode;
+          draft.servers = status.servers.join(', ');
+        }
+      } catch (err) {
+        if (draft.isCurrent()) draft.error = err.message || 'Unable to load DNS settings.';
+      } finally {
+        draft.loading = false;
+      }
+    },
+
+async saveDomainAliasDNS() {
+      const draft = this.domainAliasDNS;
+      if (!draft?.isCurrent() || !draft.status?.canManage || draft.saving) return;
+      const servers = draft.mode === 'custom' ? draft.servers.split(/[\s,]+/).filter(Boolean) : [];
+      draft.saving = true;
+      draft.error = '';
+      try {
+        const status = await this.api.updateDomainAliasDNS({ mode: draft.mode, servers });
+        if (draft.isCurrent()) {
+          draft.status = status;
+          draft.mode = status.mode;
+          draft.servers = status.servers.join(', ');
+          this.showToast('Domain alias DNS saved.', 'success');
+        }
+      } catch (err) {
+        if (draft.isCurrent()) draft.error = err.message || 'Unable to save DNS settings.';
+      } finally {
+        draft.saving = false;
+      }
+    },
+
 async loadMetricsSettings() {
       try {
         const settings = await this.api.getMetricsSettings();

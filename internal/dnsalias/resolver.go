@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/alexnikon/cascade/internal/aliases"
@@ -72,7 +73,10 @@ type ipsetWriter interface {
 type Resolver struct {
 	am *aliases.Manager
 	im ipsetWriter
-	dc *dnsClient
+	dc *dnsClient // System upstreams for the proxy and default alias lookups.
+
+	upstreamMu      sync.Mutex
+	customUpstreams atomic.Pointer[dnsClient]
 
 	proxyConfigMu sync.Mutex
 	proxyMu       sync.Mutex
@@ -144,7 +148,7 @@ func (r *Resolver) Start() {
 	}
 
 	r.reconcileOrphans(live)
-	log.Printf("dnsalias: started (%d domain aliases, servers %s)", n, strings.Join(r.dc.servers, ", "))
+	log.Printf("dnsalias: started (%d domain aliases, servers %s)", n, strings.Join(r.aliasDNS().servers, ", "))
 }
 
 // Stop retires every alias goroutine and waits for them to finish. The kernel
@@ -336,8 +340,9 @@ func (r *Resolver) resolveOnce(st *aliasState) time.Duration {
 
 	merged := newLookupResult()
 	var errs []error
+	client := r.aliasDNS()
 	for _, d := range domains {
-		res, err := r.dc.lookup(d)
+		res, err := client.lookup(d)
 		if err != nil {
 			errs = append(errs, err)
 			continue

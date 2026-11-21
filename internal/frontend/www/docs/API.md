@@ -108,8 +108,19 @@ Builds without recognizable version or commit metadata return `updateStatus: "un
 |--------|------|-------------|
 | `GET` | `/api/settings` | Global settings + runtime info |
 | `PUT` | `/api/settings` | Partial update. Body: see below |
+| `GET` | `/api/settings/domain-alias-dns` | Get the resolver settings for background updates of domain aliases |
+| `PUT` | `/api/settings/domain-alias-dns` | Update the resolver settings (admin only) |
 | `GET` | `/api/settings/metrics` | Safe Prometheus and history settings |
 | `PUT` | `/api/settings/metrics` | Update metrics settings (admin only; token is write-only) |
+
+`GET /api/settings/domain-alias-dns` returns `mode` (`system` or `custom`),
+`servers` (the configured custom IP addresses), `effectiveServers` (active DNS
+endpoints with ports), and `canManage`. Send `mode` and `servers` in a PUT
+request. System mode uses the container's system resolvers and an empty
+`servers` list. Custom mode accepts one to three distinct IPv4 or IPv6
+addresses in priority order on port 53. Changes apply immediately to
+background lookups of exact domain aliases. The interface DNS proxy continues
+to use system upstreams.
 
 `GET /api/settings/metrics` returns `enabled`, `port`, the fixed `path` value
 `/metrics`, `listening`, a safe `listenError`, `mode` (`vpn` or

@@ -148,7 +148,7 @@ loadPageData(pageId) {
         if (this.activeInterfaceId) this.refreshPeers();
         else this.refreshAllPeers();
       }
-      if (pageId === 'settings') { this.loadActiveSessions(); this.loadSettings(); this.loadMetricsSettings(); this.loadUsers(); this.loadApiTokens(); this.loadPreRestoreBackups(); }
+      if (pageId === 'settings') { this.loadActiveSessions(); this.loadSettings(); this.loadMetricsSettings(); this.loadDomainAliasDNS(); this.loadUsers(); this.loadApiTokens(); this.loadPreRestoreBackups(); }
       if (pageId === 'remotes') this.loadRemotes();
       if (pageId === 'gateways') {
         this.loadGateways();

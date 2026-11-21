@@ -13,8 +13,10 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -22,7 +24,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/alexnikon/cascade/internal/db"
+	"github.com/alexnikon/cascade/internal/dnsalias"
 	"github.com/alexnikon/cascade/internal/prometheusmetrics"
+	"github.com/alexnikon/cascade/internal/remotes"
 	"github.com/alexnikon/cascade/internal/settings"
 	"github.com/alexnikon/cascade/internal/tokens"
 	"github.com/alexnikon/cascade/internal/users"
@@ -651,5 +655,134 @@ func TestMetricsRetentionSettings(t *testing.T) {
 				t.Fatalf("expected empty WAL: %v, %v", wal, err)
 			}
 		})
+	}
+}
+
+func TestDomainAliasDNSSettings(t *testing.T) {
+	sta := newSettingsTestApp(t)
+	resolver := dnsalias.New(nil, nil)
+	dnsalias.SetInstance(resolver)
+	t.Cleanup(func() { dnsalias.SetInstance(nil) })
+	RegisterDomainAliasDNSSettings(sta.app.Group("/api"))
+	ta := &testApp{app: sta.app, adminToken: sta.token}
+	const path = "/api/settings/domain-alias-dns"
+
+	check := func(method, token string, payload any, code int) (result struct {
+		dnsalias.UpstreamStatus
+		CanManage bool `json:"canManage"`
+	}) {
+		t.Helper()
+		resp := ta.do(method, path, token, payload)
+		defer resp.Body.Close()
+		if resp.StatusCode != code {
+			t.Fatalf("%s status = %d, want %d: %v", method, resp.StatusCode, code, decodeBody(resp))
+		}
+		if code == http.StatusOK {
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return result
+	}
+
+	check("GET", "", nil, http.StatusUnauthorized)
+	system := check("GET", sta.token, nil, http.StatusOK)
+	if system.Mode != "system" || system.Servers == nil || len(system.Servers) != 0 || len(system.EffectiveServers) == 0 || !system.CanManage {
+		t.Fatalf("unexpected default settings: %+v", system)
+	}
+
+	custom := dnsalias.UpstreamConfig{Mode: "custom", Servers: []string{"192.0.2.53", "2001:db8::53"}}
+	viewer, err := users.Create("viewer", "viewerpass1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, viewerToken, err := tokens.Create(viewer.ID, "viewer-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if check("GET", viewerToken, nil, http.StatusOK).CanManage {
+		t.Fatal("regular user received manage permission")
+	}
+	check("PUT", viewerToken, custom, http.StatusForbidden)
+
+	updated := check("PUT", sta.token, custom, http.StatusOK)
+	if updated.Mode != "custom" || !slices.Equal(updated.Servers, custom.Servers) ||
+		!slices.Equal(updated.EffectiveServers, []string{"192.0.2.53:53", "[2001:db8::53]:53"}) {
+		t.Fatalf("unexpected custom settings: %+v", updated)
+	}
+	for _, invalid := range []dnsalias.UpstreamConfig{
+		{Mode: "invalid"},
+		{Mode: "system", Servers: []string{"192.0.2.53"}},
+		{Mode: "custom"},
+		{Mode: "custom", Servers: []string{"resolver.example"}},
+		{Mode: "custom", Servers: []string{"192.0.2.53:5353"}},
+		{Mode: "custom", Servers: []string{"192.0.2.53", "::ffff:192.0.2.53"}},
+		{Mode: "custom", Servers: []string{"192.0.2.1", "192.0.2.2", "192.0.2.3", "192.0.2.4"}},
+	} {
+		check("PUT", sta.token, invalid, http.StatusBadRequest)
+	}
+
+	// A generic Settings write must not alter a live or persisted DNS choice.
+	resp := sta.put(t, map[string]any{"domainAliasDNS": "192.0.2.54"})
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("generic settings update status = %d", resp.StatusCode)
+	}
+	restarted := dnsalias.New(nil, nil)
+	if err := restarted.LoadUpstreams(db.DB()); err != nil {
+		t.Fatal(err)
+	}
+	if got := restarted.Upstreams(); got.Mode != "custom" || !slices.Equal(got.Servers, custom.Servers) {
+		t.Fatalf("unexpected restored settings: %+v", got)
+	}
+	reset := check("PUT", sta.token, dnsalias.UpstreamConfig{Mode: "system"}, http.StatusOK)
+	if reset.Mode != "system" || !slices.Equal(reset.EffectiveServers, system.EffectiveServers) {
+		t.Fatalf("unexpected reset settings: %+v", reset)
+	}
+}
+
+func TestDomainAliasDNSRemoteProxy(t *testing.T) {
+	ta := sessionApp(t)
+	b := browser(ta.app)
+	b.login(t, "alice", "alicepass1")
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer remote-token" || r.Header.Get("Cookie") != "" {
+			t.Error("remote identity or cookie isolation failed")
+		}
+		if r.URL.Path != "/api/settings/domain-alias-dns" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "GET" {
+			w.Write([]byte(`{"mode":"system","servers":[],"effectiveServers":["192.0.2.53:53"],"canManage":true}`))
+			return
+		}
+		var cfg dnsalias.UpstreamConfig
+		if err := json.NewDecoder(r.Body).Decode(&cfg); r.Method != "PUT" || err != nil ||
+			cfg.Mode != "custom" || !slices.Equal(cfg.Servers, []string{"192.0.2.54"}) {
+			t.Errorf("unexpected write: %s %+v (%v)", r.Method, cfg, err)
+		}
+		w.Write([]byte(`{"mode":"custom","servers":["192.0.2.54"],"effectiveServers":["192.0.2.54:53"],"canManage":true}`))
+	}))
+	t.Cleanup(upstream.Close)
+	previous := proxyClient
+	proxyClient = upstream.Client()
+	t.Cleanup(func() { proxyClient = previous })
+	remote, err := remotes.Add("Remote", upstream.URL, "remote-token", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	RegisterRemotes(ta.app.Group("/api", AuthMiddleware))
+	path := "/api/remotes/" + remote.ID + "/proxy/settings/domain-alias-dns"
+	_, initial := b.request(t, "GET", path, nil, http.StatusOK)
+	if initial["mode"] != "system" {
+		t.Fatalf("unexpected remote defaults: %v", initial)
+	}
+	_, updated := b.request(t, "PUT", path, map[string]any{
+		"mode": "custom", "servers": []string{"192.0.2.54"},
+	}, http.StatusOK)
+	if updated["mode"] != "custom" {
+		t.Fatalf("unexpected remote update: %v", updated)
 	}
 }

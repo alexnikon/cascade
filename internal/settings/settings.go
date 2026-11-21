@@ -157,6 +157,9 @@ var defaults = GlobalSettings{
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+// DomainAliasDNSKey is managed by the dedicated domain alias DNS settings API.
+const DomainAliasDNSKey = "domainAliasDNS"
+
 // GetSettings returns current global settings, falling back to defaults.
 func GetSettings() (*GlobalSettings, error) {
 	return GetSettingsFromDB(db.DB())
@@ -196,8 +199,7 @@ func UpdateSettings(updates map[string]any) (*GlobalSettings, error) {
 	}
 	defer tx.Rollback()
 	for k, raw := range updates {
-		// Ignore retired routing fields sent by older clients and backups.
-		if k == "defaultClientAllowedIPsMode" || k == "defaultClientAllowedIPsAliasId" {
+		if k == DomainAliasDNSKey || k == "defaultClientAllowedIPsMode" || k == "defaultClientAllowedIPsAliasId" {
 			continue
 		}
 		v := fmt.Sprintf("%v", raw)

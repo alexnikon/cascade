@@ -323,6 +323,7 @@ new Vue({
       awg3Supported: false, awg3SupportError: '',
     },
     settingsSaved: false,
+    domainAliasDNS: null,
     metricsSettings: {
       enabled: false,
       port: 9351,

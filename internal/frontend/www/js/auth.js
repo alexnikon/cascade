@@ -124,6 +124,7 @@ async _onLoginSuccess() {
       }
       if (this.activePage === 'settings') {
         this.loadActiveSessions();
+        this.loadDomainAliasDNS();
         this.loadUsers();
       }
     },

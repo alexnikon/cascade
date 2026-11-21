@@ -292,6 +292,14 @@ export class API {
     return this.call({ method: 'put', path: '/settings/metrics', body: settings });
   }
 
+  async getDomainAliasDNS() {
+    return this.call({ method: 'get', read: true, path: '/settings/domain-alias-dns' });
+  }
+
+  async updateDomainAliasDNS(settings) {
+    return this.call({ method: 'put', path: '/settings/domain-alias-dns', body: settings });
+  }
+
   // ============================================================
   // AWG2 Templates API
   // ============================================================

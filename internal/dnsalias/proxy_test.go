@@ -158,9 +158,6 @@ func TestProxyUpstreamFailure(t *testing.T) {
 }
 
 func TestProxyTCPFallbackAndEDNS(t *testing.T) {
-	r, f, _, _ := proxyHarness(t)
-	a := createDomainAlias(t, r.am, "Video", "*.googlevideo.com")
-	r.Sync(a.ID)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -193,8 +190,12 @@ func TestProxyTCPFallbackAndEDNS(t *testing.T) {
 	<-ready
 	defer udp.Shutdown()
 	defer tcp.Shutdown()
-	r.RemoveInterface("wg12")
-	r.dc = testClient(ln.Addr().String())
+
+	am := initTestDB(t)
+	f := newFakeIPSet()
+	a := createDomainAlias(t, am, "Video", "*.googlevideo.com")
+	r := newTestResolver(t, am, f, ln.Addr().String())
+	r.Start()
 	if err := r.configureProxy("wg12", "127.0.0.1:0", func(ip net.IP) bool { return ip.IsLoopback() }); err != nil {
 		t.Fatal(err)
 	}
@@ -227,9 +228,8 @@ func TestProxyTCPFallbackAndEDNS(t *testing.T) {
 }
 
 func TestProxyUpstreamLoopExcluded(t *testing.T) {
-	r, _, _, _ := proxyHarness(t)
-	r.RemoveInterface("wg12")
-	r.dc = testClient("127.0.0.1:53")
+	r := newTestResolver(t, initTestDB(t), newFakeIPSet(), "127.0.0.1:53")
+	r.Start()
 	if err := r.configureProxy("wg12", "127.0.0.1:0", func(ip net.IP) bool { return ip.IsLoopback() }); err != nil {
 		t.Fatal(err)
 	}
