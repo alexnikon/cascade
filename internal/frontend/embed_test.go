@@ -1536,7 +1536,7 @@ func TestFrontendDomainAliasUI(t *testing.T) {
 
 func TestDashboardElasticRangeStaysOutsideGridStack(t *testing.T) {
 	index := readEmbedded(t, "www/index.html")
-	wrapper := regexp.MustCompile(`(?s)<div class="dashboard-grid-surface">\s*(?:<!--[^>]*-->\s*)?<div class="grid-stack" id="dashboard-grid">`)
+	wrapper := regexp.MustCompile(`(?s)<div v-else-if="dashLayoutState === 'ready'" class="dashboard-grid-surface">\s*(?:<!--[^>]*-->\s*)?<div class="grid-stack" id="dashboard-grid">`)
 	if !wrapper.MatchString(index) {
 		t.Fatal("dashboard grid is not inside its dedicated elastic scroll surface")
 	}

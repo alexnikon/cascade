@@ -34,7 +34,7 @@
             <div class="flex gap-2">
               <!-- Add Widget dropdown -->
               <div style="position:relative;">
-                <button @click="dashShowAddMenu = !dashShowAddMenu"
+                <button :disabled="dashLayoutState !== 'ready'" @click="dashShowAddMenu = !dashShowAddMenu"
                   class="dashboard-toolbar-button ui-primary-action flex items-center gap-2 text-white rounded-lg text-sm font-medium"
                   style="border:none; cursor:pointer;">
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -56,7 +56,7 @@
                   </div>
                 </div>
               </div>
-              <button @click="dashResetLayout"
+              <button :disabled="dashLayoutState !== 'ready'" @click="dashResetLayout"
                 class="dashboard-toolbar-button border border-gray-300 dark:border-neutral-500 rounded-lg text-sm dark:text-neutral-200 transition"
                 title="Reset to default layout">
                 Reset

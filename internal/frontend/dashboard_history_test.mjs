@@ -3,9 +3,9 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 const source = await readFile(new URL('www/js/dashboard.js', import.meta.url), 'utf8');
-function fixture() {
+function fixture(overrides = {}) {
   const document = { hidden: false, addEventListener() {} };
-  const context = vm.createContext({ document, console, setInterval, clearInterval, setTimeout, clearTimeout });
+  const context = vm.createContext({ document, console, setInterval, clearInterval, setTimeout, clearTimeout, ...overrides });
   vm.runInContext(source.replace('export const dashboardMethods', 'globalThis.methods'), context);
   const state = { ...context.methods, activePage: 'dashboard', dashWidgets: [{ id:'w',type:'monitoring',graphs:['cpu'] }],
     metricsWidgetPeriod: {}, metricsHistory: {}, metricsAreaSeriesCache: {}, metricsChartHeights: {},
@@ -153,4 +153,140 @@ test('returning to the tab fetches fresh metrics while the old request is pendin
     await newTick;
     assert.equal(state.metricsSnapshot.cpu, 42);
   } finally { state.metricsStopPoller(); }
+});
+
+test('server switching hides the previous dashboard and discards stale loads', async () => {
+  const gatewaySource = await readFile(new URL('www/js/gateways.js', import.meta.url), 'utf8');
+  const { gatewayMethods } = await import(`data:text/javascript;base64,${Buffer.from(gatewaySource).toString('base64')}`);
+  for (const selections of [['B', 'C'], ['B', null, 'B']]) {
+    const { state: s } = fixture();
+    const layouts = [];
+    const systemInfo = [];
+    const initialized = [];
+    let writes = 0;
+    let destroyed = 0;
+    Object.assign(s, {
+      switchToRemote: gatewayMethods.switchToRemote,
+      switchToLocal: gatewayMethods.switchToLocal,
+      authenticated: true,
+      activeRemoteId: null,
+      dashLayoutState: 'ready',
+      dashWidgets: [{ id: 'traffic', title: 'A Lab Traffic' }],
+      dashGrid: { destroy(removeDOM) { assert.equal(removeDOM, false); destroyed++; } },
+      dashSystemInfo: { hostname: 'A' },
+      dashShowAddMenu: true,
+      metricsConfigWidget: 'traffic',
+      metricsWidgetPeriod: { traffic: '6h' },
+      loadTunnelInterfaces() {},
+      loadSettings() {},
+      loadNatRules() {},
+      loadDnatRules() {},
+      loadAliases() {},
+      switchPage() { return this.loadDashboard(); },
+      $nextTick() { return Promise.resolve(); },
+      dashInitGrid() { initialized.push(this.dashWidgets[0].title); },
+      api: {
+        setRemote() {},
+        clearRemote() {},
+        getDashboardWidgets() { return new Promise(resolve => layouts.push(resolve)); },
+        getSystemInfo() { return new Promise(resolve => systemInfo.push(resolve)); },
+        async putDashboardWidgets() { writes++; },
+      },
+    });
+
+    const previousInfo = s.loadSystemInfo();
+    for (const id of selections) {
+      if (id) await s.switchToRemote({ id, name: id });
+      else s.switchToLocal();
+      assert.equal(s.dashLayoutState, 'loading');
+      assert.equal(s.dashWidgets.length, 0);
+      assert.equal(s.dashSystemInfo, null);
+      assert.equal(s.dashShowAddMenu, false);
+      assert.equal(s.metricsConfigWidget, null);
+      assert.equal(s.metricsWidgetPeriod.traffic, undefined);
+    }
+    const title = `${selections.at(-1)} Lab Traffic`;
+    const widget = { id: 'traffic', title, type: 'monitoring', period: '1h' };
+    const selectedInfo = s.loadSystemInfo();
+    layouts.pop()({ widgets: [widget] });
+    systemInfo[1]({ hostname: 'selected' });
+    await selectedInfo;
+    for (const resolve of layouts) resolve({ widgets: [{ ...widget, title: 'Stale' }] });
+    systemInfo[0]({ hostname: 'stale' });
+    await previousInfo;
+
+    assert.equal(s.dashLayoutState, 'ready');
+    assert.deepEqual(initialized, [title]);
+    assert.equal(s.dashWidgets[0], widget);
+    assert.equal(s.dashSystemInfo.hostname, 'selected');
+    assert.equal(s.metricsWidgetPeriod.traffic, '1h');
+    assert.equal(destroyed, 1);
+    assert.equal(writes, 0);
+  }
+});
+
+test('a failed dashboard load stays empty until a successful retry', async () => {
+  const { state: s } = fixture();
+  Object.assign(s, {
+    authenticated: true,
+    dashWidgets: [],
+    dashLayoutState: 'loading',
+    natRules: [{}],
+    dnatRules: [{}],
+    aliases: [{}],
+    $nextTick: async () => {},
+    dashInitGrid() {},
+  });
+  s.api.getDashboardWidgets = async () => { throw new Error('Unavailable'); };
+  await s.loadDashboard();
+  assert.equal(s.dashLayoutState, 'error');
+  assert.equal(s.dashWidgets.length, 0);
+  s.api.getDashboardWidgets = async () => ({ widgets: [{ id: 'server', type: 'server-info' }] });
+  await s.loadDashboard();
+  assert.equal(s.dashLayoutState, 'ready');
+  assert.equal(s.dashWidgets[0].id, 'server');
+});
+
+test('only the active GridStack instance may save resized geometry', async () => {
+  const timers = [];
+  const grids = [];
+  const element = { style: {}, querySelector() { return null; } };
+  const { state: s } = fixture({
+    document: { getElementById() { return element; } },
+    setTimeout: callback => timers.push(callback),
+    GridStack: {
+      init() {
+        const grid = {
+          on(event, callback) { assert.equal(event, 'change'); this.change = callback; },
+          save() { return [{ id: 'traffic', x: 0, y: 0, w: 4, h: 5 }]; },
+          destroy(removeDOM) { assert.equal(removeDOM, false); this.change(); },
+        };
+        grids.push(grid);
+        return grid;
+      },
+    },
+  });
+  const saved = [];
+  Object.assign(s, {
+    dashWidgets: [{ id: 'traffic', type: 'monitoring', title: 'A', h: 4 }],
+    $nextTick() {},
+    dashInitResizeObservers() {},
+    api: { async putDashboardWidgets(widgets) { saved.push(widgets); } },
+  });
+  s.dashInitGrid();
+  s.dashResetServerData();
+  s.dashWidgets = [{ id: 'traffic', type: 'monitoring', title: 'B', h: 4 }];
+  s.dashInitGrid();
+
+  timers[0]();
+  grids[0].change();
+  grids[1].change();
+  assert.equal(saved.length, 0);
+
+  timers[1]();
+  grids[0].change();
+  grids[1].change();
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0][0].h, 5);
+  assert.equal(saved[0][0].title, 'B');
 });

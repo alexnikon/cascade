@@ -302,3 +302,28 @@ test('timeout aborts a stalled response body and frees the next read', async () 
     assert.equal(requests, 2);
   } finally { globalThis.fetch = originalFetch; }
 });
+
+test('an old remote failure cannot disconnect a newer selection of the same server', async () => {
+  globalThis.window = { location: { pathname: '/', origin: 'http://cascade.test' } };
+  const originalFetch = globalThis.fetch;
+  try {
+    const api = new API();
+    let remoteErrors = 0;
+    api._onRemoteError = () => { remoteErrors++; };
+    let finish;
+    globalThis.fetch = () => new Promise(resolve => { finish = resolve; });
+    api.setRemote('b');
+    const pending = api.getDashboardWidgets();
+    api.clearRemote();
+    api.setRemote('b');
+    finish(response(502));
+    await assert.rejects(pending);
+    assert.equal(remoteErrors, 0);
+
+    globalThis.fetch = async () => response(502);
+    await assert.rejects(api.getDashboardWidgets());
+    assert.equal(remoteErrors, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

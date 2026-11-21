@@ -94,10 +94,9 @@ switchPage(pageId) {
       if (this.activePage === 'dashboard' && pageId !== 'dashboard' && this.dashGrid) {
         // destroy(false) — remove GridStack listeners/styles but keep DOM nodes
         // so that Vue's v-if can cleanly remove the subtree without conflict.
-        this.dashGrid.destroy(false);
+        this.dashDestroyGrid();
         // Clear GridStack-set inline styles from the grid container and items after destroy.
         document.querySelectorAll('#dashboard-grid, #dashboard-grid .grid-stack-item-content, #dashboard-grid .grid-stack-item').forEach(el => { el.style.cssText = ''; });
-        this.dashGrid = null;
       }
       if (this._dashResizeObs) {
         this._dashResizeObs.disconnect();

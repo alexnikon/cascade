@@ -53,6 +53,7 @@
   <style>
   html:not(.dark) {
     --surface-base: #e9ecf1;
+    --mobile-nav-backdrop: rgba(0, 0, 0, 0.26);
     --light-panel: #fff;
     --panel-header-bg: #f3f4f6;
     --light-inset: #f3f4f6;
@@ -98,6 +99,7 @@
   .firewall-pending-banner { margin-bottom: 12px; cursor: pointer; }
   html.dark {
     --surface-base: #1c1c1e;
+    --mobile-nav-backdrop: rgba(0, 0, 0, 0.48);
     --surface-panel: #2c2c2e;
     --panel-header-bg: #343436;
     --surface-raised: #3a3a3c;
@@ -333,6 +335,15 @@
   }
   .dash-card-body.monitoring-body-fit { overflow: hidden; }
   .monitoring-chart { position: relative; flex: 0 0 auto; }
+  .monitoring-chart-label {
+    position: absolute;
+    top: 4px;
+    inset-inline-start: 4px;
+    z-index: 1;
+    font-size: 9px;
+    font-weight: 600;
+    pointer-events: none;
+  }
   .monitoring-chart > div { display: block; }
   .dash-gateway-table {
     display: grid;
@@ -853,7 +864,7 @@
       inset: 0;
       border: 0;
       padding: 0;
-      background: rgba(15,23,42,0.48);
+      background: var(--mobile-nav-backdrop);
       backdrop-filter: blur(2px);
       -webkit-backdrop-filter: blur(2px);
       touch-action: none;

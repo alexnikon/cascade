@@ -117,6 +117,7 @@ new Vue({
     ],
 
     // ── Dashboard ──────────────────────────────────────────────────────────────
+    dashLayoutState: 'loading',
     dashWidgets: [],          // [{id, type, x, y, w, h}]
     dashGrid: null,           // GridStack instance
     dashShowAddMenu: false,

@@ -5,7 +5,8 @@
         <div v-if="activePage === 'dashboard'" key="page-dashboard" class="dashboard-page">
 
           <div class="dashboard-scroll">
-          <div class="dashboard-grid-surface">
+          <div v-if="dashLayoutState === 'loading'" role="status" class="p-3 text-sm text-gray-500 dark:text-neutral-400">Loading…</div>
+          <div v-else-if="dashLayoutState === 'ready'" class="dashboard-grid-surface">
           <!-- GridStack container — Vue renders items directly here; GridStack adopts them -->
           <div class="grid-stack" id="dashboard-grid">
             <div v-for="w in dashWidgets" :key="w.id"
@@ -374,8 +375,7 @@
                         <span class="text-xs text-gray-400 dark:text-neutral-500">Click ⚙ to add graphs</span>
                       </div>
                       <div v-for="key in (w.graphs||[])" :key="key" class="monitoring-chart">
-                        <span style="position:absolute; top:4px; left:36px; z-index:1; font-size:9px; font-weight:600; pointer-events:none;"
-                          :style="{ color: theme==='dark'?'#a3a3a3':'#6b7280' }">{{ metricsKeyLabel(key) }}</span>
+                        <span class="monitoring-chart-label text-gray-500 dark:text-neutral-400">{{ metricsKeyLabel(key) }}</span>
                         <div v-if="metricsSnapshot && metricsSnapshot.historyEnabled === false && (metricsWidgetPeriod[w.id] || '5m') !== '5m'"
                           class="flex h-full items-center justify-center text-xs text-gray-500 dark:text-neutral-400">
                           Metrics history is disabled

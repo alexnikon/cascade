@@ -300,7 +300,7 @@ async switchToRemote(remote) {
       this.activeSessionsLoading = false;
       this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
       this.peersPersist = {};
-      this.metricsResetServerData();
+      this.dashResetServerData();
       this.api.setRemote(remote.id);
       this.settingsServerKey = null;
       this.activeRemoteId = remote.id;
@@ -326,10 +326,12 @@ async switchToRemote(remote) {
       this.kernelRoutes = [];
       this.firewallRules = [];
       this.aliases = [];
+      const selection = this._serverSelectionGeneration;
       this.switchPage('dashboard');
       try {
         await Promise.all([this.loadTunnelInterfaces(), this.loadSettings()]);
       } catch (err) {
+        if (selection !== this._serverSelectionGeneration) return;
         this.showToast(`Failed to connect to ${remote.name}: ${err.message}`, 'error');
         this.switchToLocal();
       }
@@ -342,7 +344,7 @@ switchToLocal() {
       this.activeSessionsLoading = false;
       this.activeSessionsSequence = (this.activeSessionsSequence || 0) + 1;
       this.peersPersist = {};
-      this.metricsResetServerData();
+      this.dashResetServerData();
       this.api.clearRemote();
       this.settingsServerKey = null;
       this.activeRemoteId = null;

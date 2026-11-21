@@ -13,14 +13,17 @@ switchNatTab(tab) {
     // ── Port Forwarding (DNAT) ────────────────────────────────────────────────
 
 async loadDnatRules() {
+      const selection = this._serverSelectionGeneration;
       this.dnatLoading = true;
       try {
         const res = await this.api.call({ method: 'GET', path: '/nat/dnat' });
+        if (selection !== this._serverSelectionGeneration) return;
         this.dnatRules = res.rules || [];
       } catch (e) {
+        if (selection !== this._serverSelectionGeneration) return;
         this.showToast(e.message || 'Failed to load port forwarding rules', 'error');
       } finally {
-        this.dnatLoading = false;
+        if (selection === this._serverSelectionGeneration) this.dnatLoading = false;
       }
     },
 
@@ -137,15 +140,18 @@ async loadNatInterfaces() {
     },
 
 async loadNatRules() {
+      const selection = this._serverSelectionGeneration;
       this.natRulesLoading = true;
       try {
         const res = await this.api.getNatRules();
+        if (selection !== this._serverSelectionGeneration) return;
         this.natRules = res.rules || [];
       } catch (err) {
+        if (selection !== this._serverSelectionGeneration) return;
         console.error('loadNatRules error:', err);
         this.natRules = [];
       } finally {
-        this.natRulesLoading = false;
+        if (selection === this._serverSelectionGeneration) this.natRulesLoading = false;
       }
     },
 

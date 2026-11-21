@@ -9,12 +9,15 @@ async loadDashboard() {
       const remote = this.activeRemoteId;
       const isCurrent = () => this.authenticated && this.activePage === 'dashboard'
         && this.activeRemoteId === remote && this._dashboardLoadGeneration === generation;
+      if (this.dashLayoutState !== 'ready') this.dashLayoutState = 'loading';
       try {
         const res = await this.api.getDashboardWidgets();
         if (!isCurrent()) return;
         const saved = res.widgets || [];
         this.dashWidgets = saved.length > 0 ? saved : this.dashDefaultWidgets();
+        this.dashLayoutState = 'ready';
       } catch {
+        if (isCurrent() && this.dashLayoutState !== 'ready') this.dashLayoutState = 'error';
         return;
       }
       // Pre-load NAT + aliases data (aliases needed to resolve sourceAliasId names)
@@ -37,10 +40,7 @@ async loadDashboard() {
     },
 
 dashInitGrid() {
-      if (this.dashGrid) {
-        this.dashGrid.destroy(false);
-        this.dashGrid = null;
-      }
+      this.dashDestroyGrid();
       const el = document.getElementById('dashboard-grid');
       if (!el) return;
 
@@ -84,12 +84,13 @@ dashInitGrid() {
       }, el);
 
       grid.on('change', () => {
-        if (this._dashSaveEnabled && !this.isCompactViewport) this.dashSaveLayout(grid);
+        if (this.dashGrid === grid && this._dashSaveEnabled && !this.isCompactViewport) this.dashSaveLayout(grid);
       });
       this.dashGrid = grid;
 
       // Enable saving after GridStack's init-time change events have all fired
       setTimeout(() => {
+        if (this.dashGrid !== grid) return;
         this._dashSaveEnabled = true;
         this.dashInitResizeObservers();
       }, 300);
@@ -100,6 +101,7 @@ dashInitGrid() {
 
       // Restore CSS zoom for non-monitoring widgets that have a saved fontScale.
       this.$nextTick(() => {
+        if (this.dashGrid !== grid) return;
         this.dashWidgets.forEach(w => {
           if (w.type === 'monitoring' || !w.fontScale || w.fontScale === 1.0) return;
           const gsItem = document.querySelector(`[gs-id="${w.id}"]`);
@@ -114,6 +116,35 @@ dashInitGrid() {
     // Applies CSS zoom to the inner .dash-card so fonts/icons/buttons scale
     // automatically when the widget is resized. GridStack layout is unaffected
     // because it measures the outer .grid-stack-item-content, not .dash-card.
+
+dashDestroyGrid() {
+      this._dashSaveEnabled = false;
+      const grid = this.dashGrid;
+      this.dashGrid = null;
+      this._dashResizeObs?.disconnect();
+      this._dashResizeObs = null;
+      grid?.destroy(false);
+    },
+
+dashResetServerData() {
+      this._serverSelectionGeneration = (this._serverSelectionGeneration || 0) + 1;
+      this._dashboardLoadGeneration = (this._dashboardLoadGeneration || 0) + 1;
+      this.dashDestroyGrid();
+      this.dashLayoutState = 'loading';
+      this.dashWidgets = [];
+      this.dashShowAddMenu = false;
+      this.dashSystemInfo = null;
+      this.systemInfoPromise = null;
+      this.dashPeersState = {};
+      this.natRulesLoading = false;
+      this.dnatLoading = false;
+      this.aliasesLoading = false;
+      this.metricsConfigWidget = null;
+      this.metricsWidgetPeriod = {};
+      this.metricsChartHeights = {};
+      this._chartOptionsCache = {};
+      this.metricsResetServerData();
+    },
 
 dashInitResizeObservers() {
       if (this._dashResizeObs) {
@@ -238,24 +269,26 @@ dashRemoveWidget(id) {
     },
 
 dashResetLayout() {
-      // Destroy grid first (keeps DOM nodes, Vue will replace them)
-      if (this.dashGrid) {
-        this.dashGrid.destroy(false);
-        this.dashGrid = null;
-      }
+      this.dashDestroyGrid();
       const defaults = this.dashDefaultWidgets();
       this.dashWidgets = defaults;
       this.api.putDashboardWidgets(defaults).catch(console.error);
       // Wait for Vue to render the new items, then init GridStack
-      this.$nextTick(() => this.dashInitGrid());
+      const generation = this._dashboardLoadGeneration;
+      this.$nextTick(() => {
+        if (generation === this._dashboardLoadGeneration) this.dashInitGrid();
+      });
     },
 
 async loadSystemInfo() {
       if (this.systemInfoPromise) return this.systemInfoPromise;
       const promise = (async () => {
-      try {
-        this.dashSystemInfo = await this.api.getSystemInfo();
-      } catch (e) { /* non-fatal */ }
+        try {
+          const info = await this.api.getSystemInfo();
+          if (this.systemInfoPromise === promise) this.dashSystemInfo = info;
+        } catch {
+          // System information is refreshed by the dashboard poller.
+        }
       })();
       this.systemInfoPromise = promise;
       try {
@@ -659,7 +692,18 @@ metricsAreaChartOptions(widgetId, key) {
           dataLabels: { enabled: false },
           fill: { type:'gradient', gradient:{ shadeIntensity:1, opacityFrom:0.4, opacityTo:0.05 } },
           xaxis: { type:'datetime', labels:{ show: period !== '5m', datetimeUTC:false, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, axisBorder:{ show:false }, axisTicks:{ show:false }, tooltip:{ enabled:false } },
-          yaxis: { labels:{ formatter: formatNetworkRate, show:true, align:'right', padding:-8, offsetX:0, minWidth:0, maxWidth:100, style:{ fontSize:'9px', colors: this.theme==='dark'?'#a3a3a3':'#9ca3af' } }, min:0 },
+          yaxis: {
+            min: 0,
+            labels: {
+              formatter: formatNetworkRate,
+              show: true,
+              align: 'left',
+              padding: 6,
+              minWidth: 0,
+              maxWidth: 100,
+              style: { fontSize: '9px', colors: this.theme === 'dark' ? '#a3a3a3' : '#9ca3af' },
+            },
+          },
           grid: { borderColor: this.theme==='dark'?'#404040':'#f0f0f0', padding:{ left:0, right:0, top:0 } },
           tooltip: { ...(formatNetworkRate ? { y: { formatter: formatNetworkRate } } : {}), fixed:{ enabled:true, position:'topRight', offsetX:-12, offsetY:8 }, x:{ format:'HH:mm:ss' }, theme: this.theme==='dark'?'dark':'light' },
           theme: { mode: this.theme==='dark'?'dark':'light' },
@@ -760,11 +804,14 @@ async dashSavePeersView(widgetId) {
       };
       const widgets = [...this.dashWidgets];
       widgets.splice(idx, 1, updated);
+      const selection = this._serverSelectionGeneration;
       try {
         await this.api.putDashboardWidgets(widgets);
+        if (selection !== this._serverSelectionGeneration) return;
         this.dashWidgets.splice(idx, 1, updated);
         this.showToast('Peers view saved', 'success');
       } catch (err) {
+        if (selection !== this._serverSelectionGeneration) return;
         this.showToast(`Failed to save peers view: ${err.message}`, 'error');
       }
     },
@@ -778,11 +825,14 @@ async dashResetPeersView(widgetId) {
       delete updated.peerSort;
       const widgets = [...this.dashWidgets];
       widgets.splice(idx, 1, updated);
+      const selection = this._serverSelectionGeneration;
       try {
         await this.api.putDashboardWidgets(widgets);
+        if (selection !== this._serverSelectionGeneration) return;
         this.dashWidgets.splice(idx, 1, updated);
         this.showToast('Peers view reset', 'success');
       } catch (err) {
+        if (selection !== this._serverSelectionGeneration) return;
         this.showToast(`Failed to reset peers view: ${err.message}`, 'error');
       }
     },

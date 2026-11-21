@@ -461,15 +461,18 @@ hideAliasTooltip() {
     // System Backup / Restore
 
 async loadAliases() {
+      const selection = this._serverSelectionGeneration;
       this.aliasesLoading = true;
       try {
         const res = await this.api.getAliases();
+        if (selection !== this._serverSelectionGeneration) return;
         this.aliases = Array.isArray(res) ? res : (res.aliases || []);
       } catch (err) {
+        if (selection !== this._serverSelectionGeneration) return;
         console.error('loadAliases error:', err);
         this.aliases = [];
       } finally {
-        this.aliasesLoading = false;
+        if (selection === this._serverSelectionGeneration) this.aliasesLoading = false;
       }
     },
 

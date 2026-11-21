@@ -10,6 +10,7 @@ export class API {
     // to a remote Cascade instance. The browser never communicates directly
     // with the remote — the token stays on the backend.
     this._remoteId = null;
+    this._remoteSelectionGeneration = 0;
     // Optional callback invoked when a proxy call fails with an unrecoverable
     // error (401 Unauthorized or 5xx server error). The app registers this to
     // auto-switch back to local mode when the remote becomes unavailable.
@@ -20,10 +21,13 @@ export class API {
   }
 
   /** Switch all subsequent calls to go through a remote server proxy. */
-  setRemote(id) { this._remoteId = id; }
+  setRemote(id) {
+    this._remoteId = id;
+    this._remoteSelectionGeneration++;
+  }
 
   /** Switch back to the local server. */
-  clearRemote() { this._remoteId = null; }
+  clearRemote() { this.setRemote(null); }
 
   /** Like call(), but always targets the local server regardless of activeRemoteId. */
   async callLocal(opts) {
@@ -111,10 +115,10 @@ export class API {
       body: body ? JSON.stringify(body) : undefined,
     };
     const generation = this._authGeneration;
-    const remote = this._remoteId;
+    const remoteSelection = this._remoteSelectionGeneration;
     const context = this._readContext?.();
     const safeRead = read && options.method === 'GET';
-    const stillCurrent = () => generation === this._authGeneration && remote === this._remoteId;
+    const stillCurrent = () => generation === this._authGeneration && remoteSelection === this._remoteSelectionGeneration;
     let res, json, invalidJSON;
     let sessionConfirmed = false;
     for (let attempt = 0; attempt < (safeRead ? 2 : 1); attempt++) {
@@ -154,7 +158,7 @@ export class API {
     // the remote becomes temporarily unreachable.
     const isProxyCall = requestRemoteId && effectivePath.startsWith(`/remotes/${requestRemoteId}/proxy`);
     const localSessionExpired = res.status === 401 && res.headers.get('X-Cascade-Session-Expired') === '1';
-    if (!localSessionExpired && isProxyCall && requestRemoteId === this._remoteId && (res.status === 401 || res.status >= 500)) {
+    if (!localSessionExpired && isProxyCall && stillCurrent() && (res.status === 401 || res.status >= 500)) {
       if (typeof this._onRemoteError === 'function') {
         this._onRemoteError(res.status, effectivePath);
       }
