@@ -185,20 +185,29 @@ importInterconnectPeerJSON() {
     // ============================================================
 
 async loadSettings() {
+      const serverKey = this.activeRemoteId || '__local__';
+      const requestId = (this._settingsReadId || 0) + 1;
+      this._settingsReadId = requestId;
+      const isCurrent = () => this._settingsReadId === requestId
+        && serverKey === (this.activeRemoteId || '__local__');
+
       try {
-        this.globalSettings = await this.api.getSettings();
+        const settings = await this.api.getSettings();
+        if (!isCurrent()) return;
+        this.globalSettings = settings;
+        this.settingsServerKey = serverKey;
+        if (!this.activeRemoteId) {
+          this.localServerName = settings.routerName || settings.hostname || '';
+        }
         await this.loadWebAccess();
         await this.loadAliases();
-        if (this.globalSettings.lang && i18n.availableLocales.includes(this.globalSettings.lang)) {
-          i18n.locale = this.globalSettings.lang;
-          localStorage.setItem('lang', this.globalSettings.lang);
-        }
-        // Capture local server name once — never overwrite with remote settings.
-        if (!this.activeRemoteId) {
-          this.localServerName = this.globalSettings.routerName || this.globalSettings.hostname || '';
+        if (!isCurrent()) return;
+        if (settings.lang && i18n.availableLocales.includes(settings.lang)) {
+          i18n.locale = settings.lang;
+          localStorage.setItem('lang', settings.lang);
         }
         const { templates } = await this.api.getTemplates();
-        this.templates = templates;
+        if (isCurrent()) this.templates = templates;
       } catch (err) {
         console.error('loadSettings failed:', err);
       }

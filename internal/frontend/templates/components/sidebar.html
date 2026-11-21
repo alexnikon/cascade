@@ -16,102 +16,41 @@
               </svg>
             </button>
           </div>
-          <!-- Router identity -->
-          <div class="app-nav-divider" style="padding: 0 16px 14px;">
-            <div class="text-sm font-semibold truncate"
-                 :style="{ color: theme === 'dark' ? '#f5f5f5' : '#1f2937', lineHeight: '1.3' }"
-                 :title="globalSettings.routerName || globalSettings.hostname">
-              {{ globalSettings.routerName || globalSettings.hostname || 'Cascade Router' }}
-            </div>
-            <div class="flex items-center gap-1" style="margin-top:3px;">
-              <button type="button" @click="copyPublicIP()"
-                    :disabled="!globalSettings.resolvedPublicIP"
-                    title="Copy public IP"
-                    class="text-xs font-mono truncate"
-                    style="padding:0; border:0; background:none; cursor:pointer; text-align:left;"
-                    :style="{ color: theme === 'dark' ? '#a3a3a3' : '#6b7280' }">
-                {{ globalSettings.resolvedPublicIP || '…' }}
-              </button>
-              <!-- Warning dot if private/unavailable IP -->
-              <span v-if="globalSettings.publicIPWarning"
-                    :title="globalSettings.publicIPWarning"
-                    style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#f59e0b; flex-shrink:0;">
-              </span>
-            </div>
-            <!-- AWG run mode + network mode badges -->
-            <div v-if="globalSettings.awgMode" style="margin-top:5px; display:flex; flex-wrap:wrap; gap:4px;">
-              <!-- WG implementation: KERNEL (green) | USERSPACE (blue) -->
-              <span v-if="globalSettings.awgMode === 'userspace'"
-                    title="Running amneziawg-go (userspace)"
-                    :style="{
-                      display:'inline-block', fontSize:'10px', fontWeight:'600',
-                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
-                      background: theme === 'dark' ? '#1e3a5f' : '#dbeafe',
-                      color:      theme === 'dark' ? '#93c5fd' : '#1d4ed8'
-                    }">
-                USERSPACE
-              </span>
-              <span v-else
-                    title="Running AmneziaWG kernel module"
-                    :style="{
-                      display:'inline-block', fontSize:'10px', fontWeight:'600',
-                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
-                      background: theme === 'dark' ? '#14532d' : '#d1fae5',
-                      color:      theme === 'dark' ? '#86efac' : '#065f46'
-                    }">
-                KERNEL
-              </span>
-              <!-- Docker network mode: HOST (gray) | BRIDGE (amber) | NONE (red) -->
-              <span v-if="globalSettings.networkMode === 'bridge'"
-                    title="Docker bridge network mode — ports are published via docker-compose"
-                    :style="{
-                      display:'inline-block', fontSize:'10px', fontWeight:'600',
-                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
-                      background: theme === 'dark' ? '#451a03' : '#fef3c7',
-                      color:      theme === 'dark' ? '#fcd34d' : '#92400e'
-                    }">
-                BRIDGE
-              </span>
-              <span v-else-if="globalSettings.networkMode === 'none'"
-                    title="Docker none network mode — no external network"
-                    :style="{
-                      display:'inline-block', fontSize:'10px', fontWeight:'600',
-                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
-                      background: theme === 'dark' ? '#3b0a0a' : '#fee2e2',
-                      color:      theme === 'dark' ? '#fca5a5' : '#991b1b'
-                    }">
-                NONE
-              </span>
-              <span v-else
-                    title="Docker host network mode — container shares host network namespace"
-                    :style="{
-                      display:'inline-block', fontSize:'10px', fontWeight:'600',
-                      letterSpacing:'0.04em', padding:'1px 7px', borderRadius:'999px',
-                      background: theme === 'dark' ? '#1f2937' : '#f3f4f6',
-                      color:      theme === 'dark' ? '#9ca3af' : '#374151'
-                    }">
-                HOST
-              </span>
-            </div>
-          </div>
-          <!-- Server switcher (visible only when remotes exist) -->
-          <div v-if="remotes.length" class="app-nav-divider" style="padding: 8px 16px 12px;">
-            <div class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-neutral-500" style="margin-bottom:6px;">Server</div>
-            <div style="position:relative;">
-              <select v-content-select @change="$event.target.value === '__local__' ? switchToLocal() : switchToRemote(remotes.find(r => r.id === $event.target.value))"
-                class="w-full border rounded text-sm dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200"
-                style="padding:5px 8px; appearance:none; cursor:pointer; width:100%;"
-                :value="activeRemoteId || '__local__'">
-                <option value="__local__">🏠 {{ localServerName || pageTitle || 'Local' }}</option>
-                <option v-for="r in remotes" :key="r.id" :value="r.id">🌐 {{ r.name }}</option>
+          <div class="app-nav-divider nav-server">
+            <div v-if="remotes.length" class="nav-server-picker">
+              <select class="nav-server-select" aria-label="Server" :title="activeServerLabel"
+                :value="activeRemoteId || '__local__'"
+                @change="$event.target.value === '__local__' ? switchToLocal() : switchToRemote(remotes.find(r => r.id === $event.target.value))">
+                <option value="__local__">{{ localServerName || (!activeRemoteId ? pageTitle : 'Local') }}</option>
+                <option v-for="r in remotes" :key="r.id" :value="r.id">{{ r.name }}</option>
               </select>
             </div>
-            <!-- Remote mode indicator -->
-            <div v-if="activeRemoteId"
-              style="margin-top:6px; padding:4px 8px; border-radius:6px; background:#fef9c3; border:1px solid #fde047;">
-              <span style="font-size:0.7rem; color:#854d0e; font-weight:600;">
-                ⚡ Managing remote server
-              </span>
+            <div v-else class="nav-server-name truncate" :title="activeServerLabel">{{ activeServerLabel }}</div>
+
+            <div class="nav-server-meta">
+              <template v-if="settingsServerKey === (activeRemoteId || '__local__')">
+                <span class="nav-server-address">
+                  <button type="button" @click="copyPublicIP()"
+                    :disabled="!globalSettings.resolvedPublicIP"
+                    class="nav-server-ip font-mono truncate"
+                    title="Copy public IP">
+                    {{ globalSettings.resolvedPublicIP || '…' }}
+                  </button>
+                  <span v-if="globalSettings.publicIPWarning" class="nav-server-warning"
+                    role="img" :aria-label="globalSettings.publicIPWarning" :title="globalSettings.publicIPWarning"></span>
+                </span>
+                <template v-if="globalSettings.awgMode">
+                  <span v-if="globalSettings.awgMode === 'userspace'" class="ui-badge bg-blue-100"
+                    title="Running amneziawg-go (userspace)">USERSPACE</span>
+                  <span v-else class="ui-badge bg-green-100" title="Running AmneziaWG kernel module">KERNEL</span>
+                  <span v-if="globalSettings.networkMode === 'bridge'" class="ui-badge bg-yellow-100"
+                    title="Docker bridge network mode">BRIDGE</span>
+                  <span v-else-if="globalSettings.networkMode === 'none'" class="ui-badge bg-red-100"
+                    title="Docker none network mode">NONE</span>
+                  <span v-else class="ui-badge bg-gray-100" title="Docker host network mode">HOST</span>
+                </template>
+              </template>
+              <span v-if="activeRemoteId" class="ui-badge bg-yellow-100" title="Managing remote server">REMOTE</span>
             </div>
           </div>
 

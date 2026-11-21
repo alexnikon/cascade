@@ -63,12 +63,25 @@
     --list-separator: var(--light-divider);
   }
   :root {
+    --action-primary: #8628d5;
+    --action-primary-hover: #7020b7;
+    --action-danger: #b91c1c;
+    --action-danger-hover: #991b1b;
+    --control-focus: #7c3aed;
+    --control-text: #1f2937;
+    --control-field-height: 32px;
+    --control-select-height: 22px;
+    --control-action-height: 36px;
+    --control-radius: 8px;
+    --badge-radius: 6px;
     --warning-bg: #fef9c3;
     --warning-border: #e4c956;
     --warning-text: #713f12;
     --warning-link: #854d0e;
   }
   html.dark {
+    --control-text: var(--text-primary);
+    --control-focus: #c4a1ff;
     --warning-bg: #433929;
     --warning-border: #75603a;
     --warning-text: #fcd34d;
@@ -183,24 +196,6 @@
     background: rgba(240, 240, 240, 0.4) !important;
     border-bottom-color: rgba(200, 200, 200, 0.2) !important;
   }
-  /* Toast animations */
-  .toast-enter-active, .toast-leave-active {
-    transition: all 0.3s ease;
-  }
-  .toast-enter, .toast-leave-to {
-    opacity: 0;
-    transform: translateX(110%);
-  }
-  /* Toast colors — !important to override any ancestor stacking-context bleed */
-  .toast-success {
-    background: rgba(21,128,61,0.92) !important;
-    color: #fff !important;
-  }
-  .toast-error {
-    background: rgba(185,28,28,0.92) !important;
-    color: #fff !important;
-  }
-
   /* ── Reusable layout utilities ───────────────────────────────────── */
 
   /* Modal overlay */
@@ -1068,13 +1063,6 @@
     .modal-footer-compact > button {
       min-height: 44px;
       flex: 1 1 140px;
-    }
-    .toast-container {
-      top: calc(8px + env(safe-area-inset-top)) !important;
-      right: 8px !important;
-      left: 8px;
-      width: auto !important;
-      max-width: none !important;
     }
     [style*="position:fixed"][style*="max-width:320px"] {
       max-width: calc(100vw - 24px) !important;

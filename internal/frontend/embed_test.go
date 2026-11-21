@@ -316,7 +316,8 @@ func TestFrontendDarkThemeHasReadableTextDefaults(t *testing.T) {
 		`class="section-title dark:text-neutral-200">{{ sectionTitle }}`,
 		`text-orange-600 dark:text-orange-400`,
 		`text-red-600 dark:text-red-400`,
-		`:class="theme === 'dark' ? (toast.type === 'error' ? 'toast-error' : 'toast-success') : ''"`,
+		`class="toast-card"`,
+		`:aria-live="toast.type === 'error' ? 'assertive' : 'polite'"`,
 		`theme === 'dark' ? 'padding:4px 20px; color:#d4d4d4;'`,
 	} {
 		if !strings.Contains(index, expected) {
@@ -378,7 +379,7 @@ func TestFrontendNavigationThemeAndDashboardDefaults(t *testing.T) {
 		`class="dashboard-page"`,
 		`class="dashboard-scroll"`,
 		`{{ activePage === 'dashboard' ? 'Cascade' : activePageLabel }}`,
-		`class="app-nav-divider"`,
+		`class="app-nav-divider nav-server"`,
 		`style="padding: 8px 8px 0;" class="app-nav-menu"`,
 	} {
 		if !strings.Contains(index, expected) {
@@ -1552,13 +1553,17 @@ func TestDashboardElasticRangeStaysOutsideGridStack(t *testing.T) {
 	}
 }
 
-func TestAllNativeSelectsUseSharedContentSizing(t *testing.T) {
+func TestNativeSelectsUseSharedContentSizing(t *testing.T) {
 	index := readEmbedded(t, "www/index.html")
 	selects := regexp.MustCompile(`<select\b[^>]*>`).FindAllString(index, -1)
 	if len(selects) == 0 {
 		t.Fatal("rendered frontend has no selects")
 	}
 	for _, selectTag := range selects {
+		// The sidebar picker fills the server identity row.
+		if strings.Contains(selectTag, `class="nav-server-select" aria-label="Server"`) {
+			continue
+		}
 		if !strings.Contains(selectTag, "v-content-select") {
 			t.Errorf("select missing shared sizing directive: %s", selectTag)
 		}

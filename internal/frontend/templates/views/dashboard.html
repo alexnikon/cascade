@@ -20,7 +20,7 @@
                       <template v-if="w.type === 'monitoring'">
                         <select v-content-select :value="metricsWidgetPeriod[w.id]||'5m'" @change="metricsOnPeriodChange(w.id, $event.target.value)"
                           class="text-xs dark:text-neutral-300 rounded"
-                          style="padding:1px 4px; border:1px solid transparent; cursor:pointer; background:none; opacity:0.7;"
+                          style="cursor:pointer;"
                           :style="{ color: theme==='dark'?'#d4d4d4':'#374151' }">
                           <option value="5m">5m</option>
                           <option value="1h">1h</option>
