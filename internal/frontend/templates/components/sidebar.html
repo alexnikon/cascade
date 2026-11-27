@@ -7,7 +7,8 @@
           @keydown="onMobileNavKeydown($event)">
           <!-- Logo -->
           <div style="padding: 20px 16px 14px; position:relative;">
-            <img :src="theme === 'dark' ? 'img/logo-dark.svg' : 'img/logo.svg'" style="width:216px; height:auto; display:block;" alt="Cascade" />
+            <img v-if="theme === 'dark'" src="[[ sidebarLogo true ]]" style="width:216px; height:auto; display:block;" alt="Cascade" />
+            <img v-else src="[[ sidebarLogo false ]]" style="width:216px; height:auto; display:block;" alt="Cascade" />
             <button type="button" class="mobile-nav-close" aria-label="Close navigation"
               @click="closeMobileNav()">
               <svg class="mobile-nav-close-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"

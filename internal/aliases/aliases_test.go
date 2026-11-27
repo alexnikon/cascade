@@ -512,3 +512,18 @@ func TestGetPortMatchSpec_NonPortAliasError(t *testing.T) {
 		t.Error("expected error for non-port alias, got nil")
 	}
 }
+
+func TestGetClientGroupsReadsStoredAliases(t *testing.T) {
+	m := initTestDB(t)
+	a := seedIPSetAlias(t, "existing_group")
+	if _, err := db.DB().Exec("UPDATE aliases SET type = 'client-group', rate_down = 250 WHERE id = ?", a.ID); err != nil {
+		t.Fatal(err)
+	}
+	groups, err := m.GetClientGroups()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(groups) != 1 || groups[0].ID != a.ID || groups[0].RateDown != 250 {
+		t.Fatalf("unexpected client groups: %+v", groups)
+	}
+}

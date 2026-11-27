@@ -128,7 +128,10 @@ switchPage(pageId) {
     },
 
 retryPageData() {
-      if (this.activePage === 'dashboard') this.metricsStopPoller();
+      if (this.activePage === 'dashboard') {
+        this.metricsStopPoller();
+        if (this.pageReadErrors['/aliases/client-groups']) this.loadClientGroups();
+      }
       this.loadPageData(this.activePage);
     },
 

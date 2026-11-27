@@ -2,7 +2,9 @@ package frontend
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"html"
 	"image/png"
 	"io"
 	"regexp"
@@ -85,6 +87,23 @@ func TestFrontendTemplatesParseAndRender(t *testing.T) {
 	}
 	if strings.Contains(rendered.String(), "[[ template") {
 		t.Fatal("rendered frontend contains an unresolved template action")
+	}
+}
+
+func TestSidebarLogosAreEmbedded(t *testing.T) {
+	rendered, err := RenderIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, logo := range []string{"logo.svg", "logo-dark.svg"} {
+		svg, err := assets.ReadFile("www/img/" + logo)
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(svg)
+		if !strings.Contains(html.UnescapeString(string(rendered)), src) {
+			t.Errorf("rendered sidebar is missing embedded %s", logo)
+		}
 	}
 }
 

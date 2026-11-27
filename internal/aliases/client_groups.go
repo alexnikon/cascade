@@ -63,8 +63,7 @@ func (m *Manager) GetDefaultGroupID() (string, error) {
 // GetClientGroups returns all aliases of type "client-group", ordered by name.
 func (m *Manager) GetClientGroups() ([]Alias, error) {
 	rows, err := db.DB().Query(`
-		SELECT id, name, description, type, entries, member_ids, ipset_name,
-		       entry_count, generator_opts, last_updated, created_at, rate_down, rate_up
+		SELECT ` + aliasColumns + `
 		FROM aliases WHERE type = 'client-group' ORDER BY name ASC
 	`)
 	if err != nil {
@@ -212,7 +211,7 @@ func (m *Manager) DeleteClientGroup(id string) (movedCount int, err error) {
 	return movedCount, nil
 }
 
-// AssignPeerToDefaultGroup sets group_id = defaultGroupID for all peers where group_id = ''.
+// AssignPeerToDefaultGroup sets group_id = defaultGroupID for all peers where group_id = ”.
 // Called once at startup to migrate existing peers created before client groups were introduced.
 func (m *Manager) AssignPeerToDefaultGroup() error {
 	defaultID, err := m.GetDefaultGroupID()

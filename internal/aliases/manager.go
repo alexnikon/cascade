@@ -124,8 +124,7 @@ func (m *Manager) IpsetMgr() *ipset.Manager {
 // GetAll returns all aliases ordered by created_at ASC.
 func (m *Manager) GetAll() ([]Alias, error) {
 	rows, err := db.DB().Query(`
-		SELECT id, name, description, type, entries, member_ids, ipset_name,
-		       entry_count, generator_opts, last_updated, created_at, rate_down, rate_up, auto_refresh
+		SELECT ` + aliasColumns + `
 		FROM aliases ORDER BY created_at ASC
 	`)
 	if err != nil {
@@ -703,8 +702,7 @@ func (m *Manager) groupEntryCount(memberIDs []string) int {
 
 func queryAlias(where string, args ...any) (*Alias, error) {
 	row := db.DB().QueryRow(`
-		SELECT id, name, description, type, entries, member_ids, ipset_name,
-		       entry_count, generator_opts, last_updated, created_at, rate_down, rate_up, auto_refresh
+		SELECT `+aliasColumns+`
 		FROM aliases `+where, args...)
 
 	a, err := scanAliasRow(row)
@@ -713,6 +711,9 @@ func queryAlias(where string, args ...any) (*Alias, error) {
 	}
 	return a, nil
 }
+
+const aliasColumns = `id, name, description, type, entries, member_ids, ipset_name,
+		       entry_count, generator_opts, last_updated, created_at, rate_down, rate_up, auto_refresh`
 
 // scannable is satisfied by both *sql.Row and *sql.Rows.
 type scannable interface {

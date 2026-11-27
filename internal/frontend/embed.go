@@ -15,6 +15,7 @@ package frontend
 import (
 	"bytes"
 	"embed"
+	"encoding/base64"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -54,7 +55,19 @@ var requiredTemplateNames = []string{
 var pageTemplate = template.Must(parseTemplates(assets))
 
 func parseTemplates(fsys fs.FS) (*template.Template, error) {
-	tmpl := template.New("frontend").Delims("[[", "]]")
+	tmpl := template.New("frontend").Delims("[[", "]]").Funcs(template.FuncMap{
+		"sidebarLogo": func(dark bool) (template.URL, error) {
+			path := "www/img/logo.svg"
+			if dark {
+				path = "www/img/logo-dark.svg"
+			}
+			svg, err := fs.ReadFile(fsys, path)
+			if err != nil {
+				return "", err
+			}
+			return template.URL("data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(svg)), nil
+		},
+	})
 	// The explicit patterns keep the public www/ asset tree separate from
 	// the server-side template sources.
 	parsed, err := tmpl.ParseFS(fsys,
