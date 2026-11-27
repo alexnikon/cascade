@@ -7,6 +7,8 @@ HTTP connections on subsequent requests.
 
 This feature requires Linux host networking, a loopback backend bind, and the
 updated standard Caddy configuration on TCP/UDP 443. It is disabled by default.
+The standard Caddyfile disables 0-RTT on port 443 to avoid a first-navigation
+404 observed in Safari after restarting the browser. HTTP/3 remains enabled.
 The public decoy, ACME HTTP-01 challenge on port 80, and independently configured
 wgbot `/connect/*` and `/webhook/yookassa*` routes remain public.
 

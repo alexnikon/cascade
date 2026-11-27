@@ -59,6 +59,7 @@ _resetAliasCreate() {
       this.aliasCreate = {
         name: '', description: '', type: 'network', entries: '', ipsetEntries: '', memberIds: [],
         genSource: 'country', genCountry: '', genAsn: '', genAsnList: '',
+        autoRefreshEnabled: false, autoRefreshDays: 7,
         file: null, rateDown: 0, rateUp: 0,
       };
     },
@@ -160,6 +161,7 @@ async createAlias() {
           country: this.aliasCreate.genCountry,
           asn:     this.aliasCreate.genAsn,
           asnList: this.aliasCreate.genAsnList,
+          autoRefresh: this._aliasRefreshConfig(this.aliasCreate),
         } : null;
 
         const res = await this.api.createAlias(data);
@@ -194,8 +196,8 @@ async createAlias() {
         }
 
         // Auto-generate when the alias is an ipset with a configured source.
-        if (created.type === 'ipset' && genOpts &&
-            (genOpts.country || genOpts.asn || genOpts.asnList)) {
+        if (created.type === 'ipset' && !ipsetText && !uploadFile &&
+            ({ country: genOpts.country, asn: genOpts.asn, 'asn-list': genOpts.asnList }[genOpts.source] || '').trim()) {
           await this._startAliasGenerate(created.id, genOpts);
         }
       } catch (err) {
@@ -239,6 +241,8 @@ async openAliasEdit(alias) {
         type: alias.type,
         entryCount: alias.entryCount || 0,
         generatorOpts: alias.generatorOpts || null,
+        autoRefreshEnabled: alias.autoRefresh?.enabled || false,
+        autoRefreshDays: alias.autoRefresh?.days || 7,
         entries: hasEntries ? (alias.entries || []).join('\n') : '',
         ipsetEntries: '',
         ipsetEntriesLoading: false,
@@ -289,6 +293,7 @@ async saveAliasEdit() {
           data.rateDown = this.aliasEdit.rateDown || 0;
           data.rateUp = this.aliasEdit.rateUp || 0;
         }
+        if (this.aliasEdit.generatorOpts) data.autoRefresh = this._aliasRefreshConfig(this.aliasEdit);
         await this.api.updateAlias(data);
 
         // For ipset: if user edited entries in textarea — upload new content
@@ -348,12 +353,21 @@ async uploadAliasFile(aliasId, file) {
       }
     },
 
+_aliasRefreshConfig(form) {
+      return { enabled: form.autoRefreshEnabled, days: form.autoRefreshDays };
+    },
+
+_hasAliasGenerationSource(form) {
+      return Boolean(({ country: form.genCountry, asn: form.genAsn, 'asn-list': form.genAsnList }[form.genSource] || '').trim());
+    },
+
 async startAliasGenerate(alias) {
       await this._startAliasGenerate(alias.id, {
         source: this.aliasEdit.genSource,
         country: this.aliasEdit.genCountry,
         asn: this.aliasEdit.genAsn,
         asnList: this.aliasEdit.genAsnList,
+        autoRefresh: this._aliasRefreshConfig(this.aliasEdit),
       });
     },
 
@@ -368,7 +382,7 @@ async _startAliasGenerate(aliasId, opts) {
           this.showToast('Please specify a generation source (country, ASN, or ASN list)', 'error');
           return;
         }
-        const { jobId } = await this.api.generateAlias({ id: aliasId, ...genOpts });
+        const { jobId } = await this.api.generateAlias({ id: aliasId, ...genOpts, autoRefresh: opts.autoRefresh });
         this.aliasGeneratingId = aliasId;
         this.aliasGenerateJobStatus = { status: 'running' };
         this.showToast('Generation started...', 'success');
@@ -399,8 +413,16 @@ _pollAliasJob(aliasId, jobId) {
             return;
           }
           this._stopAliasJobPoll();
+          await this.loadAliases();
           if (status.status === 'done') {
-            await this.loadAliases();
+            if (this.showAliasEdit && this.aliasEdit.id === aliasId) {
+              const updated = this.aliases.find(alias => alias.id === aliasId);
+              if (updated) {
+                this.aliasEdit.generatorOpts = updated.generatorOpts;
+                this.aliasEdit.entryCount = updated.entryCount;
+                this.aliasEdit.ipsetEntries = '';
+              }
+            }
             this.showToast(`Generation done: ${status.entryCount} prefixes`, 'success');
           } else {
             this.showToast(`Generation failed: ${status.error || 'Job no longer available'}`, 'error');

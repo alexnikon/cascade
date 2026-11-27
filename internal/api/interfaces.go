@@ -99,7 +99,7 @@ func peerJSON(p *peer.Peer) fiber.Map {
 		"allowedIPs":             p.AllowedIPs,
 		"clientAllowedIPs":       p.ClientAllowedIPs,
 		"peerType":               p.PeerType,
-		"persistentKeepalive":    p.PersistentKeepalive,
+		"persistentKeepalive":    p.EffectivePersistentKeepalive(),
 		"persistentKeepaliveV3":  p.PersistentKeepaliveV3,
 		"clientKeepaliveTimeout": p.ClientKeepaliveTimeout,
 		"enabled":                p.Enabled,
@@ -191,6 +191,11 @@ func createInterface(c *fiber.Ctx) error {
 	}
 	if body.Protocol == "" {
 		body.Protocol = "amneziawg-3.1"
+	}
+	if body.DomainAliasDNS {
+		if _, err := validate.DNSAddresses(body.DNS); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
 	}
 
 	addr := strings.TrimSpace(body.Address)
@@ -308,6 +313,17 @@ func updateInterface(c *fiber.Ctx) error {
 	}
 	if v, ok := raw["dns"].(string); ok {
 		s := strings.TrimSpace(v)
+		if iface := mgr().GetInterface(id); iface != nil && s != iface.DNS {
+			useCascadeDNS := iface.DomainAliasDNS
+			if upd.DomainAliasDNS != nil {
+				useCascadeDNS = *upd.DomainAliasDNS
+			}
+			if useCascadeDNS {
+				if _, err := validate.DNSAddresses(s); err != nil {
+					return fiber.NewError(fiber.StatusBadRequest, err.Error())
+				}
+			}
+		}
 		upd.DNS = &s
 	}
 	if v, ok := raw["publicHost"].(string); ok {
@@ -616,6 +632,11 @@ func restoreInterface(c *fiber.Ctx) error {
 
 	// Validate restored settings before removing the existing peers.
 	for _, inp := range body.File.Peers {
+		if inp.PersistentKeepalive != nil {
+			if err := peer.ValidatePersistentKeepalive(*inp.PersistentKeepalive); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, err.Error())
+			}
+		}
 		value, err := peer.NormalizeKeepaliveRange(inp.PersistentKeepaliveV3)
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())

@@ -672,13 +672,17 @@
  <!-- DNS Override (optional) -->
                 <div v-if="createMode === 'manual'" class="mb-4">
                   <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                    DNS Override
+                    {{ interfaceCreate.domainAliasDNS ? 'Fallback DNS' : 'DNS Override' }}
                     <span class="text-gray-400 font-normal">(optional)</span>
                   </label>
-                  <input v-model="interfaceCreate.dns" :disabled="interfaceCreate.domainAliasDNS" type="text"
+                  <input v-model="interfaceCreate.dns" type="text"
                     placeholder="e.g. 1.1.1.1, 8.8.8.8"
                     class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                  <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                  <p v-if="interfaceCreate.domainAliasDNS" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                    Comma-separated IPv4 or IPv6 addresses. Leave empty to use only Cascade DNS. Import the updated config on the client.
+                    The client chooses when to use these servers. Queries sent directly to them are not learned for Domain Aliases.
+                  </p>
+                  <p v-else class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
                     DNS servers written into client <code>.conf</code> files for this interface.
                     Leave empty to use the global setting
                     <span v-if="globalSettings.dns"> (currently: <code>{{ globalSettings.dns }}</code>)</span>.
@@ -1143,13 +1147,17 @@
  <!-- DNS Override -->
               <div class="mb-4">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">
-                  DNS Override
+                  {{ interfaceEdit.domainAliasDNS ? 'Fallback DNS' : 'DNS Override' }}
                   <span class="text-gray-400 font-normal">(optional)</span>
                 </label>
-                <input v-model="interfaceEdit.dns" :disabled="interfaceEdit.domainAliasDNS" type="text"
+                <input v-model="interfaceEdit.dns" type="text"
                   placeholder="e.g. 1.1.1.1, 8.8.8.8"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                <p v-if="interfaceEdit.domainAliasDNS" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
+                  Comma-separated IPv4 or IPv6 addresses. Leave empty to use only Cascade DNS. Import the updated config on the client.
+                  The client chooses when to use these servers. Queries sent directly to them are not learned for Domain Aliases.
+                </p>
+                <p v-else class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
                   DNS servers written into client <code>.conf</code> files for this interface.
                   Leave empty to use the global setting
                   <span v-if="globalSettings.dns"> (currently: <code>{{ globalSettings.dns }}</code>)</span>.

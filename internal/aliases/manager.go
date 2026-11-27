@@ -18,6 +18,7 @@
 package aliases
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -25,6 +26,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,6 +47,7 @@ type Alias struct {
 	MemberIDs     []string       `json:"memberIds"`           // for group/port-group
 	IPSetName     string         `json:"ipsetName,omitempty"` // for ipset; _v4 set for domain
 	EntryCount    int            `json:"entryCount"`
+	AutoRefresh   *AutoRefresh   `json:"autoRefresh,omitempty"`
 	GeneratorOpts *GeneratorOpts `json:"generatorOpts"` // null unless generated via RIPEstat
 	LastUpdated   string         `json:"lastUpdated,omitempty"`
 	CreatedAt     string         `json:"createdAt"`
@@ -80,6 +83,11 @@ type PortMatchSpec struct {
 // Manager manages alias CRUD and integrates with IpsetManager for ipset aliases.
 type Manager struct {
 	ipsetMgr *ipset.Manager
+	mu       sync.Mutex
+	running  map[string]string
+	ctx      context.Context
+	cancel   context.CancelFunc
+	workers  sync.WaitGroup
 
 	// dropKernelRefs re-emits the kernel firewall rules from the current alias
 	// configuration. Set by main.go to firewall.RebuildChains; nil in tests and
@@ -102,7 +110,8 @@ var aliasNameRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,62}$`)
 // New creates a Manager backed by the given IpsetManager.
 // db.Init() must have been called before New().
 func New(im *ipset.Manager) *Manager {
-	return &Manager{ipsetMgr: im}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Manager{ipsetMgr: im, running: make(map[string]string), ctx: ctx, cancel: cancel}
 }
 
 // IpsetMgr returns the underlying ipset.Manager for low-level operations (e.g. DestroyAll during restore).
@@ -116,7 +125,7 @@ func (m *Manager) IpsetMgr() *ipset.Manager {
 func (m *Manager) GetAll() ([]Alias, error) {
 	rows, err := db.DB().Query(`
 		SELECT id, name, description, type, entries, member_ids, ipset_name,
-		       entry_count, generator_opts, last_updated, created_at, rate_down, rate_up
+		       entry_count, generator_opts, last_updated, created_at, rate_down, rate_up, auto_refresh
 		FROM aliases ORDER BY created_at ASC
 	`)
 	if err != nil {
@@ -147,6 +156,11 @@ func (m *Manager) GetByName(name string) (*Alias, error) {
 
 // Create creates a new alias.
 func (m *Manager) Create(data Alias) (*Alias, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if data.AutoRefresh != nil {
+		return nil, fmt.Errorf("configure auto-refresh with the generation request")
+	}
 	if err := validateName(data.Name); err != nil {
 		return nil, err
 	}
@@ -268,6 +282,8 @@ func (m *Manager) Create(data Alias) (*Alias, error) {
 // Update applies partial updates to an existing alias.
 // Type cannot be changed.
 func (m *Manager) Update(id string, data Alias) (*Alias, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	a, err := m.getOrNotFound(id)
 	if err != nil {
 		return nil, err
@@ -293,6 +309,11 @@ func (m *Manager) Update(id string, data Alias) (*Alias, error) {
 		a.Name = newName
 	}
 
+	if data.AutoRefresh != nil {
+		if err := configureRefresh(a, data.AutoRefresh, time.Now()); err != nil {
+			return nil, err
+		}
+	}
 	a.Description = strings.TrimSpace(data.Description)
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -376,9 +397,15 @@ func (m *Manager) Update(id string, data Alias) (*Alias, error) {
 // For client-group aliases, moves peers to default and then deletes.
 // Returns an error if the alias is referenced by a group.
 func (m *Manager) Delete(id string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	a, err := m.getOrNotFound(id)
 	if err != nil {
 		return err
+	}
+
+	if a.Type == "ipset" && m.running[a.IPSetName] != "" {
+		return ErrGenerationRunning
 	}
 
 	// client-group: delegate to dedicated method (moves peers, destroys ipset).
@@ -466,6 +493,8 @@ func (m *Manager) GetIPSetEntries(id string) ([]string, error) {
 // UploadFromFile loads CIDRs from a plain-text file into an ipset alias.
 // Only valid for type=ipset.
 func (m *Manager) UploadFromFile(id, filePath string) (*Alias, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	a, err := m.getOrNotFound(id)
 	if err != nil {
 		return nil, err
@@ -474,18 +503,19 @@ func (m *Manager) UploadFromFile(id, filePath string) (*Alias, error) {
 		return nil, fmt.Errorf("upload only supported for ipset-type aliases")
 	}
 
-	count, err := m.ipsetMgr.LoadFromFile(a.IPSetName, filePath)
+	if m.running[a.IPSetName] != "" {
+		return nil, ErrGenerationRunning
+	}
+	count, err := m.ipsetMgr.LoadAndSaveFromFile(a.IPSetName, filePath)
 	if err != nil {
 		return nil, fmt.Errorf("load ipset: %w", err)
-	}
-	if err := m.ipsetMgr.SaveSet(a.IPSetName); err != nil {
-		log.Printf("aliases: saveSet %s after upload: %v", a.IPSetName, err)
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	a.EntryCount = count
 	a.LastUpdated = now
 	a.GeneratorOpts = nil // manual upload — clear generator opts
+	a.AutoRefresh = nil
 
 	if err := updateAlias(a); err != nil {
 		return nil, err
@@ -493,65 +523,6 @@ func (m *Manager) UploadFromFile(id, filePath string) (*Alias, error) {
 
 	log.Printf("aliases: %s uploaded %d entries from file", id, count)
 	return a, nil
-}
-
-// StartGenerate starts an async generation job for an ipset alias via RIPEstat.
-// Returns a jobID to poll with GetJobStatus.
-// Only valid for type=ipset.
-func (m *Manager) StartGenerate(id string, opts GeneratorOpts) (string, error) {
-	a, err := m.getOrNotFound(id)
-	if err != nil {
-		return "", err
-	}
-	if a.Type != "ipset" {
-		return "", fmt.Errorf("generate only supported for ipset-type aliases")
-	}
-
-	// Persist generator opts for future reference.
-	a.GeneratorOpts = &opts
-	if err := updateAlias(a); err != nil {
-		return "", err
-	}
-
-	jobID, err := m.ipsetMgr.RunGenerator(a.IPSetName, ipset.GenerateOpts{
-		Country: opts.Country,
-		ASN:     opts.ASN,
-		ASNList: opts.ASNList,
-	})
-	if err != nil {
-		return "", fmt.Errorf("run generator: %w", err)
-	}
-
-	// Background watcher: updates entryCount when the job completes.
-	go m.watchJob(jobID, id)
-
-	return jobID, nil
-}
-
-// GetJobStatus returns the status of a generation job.
-func (m *Manager) GetJobStatus(jobID string) ipset.JobStatus {
-	return m.ipsetMgr.GetJobStatus(jobID)
-}
-
-// FinalizeGeneration eagerly writes entryCount to the alias DB row when the
-// job is done. Called from the HTTP polling handler so the DB is guaranteed to
-// be up-to-date before the frontend receives the "done" response and calls
-// loadAliases(). This fixes the race condition where watchJob's 2-second sleep
-// interval causes the DB update to arrive after the frontend's 3-second poll.
-// The write is idempotent — if watchJob already updated the row, this is a no-op.
-func (m *Manager) FinalizeGeneration(aliasID string, entryCount int) {
-	a, err := m.GetByID(aliasID)
-	if err != nil || a == nil {
-		return
-	}
-	if a.EntryCount == entryCount {
-		return // already up to date
-	}
-	a.EntryCount = entryCount
-	a.LastUpdated = time.Now().UTC().Format(time.RFC3339)
-	if err := updateAlias(a); err != nil {
-		log.Printf("aliases: FinalizeGeneration %s: %v", aliasID, err)
-	}
 }
 
 // ── Match specs (used by FirewallManager) ────────────────────────────────────
@@ -728,38 +699,12 @@ func (m *Manager) groupEntryCount(memberIDs []string) int {
 }
 
 // watchJob polls until the generation job is complete, then updates entryCount in DB.
-func (m *Manager) watchJob(jobID, aliasID string) {
-	for {
-		time.Sleep(2 * time.Second)
-		status := m.ipsetMgr.GetJobStatus(jobID)
-		if status.Status == "running" {
-			continue
-		}
-		if status.Status == "done" {
-			a, err := m.GetByID(aliasID)
-			if err != nil || a == nil {
-				return
-			}
-			a.EntryCount = status.EntryCount
-			a.LastUpdated = time.Now().UTC().Format(time.RFC3339)
-			if err := updateAlias(a); err != nil {
-				log.Printf("aliases: watchJob %s: update failed: %v", jobID, err)
-			} else {
-				log.Printf("aliases: job %s done — alias %s now has %d entries", jobID, aliasID, a.EntryCount)
-			}
-		} else {
-			log.Printf("aliases: job %s failed for alias %s: %s", jobID, aliasID, status.Error)
-		}
-		return
-	}
-}
-
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
 func queryAlias(where string, args ...any) (*Alias, error) {
 	row := db.DB().QueryRow(`
 		SELECT id, name, description, type, entries, member_ids, ipset_name,
-		       entry_count, generator_opts, last_updated, created_at, rate_down, rate_up
+		       entry_count, generator_opts, last_updated, created_at, rate_down, rate_up, auto_refresh
 		FROM aliases `+where, args...)
 
 	a, err := scanAliasRow(row)
@@ -780,13 +725,14 @@ func scanAliasRow(s scannable) (*Alias, error) {
 		memberIDsJSON string
 		generatorJSON string
 		lastUpdated   string
+		refreshJSON   string
 	)
 	var a Alias
 	err := s.Scan(
 		&a.ID, &a.Name, &a.Description, &a.Type,
 		&entriesJSON, &memberIDsJSON, &a.IPSetName,
 		&a.EntryCount, &generatorJSON, &lastUpdated, &a.CreatedAt,
-		&a.RateDown, &a.RateUp,
+		&a.RateDown, &a.RateUp, &refreshJSON,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -814,6 +760,11 @@ func scanAliasRow(s scannable) (*Alias, error) {
 	if a.MemberIDs == nil {
 		a.MemberIDs = []string{}
 	}
+	if refreshJSON != "" {
+		if err := json.Unmarshal([]byte(refreshJSON), &a.AutoRefresh); err != nil {
+			return nil, fmt.Errorf("alias auto-refresh: %w", err)
+		}
+	}
 	a.LastUpdated = lastUpdated
 
 	return &a, nil
@@ -827,12 +778,12 @@ func insertAlias(a *Alias) error {
 	_, err := db.DB().Exec(`
 		INSERT INTO aliases
 		    (id, name, description, type, entries, member_ids, ipset_name,
-		     entry_count, generator_opts, last_updated, created_at, rate_down, rate_up)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		     entry_count, generator_opts, last_updated, created_at, rate_down, rate_up, auto_refresh)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		a.ID, a.Name, a.Description, a.Type,
 		string(entriesJSON), string(memberIDsJSON), a.IPSetName,
 		a.EntryCount, generatorJSON, a.LastUpdated, a.CreatedAt,
-		a.RateDown, a.RateUp,
+		a.RateDown, a.RateUp, marshalRefresh(a.AutoRefresh),
 	)
 	if err != nil {
 		return fmt.Errorf("insert alias: %w", err)
@@ -848,12 +799,12 @@ func updateAlias(a *Alias) error {
 	_, err := db.DB().Exec(`
 		UPDATE aliases SET
 		    name=?, description=?, entries=?, member_ids=?, ipset_name=?,
-		    entry_count=?, generator_opts=?, last_updated=?, rate_down=?, rate_up=?
+		    entry_count=?, generator_opts=?, last_updated=?, rate_down=?, rate_up=?, auto_refresh=?
 		WHERE id=?`,
 		a.Name, a.Description,
 		string(entriesJSON), string(memberIDsJSON), a.IPSetName,
 		a.EntryCount, generatorJSON, a.LastUpdated,
-		a.RateDown, a.RateUp,
+		a.RateDown, a.RateUp, marshalRefresh(a.AutoRefresh),
 		a.ID,
 	)
 	if err != nil {

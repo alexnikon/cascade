@@ -171,9 +171,15 @@ func createPeer(c *fiber.Ctx) error {
 	if inp.ClientAllowedIPs == "" {
 		inp.ClientAllowedIPs = d.ClientAllowedIPs
 	}
-	if inp.PersistentKeepalive == 0 {
-		inp.PersistentKeepalive = d.PersistentKeepalive
+	keepalive, err := requestOptionalKeepalive(c, "persistentKeepalive")
+	if err != nil {
+		return err
 	}
+	inp.PersistentKeepalive = d.PersistentKeepalive
+	if keepalive != nil {
+		inp.PersistentKeepalive = *keepalive
+	}
+	inp.PreserveZeroPersistentKeepalive = true
 	// Auto-assign client peers to default group when no group specified.
 	if inp.PeerType == "client" && inp.GroupID == "" {
 		if defaultID, err := aliases.Get().GetDefaultGroupID(); err == nil {
@@ -252,8 +258,13 @@ func importPeerJSON(c *fiber.Ctx) error {
 	if keepaliveRange != nil {
 		inp.PersistentKeepaliveV3 = *keepaliveRange
 	}
-	if v, ok := body["persistentKeepalive"].(float64); ok {
-		inp.PersistentKeepalive = int(v)
+	keepalive, err := requestOptionalKeepalive(c, "persistentKeepalive")
+	if err != nil {
+		return err
+	}
+	if keepalive != nil {
+		inp.PersistentKeepalive = *keepalive
+		inp.PreserveZeroPersistentKeepalive = true
 	}
 	// AddPeer generates a PSK only for this Cascade↔Cascade S2S path when the
 	// exported data did not already contain one.
@@ -426,10 +437,11 @@ func updatePeer(c *fiber.Ctx) error {
 		s := strings.TrimSpace(v)
 		upd.Endpoint = &s
 	}
-	if v, ok := raw["persistentKeepalive"].(float64); ok {
-		n := int(v)
-		upd.PersistentKeepalive = &n
+	keepalive, err := requestOptionalKeepalive(c, "persistentKeepalive")
+	if err != nil {
+		return err
 	}
+	upd.PersistentKeepalive = keepalive
 	if v, ok := raw["enabled"].(bool); ok {
 		upd.Enabled = &v
 	}
@@ -665,7 +677,7 @@ func exportPeerJSON(c *fiber.Ctx) error {
 		"publicKey":             p.PublicKey,
 		"presharedKey":          p.PresharedKey,
 		"endpoint":              endpoint,
-		"persistentKeepalive":   p.PersistentKeepalive,
+		"persistentKeepalive":   p.EffectivePersistentKeepalive(),
 		"persistentKeepaliveV3": p.PersistentKeepaliveV3,
 		"allowedIPs":            p.AllowedIPs,     // this side's tunnel IP /32
 		"clientAllowedIPs":      clientAllowedIPs, // what remote will route through us
@@ -687,4 +699,20 @@ func requestOptionalPeerString(c *fiber.Ctx, field string) (*string, error) {
 		return nil, fiber.NewError(fiber.StatusBadRequest, field+" must be a string")
 	}
 	return &text, nil
+}
+
+func requestOptionalKeepalive(c *fiber.Ctx, field string) (*int, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(c.Body(), &raw); err != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
+	}
+	value, exists := raw[field]
+	if !exists {
+		return nil, nil
+	}
+	var n *int
+	if json.Unmarshal(value, &n) != nil || n == nil || peer.ValidatePersistentKeepalive(*n) != nil {
+		return nil, fiber.NewError(fiber.StatusBadRequest, field+" must be an integer from 0 to 65535")
+	}
+	return n, nil
 }

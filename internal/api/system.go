@@ -247,6 +247,9 @@ func systemRestore(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid backup: "+err.Error())
 	}
 
+	// Drain ipset generation before snapshotting and replacing its files.
+	aliases.Get().StopAutoRefresh()
+
 	// Step 1: Auto-backup current state to data/pre-restore-TIMESTAMP.tar.gz.
 	autoBackupName := fmt.Sprintf("pre-restore-%s.tar.gz", time.Now().UTC().Format("20060102-150405"))
 	autoBackupPath := filepath.Join(systemDataDir, autoBackupName)

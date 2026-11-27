@@ -9,8 +9,10 @@
 package ipset
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -25,6 +27,7 @@ import (
 
 // JobStatus represents the current state of an async prefix-generation job.
 type JobStatus struct {
+	AliasID     string    `json:"-"`
 	Status      string    `json:"status"`               // "running" | "done" | "error" | "unknown"
 	EntryCount  int       `json:"entryCount,omitempty"` // populated when status == "done"
 	CompletedAt time.Time `json:"-"`
@@ -145,10 +148,19 @@ func (m *Manager) SetExists(name string) bool {
 // into the named ipset using an atomic swap via a temporary set.
 // Returns the number of entries loaded.
 func (m *Manager) LoadFromFile(name, filePath string) (int, error) {
+	return m.loadFromFile(name, filePath, false)
+}
+
+// LoadAndSaveFromFile replaces the live set and saves it for restart.
+func (m *Manager) LoadAndSaveFromFile(name, filePath string) (int, error) {
+	return m.loadFromFile(name, filePath, true)
+}
+
+func (m *Manager) loadFromFile(name, filePath string, persist bool) (int, error) {
 	if err := m.validateName(name); err != nil {
 		return 0, err
 	}
-	tmpName := name + "_tmp"
+	tmpName := "cas_tmp_" + randomHex(8)
 
 	cleanup := func() {
 		util.ExecSilent(fmt.Sprintf("ipset destroy %s 2>/dev/null || true", tmpName)) //nolint:errcheck
@@ -205,6 +217,16 @@ func (m *Manager) LoadFromFile(name, filePath string) (int, error) {
 		cleanup()
 		return 0, fmt.Errorf("ipset swap: %w", err)
 	}
+	if persist {
+		if err := m.SaveSet(name); err != nil {
+			if _, rollbackErr := util.ExecDefault(fmt.Sprintf("ipset swap %s %s", tmpName, name)); rollbackErr != nil {
+				return 0, errors.Join(err, fmt.Errorf("restore previous ipset from %s: %w", tmpName, rollbackErr))
+			}
+			cleanup()
+			return 0, err
+		}
+	}
+
 	util.ExecSilent(fmt.Sprintf("ipset destroy %s 2>/dev/null || true", tmpName)) //nolint:errcheck
 
 	return len(lines), nil
@@ -265,8 +287,12 @@ func (m *Manager) SaveSet(name string) error {
 		return err
 	}
 	saveFile := filepath.Join(m.dataDir, name+".save")
-	_, err := util.ExecDefault(fmt.Sprintf("ipset save %s > %s", name, saveFile))
-	return err
+	tmp := saveFile + ".tmp"
+	defer os.Remove(tmp) //nolint:errcheck
+	if _, err := util.ExecDefault(fmt.Sprintf("ipset save %s > %s", name, tmp)); err != nil {
+		return err
+	}
+	return os.Rename(tmp, saveFile)
 }
 
 // GetEntryCount returns the number of entries in the named ipset (0 on error).
@@ -309,77 +335,64 @@ func (m *Manager) GetEntryCount(name string) int {
 
 // RunGenerator starts an async job that fetches prefixes from RIPEstat and loads
 // them into the named ipset. Returns a job ID that can be polled with GetJobStatus.
-func (m *Manager) RunGenerator(name string, opts GenerateOpts) (string, error) {
+func (m *Manager) RunGenerator(ctx context.Context, aliasID, name string, opts GenerateOpts, finish func(JobStatus) error) (string, error) {
 	if err := m.validateName(name); err != nil {
 		return "", err
 	}
 	jobID := randomHex(8)
-	m.jobs.Store(jobID, JobStatus{Status: "running"})
-	go m.runGeneratorAsync(jobID, name, opts)
+	m.jobs.Store(jobID, JobStatus{AliasID: aliasID, Status: "running"})
+	go func() {
+		count, err := m.generate(ctx, name, opts)
+		status := JobStatus{AliasID: aliasID, Status: "done", EntryCount: count}
+		if err != nil {
+			status.Status, status.Error = "error", err.Error()
+		}
+		if err := finish(status); err != nil {
+			status.Status, status.Error = "error", fmt.Sprintf("save generation status: %v", err)
+		}
+		status.CompletedAt = time.Now()
+		m.jobs.Store(jobID, status)
+		log.Printf("ipset: job %s for %s: %s (%d entries) %s", jobID, name, status.Status, count, status.Error)
+	}()
 	return jobID, nil
 }
 
-// GetJobStatus returns the current status of a generation job.
-func (m *Manager) GetJobStatus(jobID string) JobStatus {
+func (m *Manager) GetJobStatus(jobID, aliasID string) JobStatus {
 	if v, ok := m.jobs.Load(jobID); ok {
-		return v.(JobStatus)
+		status := v.(JobStatus)
+		if status.AliasID == aliasID {
+			return status
+		}
 	}
 	return JobStatus{Status: "unknown"}
 }
 
-// ── Private ───────────────────────────────────────────────────────────────────
-
-func (m *Manager) runGeneratorAsync(jobID, name string, opts GenerateOpts) {
-	outFile := filepath.Join(m.dataDir, name+"_generated.txt")
-
-	var (
-		prefixes []string
-		err      error
-	)
+func (m *Manager) generate(ctx context.Context, name string, opts GenerateOpts) (int, error) {
+	var prefixes []string
+	var err error
 	switch {
 	case opts.ASNList != "":
-		prefixes, err = fetchASNList(opts.ASNList)
+		prefixes, err = fetchASNList(ctx, opts.ASNList)
 	case opts.ASN != "":
-		prefixes, err = fetchASN(opts.ASN)
+		prefixes, err = fetchASN(ctx, opts.ASN)
 	case opts.Country != "":
-		prefixes, err = fetchCountry(opts.Country)
-	default:
-		err = fmt.Errorf("GenerateOpts must include Country, ASN, or ASNList")
+		prefixes, err = fetchCountry(ctx, opts.Country)
 	}
-
 	if err != nil {
-		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: err.Error()})
-		return
+		return 0, err
 	}
 	if len(prefixes) == 0 {
-		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: "no prefixes returned — check source params"})
-		return
+		return 0, errors.New("no prefixes returned — check source params")
 	}
-
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	outFile := filepath.Join(m.dataDir, name+"_generated.txt")
+	defer os.Remove(outFile) //nolint:errcheck
 	if err := writeToFile(prefixes, outFile); err != nil {
-		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: err.Error()})
-		return
+		return 0, err
 	}
-
-	if err := m.CreateSet(name); err != nil {
-		os.Remove(outFile) //nolint:errcheck
-		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: err.Error()})
-		return
-	}
-
-	entryCount, err := m.LoadFromFile(name, outFile)
-	os.Remove(outFile) //nolint:errcheck
-	if err != nil {
-		m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "error", Error: err.Error()})
-		return
-	}
-
-	if err := m.SaveSet(name); err != nil {
-		log.Printf("ipset: job %s: SaveSet failed: %v", jobID, err)
-	}
-
-	m.jobs.Store(jobID, JobStatus{CompletedAt: time.Now(), Status: "done", EntryCount: entryCount})
-	log.Printf("ipset: job %s done — %d entries loaded into %s", jobID, entryCount, name)
+	return m.LoadAndSaveFromFile(name, outFile)
 }
 
 func (m *Manager) validateName(name string) error {

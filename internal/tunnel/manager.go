@@ -469,19 +469,20 @@ func (m *Manager) ImportConf(name, confContent string) (*ImportConfResult, error
 		allowedIPs = "0.0.0.0/0"
 	}
 	keepalive := parsed.PeerKeepalive
-	if keepalive == 0 {
+	if keepalive == 0 && (!parsed.PeerKeepaliveSet || parsed.PeerKeepaliveV3 != "") {
 		keepalive = 25
 	}
 	p, err := iface.AddPeer(peer.PeerInput{
-		Name:                  "upstream",
-		PublicKey:             parsed.PeerPublicKey,
-		PresharedKey:          parsed.PeerPresharedKey,
-		Endpoint:              parsed.PeerEndpoint,
-		AllowedIPs:            allowedIPs,
-		ClientAllowedIPs:      allowedIPs,
-		PeerType:              "interconnect",
-		PersistentKeepalive:   keepalive,
-		PersistentKeepaliveV3: parsed.PeerKeepaliveV3,
+		Name:                            "upstream",
+		PublicKey:                       parsed.PeerPublicKey,
+		PresharedKey:                    parsed.PeerPresharedKey,
+		Endpoint:                        parsed.PeerEndpoint,
+		AllowedIPs:                      allowedIPs,
+		ClientAllowedIPs:                allowedIPs,
+		PeerType:                        "interconnect",
+		PersistentKeepalive:             keepalive,
+		PreserveZeroPersistentKeepalive: true,
+		PersistentKeepaliveV3:           parsed.PeerKeepaliveV3,
 	})
 	if err != nil {
 		// Roll back the interface so no orphan is left in the DB.
@@ -578,14 +579,15 @@ func (m *Manager) ImportConfAsServer(name, confContent string) (*ImportConfAsSer
 		addr = strings.TrimSpace(strings.SplitN(addr, ",", 2)[0])
 		name := fmt.Sprintf("peer-%d", i+1)
 		_, addErr := iface.AddPeer(peer.PeerInput{
-			Name:                  name,
-			PublicKey:             pp.PublicKey,
-			PresharedKey:          pp.PresharedKey,
-			AllowedIPs:            addr,
-			Address:               addr,
-			PeerType:              "client",
-			PersistentKeepalive:   pp.Keepalive,
-			PersistentKeepaliveV3: pp.KeepaliveV3,
+			Name:                            name,
+			PublicKey:                       pp.PublicKey,
+			PresharedKey:                    pp.PresharedKey,
+			AllowedIPs:                      addr,
+			Address:                         addr,
+			PeerType:                        "client",
+			PersistentKeepalive:             pp.Keepalive,
+			PreserveZeroPersistentKeepalive: pp.KeepaliveSet && pp.KeepaliveV3 == "",
+			PersistentKeepaliveV3:           pp.KeepaliveV3,
 		})
 		if addErr != nil {
 			peersFailed = append(peersFailed, fmt.Sprintf("%s: %v", name, addErr))
@@ -853,10 +855,27 @@ func (m *Manager) BuildPeerRemoteConfig(t *TunnelInterface, p *peer.Peer) (strin
 		awg2 = &cp
 	}
 
+	dns := t.DNS
+	var cascadeDNS string
 	if t.DomainAliasDNS {
-		if _, _, err := net.ParseCIDR(t.Address); err != nil {
+		ip, _, err := net.ParseCIDR(t.Address)
+		if err != nil {
 			return "", fmt.Errorf("Cascade DNS requires a valid tunnel address: %w", err)
 		}
+		cascadeDNS = ip.String()
+		servers := []string{cascadeDNS}
+		seen := map[string]bool{cascadeDNS: true}
+		fallbacks, _ := validate.DNSAddresses(t.DNS)
+		for _, addr := range fallbacks {
+			server := addr.String()
+			if !seen[server] {
+				servers = append(servers, server)
+				seen[server] = true
+			}
+		}
+		dns = strings.Join(servers, ", ")
+	} else if dns == "" {
+		dns = gs.DNS
 	}
 
 	// Resolve MTU: per-interface override takes priority over global setting.
@@ -866,25 +885,14 @@ func (m *Manager) BuildPeerRemoteConfig(t *TunnelInterface, p *peer.Peer) (strin
 	}
 
 	ifaceData := peer.InterfaceData{
-		ID:             t.ID,
-		Name:           t.Name,
-		Protocol:       t.Protocol,
-		PublicKey:      t.PublicKey,
-		Address:        t.Address,
-		ListenPort:     t.ListenPort,
-		DomainAliasDNS: t.DomainAliasDNS,
-		DNS: func() string {
-			if t.DomainAliasDNS {
-				ip, _, err := net.ParseCIDR(t.Address)
-				if err == nil {
-					return ip.String()
-				}
-			}
-			if t.DNS != "" {
-				return t.DNS
-			}
-			return gs.DNS
-		}(),
+		ID:                      t.ID,
+		Name:                    t.Name,
+		Protocol:                t.Protocol,
+		PublicKey:               t.PublicKey,
+		Address:                 t.Address,
+		ListenPort:              t.ListenPort,
+		CascadeDNS:              cascadeDNS,
+		DNS:                     dns,
 		DefaultClientAllowedIPs: gs.DefaultClientAllowedIPs,
 		Host:                    t.resolvedHost(settings.GetWGHost(m.WGHost)),
 		Settings:                awg2,

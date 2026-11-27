@@ -403,11 +403,14 @@ peers only. Interface responses include `domainAliasDNSStatus` with `address`,
 `ready` and an optional `error`. Upstream DNS uses the system resolver configuration;
 self-referencing upstreams are excluded. A port conflict is reported as an error.
 
-Generated client downloads use only the tunnel
-address as DNS while this mode is enabled. The address is included in split-tunnel
-`AllowedIPs` as needed. Existing clients must import the updated configuration.
-Stored per-interface and global DNS settings remain available when the mode is
-disabled. Host firewall INPUT policy must allow client DNS to the tunnel address.
+Client configs list the tunnel address first, followed by any comma-separated
+IPv4 or IPv6 addresses in the interface's `dns` field. An empty field uses
+only the tunnel address. Cascade adds a split-tunnel `AllowedIPs` route as
+needed for its own DNS address. The client chooses when to use the additional
+servers. Only queries handled by Cascade can be used to learn Domain Aliases.
+When this mode is disabled, `dns` is the regular interface override and falls
+back to the global DNS setting when empty. Existing clients must import the
+updated config. Host firewall INPUT policy must allow client DNS to the tunnel address.
 
 Domain alias `entries` accepts exact names and a single leading `*.` suffix.
 `*.googlevideo.com` matches `r1.googlevideo.com` and deeper subdomains, but not

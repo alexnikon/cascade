@@ -665,6 +665,8 @@ new Vue({
       genCountry: '',
       genAsn: '',
       genAsnList: '',
+      autoRefreshEnabled: false,
+      autoRefreshDays: 7,
       file: null,               // optional CIDR file for ipset (uploaded immediately after create)
       rateDown: 0,              // kbps; 0 = unlimited (client-group only)
       rateUp: 0,
@@ -683,6 +685,8 @@ new Vue({
       genCountry: '',
       genAsn: '',
       genAsnList: '',
+      autoRefreshEnabled: false,
+      autoRefreshDays: 7,
       rateDown: 0,              // kbps; 0 = unlimited (client-group only)
       rateUp: 0,
     },

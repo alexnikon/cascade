@@ -897,11 +897,11 @@ export class API {
    * @param {{ id: string, country?, asn?, asnList? }}
    * @returns {{ jobId: string }}
    */
-  async generateAlias({ id, country, asn, asnList }) {
+  async generateAlias({ id, country, asn, asnList, autoRefresh }) {
     return this.call({
       method: 'post',
       path: `/aliases/${id}/generate`,
-      body: { country, asn, asnList },
+      body: { country, asn, asnList, autoRefresh },
     });
   }
 

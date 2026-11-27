@@ -608,7 +608,7 @@ func TestDerivePublicKey_AcceptsWellFormedKeyFormat(t *testing.T) {
 func TestCascadeDNSRoutesInCompleteAndTemplateConfigs(t *testing.T) {
 	for _, key := range []string{"", "private-key"} {
 		p := &Peer{PrivateKey: key, ClientAllowedIPs: "192.0.2.0/24"}
-		iface := InterfaceData{DNS: "10.101.0.1", DomainAliasDNS: true}
+		iface := InterfaceData{DNS: "10.101.0.1", CascadeDNS: "10.101.0.1"}
 		cfg := p.GenerateRemoteConfig(iface)
 		if !strings.Contains(cfg, "DNS = 10.101.0.1\n") || !strings.Contains(cfg, "AllowedIPs = 192.0.2.0/24, 10.101.0.1/32") {
 			t.Fatalf("config: %s", cfg)

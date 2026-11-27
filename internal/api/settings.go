@@ -124,6 +124,9 @@ func RegisterSettings(api fiber.Router) {
 		if err := c.BodyParser(&body); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid JSON body")
 		}
+		if _, err := requestOptionalKeepalive(c, "defaultPersistentKeepalive"); err != nil {
+			return err
+		}
 		if raw, exists := body["defaultClientKeepaliveTimeout"]; exists {
 			timeout, ok := raw.(string)
 			if !ok {

@@ -786,3 +786,28 @@ func TestDomainAliasDNSRemoteProxy(t *testing.T) {
 		t.Fatalf("unexpected remote update: %v", updated)
 	}
 }
+
+func TestDefaultScalarKeepaliveCanBeDisabled(t *testing.T) {
+	sta := newSettingsTestApp(t)
+	ta := &testApp{app: sta.app, adminToken: sta.token}
+	for _, value := range []any{-1, 65536, 1.5, nil, "25"} {
+		resp := sta.put(t, map[string]any{"defaultPersistentKeepalive": value})
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("accepted invalid default %v, status: %d", value, resp.StatusCode)
+		}
+		resp.Body.Close()
+	}
+	resp := sta.put(t, map[string]any{"defaultPersistentKeepalive": 0})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("disable status: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	db.Close()
+	if err := db.Init(sta.dataDir); err != nil {
+		t.Fatal(err)
+	}
+	resp = ta.do("GET", "/api/settings", sta.token, nil)
+	if got := decodeBody(resp)["defaultPersistentKeepalive"]; got != float64(0) {
+		t.Fatalf("reopened database default: %v", got)
+	}
+}

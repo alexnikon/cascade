@@ -35,11 +35,12 @@ def direct(path, body=None, token=''):
         return json.load(response)
 
 
-def request(namespace, path, expected=200, token='', body=None, source='', host='198.51.100.10', spoof=False):
+def request(namespace, path, expected=200, token='', body=None, source='', host='198.51.100.10', spoof=False, cache_control=None):
     authority = f'[{host}]' if ':' in host else host
+    response_format = '%{http_code}' if cache_control is None else '%{http_code} %{header_json}'
     command = ['ip', 'netns', 'exec', namespace, 'curl', '-sS', '--cacert', '/certs/server.crt',
                '--connect-timeout', '1', '--max-time', '3', '--noproxy', '*', '-o', '/tmp/response-' + namespace,
-               '-w', '%{http_code}', f'https://{authority}{path}']
+               '-w', response_format, f'https://{authority}{path}']
     if token:
         command += ['-H', 'Authorization: Bearer ' + token]
     if body is not None:
@@ -52,7 +53,10 @@ def request(namespace, path, expected=200, token='', body=None, source='', host=
     if expected == 0:
         assert response.returncode != 0, (namespace, path, response.stdout)
     else:
-        assert response.returncode == 0 and response.stdout == str(expected), (namespace, path, response.stdout, response.stderr)
+        status, _, headers = response.stdout.partition(' ')
+        assert response.returncode == 0 and status == str(expected), (namespace, path, response.stdout, response.stderr)
+        if cache_control is not None:
+            assert json.loads(headers).get('cache-control') == [cache_control], (namespace, path, headers)
     return Path('/tmp/response-' + namespace).read_text() if response.returncode == 0 else ''
 
 
@@ -137,7 +141,9 @@ def main():
         request('client', base + '/', 404, host=host, token=token, spoof=True)
         request('client', base + '/api/session', 404, host=host)
         request('client', base + '/api/health', 404, host=host, token=token)
-    request('client', base, 404)
+    request('client', base, 404, cache_control='no-store')
+    request('client', base + '/', 404, cache_control='no-store')
+    request('admin', base + '/')
     print('PASS: other VPN denied by public IP, admin IP, IPv6, token, and forged headers')
     for namespace in ('bot', 'remote'):
         request(namespace, base + '/', 404, token=token)

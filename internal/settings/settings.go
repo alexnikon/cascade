@@ -863,6 +863,9 @@ func ParsePortPool(s string) ([]int, error) {
 // preventing invalid data from overwriting valid settings in the DB.
 func isValidSettingValue(k, v string) bool {
 	switch k {
+	case "defaultPersistentKeepalive":
+		n, err := strconv.Atoi(v)
+		return err == nil && peer.ValidatePersistentKeepalive(n) == nil
 	case "publicIPMode":
 		return v == "auto" || v == "manual"
 	case "chartType":
@@ -904,9 +907,8 @@ func applySettingKey(s *GlobalSettings, k, v string) {
 	case "dns":
 		s.DNS = v
 	case "defaultPersistentKeepalive":
-		var n int
-		fmt.Sscanf(v, "%d", &n)
-		if n > 0 {
+		n, err := strconv.Atoi(v)
+		if err == nil && peer.ValidatePersistentKeepalive(n) == nil {
 			s.DefaultPersistentKeepalive = n
 		}
 	case "defaultClientAllowedIPs":

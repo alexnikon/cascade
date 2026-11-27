@@ -46,12 +46,28 @@ func (p *Peer) validateKeepaliveRange() error {
 	return nil
 }
 
+// ValidatePersistentKeepalive checks the scalar WireGuard/AWG interval in seconds.
+func ValidatePersistentKeepalive(value int) error {
+	if value < 0 || value > 65535 {
+		return fmt.Errorf("persistentKeepalive: expected an integer from 0 to 65535")
+	}
+	return nil
+}
+
+// EffectivePersistentKeepalive disables keepalive for invalid legacy data.
+func (p *Peer) EffectivePersistentKeepalive() int {
+	if ValidatePersistentKeepalive(p.PersistentKeepalive) != nil {
+		return 0
+	}
+	return p.PersistentKeepalive
+}
+
 // KeepaliveValue selects the range only for AWG 3.1; the numeric fallback stays intact.
 func (p *Peer) KeepaliveValue(protocol string) string {
 	if protocol == "amneziawg-3.1" && p.PersistentKeepaliveV3 != "" {
 		return p.PersistentKeepaliveV3
 	}
-	return strconv.Itoa(p.PersistentKeepalive)
+	return strconv.Itoa(p.EffectivePersistentKeepalive())
 }
 
 // NormalizeClientKeepaliveTimeout validates the AWG 3.1 [Interface] timer.

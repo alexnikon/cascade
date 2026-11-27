@@ -37,7 +37,7 @@ func WebAccessMiddleware(manager *webaccess.Manager) fiber.Handler {
 			return c.Next()
 		}
 		if !trusted {
-			return c.SendStatus(fiber.StatusNotFound)
+			return denyWebAccess(c)
 		}
 		switch class {
 		case "admin":
@@ -45,21 +45,27 @@ func WebAccessMiddleware(manager *webaccess.Manager) fiber.Handler {
 		case "machine":
 			path := canonical
 			if !strings.HasPrefix(path, "/api/") || path == "/api/session" || strings.HasPrefix(path, "/api/auth/") {
-				return c.SendStatus(fiber.StatusNotFound)
+				return denyWebAccess(c)
 			}
 			hdr := c.Get("Authorization")
 			if !strings.HasPrefix(hdr, "Bearer ") {
-				return c.SendStatus(fiber.StatusNotFound)
+				return denyWebAccess(c)
 			}
 			id, err := tokens.VerifyAndTouch(strings.TrimPrefix(hdr, "Bearer "))
 			if err != nil || id == "" {
-				return c.SendStatus(fiber.StatusNotFound)
+				return denyWebAccess(c)
 			}
 			c.Locals(localKeyTokenUserID, id)
 			return c.Next()
 		}
-		return c.SendStatus(fiber.StatusNotFound)
+		return denyWebAccess(c)
 	}
+}
+
+func denyWebAccess(c *fiber.Ctx) error {
+	// The same URL can become accessible when the client uses the administrative VPN.
+	c.Set(fiber.HeaderCacheControl, "no-store")
+	return c.SendStatus(fiber.StatusNotFound)
 }
 
 func RegisterWebAccess(r fiber.Router, manager *webaccess.Manager, bind string) {

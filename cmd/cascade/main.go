@@ -435,6 +435,7 @@ func main() {
 	}
 	dnsalias.SetInstance(dnsResolver)
 	dnsResolver.Start()
+	aliasMgr.StartAutoRefresh()
 	for _, iface := range tunnel.Get().GetAllInterfaces() {
 		if err := iface.SyncDomainDNS(); err != nil {
 			log.Printf("dnsalias: %s: %v", iface.ID, err)
@@ -490,6 +491,7 @@ func main() {
 	if err := app.Shutdown(); err != nil {
 		log.Printf("shutdown error: %v", err)
 	}
+	aliasMgr.StopAutoRefresh()
 	db.Close()
 	log.Println("Bye.")
 }

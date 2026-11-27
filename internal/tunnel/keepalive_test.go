@@ -200,3 +200,25 @@ func TestKeepaliveRangeImportRejectsBeforeCreation(t *testing.T) {
 		}
 	}
 }
+
+func TestParseScalarKeepalive(t *testing.T) {
+	const config = "[Interface]\nPrivateKey = key\nAddress = 10.8.0.2/32\n[Peer]\nPublicKey = pub\n"
+	for _, tc := range []struct {
+		line string
+		want int
+		set  bool
+	}{
+		{"", 0, false}, {"PersistentKeepalive = 0\n", 0, true},
+		{"PersistentKeepalive = off\n", 0, true}, {"PersistentKeepalive = 65535\n", 65535, true},
+	} {
+		p, err := ParseWGConf(config + tc.line)
+		if err != nil || p.PeerKeepalive != tc.want || p.PeerKeepaliveSet != tc.set {
+			t.Fatalf("%q: parsed=%+v err=%v", tc.line, p, err)
+		}
+	}
+	for _, value := range []string{"-1", "65536", "1.5"} {
+		if _, err := ParseWGConf(config + "PersistentKeepalive = " + value + "\n"); err == nil {
+			t.Fatalf("accepted invalid scalar %s", value)
+		}
+	}
+}

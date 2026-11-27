@@ -144,7 +144,7 @@ type InterfaceData struct {
 	PublicKey               string
 	Address                 string // CIDR e.g. "10.8.0.1/24"
 	ListenPort              int
-	DomainAliasDNS          bool
+	CascadeDNS              string // tunnel DNS address that needs a client route
 	DNS                     string // for client [Interface] section
 	DefaultClientAllowedIPs string
 	Host                    string       // WG_HOST env (used in Endpoint line of client config)
@@ -245,6 +245,9 @@ func CreatePeer(interfaceID string, inp PeerInput) (*Peer, error) {
 	if inp.CreatedAt != "" {
 		createdAt = inp.CreatedAt // preserve original timestamp (e.g. backup import)
 	}
+	if err := ValidatePersistentKeepalive(inp.PersistentKeepalive); err != nil {
+		return nil, err
+	}
 	keepalive := intOr(inp.PersistentKeepalive, 25)
 	if inp.PersistentKeepalive == 0 && inp.PreserveZeroPersistentKeepalive {
 		keepalive = 0
@@ -315,6 +318,9 @@ func UpdatePeer(id string, upd PeerUpdate) (*Peer, error) {
 		}
 	}
 	if upd.PersistentKeepalive != nil {
+		if err := ValidatePersistentKeepalive(*upd.PersistentKeepalive); err != nil {
+			return nil, err
+		}
 		p.PersistentKeepalive = *upd.PersistentKeepalive
 	}
 	if upd.ClientKeepaliveTimeout != nil {
@@ -538,9 +544,7 @@ func (p *Peer) ToWgConfig(protocol string) string {
 		fmt.Fprintf(&sb, "Endpoint = %s\n", p.Endpoint)
 	}
 
-	if p.PersistentKeepalive >= 0 || (protocol == "amneziawg-3.1" && p.PersistentKeepaliveV3 != "") {
-		fmt.Fprintf(&sb, "PersistentKeepalive = %s\n", p.KeepaliveValue(protocol))
-	}
+	fmt.Fprintf(&sb, "PersistentKeepalive = %s\n", p.KeepaliveValue(protocol))
 
 	return sb.String()
 }
@@ -637,8 +641,8 @@ func (p *Peer) generateCompleteConfig(iface InterfaceData) string {
 	if clientAllowedIPs == "" {
 		clientAllowedIPs = "0.0.0.0/0, ::/0"
 	}
-	if iface.DomainAliasDNS {
-		clientAllowedIPs = includeDNSRoute(clientAllowedIPs, iface.DNS)
+	if iface.CascadeDNS != "" {
+		clientAllowedIPs = includeDNSRoute(clientAllowedIPs, iface.CascadeDNS)
 	}
 	fmt.Fprintf(&sb, "AllowedIPs = %s\n", clientAllowedIPs)
 	fmt.Fprintf(&sb, "PersistentKeepalive = %s\n", p.KeepaliveValue(iface.Protocol))
@@ -732,8 +736,8 @@ func (p *Peer) generateTemplateConfig(iface InterfaceData) string {
 	if clientAllowedIPs == "" {
 		clientAllowedIPs = "0.0.0.0/0, ::/0"
 	}
-	if iface.DomainAliasDNS {
-		clientAllowedIPs = includeDNSRoute(clientAllowedIPs, iface.DNS)
+	if iface.CascadeDNS != "" {
+		clientAllowedIPs = includeDNSRoute(clientAllowedIPs, iface.CascadeDNS)
 	}
 	fmt.Fprintf(&sb, "AllowedIPs = %s\n", clientAllowedIPs)
 	fmt.Fprintf(&sb, "PersistentKeepalive = %s\n\n", p.KeepaliveValue(iface.Protocol))

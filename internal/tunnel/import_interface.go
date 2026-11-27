@@ -143,6 +143,11 @@ func (m *Manager) importCascadeBackup(inp ImportInterfaceInput) (*ImportInterfac
 	}
 
 	for i := range backup.Peers {
+		if scalar := backup.Peers[i].PersistentKeepalive; scalar != nil {
+			if err := peer.ValidatePersistentKeepalive(*scalar); err != nil {
+				return nil, err
+			}
+		}
 		value, err := peer.NormalizeKeepaliveRange(backup.Peers[i].PersistentKeepaliveV3)
 		if err != nil {
 			return nil, err

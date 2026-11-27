@@ -14,6 +14,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -106,6 +107,9 @@ func updateAlias(c *fiber.Ctx) error {
 	// buildCmds still resolves the OLD alias content (the entries being removed
 	// need to be deleted from the kernel before they disappear from the DB).
 	oldAlias, _ := aliases.Get().GetByID(aliasID)
+	if upd.AutoRefresh != nil && oldAlias != nil && oldAlias.Type != "ipset" {
+		return fiber.NewError(fiber.StatusBadRequest, "auto-refresh requires an ipset with a generation source")
+	}
 	if oldAlias != nil && oldAlias.Type != "ipset" {
 		nat.Get().RemoveForAlias(aliasID)
 	}
@@ -172,6 +176,9 @@ func deleteAlias(c *fiber.Ctx) error {
 	}
 
 	if err := aliases.Get().Delete(c.Params("id")); err != nil {
+		if errors.Is(err, aliases.ErrGenerationRunning) {
+			return fiber.NewError(fiber.StatusConflict, err.Error())
+		}
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	}
 	// Delete already destroyed the kernel sets; retire the resolver goroutine.
@@ -274,6 +281,9 @@ func uploadAlias(c *fiber.Ctx) error {
 
 	a, err := aliases.Get().UploadFromFile(c.Params("id"), tmpFile.Name())
 	if err != nil {
+		if errors.Is(err, aliases.ErrGenerationRunning) {
+			return fiber.NewError(fiber.StatusConflict, err.Error())
+		}
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	return c.JSON(a)
@@ -284,13 +294,19 @@ func uploadAlias(c *fiber.Ctx) error {
 // Starts an async generation job and returns { jobId } immediately.
 // Poll GET /generate/:jobId for completion.
 func generateAlias(c *fiber.Ctx) error {
-	var opts aliases.GeneratorOpts
+	var opts struct {
+		aliases.GeneratorOpts
+		AutoRefresh *aliases.AutoRefresh `json:"autoRefresh"`
+	}
 	if err := c.BodyParser(&opts); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
 	}
 	// StartGenerate is non-blocking; it returns the job ID and launches a goroutine.
-	jobID, err := aliases.Get().StartGenerate(c.Params("id"), opts)
+	jobID, err := aliases.Get().StartGenerate(c.Params("id"), opts.GeneratorOpts, opts.AutoRefresh)
 	if err != nil {
+		if errors.Is(err, aliases.ErrGenerationRunning) {
+			return fiber.NewError(fiber.StatusConflict, err.Error())
+		}
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	}
 	return c.JSON(fiber.Map{"jobId": jobID})
@@ -301,18 +317,6 @@ func generateAlias(c *fiber.Ctx) error {
 // Response: { status: "running"|"done"|"error"|"unknown", entryCount?, error? }
 // The frontend polls this every 3s until status == "done" or "error",
 // then calls loadAliases() to refresh the prefix count.
-//
-// When status is "done" this handler eagerly writes entryCount to the DB
-// (FinalizeGeneration) before responding, so that the subsequent loadAliases()
-// call from the frontend always sees the updated count.
-// This fixes the race condition where watchJob's 2s sleep can arrive after
-// the frontend's 3s poll, causing loadAliases() to read entryCount=0.
 func getAliasJobStatus(c *fiber.Ctx) error {
-	aliasID := c.Params("id")
-	jobID := c.Params("jobId")
-	status := aliases.Get().GetJobStatus(jobID)
-	if status.Status == "done" && status.EntryCount > 0 {
-		aliases.Get().FinalizeGeneration(aliasID, status.EntryCount)
-	}
-	return c.JSON(status)
+	return c.JSON(aliases.Get().GetJobStatus(c.Params("id"), c.Params("jobId")))
 }

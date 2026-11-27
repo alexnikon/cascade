@@ -6,10 +6,31 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
 )
+
+// DNSAddresses parses comma-separated resolver IPs. It also returns the valid
+// addresses from older settings that may contain search domains or other tokens.
+func DNSAddresses(value string) ([]netip.Addr, error) {
+	var addresses []netip.Addr
+	var invalid error
+	for _, entry := range strings.Split(value, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		addr, err := netip.ParseAddr(entry)
+		if err != nil || addr.Zone() != "" {
+			invalid = fmt.Errorf("fallback DNS must contain only IPv4 or IPv6 addresses")
+			continue
+		}
+		addresses = append(addresses, addr.Unmap())
+	}
+	return addresses, invalid
+}
 
 // reIfaceID matches valid WireGuard interface IDs: wg10, wg11, awg0, etc.
 // Only alphanumeric + underscore, 1–15 chars — safe for shell substitution.

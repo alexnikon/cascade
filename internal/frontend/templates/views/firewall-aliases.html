@@ -45,6 +45,10 @@
                       <span v-if="aliasGeneratingId === alias.id" class="text-blue-500">⟳ generating...</span>
                       <span v-else-if="alias.entryCount > 0">{{ alias.entryCount }} prefixes</span>
                       <span v-else class="text-gray-400 dark:text-neutral-500 italic">empty — upload or generate</span>
+                      <span v-if="alias.autoRefresh?.enabled" class="block font-sans">
+                        <span v-if="alias.autoRefresh.nextAt">Next refresh {{ new Date(alias.autoRefresh.nextAt).toLocaleString() }}</span>
+                        <span v-if="alias.autoRefresh.lastError" class="block text-red-500 break-words">{{ alias.autoRefresh.lastError }}</span>
+                      </span>
                     </span>
                     <span v-else-if="alias.type === 'group'">
                       {{ (alias.memberIds || []).length }} members · {{ alias.entryCount }} entries total
@@ -307,6 +311,19 @@
                 <input v-if="aliasCreate.genSource === 'asn-list'" v-model="aliasCreate.genAsnList"
                   type="text" placeholder="12345,20485,3216"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono" />
+                <div v-if="_hasAliasGenerationSource(aliasCreate) && !aliasCreate.file && !aliasCreate.ipsetEntries.trim()" class="flex flex-wrap items-center gap-2 my-2">
+                  <label class="inline-flex items-center gap-2 text-sm">
+                    <input type="checkbox" v-model="aliasCreate.autoRefreshEnabled">
+                    Auto-refresh
+                  </label>
+                  <select v-if="aliasCreate.autoRefreshEnabled" v-content-select v-model.number="aliasCreate.autoRefreshDays"
+                    aria-label="Auto-refresh interval" class="border border-gray-300 dark:border-neutral-500 rounded px-3 py-2 text-sm">
+                    <option :value="1">1 day</option>
+                    <option :value="3">3 days</option>
+                    <option :value="7">1 week</option>
+                    <option :value="30">1 month</option>
+                  </select>
+                </div>
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Generation runs in background (~30-60s via RIPEstat API)</p>
               </div>
             </div>
@@ -462,6 +479,19 @@
                 <input v-if="aliasEdit.genSource === 'asn-list'" v-model="aliasEdit.genAsnList"
                   type="text" placeholder="12345,20485,3216"
                   class="w-full border border-gray-300 dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-100 rounded px-3 py-2 text-sm font-mono mb-2" />
+                <div v-if="aliasEdit.generatorOpts || _hasAliasGenerationSource(aliasEdit)" class="flex flex-wrap items-center gap-2 my-2">
+                  <label class="inline-flex items-center gap-2 text-sm">
+                    <input type="checkbox" v-model="aliasEdit.autoRefreshEnabled">
+                    Auto-refresh
+                  </label>
+                  <select v-if="aliasEdit.autoRefreshEnabled" v-content-select v-model.number="aliasEdit.autoRefreshDays"
+                    aria-label="Auto-refresh interval" class="border border-gray-300 dark:border-neutral-500 rounded px-3 py-2 text-sm">
+                    <option :value="1">1 day</option>
+                    <option :value="3">3 days</option>
+                    <option :value="7">1 week</option>
+                    <option :value="30">1 month</option>
+                  </select>
+                </div>
                 <button @click="startAliasGenerate(aliasEdit)"
                   :disabled="aliasGeneratingId === aliasEdit.id"
                   class="bg-purple-600 text-white rounded px-3 py-2 text-sm font-medium transition"

@@ -5,6 +5,7 @@
 package ipset
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,7 +29,7 @@ const (
 )
 
 // fetchCountry returns aggregated IPv4 prefixes for a 2-letter country code (e.g. "RU").
-func fetchCountry(country string) ([]string, error) {
+func fetchCountry(ctx context.Context, country string) ([]string, error) {
 	cc := strings.ToUpper(strings.TrimSpace(country))
 	if len(cc) != 2 {
 		return nil, fmt.Errorf("invalid country code: %q", country)
@@ -48,7 +49,7 @@ func fetchCountry(country string) ([]string, error) {
 			} `json:"resources"`
 		} `json:"data"`
 	}
-	if err := fetchJSON(url, &resp); err != nil {
+	if err := fetchJSON(ctx, url, &resp); err != nil {
 		return nil, err
 	}
 	if resp.Data.Resources.IPv4 == nil {
@@ -58,7 +59,7 @@ func fetchCountry(country string) ([]string, error) {
 }
 
 // fetchASN returns aggregated IPv4 prefixes announced by a single ASN (e.g. "AS12345" or "12345").
-func fetchASN(asn string) ([]string, error) {
+func fetchASN(ctx context.Context, asn string) ([]string, error) {
 	normalized := normalizeASN(asn)
 	url := fmt.Sprintf("%s?resource=%s", asnAPI, normalized)
 
@@ -69,7 +70,7 @@ func fetchASN(asn string) ([]string, error) {
 			} `json:"prefixes"`
 		} `json:"data"`
 	}
-	if err := fetchJSON(url, &resp); err != nil {
+	if err := fetchJSON(ctx, url, &resp); err != nil {
 		return nil, err
 	}
 	if resp.Data.Prefixes == nil {
@@ -86,7 +87,7 @@ func fetchASN(asn string) ([]string, error) {
 }
 
 // fetchASNList fetches and merges prefixes for a comma-separated list of ASNs.
-func fetchASNList(asnList string) ([]string, error) {
+func fetchASNList(ctx context.Context, asnList string) ([]string, error) {
 	parts := strings.Split(asnList, ",")
 	var all []string
 	for _, a := range parts {
@@ -94,7 +95,7 @@ func fetchASNList(asnList string) ([]string, error) {
 		if a == "" {
 			continue
 		}
-		entries, err := fetchASN(a)
+		entries, err := fetchASN(ctx, a)
 		if err != nil {
 			return nil, fmt.Errorf("ASN %s: %w", a, err)
 		}
@@ -364,23 +365,27 @@ func numToIP(num uint32) string {
 
 // fetchJSON performs an HTTPS GET request and decodes the JSON response body into v.
 // Retries up to fetchMaxRetries times with fetchRetryDelay between attempts.
-func fetchJSON(url string, v any) error {
+func fetchJSON(ctx context.Context, url string, v any) error {
 	var lastErr error
 	for attempt := 1; attempt <= fetchMaxRetries; attempt++ {
-		if err := fetchJSONOnce(url, v); err == nil {
+		if err := fetchJSONOnce(ctx, url, v); err == nil {
 			return nil
 		} else {
 			lastErr = err
 			if attempt < fetchMaxRetries {
-				time.Sleep(fetchRetryDelay)
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(fetchRetryDelay):
+				}
 			}
 		}
 	}
 	return lastErr
 }
 
-func fetchJSONOnce(url string, v any) error {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func fetchJSONOnce(ctx context.Context, url string, v any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}

@@ -1216,9 +1216,7 @@ func (t *TunnelInterface) KernelSetPeer(p *peer.Peer) {
 		if p.Endpoint != "" {
 			cmd += " endpoint " + p.Endpoint
 		}
-		if p.PersistentKeepalive >= 0 {
-			cmd += " persistent-keepalive " + strconv.Itoa(p.PersistentKeepalive)
-		}
+		cmd += " persistent-keepalive " + p.KeepaliveValue(t.Protocol)
 		if _, err := util.ExecDefault(cmd); err != nil {
 			log.Printf("tunnel: KernelSetPeer %s failed: %v", p.ID, err)
 		}

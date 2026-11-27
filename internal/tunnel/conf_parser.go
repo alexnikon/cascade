@@ -47,6 +47,7 @@ type ParsedPeer struct {
 	Endpoint     string
 	AllowedIPs   string
 	Keepalive    int
+	KeepaliveSet bool
 	KeepaliveV3  string
 }
 
@@ -70,6 +71,7 @@ type ParsedConf struct {
 	PeerEndpoint     string
 	PeerAllowedIPs   string
 	PeerKeepalive    int
+	PeerKeepaliveSet bool
 	PeerKeepaliveV3  string
 }
 
@@ -255,6 +257,7 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 					cur.AllowedIPs += ", " + val
 				}
 			case "persistentkeepalive":
+				cur.KeepaliveSet = true
 				cur.Keepalive = 0
 				cur.KeepaliveV3 = ""
 				if strings.Contains(val, "-") {
@@ -263,7 +266,9 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 						return nil, err
 					}
 					cur.KeepaliveV3 = value
-				} else if n, err := strconv.Atoi(val); err == nil {
+				} else if strings.EqualFold(val, "off") {
+					cur.Keepalive = 0
+				} else if n, err := strconv.Atoi(val); err == nil && peer.ValidatePersistentKeepalive(n) == nil {
 					cur.Keepalive = n
 				} else {
 					return nil, fmt.Errorf("persistentKeepalive: invalid value %q", val)
@@ -300,6 +305,7 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 		c.PeerEndpoint = c.Peers[0].Endpoint
 		c.PeerAllowedIPs = c.Peers[0].AllowedIPs
 		c.PeerKeepalive = c.Peers[0].Keepalive
+		c.PeerKeepaliveSet = c.Peers[0].KeepaliveSet
 		c.PeerKeepaliveV3 = c.Peers[0].KeepaliveV3
 	}
 

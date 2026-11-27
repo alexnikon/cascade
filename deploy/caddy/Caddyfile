@@ -13,6 +13,11 @@
     # Disable Caddy admin API — not needed and reduces attack surface
     admin off
 
+    # Keep HTTP/3 while disabling early data on resumed HTTPS connections.
+    servers :443 {
+        0rtt off
+    }
+
     # Default access log (decoy traffic)
     log {
         output file /logs/access.log {

@@ -146,3 +146,30 @@ func TestClientKeepaliveTimeout(t *testing.T) {
 		t.Fatalf("clear did not restore inheritance: %v", err)
 	}
 }
+
+func TestScalarKeepaliveValidationAndLegacyExport(t *testing.T) {
+	initTestDB(t)
+	existing := createTestPeer(t, "wg-scalar")
+	for _, value := range []int{-1, 65536} {
+		if _, err := CreatePeer(existing.InterfaceID, PeerInput{PersistentKeepalive: value}); err == nil {
+			t.Fatalf("accepted invalid create value %d", value)
+		}
+		name := "should-not-stick"
+		if _, err := UpdatePeer(existing.ID, PeerUpdate{Name: &name, PersistentKeepalive: &value}); err == nil {
+			t.Fatalf("accepted invalid update value %d", value)
+		}
+		loaded, err := GetPeer(existing.ID)
+		if err != nil || loaded.Name != existing.Name || loaded.PersistentKeepalive != existing.PersistentKeepalive {
+			t.Fatalf("invalid update changed peer: %+v, %v", loaded, err)
+		}
+		loaded.PersistentKeepalive = value
+		for _, protocol := range []string{"wireguard-1.0", "amneziawg-2.0", "amneziawg-3.1"} {
+			iface := InterfaceData{Protocol: protocol}
+			for _, config := range []string{loaded.ToWgConfig(protocol), loaded.GenerateRemoteConfig(iface), loaded.generateTemplateConfig(iface)} {
+				if !strings.Contains(config, "PersistentKeepalive = 0\n") {
+					t.Fatalf("%s export did not disable invalid legacy keepalive %d", protocol, value)
+				}
+			}
+		}
+	}
+}

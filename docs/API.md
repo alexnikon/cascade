@@ -556,6 +556,14 @@ Global settings expose the manual `defaultClientAllowedIPs` string. Client peer 
 
 Client AllowedIPs are independent of Firewall aliases. Legacy routing mode and alias fields in requests and JSON backups are ignored and are omitted from responses and new backups. Existing saved manual values are preserved when upgrading. Cascade DNS retains its required VPN host route.
 
+### Client DNS
+
+When `domainAliasDNS` is enabled, client configs list the tunnel DNS address
+first, followed by the comma-separated IPv4 or IPv6 addresses in the interface's
+`dns` field. An empty field uses only Cascade DNS. Cascade adds a split-tunnel
+route as needed for its own DNS address. With `domainAliasDNS` disabled, the
+field is the regular DNS override and uses the global DNS setting when empty.
+
 ## Network Diagnostics
 
 All endpoints require the existing API authentication. Utility streams use Server-Sent Events (`text/event-stream`), finish with `[done]`, and cancel their processes when the client disconnects.

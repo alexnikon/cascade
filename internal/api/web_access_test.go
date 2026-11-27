@@ -89,6 +89,9 @@ func TestWebAccessGateRequiresVPNOrMachineToken(t *testing.T) {
 			if resp.StatusCode != tc.want {
 				t.Fatalf("status=%d want=%d body=%s", resp.StatusCode, tc.want, body)
 			}
+			if tc.want == 404 && !strings.HasPrefix(tc.name, "retired") && resp.Header.Get("Cache-Control") != "no-store" {
+				t.Fatalf("VPN policy denial can be cached: %q", resp.Header.Get("Cache-Control"))
+			}
 		})
 	}
 	// A machine token cannot change the web policy even when its owner is admin.

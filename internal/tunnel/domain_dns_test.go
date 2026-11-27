@@ -33,9 +33,28 @@ func TestDomainDNSPersistenceAndConfigPriority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(cfg, "DNS = 10.101.0.1\n") || !strings.Contains(cfg, "10.101.0.1/32") {
+	if !strings.Contains(cfg, "DNS = 10.101.0.1, 9.9.9.9\n") ||
+		!strings.Contains(cfg, "AllowedIPs = 192.0.2.0/24, 10.101.0.1/32\n") {
 		t.Fatalf("config=%s", cfg)
 	}
+	loaded.DNS = "10.101.0.1, 9.9.9.9, 2001:0db8::53, ::ffff:9.9.9.9, old-search.example"
+	template, err := m.BuildPeerRemoteConfig(loaded, &peer.Peer{ClientAllowedIPs: p.ClientAllowedIPs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(template, "DNS = 10.101.0.1, 9.9.9.9, 2001:db8::53\n") ||
+		!strings.Contains(template, "AllowedIPs = 192.0.2.0/24, 10.101.0.1/32\n") {
+		t.Fatal("template did not preserve fallback order or added unnecessary VPN routes")
+	}
+	loaded.DNS = ""
+	cfg, err = m.BuildPeerRemoteConfig(loaded, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cfg, "DNS = 10.101.0.1\n") {
+		t.Fatal("empty fallback used global resolvers")
+	}
+	loaded.DNS = "9.9.9.9"
 	loaded.DomainAliasDNS = false
 	if err := loaded.save(); err != nil {
 		t.Fatal(err)

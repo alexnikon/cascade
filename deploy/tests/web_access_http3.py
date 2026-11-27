@@ -29,8 +29,9 @@ class Probe(QuicConnectionProtocol):
         self.finished = asyncio.get_running_loop().create_future()
         self.status = None
         stream = self._quic.get_next_available_stream_id()
+        authority = f'[{host}]' if ':' in host else host
         headers = [(b':method', b'GET'), (b':scheme', b'https'),
-                   (b':authority', host.encode()), (b':path', path.encode())]
+                   (b':authority', authority.encode()), (b':path', path.encode())]
         if token:
             headers.append((b'authorization', ('Bearer ' + token).encode()))
         self.http.send_headers(stream, headers, end_stream=True)

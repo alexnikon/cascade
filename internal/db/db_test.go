@@ -21,6 +21,7 @@ DROP TABLE auth_challenges;
 DROP TABLE browser_sessions;
 ALTER TABLE users DROP COLUMN auth_version;
 ALTER TABLE peers DROP COLUMN client_keepalive_timeout;
+ALTER TABLE aliases DROP COLUMN auto_refresh;
 DELETE FROM schema_migrations WHERE version>=49;
 INSERT INTO interfaces(id,name,address) VALUES('wg10','Clients','10.8.0.1/24');
 INSERT INTO aliases(id,name,type,entries,ipset_name) VALUES('routes','excluded_routes','ipset','["192.0.2.0/24"]','cascade_routes');
@@ -83,7 +84,7 @@ INSERT INTO peers(id,interface_id,public_key,private_key,client_allowed_ips,clie
 	rows.Close()
 	queries := []string{
 		"SELECT " + strings.Join(columns, ",") + " FROM peers ORDER BY id",
-		"SELECT * FROM aliases ORDER BY id",
+		"SELECT id,name,description,type,entries,member_ids,ipset_name,entry_count,generator_opts,last_updated,created_at,rate_down,rate_up FROM aliases ORDER BY id",
 		"SELECT * FROM firewall_rules ORDER BY id",
 		"SELECT * FROM settings WHERE key NOT IN ('defaultClientAllowedIPsMode','defaultClientAllowedIPsAliasId') ORDER BY key",
 	}
@@ -176,6 +177,7 @@ DROP TABLE auth_challenges;
 DROP TABLE browser_sessions;
 ALTER TABLE users DROP COLUMN auth_version;
 ALTER TABLE peers DROP COLUMN client_keepalive_timeout;
+ALTER TABLE aliases DROP COLUMN auto_refresh;
 DELETE FROM schema_migrations WHERE version>=46;`)
 	if err != nil {
 		t.Fatal(err)
@@ -498,6 +500,7 @@ ALTER TABLE peers DROP COLUMN persistent_keepalive_v3;
 DROP TABLE browser_sessions;
 ALTER TABLE users DROP COLUMN auth_version;
 ALTER TABLE peers DROP COLUMN client_keepalive_timeout;
+ALTER TABLE aliases DROP COLUMN auto_refresh;
 DELETE FROM schema_migrations WHERE version>=47;`)
 	if err != nil {
 		t.Fatal(err)
