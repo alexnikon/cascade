@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/alexnikon/cascade/internal/aliases"
+	"github.com/alexnikon/cascade/internal/awgcap"
 	"github.com/alexnikon/cascade/internal/awgparams"
 	"github.com/alexnikon/cascade/internal/db"
 	"github.com/alexnikon/cascade/internal/dnsalias"
@@ -1398,13 +1399,27 @@ func (t *TunnelInterface) generateWgConfig() string {
 	}
 
 	// [Peer] sections. Disabled peers return "" from ToWgConfig().
-	t.peersMu.RLock()
-	for _, p := range t.peers {
-		sb.WriteString(p.ToWgConfig(t.Protocol))
-	}
-	t.peersMu.RUnlock()
+	t.writeServerPeers(&sb)
 
 	return sb.String()
+}
+
+// writeServerPeers preserves ranges in storage and exports when a legacy
+// AWG 2.0 runtime needs the scalar interval in its live configuration.
+func (t *TunnelInterface) writeServerPeers(sb *strings.Builder) {
+	t.peersMu.RLock()
+	defer t.peersMu.RUnlock()
+	protocol := t.Protocol
+	checked := false
+	for _, p := range t.peers {
+		if !checked && t.Protocol == "amneziawg-2.0" && p.Enabled && p.PersistentKeepaliveV3 != "" {
+			checked = true
+			if !awgcap.SupportsKeepaliveRange() {
+				protocol = "wireguard-1.0"
+			}
+		}
+		sb.WriteString(p.ToWgConfig(protocol))
+	}
 }
 
 // generateSyncConfig builds the stripped config suitable for `wg/awg syncconf`.
@@ -1448,11 +1463,7 @@ func (t *TunnelInterface) generateSyncConfig() string {
 		writeAWG3Settings(&sb, t.Protocol, a)
 	}
 
-	t.peersMu.RLock()
-	for _, p := range t.peers {
-		sb.WriteString(p.ToWgConfig(t.Protocol))
-	}
-	t.peersMu.RUnlock()
+	t.writeServerPeers(&sb)
 
 	return sb.String()
 }

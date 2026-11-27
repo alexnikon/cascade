@@ -19,17 +19,20 @@ const cases = [
   ['amneziawg-3.1', '', '65536', null],
   ['amneziawg-2.0', '', '0', { persistentKeepalive: 0 }],
   ['amneziawg-2.0', '', '5-25', null],
+  ['amneziawg-2.0', '', '5-25', { persistentKeepaliveV3: '5-25' }, true],
+  ['amneziawg-2.0', '5-25', '0', { persistentKeepalive: 0, persistentKeepaliveV3: '' }],
   ['wireguard-1.0', '', '30', { persistentKeepalive: 30 }],
   ['wireguard-1.0', '', '2.5', null],
 ];
 
-for (const [protocol, oldRange, input, expected] of cases) {
+for (const [protocol, oldRange, input, expected, awgKeepaliveRangeSupported] of cases) {
   test(`persistent keepalive on ${protocol || 'a peer awaiting interface metadata'}: ${oldRange || '25'} to ${input || '(blank)'}`, async () => {
     let payload;
     let toast;
     const context = {
       ...methods,
       activeInterfaceId: 'wg10',
+      globalSettings: { awgKeepaliveRangeSupported },
       tunnelInterfaces: protocol ? [{ id: 'wg10', protocol }] : [],
       expiryDateTimeForInput: () => '',
       _refreshPeersOrAll: async () => {},
@@ -51,3 +54,26 @@ for (const [protocol, oldRange, input, expected] of cases) {
     assert.deepEqual(keepaliveFields, expected);
   });
 }
+
+test('creating an AWG 2.0 peer sends a range without an interface timeout', async () => {
+  let payload;
+  const state = {
+    ...methods,
+    activeInterfaceId: 'wg10',
+    currentInterface: { protocol: 'amneziawg-2.0' },
+    globalSettings: { awgKeepaliveRangeSupported: true },
+    peerCreateName: 'client',
+    peerCreatePersistentKeepalive: '005-025',
+    expiryDateTimeToUTC: () => null,
+    defaultGroupId: () => '',
+    refreshPeers: async () => {},
+    loadTunnelInterfaces: async () => {},
+    loadClientGroups() {},
+    loadAliases() {},
+    showToast() {},
+    api: { createTunnelInterfacePeer: async body => { payload = body; } },
+  };
+  await state.createQuickPeer();
+  assert.equal(payload.persistentKeepaliveV3, '5-25');
+  assert.equal(payload.clientKeepaliveTimeout, undefined);
+});

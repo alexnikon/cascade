@@ -260,6 +260,7 @@ new Vue({
     // Quick peer create (one-click)
     peerCreateName: '',
     peerCreateKeepaliveTimeout: '',
+    peerCreatePersistentKeepalive: '',
     inlineGroupInput: '',        // inline new-group name input value
     inlineGroupShowQuick: false, // show inline input in Quick Create modal
     peerCreateExpiredDate: '',

@@ -59,16 +59,17 @@ func dockerNetworkMode() string {
 // (hostname, resolvedPublicIP, publicIPWarning, awgMode, networkMode) that are not stored in the DB.
 type SettingsResponse struct {
 	settings.GlobalSettings
-	Hostname         string `json:"hostname"`
-	ResolvedPublicIP string `json:"resolvedPublicIP"`
-	PublicIPWarning  string `json:"publicIPWarning"`
-	AwgMode          string `json:"awgMode"`     // "userspace" | "kernel"
-	NetworkMode      string `json:"networkMode"` // "host" | "bridge" | "none"
-	AWGEngineVersion string `json:"awgEngineVersion"`
-	AWGToolsVersion  string `json:"awgToolsVersion"`
-	AWGMaxProtocol   string `json:"awgMaxProtocol"`
-	AWG3Supported    bool   `json:"awg3Supported"`
-	AWG3SupportError string `json:"awg3SupportError"`
+	Hostname                   string `json:"hostname"`
+	ResolvedPublicIP           string `json:"resolvedPublicIP"`
+	PublicIPWarning            string `json:"publicIPWarning"`
+	AwgMode                    string `json:"awgMode"`     // "userspace" | "kernel"
+	NetworkMode                string `json:"networkMode"` // "host" | "bridge" | "none"
+	AWGEngineVersion           string `json:"awgEngineVersion"`
+	AWGToolsVersion            string `json:"awgToolsVersion"`
+	AWGMaxProtocol             string `json:"awgMaxProtocol"`
+	AWGKeepaliveRangeSupported bool   `json:"awgKeepaliveRangeSupported"`
+	AWG3Supported              bool   `json:"awg3Supported"`
+	AWG3SupportError           string `json:"awg3SupportError"`
 }
 
 // RegisterSettings registers all /api/settings and /api/templates routes.
@@ -100,17 +101,18 @@ func RegisterSettings(api fiber.Router) {
 		resolvedIP, ipWarn := settings.ResolvePublicIP(s.PublicIPMode, s.PublicIPManual)
 		capability := awgcap.Detect()
 		return c.JSON(SettingsResponse{
-			GlobalSettings:   *s,
-			Hostname:         hostname,
-			ResolvedPublicIP: resolvedIP,
-			PublicIPWarning:  ipWarn,
-			AwgMode:          awgRunMode(),
-			NetworkMode:      dockerNetworkMode(),
-			AWGEngineVersion: capability.EngineVersion,
-			AWGToolsVersion:  capability.ToolsVersion,
-			AWGMaxProtocol:   capability.MaxProtocol,
-			AWG3Supported:    capability.AWG3Supported,
-			AWG3SupportError: capability.SupportError,
+			GlobalSettings:             *s,
+			Hostname:                   hostname,
+			ResolvedPublicIP:           resolvedIP,
+			PublicIPWarning:            ipWarn,
+			AwgMode:                    awgRunMode(),
+			NetworkMode:                dockerNetworkMode(),
+			AWGEngineVersion:           capability.EngineVersion,
+			AWGToolsVersion:            capability.ToolsVersion,
+			AWGMaxProtocol:             capability.MaxProtocol,
+			AWG3Supported:              capability.AWG3Supported,
+			AWGKeepaliveRangeSupported: awgcap.SupportsKeepaliveRange(),
+			AWG3SupportError:           capability.SupportError,
 		})
 	})
 
@@ -195,17 +197,18 @@ func RegisterSettings(api fiber.Router) {
 
 		log.Println("settings: updated")
 		return c.JSON(SettingsResponse{
-			GlobalSettings:   *updated,
-			Hostname:         hostname,
-			ResolvedPublicIP: resolvedIP,
-			PublicIPWarning:  ipWarn,
-			AwgMode:          awgRunMode(),
-			NetworkMode:      dockerNetworkMode(),
-			AWGEngineVersion: capability.EngineVersion,
-			AWGToolsVersion:  capability.ToolsVersion,
-			AWGMaxProtocol:   capability.MaxProtocol,
-			AWG3Supported:    capability.AWG3Supported,
-			AWG3SupportError: capability.SupportError,
+			GlobalSettings:             *updated,
+			Hostname:                   hostname,
+			ResolvedPublicIP:           resolvedIP,
+			PublicIPWarning:            ipWarn,
+			AwgMode:                    awgRunMode(),
+			NetworkMode:                dockerNetworkMode(),
+			AWGEngineVersion:           capability.EngineVersion,
+			AWGToolsVersion:            capability.ToolsVersion,
+			AWGMaxProtocol:             capability.MaxProtocol,
+			AWG3Supported:              capability.AWG3Supported,
+			AWGKeepaliveRangeSupported: awgcap.SupportsKeepaliveRange(),
+			AWG3SupportError:           capability.SupportError,
 		})
 	})
 

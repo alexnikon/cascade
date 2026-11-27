@@ -427,6 +427,15 @@
                   v-on:keyup.enter="createQuickPeer"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
               </div>
+              <div class="mb-4">
+                <label for="peer-create-persistent-keepalive" class="block text-sm font-medium dark:text-neutral-300 mb-1">Persistent Keepalive (seconds, 0 = off)</label>
+                <input id="peer-create-persistent-keepalive" v-model="peerCreatePersistentKeepalive" type="text"
+                  :inputmode="peerSupportsKeepaliveRange() ? 'text' : 'numeric'"
+                  :placeholder="peerSupportsKeepaliveRange() ? 'e.g. 25 or 5-25' : 'e.g. 25'"
+                  @keyup.enter="createQuickPeer"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                <p class="mt-1 text-xs text-gray-500 dark:text-neutral-400">Leave blank to use the global default.</p>
+              </div>
               <div v-if="currentInterface && currentInterface.protocol === 'amneziawg-3.1'" class="mb-4">
                 <label for="peer-create-keepalive-timeout" class="block text-sm font-medium dark:text-neutral-300 mb-1">Keepalive Timeout (seconds)</label>
                 <input id="peer-create-keepalive-timeout" v-model="peerCreateKeepaliveTimeout" type="text" placeholder="e.g. 5-15"
@@ -691,7 +700,9 @@
                 <p v-if="peerSupportsKeepaliveRange(peerEditForm._peer)" id="peer-edit-persistent-keepalive-help"
                   class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Enter a fixed interval such as 25 or a range such as 5-25.</p>
               </div>
-              <div v-if="peerEditForm._peer && peerEditForm._peer.peerType !== 'interconnect' && peerSupportsKeepaliveRange(peerEditForm._peer)">
+              <p v-if="peerEditForm._peer?.persistentKeepaliveV3 && peerInterfaceProtocol(peerEditForm._peer) === 'amneziawg-2.0' && !peerSupportsKeepaliveRange(peerEditForm._peer)"
+                class="text-xs text-gray-500 dark:text-neutral-400">This server applies the fixed interval of {{ peerEditForm._peer.persistentKeepalive >= 0 && peerEditForm._peer.persistentKeepalive <= 65535 ? peerEditForm._peer.persistentKeepalive : 0 }} seconds. The saved range is available in client exports.</p>
+              <div v-if="peerEditForm._peer && peerEditForm._peer.peerType !== 'interconnect' && peerInterfaceProtocol(peerEditForm._peer) === 'amneziawg-3.1'">
                 <label for="peer-edit-keepalive-timeout" class="block text-sm font-medium mb-1 dark:text-neutral-200">Keepalive Timeout (seconds)</label>
                 <input id="peer-edit-keepalive-timeout" v-model="peerEditForm.clientKeepaliveTimeout" type="text" placeholder="e.g. 5-15"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">

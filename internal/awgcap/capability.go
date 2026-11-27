@@ -18,6 +18,23 @@ const (
 	ToolsVersion  = "3.1.20260812"
 )
 
+// SupportsKeepaliveRange reports whether both tools and engine can apply ranges.
+func SupportsKeepaliveRange() bool {
+	if os.Getenv("WG_QUICK_USERSPACE_IMPLEMENTATION") == "amneziawg-go" {
+		return true
+	}
+	kernel, err := kernelModuleVersion()
+	return err == nil && supportsKeepaliveRangeVersion(ParseMajorMinor(kernel)) &&
+		supportsKeepaliveRangeVersion(DetectCLIVersion())
+}
+
+func supportsKeepaliveRangeVersion(version string) bool {
+	majorText, minorText, ok := strings.Cut(version, ".")
+	major, _ := strconv.Atoi(majorText)
+	minor, _ := strconv.Atoi(minorText)
+	return ok && (major > 3 || major == 3 && minor >= 1)
+}
+
 // Capability describes the active AmneziaWG runtime.
 type Capability struct {
 	EngineVersion string

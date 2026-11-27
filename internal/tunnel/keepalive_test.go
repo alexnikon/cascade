@@ -25,7 +25,7 @@ func TestParseKeepaliveRange(t *testing.T) {
 		{"HeaderProtectionKey = key", "5-25", "5-25", false},
 		{"HeaderProtectionKey = key", "25", "", false},
 		{"HeaderProtectionKey = key", "25-5", "", true},
-		{"Jc = 6", "5-25", "", true},
+		{"Jc = 6", "5-25", "5-25", false},
 		{"", "5-25", "", true},
 	} {
 		parsed, err := ParseWGConf(fmt.Sprintf(base, tc.marker, tc.value))
@@ -63,8 +63,13 @@ func TestKeepaliveRangeRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	protocol := "amneziawg-3.1"
+	if os.Getenv("CASCADE_AWG_KEEPALIVE_PROTOCOL") == "2.0" {
+		protocol = "amneziawg-2.0"
+		params = &peer.AWGSettings{Jc: 4, Jmin: 10, Jmax: 50, S1: 12, S2: 12, S3: 12, S4: 12, H1: "1", H2: "2", H3: "3", H4: "4"}
+	}
 	m := newTestManager()
-	iface, err := m.CreateInterface(CreateInput{Protocol: "amneziawg-3.1", Address: "10.88.0.1/24", DisableRoutes: true, AWG2: params})
+	iface, err := m.CreateInterface(CreateInput{Protocol: protocol, Address: "10.88.0.1/24", DisableRoutes: true, AWG2: params})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,5 +225,29 @@ func TestParseScalarKeepalive(t *testing.T) {
 		if _, err := ParseWGConf(config + "PersistentKeepalive = " + value + "\n"); err == nil {
 			t.Fatalf("accepted invalid scalar %s", value)
 		}
+	}
+}
+
+func TestAWG2KeepaliveRangeLegacyRuntimeFallback(t *testing.T) {
+	t.Setenv("WG_QUICK_USERSPACE_IMPLEMENTATION", "")
+	dir := t.TempDir()
+	for _, binary := range []string{"awg", "modinfo"} {
+		if err := os.WriteFile(filepath.Join(dir, binary), []byte("#!/bin/sh\necho 2.0\n"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
+	p := &peer.Peer{Enabled: true, PersistentKeepalive: 25, PersistentKeepaliveV3: "5-25"}
+	iface := &TunnelInterface{Protocol: "amneziawg-2.0", peers: map[string]*peer.Peer{"peer": p}}
+	for _, config := range []string{iface.generateWgConfig(), iface.generateSyncConfig()} {
+		if !strings.Contains(config, "PersistentKeepalive = 25\n") {
+			t.Fatal("legacy runtime did not get scalar keepalive")
+		}
+	}
+	if err := peer.ValidateKeepaliveRangeRuntime(iface.Protocol, "5-25"); err == nil {
+		t.Fatal("accepted a new range on the legacy runtime")
+	}
+	if got := p.KeepaliveValue(iface.Protocol); got != "5-25" {
+		t.Fatalf("legacy runtime changed the exported range: %q", got)
 	}
 }

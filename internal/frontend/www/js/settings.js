@@ -342,7 +342,7 @@ async saveSettings() {
         // avoid triggering an unnecessary firewall RebuildChains on every Settings save.
 		const {
 		  hostname, resolvedPublicIP, publicIPWarning, defaultFwPolicy,
-		  awgEngineVersion, awgToolsVersion, awgMaxProtocol, awg3Supported, awg3SupportError,
+		  awgEngineVersion, awgToolsVersion, awgMaxProtocol, awg3Supported, awg3SupportError, awgKeepaliveRangeSupported,
 		  ...storable
 		} = this.globalSettings;
         const updated = await this.api.updateSettings(storable);

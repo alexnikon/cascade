@@ -5,6 +5,7 @@
 export const peerMethods = {
 openQuickPeerCreate() {
       this.peerCreateName = '';
+      this.peerCreatePersistentKeepalive = '';
       this.peerCreateExpiredDate = '';
       this.peerCreateGroupId = this.defaultGroupId();
       this.peerCreateKeepaliveTimeout = this.globalSettings.defaultClientKeepaliveTimeout || '';
@@ -21,12 +22,16 @@ async createQuickPeer() {
         this.showToast('Invalid expiry date and time', 'error');
         return;
       }
+      const keepalive = this.peerCreatePersistentKeepalive.trim();
+      const parsedKeepalive = keepalive ? this.parsePeerPersistentKeepalive(keepalive, this.peerSupportsKeepaliveRange()) : {};
+      if (!parsedKeepalive) return;
       if (this.peerMutationInFlight) return;
       this.peerMutationInFlight = true;
 
       try {
         const payload = {
           name,
+          ...parsedKeepalive,
           autoAllocateIP: true,
           generateKeys: true,
           expiredAt: expiredAt || undefined,
@@ -167,12 +172,33 @@ async confirmDeletePeer() {
 
 peerSupportsKeepaliveRange(peer) {
       const id = this._peerIfaceId(peer);
-      const iface = (this.tunnelInterfaces || []).find(item => item.id === id);
-      return iface ? iface.protocol === 'amneziawg-3.1' : Boolean(peer?.persistentKeepaliveV3);
+      const protocol = this.peerInterfaceProtocol(peer);
+      if (!protocol && id) return Boolean(peer?.persistentKeepaliveV3);
+      return protocol === 'amneziawg-3.1' ||
+        (protocol === 'amneziawg-2.0' && this.globalSettings?.awgKeepaliveRangeSupported);
+    },
+
+peerInterfaceProtocol(peer) {
+      const id = this._peerIfaceId(peer);
+      return (this.tunnelInterfaces || []).find(item => item.id === id)?.protocol ||
+        (id === this.activeInterfaceId ? this.currentInterface?.protocol : undefined);
+    },
+
+parsePeerPersistentKeepalive(value, supportsRange) {
+      const match = /^(\d+)(?:-(\d+))?$/.exec(value);
+      const min = Number(match?.[1]);
+      const max = match?.[2] === undefined ? null : Number(match[2]);
+      if (!match || min > 65535 || (max !== null && (!supportsRange || min < 1 || max < min || max > 65535))) {
+        this.showToast(supportsRange
+          ? 'Enter a Persistent Keepalive interval from 0 to 65535, or a range from 1 to 65535 (e.g. 5-25).'
+          : 'Enter a whole number from 0 to 65535 for Persistent Keepalive.', 'error');
+        return null;
+      }
+      return max === null ? { persistentKeepalive: min } : { persistentKeepaliveV3: `${min}-${max}` };
     },
 
 openPeerEdit(peer) {
-      const range = this.peerSupportsKeepaliveRange(peer) ? peer.persistentKeepaliveV3 : '';
+      const range = peer.persistentKeepaliveV3 || '';
       this.peerEditForm = {
         _peer: peer,
         name: peer.name || '',
@@ -217,29 +243,21 @@ async savePeerEdit() {
       if (this.peerMutationInFlight) return;
       const isInterconnect = peer.peerType === 'interconnect';
       const supportsRange = this.peerSupportsKeepaliveRange(peer);
-      const oldRange = supportsRange ? (peer.persistentKeepaliveV3 || '') : '';
+      const oldRange = peer.persistentKeepaliveV3 || '';
       const oldInterval = peer.persistentKeepalive ?? 0;
       const value = String(this.peerEditForm.persistentKeepalive).trim();
       const updates = { name: this.peerEditForm.name };
       if (value !== (oldRange || String(oldInterval))) {
-        const match = /^(\d+)(?:-(\d+))?$/.exec(value);
-        const min = Number(match?.[1]);
-        const max = match?.[2] === undefined ? null : Number(match[2]);
-        if (!match || min > 65535 || (max !== null && (!supportsRange || min < 1 || max < min || max > 65535))) {
-          this.showToast(supportsRange
-            ? 'Enter a Persistent Keepalive interval from 0 to 65535, or a range from 1 to 65535 (e.g. 5-25).'
-            : 'Enter a whole number from 0 to 65535 for Persistent Keepalive.', 'error');
-          return;
-        }
-        if (max !== null) {
-          const range = `${min}-${max}`;
-          if (range !== oldRange) updates.persistentKeepaliveV3 = range;
+        const parsed = this.parsePeerPersistentKeepalive(value, supportsRange);
+        if (!parsed) return;
+        if (parsed.persistentKeepaliveV3 !== undefined) {
+          if (parsed.persistentKeepaliveV3 !== oldRange) updates.persistentKeepaliveV3 = parsed.persistentKeepaliveV3;
         } else {
-          if (min !== oldInterval || oldRange) updates.persistentKeepalive = min;
+          if (parsed.persistentKeepalive !== oldInterval || oldRange) updates.persistentKeepalive = parsed.persistentKeepalive;
           if (oldRange) updates.persistentKeepaliveV3 = '';
         }
       }
-      if (supportsRange && !isInterconnect) {
+      if (this.peerInterfaceProtocol(peer) === 'amneziawg-3.1' && !isInterconnect) {
         const timeout = this.peerEditForm.clientKeepaliveTimeout.trim();
         if (timeout !== (peer.clientKeepaliveTimeout || '')) updates.clientKeepaliveTimeout = timeout;
       }

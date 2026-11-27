@@ -641,8 +641,8 @@ func restoreInterface(c *fiber.Ctx) error {
 		if err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
-		if value != "" && t.Protocol != "amneziawg-3.1" {
-			return fiber.NewError(fiber.StatusBadRequest, "persistentKeepaliveV3 requires AWG 3.1")
+		if err := peer.ValidateKeepaliveRangeRuntime(t.Protocol, value); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 		if _, err := peer.ValidateClientKeepaliveTimeout(inp.ClientKeepaliveTimeout, t.Protocol, inp.PeerType); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())

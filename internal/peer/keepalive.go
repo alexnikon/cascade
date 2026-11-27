@@ -6,12 +6,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/alexnikon/cascade/internal/awgcap"
 	"github.com/alexnikon/cascade/internal/db"
 )
 
 var keepaliveRangePattern = regexp.MustCompile(`^([0-9]+)-([0-9]+)$`)
 
-// NormalizeKeepaliveRange validates an optional AWG 3.1 interval in seconds.
+// NormalizeKeepaliveRange validates an optional AmneziaWG interval in seconds.
 func NormalizeKeepaliveRange(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -38,11 +39,25 @@ func (p *Peer) validateKeepaliveRange() error {
 		if err := db.DB().QueryRow("SELECT protocol FROM interfaces WHERE id = ?", p.InterfaceID).Scan(&protocol); err != nil {
 			return fmt.Errorf("persistentKeepaliveV3: read interface protocol: %w", err)
 		}
-		if protocol != "amneziawg-3.1" {
-			return fmt.Errorf("persistentKeepaliveV3 requires AWG 3.1")
+		if err := ValidateKeepaliveRangeRuntime(protocol, value); err != nil {
+			return err
 		}
 	}
 	p.PersistentKeepaliveV3 = value
+	return nil
+}
+
+// ValidateKeepaliveRangeRuntime checks a normalized range before accepting new data.
+func ValidateKeepaliveRangeRuntime(protocol, value string) error {
+	if value == "" {
+		return nil
+	}
+	if !isAWGProtocol(protocol) {
+		return fmt.Errorf("persistentKeepaliveV3 requires AWG 2.0 or AWG 3.1")
+	}
+	if protocol == "amneziawg-2.0" && !awgcap.SupportsKeepaliveRange() {
+		return fmt.Errorf("persistentKeepaliveV3 on AWG 2.0 requires AmneziaWG tools and engine 3.1 or newer")
+	}
 	return nil
 }
 
@@ -62,9 +77,9 @@ func (p *Peer) EffectivePersistentKeepalive() int {
 	return p.PersistentKeepalive
 }
 
-// KeepaliveValue selects the range only for AWG 3.1; the numeric fallback stays intact.
+// KeepaliveValue selects the range for AmneziaWG; the numeric fallback stays intact.
 func (p *Peer) KeepaliveValue(protocol string) string {
-	if protocol == "amneziawg-3.1" && p.PersistentKeepaliveV3 != "" {
+	if isAWGProtocol(protocol) && p.PersistentKeepaliveV3 != "" {
 		return p.PersistentKeepaliveV3
 	}
 	return strconv.Itoa(p.EffectivePersistentKeepalive())

@@ -152,8 +152,8 @@ func (m *Manager) importCascadeBackup(inp ImportInterfaceInput) (*ImportInterfac
 		if err != nil {
 			return nil, err
 		}
-		if value != "" && protocol != "amneziawg-3.1" {
-			return nil, fmt.Errorf("persistentKeepaliveV3 requires AWG 3.1")
+		if err := peer.ValidateKeepaliveRangeRuntime(protocol, value); err != nil {
+			return nil, err
 		}
 		backup.Peers[i].PersistentKeepaliveV3 = value
 		timeout, err := peer.ValidateClientKeepaliveTimeout(backup.Peers[i].ClientKeepaliveTimeout, protocol, backup.Peers[i].PeerType)

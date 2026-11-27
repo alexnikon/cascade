@@ -294,8 +294,8 @@ func ParseWGConf(content string) (*ParsedConf, error) {
 	}
 
 	for _, p := range c.Peers {
-		if p.KeepaliveV3 != "" && c.Protocol != "amneziawg-3.1" {
-			return nil, fmt.Errorf("persistentKeepaliveV3 requires AWG 3.1")
+		if p.KeepaliveV3 != "" && !isAWGProtocol(c.Protocol) {
+			return nil, fmt.Errorf("persistentKeepaliveV3 requires AWG 2.0 or AWG 3.1")
 		}
 	}
 	// Populate flat first-peer fields for backward compatibility.

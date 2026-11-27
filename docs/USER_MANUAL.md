@@ -199,7 +199,7 @@ Click the pencil icon on the peer card. A modal opens with the following fields:
 
 - **Name** — change the display name
 - **Client Allowed IPs** — change routes pushed to the client
-- **Persistent Keepalive** — enter a fixed interval in seconds, or `0` to disable it. AWG 3.1 also accepts an inclusive range such as `5-25` seconds (`1 <= min <= max <= 65535`). Enter a number to switch back to a fixed interval.
+- **Persistent Keepalive** — enter a fixed interval in seconds, or `0` to disable it. AWG 3.1 and AWG 2.0 on AmneziaWG tools and engine 3.1 or newer also accept an inclusive range such as `5-25` seconds (`1 <= min <= max <= 65535`). Enter a number to switch back to a fixed interval.
 - **Keepalive Timeout** — AWG 3.1 clients can override the interface timer in the downloaded config. Leave the field blank to inherit the interface value.
 - **Bandwidth Limit** — per-client speed limit (see below)
 
@@ -316,7 +316,7 @@ Click the pencil icon on the peer card. Available fields:
 
 - **Endpoint** — change the remote server's IP:port (applied without restarting the tunnel)
 - **Allowed IPs** — change the routed subnets
-- **Persistent Keepalive** — maintain the connection through NAT. Enter a fixed interval in seconds, or `0` to disable it. AWG 3.1 also accepts a range such as `5-25`.
+- **Persistent Keepalive** — maintain the connection through NAT. Enter a fixed interval in seconds, or `0` to disable it. AWG 3.1 and AWG 2.0 on AmneziaWG tools and engine 3.1 or newer also accept a range such as `5-25`.
 
 ---
 

@@ -242,13 +242,13 @@ the global default, or send an empty string to inherit the interface value.
 Omit it on update to keep the saved value, or send an empty string to restore
 inheritance. Peer backups and native interface exports preserve the override.
 
-`persistentKeepaliveV3` is an optional AWG 3.1-only string (`"5-25"`):
+`persistentKeepaliveV3` is an optional range string for AWG 3.1 and AWG 2.0 when running AmneziaWG tools and engine 3.1 or newer (`"5-25"`):
 use inclusive whole-second bounds with `1 <= min <= max <= 65535`.
 It overrides the existing numeric `persistentKeepalive` while preserving that
 fallback. In PATCH, omission preserves the range and `""` clears it; null and
 non-string values are rejected. A nonempty range on another protocol is rejected.
 The range is preserved in peer JSON and native interface exports/imports, and in
-AWG 3.1 `.conf` imports. It is never enabled automatically.
+AWG 2.0 and AWG 3.1 `.conf` imports. If an AWG 2.0 server switches to a legacy runtime, it applies the numeric fallback while retaining the saved range in client exports. The range is never enabled automatically.
 
 ### One-time config download (public)
 

@@ -398,6 +398,11 @@ func (m *Manager) ImportConf(name, confContent string) (*ImportConfResult, error
 	if err != nil {
 		return nil, fmt.Errorf("parse conf: %w", err)
 	}
+	for _, p := range parsed.Peers {
+		if err := peer.ValidateKeepaliveRangeRuntime(parsed.Protocol, p.KeepaliveV3); err != nil {
+			return nil, err
+		}
+	}
 	if parsed.PeerPublicKey == "" {
 		return nil, fmt.Errorf("missing PublicKey in [Peer] section (required for uplink mode)")
 	}
@@ -518,6 +523,11 @@ func (m *Manager) ImportConfAsServer(name, confContent string) (*ImportConfAsSer
 	parsed, err := ParseWGConf(confContent)
 	if err != nil {
 		return nil, fmt.Errorf("parse conf: %w", err)
+	}
+	for _, p := range parsed.Peers {
+		if err := peer.ValidateKeepaliveRangeRuntime(parsed.Protocol, p.KeepaliveV3); err != nil {
+			return nil, err
+		}
 	}
 	if err := validate.WGKey(parsed.PrivateKey); err != nil {
 		return nil, fmt.Errorf("invalid PrivateKey: %w", err)

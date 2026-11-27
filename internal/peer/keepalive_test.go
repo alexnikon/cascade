@@ -73,7 +73,7 @@ func TestKeepaliveRangeConfigSelection(t *testing.T) {
 	p := &Peer{Name: "range", Enabled: true, PublicKey: "pub", PrivateKey: "priv", AllowedIPs: "10.8.0.2/32", Address: "10.8.0.2/32", PersistentKeepalive: 25, PersistentKeepaliveV3: "5-25"}
 	for _, protocol := range []string{"amneziawg-3.1", "amneziawg-2.0", "wireguard-1.0"} {
 		want := "PersistentKeepalive = 25"
-		if protocol == "amneziawg-3.1" {
+		if protocol != "wireguard-1.0" {
 			want = "PersistentKeepalive = 5-25"
 		}
 		iface := InterfaceData{Protocol: protocol}
