@@ -53,3 +53,49 @@ func (p *Peer) KeepaliveValue(protocol string) string {
 	}
 	return strconv.Itoa(p.PersistentKeepalive)
 }
+
+// NormalizeClientKeepaliveTimeout validates the AWG 3.1 [Interface] timer.
+func NormalizeClientKeepaliveTimeout(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	low, high, hasRange := strings.Cut(value, "-")
+	min, err := strconv.ParseUint(low, 10, 16)
+	if err == nil {
+		if !hasRange {
+			return strconv.FormatUint(min, 10), nil
+		}
+		max, err := strconv.ParseUint(high, 10, 16)
+		if err == nil && min <= max {
+			return fmt.Sprintf("%d-%d", min, max), nil
+		}
+	}
+	return "", fmt.Errorf("expected seconds or a min-max range with 0 <= min <= max <= 65535")
+}
+
+// ValidateClientKeepaliveTimeout also checks whether a peer can use the override.
+func ValidateClientKeepaliveTimeout(value, protocol, peerType string) (string, error) {
+	value, err := NormalizeClientKeepaliveTimeout(value)
+	if err != nil {
+		return "", fmt.Errorf("clientKeepaliveTimeout: %w", err)
+	}
+	if value != "" && (protocol != "amneziawg-3.1" || (peerType != "" && peerType != "client")) {
+		return "", fmt.Errorf("clientKeepaliveTimeout requires an AWG 3.1 client peer")
+	}
+	return value, nil
+}
+
+func (p *Peer) setClientKeepaliveTimeout(value string) error {
+	var protocol string
+	if strings.TrimSpace(value) != "" {
+		if err := db.DB().QueryRow("SELECT protocol FROM interfaces WHERE id = ?", p.InterfaceID).Scan(&protocol); err != nil {
+			return fmt.Errorf("clientKeepaliveTimeout: read interface protocol: %w", err)
+		}
+	}
+	timeout, err := ValidateClientKeepaliveTimeout(value, protocol, p.PeerType)
+	if err == nil {
+		p.ClientKeepaliveTimeout = timeout
+	}
+	return err
+}

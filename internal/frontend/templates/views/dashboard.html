@@ -50,7 +50,8 @@
                         style="opacity:0.5; background:none; border:none; cursor:pointer; padding:0; line-height:1; color:inherit; margin-left:2px;">✕</button>
                     </div>
                   </div>
-                  <div class="dash-card-body" :class="{ 'monitoring-body': w.type === 'monitoring', 'monitoring-body-fit': w.type === 'monitoring' && (w.graphs || []).length <= 2 }">
+                  <div class="dash-card-body" :class="{ 'monitoring-body': w.type === 'monitoring', 'monitoring-body-fit': w.type === 'monitoring' && (w.graphs || []).length <= 2 }"
+                    :style="{ zoom: w.type !== 'monitoring' && w.fontScale ? w.fontScale : null }">
 
                     <!-- ── server-info ── -->
                     <template v-if="w.type === 'server-info'">

@@ -117,6 +117,16 @@ func TestKeepaliveRangeRuntime(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertRuntime("5-25")
+	off, clearRange := 0, ""
+	if _, err := iface.UpdatePeer(p.ID, peer.PeerUpdate{PersistentKeepalive: &off, PersistentKeepaliveV3: &clearRange}); err != nil {
+		t.Fatal(err)
+	}
+	assertRuntime("off")
+	fallback := 25
+	if _, err := iface.UpdatePeer(p.ID, peer.PeerUpdate{PersistentKeepalive: &fallback, PersistentKeepaliveV3: &value}); err != nil {
+		t.Fatal(err)
+	}
+	assertRuntime("5-25")
 	exported, err := peer.GetPeer(p.ID)
 	if err != nil {
 		t.Fatal(err)

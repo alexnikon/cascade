@@ -259,6 +259,7 @@ new Vue({
     },
     // Quick peer create (one-click)
     peerCreateName: '',
+    peerCreateKeepaliveTimeout: '',
     inlineGroupInput: '',        // inline new-group name input value
     inlineGroupShowQuick: false, // show inline input in Quick Create modal
     peerCreateExpiredDate: '',
@@ -275,8 +276,8 @@ new Vue({
     peerEditForm: {
       _peer: null,          // original peer reference (for type checks + API call)
       name: '',
-      persistentKeepalive: 0,
-      persistentKeepaliveV3: '',
+      persistentKeepalive: '0',
+      clientKeepaliveTimeout: '',
       endpoint: '',         // interconnect only
       allowedIPs: '',       // interconnect only (editable)
       clientAllowedIPs: '', // client only
@@ -295,6 +296,7 @@ new Vue({
     globalSettings: {
       dns: '1.1.1.1, 8.8.8.8',
       defaultPersistentKeepalive: 25,
+      defaultClientKeepaliveTimeout: '',
       defaultClientAllowedIPs: '0.0.0.0/0, ::/0',
       subnetPool:       '10.10.0.0/16',
       portPool:         '51831-65535',

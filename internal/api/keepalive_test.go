@@ -12,7 +12,7 @@ import (
 func TestKeepaliveRangeRequestTypes(t *testing.T) {
 	app := fiber.New()
 	app.Post("/", func(c *fiber.Ctx) error {
-		value, err := requestKeepaliveRange(c)
+		value, err := requestOptionalPeerString(c, "persistentKeepaliveV3")
 		if err != nil {
 			return err
 		}

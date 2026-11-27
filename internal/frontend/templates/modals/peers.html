@@ -427,6 +427,13 @@
                   v-on:keyup.enter="createQuickPeer"
                   class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
               </div>
+              <div v-if="currentInterface && currentInterface.protocol === 'amneziawg-3.1'" class="mb-4">
+                <label for="peer-create-keepalive-timeout" class="block text-sm font-medium dark:text-neutral-300 mb-1">Keepalive Timeout (seconds)</label>
+                <input id="peer-create-keepalive-timeout" v-model="peerCreateKeepaliveTimeout" type="text" placeholder="e.g. 5-15"
+                  @keyup.enter="createQuickPeer"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                <p class="mt-1 text-xs text-gray-500 dark:text-neutral-400">Leave blank to use the interface value in the client config.</p>
+              </div>
               <div class="mb-4">
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Expiry date and time <span class="text-gray-400 dark:text-neutral-500 font-normal">(optional)</span></label>
                 <div class="flex gap-2">
@@ -676,16 +683,19 @@
 
               <!-- Persistent Keepalive -->
               <div>
-                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Persistent Keepalive <span class="text-gray-400 font-normal">(seconds, 0 = off)</span></label>
-                <input v-model.number="peerEditForm.persistentKeepalive" type="number" min="0" max="65535" placeholder="0"
+                <label for="peer-edit-persistent-keepalive" class="block text-sm font-medium mb-1 dark:text-neutral-200">Persistent Keepalive <span class="text-gray-400 font-normal">(seconds, 0 = off)</span></label>
+                <input id="peer-edit-persistent-keepalive" v-model="peerEditForm.persistentKeepalive" type="text"
+                  :inputmode="peerSupportsKeepaliveRange(peerEditForm._peer) ? 'text' : 'numeric'"
+                  :aria-describedby="peerSupportsKeepaliveRange(peerEditForm._peer) ? 'peer-edit-persistent-keepalive-help' : null"
                   class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
+                <p v-if="peerSupportsKeepaliveRange(peerEditForm._peer)" id="peer-edit-persistent-keepalive-help"
+                  class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Enter a fixed interval such as 25 or a range such as 5-25.</p>
               </div>
-
-              <div v-if="peerSupportsKeepaliveRange(peerEditForm._peer)">
-                <label class="block text-sm font-medium mb-1 dark:text-neutral-200">Keepalive range <span class="text-gray-400 font-normal">(optional, seconds)</span></label>
-                <input v-model="peerEditForm.persistentKeepaliveV3" type="text" placeholder="5-25"
-                  class="w-full border border-gray-300 dark:border-neutral-500 dark:bg-neutral-600 dark:text-neutral-100 rounded px-3 py-2 text-sm"/>
-                <p class="text-xs text-gray-500 dark:text-neutral-400 mt-1">Overrides Persistent Keepalive. Leave empty to use the numeric value.</p>
+              <div v-if="peerEditForm._peer && peerEditForm._peer.peerType !== 'interconnect' && peerSupportsKeepaliveRange(peerEditForm._peer)">
+                <label for="peer-edit-keepalive-timeout" class="block text-sm font-medium mb-1 dark:text-neutral-200">Keepalive Timeout (seconds)</label>
+                <input id="peer-edit-keepalive-timeout" v-model="peerEditForm.clientKeepaliveTimeout" type="text" placeholder="e.g. 5-15"
+                  class="w-full px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
+                <p class="mt-1 text-xs text-gray-500 dark:text-neutral-400">Leave blank to use the interface value in the client config.</p>
               </div>
             </div><!-- /modal-body -->
 

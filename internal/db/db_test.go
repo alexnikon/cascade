@@ -20,6 +20,7 @@ ALTER TABLE peers ADD COLUMN client_allowed_ips_alias_id TEXT NOT NULL DEFAULT '
 DROP TABLE auth_challenges;
 DROP TABLE browser_sessions;
 ALTER TABLE users DROP COLUMN auth_version;
+ALTER TABLE peers DROP COLUMN client_keepalive_timeout;
 DELETE FROM schema_migrations WHERE version>=49;
 INSERT INTO interfaces(id,name,address) VALUES('wg10','Clients','10.8.0.1/24');
 INSERT INTO aliases(id,name,type,entries,ipset_name) VALUES('routes','excluded_routes','ipset','["192.0.2.0/24"]','cascade_routes');
@@ -174,6 +175,7 @@ ALTER TABLE templates DROP COLUMN mtu;
 DROP TABLE auth_challenges;
 DROP TABLE browser_sessions;
 ALTER TABLE users DROP COLUMN auth_version;
+ALTER TABLE peers DROP COLUMN client_keepalive_timeout;
 DELETE FROM schema_migrations WHERE version>=46;`)
 	if err != nil {
 		t.Fatal(err)
@@ -495,6 +497,7 @@ ALTER TABLE peers DROP COLUMN persistent_keepalive_v3;
  DROP TABLE auth_challenges;
 DROP TABLE browser_sessions;
 ALTER TABLE users DROP COLUMN auth_version;
+ALTER TABLE peers DROP COLUMN client_keepalive_timeout;
 DELETE FROM schema_migrations WHERE version>=47;`)
 	if err != nil {
 		t.Fatal(err)
@@ -504,11 +507,12 @@ DELETE FROM schema_migrations WHERE version>=47;`)
 		t.Fatal(err)
 	}
 	var numeric int
-	var interval string
-	if err := DB().QueryRow("SELECT persistent_keepalive,persistent_keepalive_v3 FROM peers WHERE id='legacy-peer'").Scan(&numeric, &interval); err != nil {
+	var interval, clientTimeout string
+	if err := DB().QueryRow("SELECT persistent_keepalive,persistent_keepalive_v3,client_keepalive_timeout FROM peers WHERE id='legacy-peer'").
+		Scan(&numeric, &interval, &clientTimeout); err != nil {
 		t.Fatal(err)
 	}
-	if numeric != 37 || interval != "" {
-		t.Fatalf("migration changed peer: %d, %q", numeric, interval)
+	if numeric != 37 || interval != "" || clientTimeout != "" {
+		t.Fatalf("migration changed peer: %d, %q, %q", numeric, interval, clientTimeout)
 	}
 }

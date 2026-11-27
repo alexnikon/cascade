@@ -916,6 +916,7 @@ CREATE TABLE auth_challenges (
 );
 CREATE INDEX auth_challenges_expiry ON auth_challenges(expires_at);
 `},
+	{version: 51, sql: `ALTER TABLE peers ADD COLUMN client_keepalive_timeout TEXT NOT NULL DEFAULT '';`},
 }
 
 func runMigrations(db *sql.DB) error {

@@ -3,6 +3,14 @@
  * Methods intentionally operate on the Vue instance passed as this.
  */
 export const peerMethods = {
+openQuickPeerCreate() {
+      this.peerCreateName = '';
+      this.peerCreateExpiredDate = '';
+      this.peerCreateGroupId = this.defaultGroupId();
+      this.peerCreateKeepaliveTimeout = this.globalSettings.defaultClientKeepaliveTimeout || '';
+      this.showQuickPeerCreate = true;
+    },
+
 async createQuickPeer() {
       if (!this.activeInterfaceId) return;
       const name = this.peerCreateName;
@@ -24,6 +32,9 @@ async createQuickPeer() {
           expiredAt: expiredAt || undefined,
           groupId: this.peerCreateGroupId || this.defaultGroupId() || undefined,
         };
+        if (this.currentInterface?.protocol === 'amneziawg-3.1') {
+          payload.clientKeepaliveTimeout = this.peerCreateKeepaliveTimeout.trim();
+        }
 
         await this.api.createTunnelInterfacePeer({
           interfaceId: this.activeInterfaceId,
@@ -157,15 +168,16 @@ async confirmDeletePeer() {
 peerSupportsKeepaliveRange(peer) {
       const id = this._peerIfaceId(peer);
       const iface = (this.tunnelInterfaces || []).find(item => item.id === id);
-      return iface?.protocol === 'amneziawg-3.1';
+      return iface ? iface.protocol === 'amneziawg-3.1' : Boolean(peer?.persistentKeepaliveV3);
     },
 
 openPeerEdit(peer) {
+      const range = this.peerSupportsKeepaliveRange(peer) ? peer.persistentKeepaliveV3 : '';
       this.peerEditForm = {
         _peer: peer,
         name: peer.name || '',
-        persistentKeepalive: peer.persistentKeepalive || 0,
-        persistentKeepaliveV3: peer.persistentKeepaliveV3 || '',
+        persistentKeepalive: range || String(peer.persistentKeepalive ?? 0),
+        clientKeepaliveTimeout: peer.clientKeepaliveTimeout || '',
         endpoint: peer.endpoint || '',
         allowedIPs: peer.allowedIPs || '',
         clientAllowedIPs: peer.clientAllowedIPs || '',
@@ -204,12 +216,32 @@ async savePeerEdit() {
       if (!peer) return;
       if (this.peerMutationInFlight) return;
       const isInterconnect = peer.peerType === 'interconnect';
-      const updates = {
-        name: this.peerEditForm.name,
-        persistentKeepalive: Number(this.peerEditForm.persistentKeepalive) || 0,
-      };
-      if (this.peerSupportsKeepaliveRange(peer)) {
-        updates.persistentKeepaliveV3 = this.peerEditForm.persistentKeepaliveV3.trim();
+      const supportsRange = this.peerSupportsKeepaliveRange(peer);
+      const oldRange = supportsRange ? (peer.persistentKeepaliveV3 || '') : '';
+      const oldInterval = peer.persistentKeepalive ?? 0;
+      const value = String(this.peerEditForm.persistentKeepalive).trim();
+      const updates = { name: this.peerEditForm.name };
+      if (value !== (oldRange || String(oldInterval))) {
+        const match = /^(\d+)(?:-(\d+))?$/.exec(value);
+        const min = Number(match?.[1]);
+        const max = match?.[2] === undefined ? null : Number(match[2]);
+        if (!match || min > 65535 || (max !== null && (!supportsRange || min < 1 || max < min || max > 65535))) {
+          this.showToast(supportsRange
+            ? 'Enter a Persistent Keepalive interval from 0 to 65535, or a range from 1 to 65535 (e.g. 5-25).'
+            : 'Enter a whole number from 0 to 65535 for Persistent Keepalive.', 'error');
+          return;
+        }
+        if (max !== null) {
+          const range = `${min}-${max}`;
+          if (range !== oldRange) updates.persistentKeepaliveV3 = range;
+        } else {
+          if (min !== oldInterval || oldRange) updates.persistentKeepalive = min;
+          if (oldRange) updates.persistentKeepaliveV3 = '';
+        }
+      }
+      if (supportsRange && !isInterconnect) {
+        const timeout = this.peerEditForm.clientKeepaliveTimeout.trim();
+        if (timeout !== (peer.clientKeepaliveTimeout || '')) updates.clientKeepaliveTimeout = timeout;
       }
       if (isInterconnect) {
         updates.endpoint = this.peerEditForm.endpoint;

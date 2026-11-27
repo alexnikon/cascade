@@ -16,6 +16,7 @@ import (
 	"github.com/alexnikon/cascade/internal/awgcap"
 	"github.com/alexnikon/cascade/internal/awgparams"
 	"github.com/alexnikon/cascade/internal/firewall"
+	"github.com/alexnikon/cascade/internal/peer"
 	"github.com/alexnikon/cascade/internal/settings"
 )
 
@@ -122,6 +123,15 @@ func RegisterSettings(api fiber.Router) {
 		var body map[string]any
 		if err := c.BodyParser(&body); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "Invalid JSON body")
+		}
+		if raw, exists := body["defaultClientKeepaliveTimeout"]; exists {
+			timeout, ok := raw.(string)
+			if !ok {
+				return fiber.NewError(fiber.StatusBadRequest, "defaultClientKeepaliveTimeout must be a string")
+			}
+			if _, err := peer.NormalizeClientKeepaliveTimeout(timeout); err != nil {
+				return fiber.NewError(fiber.StatusBadRequest, "defaultClientKeepaliveTimeout: "+err.Error())
+			}
 		}
 
 		// Validate pool fields explicitly so the user gets a clear error message

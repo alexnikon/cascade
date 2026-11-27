@@ -26,12 +26,13 @@ import (
 // GlobalSettings holds application-wide defaults.
 // Mirrors the DEFAULTS object in Settings.js.
 type GlobalSettings struct {
-	DNS                        string  `json:"dns"`
-	DefaultPersistentKeepalive int     `json:"defaultPersistentKeepalive"`
-	DefaultClientAllowedIPs    string  `json:"defaultClientAllowedIPs"`
-	GatewayWindowSeconds       int     `json:"gatewayWindowSeconds"`
-	GatewayHealthyThreshold    float64 `json:"gatewayHealthyThreshold"`
-	GatewayDegradedThreshold   float64 `json:"gatewayDegradedThreshold"`
+	DNS                           string  `json:"dns"`
+	DefaultPersistentKeepalive    int     `json:"defaultPersistentKeepalive"`
+	DefaultClientKeepaliveTimeout string  `json:"defaultClientKeepaliveTimeout"`
+	DefaultClientAllowedIPs       string  `json:"defaultClientAllowedIPs"`
+	GatewayWindowSeconds          int     `json:"gatewayWindowSeconds"`
+	GatewayHealthyThreshold       float64 `json:"gatewayHealthyThreshold"`
+	GatewayDegradedThreshold      float64 `json:"gatewayDegradedThreshold"`
 
 	// Router identity
 	RouterName     string `json:"routerName"`     // human-readable name, e.g. "Moscow-01"
@@ -134,9 +135,10 @@ type AWG2Params = AWGParams
 
 // PeerDefaults are passed to InterfaceManager when creating a new peer.
 type PeerDefaults struct {
-	DNS                 string `json:"dns"`
-	PersistentKeepalive int    `json:"persistentKeepalive"`
-	ClientAllowedIPs    string `json:"clientAllowedIPs"`
+	DNS                    string `json:"dns"`
+	PersistentKeepalive    int    `json:"persistentKeepalive"`
+	ClientKeepaliveTimeout string `json:"clientKeepaliveTimeout"`
+	ClientAllowedIPs       string `json:"clientAllowedIPs"`
 }
 
 // defaults mirrors DEFAULTS in Settings.js.
@@ -203,6 +205,16 @@ func UpdateSettings(updates map[string]any) (*GlobalSettings, error) {
 			continue
 		}
 		v := fmt.Sprintf("%v", raw)
+		if k == "defaultClientKeepaliveTimeout" {
+			timeout, ok := raw.(string)
+			if !ok {
+				return nil, fmt.Errorf("defaultClientKeepaliveTimeout must be a string")
+			}
+			v, err = peer.NormalizeClientKeepaliveTimeout(timeout)
+			if err != nil {
+				return nil, fmt.Errorf("defaultClientKeepaliveTimeout: %w", err)
+			}
+		}
 		// Validate before writing — invalid values are silently skipped
 		// so they cannot overwrite a previously valid setting in the DB.
 		if !isValidSettingValue(k, v) {
@@ -250,9 +262,10 @@ func GetPeerDefaults() (*PeerDefaults, error) {
 		return nil, err
 	}
 	return &PeerDefaults{
-		DNS:                 s.DNS,
-		PersistentKeepalive: s.DefaultPersistentKeepalive,
-		ClientAllowedIPs:    s.DefaultClientAllowedIPs,
+		DNS:                    s.DNS,
+		PersistentKeepalive:    s.DefaultPersistentKeepalive,
+		ClientKeepaliveTimeout: s.DefaultClientKeepaliveTimeout,
+		ClientAllowedIPs:       s.DefaultClientAllowedIPs,
 	}, nil
 }
 
@@ -898,6 +911,10 @@ func applySettingKey(s *GlobalSettings, k, v string) {
 		}
 	case "defaultClientAllowedIPs":
 		s.DefaultClientAllowedIPs = v
+	case "defaultClientKeepaliveTimeout":
+		if timeout, err := peer.NormalizeClientKeepaliveTimeout(v); err == nil {
+			s.DefaultClientKeepaliveTimeout = timeout
+		}
 	case "gatewayWindowSeconds":
 		var n int
 		fmt.Sscanf(v, "%d", &n)

@@ -137,9 +137,13 @@ func getPeer(c *fiber.Ctx) error {
 // POST /api/tunnel-interfaces/:id/peers
 // Body: PeerInput (name, publicKey?, privateKey?, allowedIPs?, generateKeys?, autoAllocateIP?, ...)
 func createPeer(c *fiber.Ctx) error {
-	keepaliveRange, rangeErr := requestKeepaliveRange(c)
+	keepaliveRange, rangeErr := requestOptionalPeerString(c, "persistentKeepaliveV3")
 	if rangeErr != nil {
 		return rangeErr
+	}
+	clientTimeout, err := requestOptionalPeerString(c, "clientKeepaliveTimeout")
+	if err != nil {
+		return err
 	}
 	ifaceID := c.Params("id")
 
@@ -158,6 +162,12 @@ func createPeer(c *fiber.Ctx) error {
 
 	// Apply global defaults from settings when not explicitly set.
 	d := peerDefaults()
+	if clientTimeout != nil {
+		inp.ClientKeepaliveTimeout = *clientTimeout
+	} else if iface := mgr().GetInterface(ifaceID); iface != nil && iface.Protocol == "amneziawg-3.1" &&
+		(inp.PeerType == "" || inp.PeerType == "client") {
+		inp.ClientKeepaliveTimeout = d.ClientKeepaliveTimeout
+	}
 	if inp.ClientAllowedIPs == "" {
 		inp.ClientAllowedIPs = d.ClientAllowedIPs
 	}
@@ -189,7 +199,7 @@ func createPeer(c *fiber.Ctx) error {
 // Imports an interconnect peer from a JSON params file exported by the remote interface.
 // Body: InterfaceExport JSON (name, publicKey, endpoint, address, protocol, presharedKey?, allowedIPs?)
 func importPeerJSON(c *fiber.Ctx) error {
-	keepaliveRange, rangeErr := requestKeepaliveRange(c)
+	keepaliveRange, rangeErr := requestOptionalPeerString(c, "persistentKeepaliveV3")
 	if rangeErr != nil {
 		return rangeErr
 	}
@@ -381,7 +391,7 @@ func importClientConfigs(c *fiber.Ctx) error {
 // PATCH /api/tunnel-interfaces/:id/peers/:peerId
 // Body: PeerUpdate fields (name?, allowedIPs?, enabled?, endpoint?, persistentKeepalive?, expiredAt?)
 func updatePeer(c *fiber.Ctx) error {
-	keepaliveRange, rangeErr := requestKeepaliveRange(c)
+	keepaliveRange, rangeErr := requestOptionalPeerString(c, "persistentKeepaliveV3")
 	if rangeErr != nil {
 		return rangeErr
 	}
@@ -394,6 +404,13 @@ func updatePeer(c *fiber.Ctx) error {
 	}
 
 	upd := peer.PeerUpdate{PersistentKeepaliveV3: keepaliveRange}
+	if timeout, exists := raw["clientKeepaliveTimeout"]; exists {
+		value, ok := timeout.(string)
+		if !ok {
+			return fiber.NewError(fiber.StatusBadRequest, "clientKeepaliveTimeout must be a string")
+		}
+		upd.ClientKeepaliveTimeout = &value
+	}
 	if v, ok := raw["name"].(string); ok {
 		s := strings.TrimSpace(v)
 		upd.Name = &s
@@ -655,19 +672,19 @@ func exportPeerJSON(c *fiber.Ctx) error {
 	})
 }
 
-// requestKeepaliveRange distinguishes an omitted field from an explicit clear.
-func requestKeepaliveRange(c *fiber.Ctx) (*string, error) {
+// requestOptionalPeerString distinguishes an omitted field from an explicit clear.
+func requestOptionalPeerString(c *fiber.Ctx, field string) (*string, error) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(c.Body(), &raw); err != nil {
 		return nil, fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
 	}
-	value, exists := raw["persistentKeepaliveV3"]
+	value, exists := raw[field]
 	if !exists {
 		return nil, nil
 	}
 	var text string
 	if strings.TrimSpace(string(value)) == "null" || json.Unmarshal(value, &text) != nil {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "persistentKeepaliveV3 must be a string")
+		return nil, fiber.NewError(fiber.StatusBadRequest, field+" must be a string")
 	}
 	return &text, nil
 }

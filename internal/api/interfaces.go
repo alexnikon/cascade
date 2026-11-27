@@ -91,18 +91,19 @@ func mgr() *tunnel.Manager {
 // PrivateKey is always excluded — consistent with ifaceJSON for TunnelInterface.
 func peerJSON(p *peer.Peer) fiber.Map {
 	return fiber.Map{
-		"id":                    p.ID,
-		"name":                  p.Name,
-		"publicKey":             p.PublicKey,
-		"presharedKey":          p.PresharedKey,
-		"endpoint":              p.Endpoint,
-		"allowedIPs":            p.AllowedIPs,
-		"clientAllowedIPs":      p.ClientAllowedIPs,
-		"peerType":              p.PeerType,
-		"persistentKeepalive":   p.PersistentKeepalive,
-		"persistentKeepaliveV3": p.PersistentKeepaliveV3,
-		"enabled":               p.Enabled,
-		"createdAt":             p.CreatedAt,
+		"id":                     p.ID,
+		"name":                   p.Name,
+		"publicKey":              p.PublicKey,
+		"presharedKey":           p.PresharedKey,
+		"endpoint":               p.Endpoint,
+		"allowedIPs":             p.AllowedIPs,
+		"clientAllowedIPs":       p.ClientAllowedIPs,
+		"peerType":               p.PeerType,
+		"persistentKeepalive":    p.PersistentKeepalive,
+		"persistentKeepaliveV3":  p.PersistentKeepaliveV3,
+		"clientKeepaliveTimeout": p.ClientKeepaliveTimeout,
+		"enabled":                p.Enabled,
+		"createdAt":              p.CreatedAt,
 	}
 }
 
@@ -595,7 +596,10 @@ func restoreInterface(c *fiber.Ctx) error {
 
 	var body struct {
 		File struct {
-			Peers []peer.PeerInput `json:"peers"`
+			Peers []struct {
+				peer.PeerInput
+				PersistentKeepalive *int `json:"persistentKeepalive"`
+			} `json:"peers"`
 		} `json:"file"`
 	}
 	if err := c.BodyParser(&body); err != nil {
@@ -619,6 +623,9 @@ func restoreInterface(c *fiber.Ctx) error {
 		if value != "" && t.Protocol != "amneziawg-3.1" {
 			return fiber.NewError(fiber.StatusBadRequest, "persistentKeepaliveV3 requires AWG 3.1")
 		}
+		if _, err := peer.ValidateClientKeepaliveTimeout(inp.ClientKeepaliveTimeout, t.Protocol, inp.PeerType); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
 	}
 	// Remove all existing peers first.
 	existing, _ := mgr().GetPeers(id)
@@ -631,8 +638,13 @@ func restoreInterface(c *fiber.Ctx) error {
 	// a malicious or corrupted backup with "generateKeys":true would silently
 	// discard all backed-up keys and create peers with freshly generated ones,
 	// making the restored config non-functional without any visible error.
-	for _, inp := range body.File.Peers {
+	for _, backupPeer := range body.File.Peers {
+		inp := backupPeer.PeerInput
 		inp.GenerateKeys = false
+		if backupPeer.PersistentKeepalive != nil {
+			inp.PersistentKeepalive = *backupPeer.PersistentKeepalive
+			inp.PreserveZeroPersistentKeepalive = true
+		}
 		if _, err := mgr().AddPeer(id, inp); err != nil {
 			// Log and continue — partial restore is better than aborting.
 			fmt.Printf("restore: AddPeer %q failed: %v\n", inp.Name, err)

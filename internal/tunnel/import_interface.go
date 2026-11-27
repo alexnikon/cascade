@@ -42,21 +42,22 @@ type cascadeBackupIface struct {
 
 // cascadeBackupPeer mirrors the peer.Peer JSON fields we need.
 type cascadeBackupPeer struct {
-	Name                  string      `json:"name"`
-	PublicKey             string      `json:"publicKey"`
-	PrivateKey            string      `json:"privateKey"`
-	PresharedKey          string      `json:"presharedKey"`
-	AllowedIPs            string      `json:"allowedIPs"`
-	Address               string      `json:"address"`
-	ClientAllowedIPs      string      `json:"clientAllowedIPs"`
-	PeerType              string      `json:"peerType"`
-	Endpoint              string      `json:"endpoint"`
-	PersistentKeepalive   int         `json:"persistentKeepalive"`
-	PersistentKeepaliveV3 string      `json:"persistentKeepaliveV3"`
-	GroupID               string      `json:"groupId"`
-	ExpiredAt             interface{} `json:"expiredAt"`
-	Enabled               bool        `json:"enabled"`
-	CreatedAt             string      `json:"createdAt"`
+	Name                   string      `json:"name"`
+	PublicKey              string      `json:"publicKey"`
+	PrivateKey             string      `json:"privateKey"`
+	PresharedKey           string      `json:"presharedKey"`
+	AllowedIPs             string      `json:"allowedIPs"`
+	Address                string      `json:"address"`
+	ClientAllowedIPs       string      `json:"clientAllowedIPs"`
+	PeerType               string      `json:"peerType"`
+	Endpoint               string      `json:"endpoint"`
+	PersistentKeepalive    *int        `json:"persistentKeepalive"`
+	PersistentKeepaliveV3  string      `json:"persistentKeepaliveV3"`
+	ClientKeepaliveTimeout string      `json:"clientKeepaliveTimeout"`
+	GroupID                string      `json:"groupId"`
+	ExpiredAt              interface{} `json:"expiredAt"`
+	Enabled                bool        `json:"enabled"`
+	CreatedAt              string      `json:"createdAt"`
 }
 
 // ── Input / Result types ──────────────────────────────────────────────────────
@@ -150,6 +151,11 @@ func (m *Manager) importCascadeBackup(inp ImportInterfaceInput) (*ImportInterfac
 			return nil, fmt.Errorf("persistentKeepaliveV3 requires AWG 3.1")
 		}
 		backup.Peers[i].PersistentKeepaliveV3 = value
+		timeout, err := peer.ValidateClientKeepaliveTimeout(backup.Peers[i].ClientKeepaliveTimeout, protocol, backup.Peers[i].PeerType)
+		if err != nil {
+			return nil, err
+		}
+		backup.Peers[i].ClientKeepaliveTimeout = timeout
 	}
 	iface, err := m.CreateInterface(CreateInput{
 		Protocol:       protocol,
@@ -184,20 +190,24 @@ func (m *Manager) importCascadeBackup(inp ImportInterfaceInput) (*ImportInterfac
 
 	for _, bp := range backup.Peers {
 		inp := peer.PeerInput{
-			Name:                  bp.Name,
-			PublicKey:             bp.PublicKey,
-			PrivateKey:            bp.PrivateKey,
-			PresharedKey:          bp.PresharedKey,
-			AllowedIPs:            bp.AllowedIPs,
-			Address:               bp.Address,
-			ClientAllowedIPs:      bp.ClientAllowedIPs,
-			PeerType:              bp.PeerType,
-			Endpoint:              bp.Endpoint,
-			PersistentKeepalive:   bp.PersistentKeepalive,
-			PersistentKeepaliveV3: bp.PersistentKeepaliveV3,
-			GroupID:               bp.GroupID,
-			GenerateKeys:          false,
-			CreatedAt:             bp.CreatedAt,
+			Name:                   bp.Name,
+			PublicKey:              bp.PublicKey,
+			PrivateKey:             bp.PrivateKey,
+			PresharedKey:           bp.PresharedKey,
+			AllowedIPs:             bp.AllowedIPs,
+			Address:                bp.Address,
+			ClientAllowedIPs:       bp.ClientAllowedIPs,
+			PeerType:               bp.PeerType,
+			Endpoint:               bp.Endpoint,
+			PersistentKeepaliveV3:  bp.PersistentKeepaliveV3,
+			ClientKeepaliveTimeout: bp.ClientKeepaliveTimeout,
+			GroupID:                bp.GroupID,
+			GenerateKeys:           false,
+			CreatedAt:              bp.CreatedAt,
+		}
+		if bp.PersistentKeepalive != nil {
+			inp.PersistentKeepalive = *bp.PersistentKeepalive
+			inp.PreserveZeroPersistentKeepalive = true
 		}
 		if bp.ExpiredAt != nil {
 			if s, ok := bp.ExpiredAt.(string); ok && s != "" {

@@ -1216,7 +1216,7 @@ func (t *TunnelInterface) KernelSetPeer(p *peer.Peer) {
 		if p.Endpoint != "" {
 			cmd += " endpoint " + p.Endpoint
 		}
-		if p.PersistentKeepalive > 0 {
+		if p.PersistentKeepalive >= 0 {
 			cmd += " persistent-keepalive " + strconv.Itoa(p.PersistentKeepalive)
 		}
 		if _, err := util.ExecDefault(cmd); err != nil {

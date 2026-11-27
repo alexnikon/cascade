@@ -28,7 +28,7 @@
       <div class="section-server-label text-xs text-gray-500 dark:text-neutral-400 truncate">{{ activeServerLabel }}</div>
       <h1 class="section-title dark:text-neutral-200">{{ sectionTitle }}</h1>
     </div>
-    <div v-if="activePage !== 'settings' && !(activePage === 'routing' && activeRoutingTab !== 'static') && activePage !== 'diagnostics'" class="section-toolbar-controls">
+    <div v-if="activePage !== 'settings' && !(activePage === 'routing' && activeRoutingTab !== 'static') && activePage !== 'diagnostics' && !(activePage === 'dashboard' && isCompactViewport)" class="section-toolbar-controls">
 <div v-if="activePage === 'dashboard'" class="section-toolbar-actions"><div class="dashboard-toolbar flex items-center justify-between">
 
             <div class="flex gap-2">

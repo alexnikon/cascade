@@ -144,16 +144,17 @@ Returns `GlobalSettings` merged with runtime-only fields:
 |-------|------|-------------|
 | `dns` | string | DNS server for client configs |
 | `mtu` | int | MTU for client configs. `0` = not set (WireGuard picks automatically). Range: 576–9000 |
-| `defaultPersistentKeepalive` | int | Default keepalive (seconds) |
+| `defaultPersistentKeepalive` | int | Default persistent keepalive (seconds) |
+| `defaultClientKeepaliveTimeout` | string | Optional `KeepaliveTimeout` for new AWG 3.1 clients (seconds or an inclusive range) |
 | `defaultClientAllowedIPs` | string | Default AllowedIPs for new client peers |
 | `gatewayWindowSeconds` | int | Gateway monitoring sliding window (seconds) |
-| `gatewayHealthyThreshold` | int | Healthy threshold (% packet loss) |
-| `gatewayDegradedThreshold` | int | Degraded threshold (% packet loss) |
+| `gatewayHealthyThreshold` | number | Minimum probe success percentage for Healthy. Equivalent ICMP packet loss limit: 100 minus this value. |
+| `gatewayDegradedThreshold` | number | Minimum probe success percentage for Degraded when below the Healthy threshold. Equivalent ICMP packet loss limit: 100 minus this value. |
 | `subnetPool` | string | CIDR pool for auto-assigning subnets on quick-create, e.g. `"192.168.0.0/16"`. Must be a network address. Invalid value → **400** |
 | `portPool` | string | Port pool for quick-create, e.g. `"51831-65535"` (ranges and comma-lists supported). Invalid value → **400** |
 | `defaultFwPolicy` | string | Default firewall policy: `"accept"` or `"drop"`. Default `"accept"` |
 | `routerName` | string | Human-readable router name (shown in sidebar) |
-| `publicIPMode` | string | Public IP resolution mode: `"auto"` or `"manual"` |
+| `publicIPMode` | string | Public IP resolution mode: `"auto"` (IPv4 only) or `"manual"` |
 | `publicIPManual` | string | Manual public IP (used when `publicIPMode="manual"`) |
 | `chartType` | int | Traffic chart type: `0`=off, `1`=line, `2`=area, `3`=bar |
 | `hostname` | string | *(runtime)* Container hostname |
@@ -164,7 +165,7 @@ Returns `GlobalSettings` merged with runtime-only fields:
 
 **PUT /api/settings — accepted fields:**
 
-`{ dns?, mtu?, defaultPersistentKeepalive?, defaultClientAllowedIPs?, gatewayWindowSeconds?, gatewayHealthyThreshold?, gatewayDegradedThreshold?, subnetPool?, portPool?, defaultFwPolicy?, routerName?, publicIPMode?, publicIPManual?, chartType?, lang? }`
+`{ dns?, mtu?, defaultPersistentKeepalive?, defaultClientKeepaliveTimeout?, defaultClientAllowedIPs?, gatewayWindowSeconds?, gatewayHealthyThreshold?, gatewayDegradedThreshold?, subnetPool?, portPool?, defaultFwPolicy?, routerName?, publicIPMode?, publicIPManual?, chartType?, lang? }`
 
 `lang` — UI language: `"en"` or `"ru"`. Also reflected in `GET /api/lang`.
 
@@ -219,10 +220,10 @@ Base path: `/api/tunnel-interfaces/:id/peers`
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/peers` | List peers. Returns `{ peers: [...] }` |
-| `POST` | `/peers` | Create peer. Body: `{ name, peerType (client/interconnect), clientAllowedIPs?, persistentKeepalive?, persistentKeepaliveV3?, expiredAt? }`. Response includes `totalRx`/`totalTx` (lifetime traffic counters from SQLite, persist across restarts) and `latestHandshakeAt` (last handshake timestamp, persisted across restarts; `null` if peer never connected) |
+| `POST` | `/peers` | Create peer. Body: `{ name, peerType (client/interconnect), clientAllowedIPs?, persistentKeepalive?, persistentKeepaliveV3?, clientKeepaliveTimeout?, expiredAt? }`. Response includes `totalRx`/`totalTx` (lifetime traffic counters from SQLite, persist across restarts) and `latestHandshakeAt` (last handshake timestamp, persisted across restarts; `null` if peer never connected) |
 | `POST` | `/peers/import-json` | Create interconnect peer from exported JSON |
 | `GET` | `/peers/:peerId` | Get peer |
-| `PATCH` | `/peers/:peerId` | Update peer fields. Accepts: `name?, endpoint?, allowedIPs?, clientAllowedIPs?, persistentKeepalive?, persistentKeepaliveV3?, enabled?, expiredAt?, oneTimeLink?, rateDown?, rateUp?`. Fields `rateDown`/`rateUp` — bandwidth limit in **kbps** (0 = unlimited), enforced via `tc HTB + police` on the server; the UI accepts **Mbit/s** and converts automatically |
+| `PATCH` | `/peers/:peerId` | Update peer fields. Accepts: `name?, endpoint?, allowedIPs?, clientAllowedIPs?, persistentKeepalive?, persistentKeepaliveV3?, clientKeepaliveTimeout?, enabled?, expiredAt?, oneTimeLink?, rateDown?, rateUp?`. Fields `rateDown`/`rateUp` — bandwidth limit in **kbps** (0 = unlimited), enforced via `tc HTB + police` on the server; the UI accepts **Mbit/s** and converts automatically |
 | `DELETE` | `/peers/:peerId` | Delete peer |
 | `GET` | `/peers/:peerId/config` | Download WireGuard config file |
 | `GET` | `/peers/:peerId/qrcode.svg` | QR code SVG (client peers only) |
@@ -233,6 +234,13 @@ Base path: `/api/tunnel-interfaces/:id/peers`
 | `PUT` | `/peers/:peerId/expireDate` | Set expiry. Body: `{ expireDate }` — RFC3339 or YYYY-MM-DD, empty clears |
 | `POST` | `/peers/:peerId/generateOneTimeLink` | Generate one-time config link token. Returns `{ oneTimeLink: "https://..." }`. Token is single-use — cleared after first download. |
 | `GET` | `/peers/:peerId/export-json` | Export interconnect peer as JSON (interconnect only) |
+
+`clientKeepaliveTimeout` sets `KeepaliveTimeout` in the downloaded AWG 3.1 client's
+`[Interface]` section. It accepts a string with seconds or an inclusive range
+such as `"5-15"`, with bounds from 0 through 65535. Omit it on creation to copy
+the global default, or send an empty string to inherit the interface value.
+Omit it on update to keep the saved value, or send an empty string to restore
+inheritance. Peer backups and native interface exports preserve the override.
 
 `persistentKeepaliveV3` is an optional AWG 3.1-only string (`"5-25"`):
 use inclusive whole-second bounds with `1 <= min <= max <= 65535`.

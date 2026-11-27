@@ -98,24 +98,7 @@ dashInitGrid() {
       if (this.dashWidgets.some(w => w.type === 'server-info')) {
         this.loadSystemInfo();
       }
-
-      // Restore CSS zoom for non-monitoring widgets that have a saved fontScale.
-      this.$nextTick(() => {
-        if (this.dashGrid !== grid) return;
-        this.dashWidgets.forEach(w => {
-          if (w.type === 'monitoring' || !w.fontScale || w.fontScale === 1.0) return;
-          const gsItem = document.querySelector(`[gs-id="${w.id}"]`);
-          if (!gsItem) return;
-          const card = gsItem.querySelector('.dash-card');
-          if (card) card.style.zoom = w.fontScale;
-        });
-      });
     },
-
-    // Attach ResizeObserver to each widget content container.
-    // Applies CSS zoom to the inner .dash-card so fonts/icons/buttons scale
-    // automatically when the widget is resized. GridStack layout is unaffected
-    // because it measures the outer .grid-stack-item-content, not .dash-card.
 
 dashDestroyGrid() {
       this._dashSaveEnabled = false;
@@ -165,19 +148,12 @@ dashInitResizeObservers() {
             if (!this.metricsChartHeights) this.$set(this, 'metricsChartHeights', {});
             if (this.metricsChartHeights[widgetId] !== height) this.$set(this.metricsChartHeights, widgetId, height);
           }
-          // CSS zoom on dash-card breaks ApexCharts tooltip coordinate mapping:
-          // getBoundingClientRect() on SVG <g> elements does not account for ancestor
-          // CSS zoom in all browsers, while event.clientX does → proportional drift.
-          // Font scaling is handled via font-size on dash-card-body (fontScale setting).
         }
       });
 
       grid.querySelectorAll('.monitoring-body').forEach(body => obs.observe(body));
       this._dashResizeObs = obs;
     },
-
-    // Adjust per-widget font scale by delta (+0.1 or -0.1), clamp 0.5–2.0.
-    // Triggers ResizeObserver re-fire by dispatching a resize on the content element.
 
 dashAdjustFontScale(widgetId, delta) {
       const idx = this.dashWidgets.findIndex(w => w.id === widgetId);
@@ -186,19 +162,6 @@ dashAdjustFontScale(widgetId, delta) {
       const current = w.fontScale || 1.0;
       const next = Math.round(Math.max(0.5, Math.min(2.0, current + delta)) * 10) / 10;
       this.dashWidgets.splice(idx, 1, { ...w, fontScale: next });
-      // Apply CSS zoom immediately for non-monitoring widgets.
-      // monitoring widgets use interactive ApexCharts tooltips — CSS zoom breaks
-      // getBoundingClientRect() coordinate mapping causing tooltip drift.
-      // Other widgets (server-info, peers-summary, gateways, etc.) only contain
-      // sparkline charts with tooltips disabled, so CSS zoom is safe there.
-      if (w.type !== 'monitoring') {
-        this.$nextTick(() => {
-          const gsItem = document.querySelector(`[gs-id="${widgetId}"]`);
-          if (!gsItem) return;
-          const card = gsItem.querySelector('.dash-card');
-          if (card) card.style.zoom = next;
-        });
-      }
       this.api.putDashboardWidgets(this.dashWidgets).catch(console.error);
     },
 

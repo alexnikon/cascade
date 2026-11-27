@@ -84,3 +84,65 @@ func TestKeepaliveRangeConfigSelection(t *testing.T) {
 		}
 	}
 }
+
+func TestDisabledPersistentKeepalivePersists(t *testing.T) {
+	initTestDB(t)
+	p := createTestPeer(t, "wg-off")
+	off := 0
+	if _, err := UpdatePeer(p.ID, PeerUpdate{PersistentKeepalive: &off}); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := GetPeer(p.ID)
+	if err != nil || loaded.PersistentKeepalive != 0 {
+		t.Fatalf("disabled interval was lost: %v", err)
+	}
+	for _, value := range []string{loaded.ToWgConfig("wireguard-1.0"), loaded.GenerateRemoteConfig(InterfaceData{})} {
+		if !strings.Contains(value, "PersistentKeepalive = 0\n") {
+			t.Fatal("config did not explicitly disable persistent keepalive")
+		}
+	}
+}
+
+func TestClientKeepaliveTimeout(t *testing.T) {
+	initTestDB(t)
+	p := createTestPeer(t, "wg-timeout")
+	timeout := " 005-015 "
+	if _, err := UpdatePeer(p.ID, PeerUpdate{ClientKeepaliveTimeout: &timeout}); err == nil {
+		t.Fatal("accepted a timeout on WireGuard")
+	}
+	if _, err := db.DB().Exec("UPDATE interfaces SET protocol='amneziawg-3.1' WHERE id=?", p.InterfaceID); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := UpdatePeer(p.ID, PeerUpdate{ClientKeepaliveTimeout: &timeout})
+	if err != nil || updated.ClientKeepaliveTimeout != "5-15" {
+		t.Fatalf("normalize: %+v, %v", updated, err)
+	}
+	name := "must not change"
+	for _, bad := range []string{"-1", "20-10", "65536", "1-65536", "2-3\nPostUp=x"} {
+		if _, err := UpdatePeer(p.ID, PeerUpdate{Name: &name, ClientKeepaliveTimeout: &bad}); err == nil {
+			t.Fatalf("accepted timeout %q", bad)
+		}
+	}
+	saved, err := GetPeer(p.ID)
+	if err != nil || saved.Name != p.Name || saved.ClientKeepaliveTimeout != "5-15" {
+		t.Fatalf("invalid edit changed the peer: %+v, %v", saved, err)
+	}
+	settings := &AWGSettings{KeepaliveTimeout: "8-10"}
+	iface := InterfaceData{Protocol: "amneziawg-3.1", Settings: settings, Host: "2001:db8::1", ListenPort: 51820}
+	for _, cfg := range []string{saved.generateCompleteConfig(iface), saved.generateTemplateConfig(iface)} {
+		if !strings.Contains(cfg, "KeepaliveTimeout = 5-15\n") ||
+			strings.Count(cfg, "KeepaliveTimeout = ") != 1 ||
+			!strings.Contains(cfg, "Endpoint = [2001:db8::1]:51820\n") {
+			t.Fatal("client config has an incorrect timer or IPv6 endpoint")
+		}
+	}
+	if settings.KeepaliveTimeout != "8-10" || strings.Contains(saved.ToWgConfig(iface.Protocol), "KeepaliveTimeout =") {
+		t.Fatal("client override changed server settings")
+	}
+	empty := ""
+	cleared, err := UpdatePeer(p.ID, PeerUpdate{ClientKeepaliveTimeout: &empty})
+	if err != nil || cleared.ClientKeepaliveTimeout != "" ||
+		!strings.Contains(cleared.GenerateRemoteConfig(iface), "KeepaliveTimeout = 8-10\n") {
+		t.Fatalf("clear did not restore inheritance: %v", err)
+	}
+}

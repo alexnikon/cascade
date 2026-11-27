@@ -61,7 +61,7 @@
 
                 <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">
                   Used as the endpoint in peer configs and S2S exports when WG_HOST env is not set.
-                  Auto-detect tries external services (ip.sb, ifconfig.me, …), falls back to local routing.
+                  Auto-detect looks up a public IPv4 address and falls back to the local IPv4 route.
                 </p>
               </div>
 
@@ -149,6 +149,12 @@
                   class="settings-input settings-input-number px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
               </div>
               <div>
+                <label for="default-client-keepalive-timeout" class="block text-sm font-medium dark:text-neutral-300 mb-1">Default Client Keepalive Timeout (seconds)</label>
+                <input id="default-client-keepalive-timeout" v-model="globalSettings.defaultClientKeepaliveTimeout" type="text" placeholder="e.g. 5-15"
+                  class="settings-input settings-input-medium px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 text-sm">
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">For new AWG 3.1 clients. Enter a number or range, or leave blank to use the interface value.</p>
+              </div>
+              <div>
                 <label class="block text-sm font-medium dark:text-neutral-300 mb-1">Default Client AllowedIPs</label>
                 <input v-model="globalSettings.defaultClientAllowedIPs" type="text" placeholder="0.0.0.0/0, ::/0"
                   class="settings-input settings-input-wide px-3 py-2 border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200 font-mono text-sm">
@@ -188,18 +194,21 @@
                     <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Sliding window size</p>
                   </div>
                   <div>
-                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Healthy (%)</label>
-                    <input v-model.number="globalSettings.gatewayHealthyThreshold" type="number" min="1" max="100"
+                    <label for="gateway-healthy-threshold" class="block text-xs font-medium dark:text-neutral-300 mb-1">Healthy probe success (%)</label>
+                    <input id="gateway-healthy-threshold" v-model.number="globalSettings.gatewayHealthyThreshold" type="number" min="1" max="100" step="any"
+                      aria-describedby="gateway-healthy-loss"
                       class="settings-input settings-input-number px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Success rate ≥ → Healthy</p>
+                    <p id="gateway-healthy-loss" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{ gatewayPacketLossLimit(globalSettings.gatewayHealthyThreshold) }}</p>
                   </div>
                   <div>
-                    <label class="block text-xs font-medium dark:text-neutral-300 mb-1">Degraded (%)</label>
-                    <input v-model.number="globalSettings.gatewayDegradedThreshold" type="number" min="1" max="100"
+                    <label for="gateway-degraded-threshold" class="block text-xs font-medium dark:text-neutral-300 mb-1">Degraded probe success (%)</label>
+                    <input id="gateway-degraded-threshold" v-model.number="globalSettings.gatewayDegradedThreshold" type="number" min="1" max="100" step="any"
+                      aria-describedby="gateway-degraded-loss"
                       class="settings-input settings-input-number px-2 py-1 text-sm border rounded dark:bg-neutral-600 dark:border-neutral-500 dark:text-neutral-200">
-                    <p class="text-xs text-gray-400 dark:text-neutral-500 mt-1">Success rate ≥ → Degraded</p>
+                    <p id="gateway-degraded-loss" class="text-xs text-gray-400 dark:text-neutral-500 mt-1">{{ gatewayPacketLossLimit(globalSettings.gatewayDegradedThreshold) }}</p>
                   </div>
                 </div>
+                <p class="text-xs text-gray-400 dark:text-neutral-500 mt-2">ICMP packet loss above the degraded limit gives ICMP status Down. HTTP checks, when enabled, use the same probe success thresholds.</p>
               </div>
 
               <!-- Language -->

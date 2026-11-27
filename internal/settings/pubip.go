@@ -1,4 +1,4 @@
-// Package settings — public IP resolver.
+// Package settings — public IPv4 resolver.
 //
 // ResolvePublicIP() tries a list of external services (Russia-friendly order),
 // falls back to `ip route get 8.8.8.8` for the local outbound interface IP.
@@ -6,9 +6,11 @@
 package settings
 
 import (
+	"context"
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"os/exec"
 	"strings"
 	"sync"
@@ -28,7 +30,7 @@ var globalIPCache = &ipCacheEntry{ttl: 5 * time.Minute}
 
 // ResolvePublicIP resolves the router's public IP according to mode:
 //   - "manual" → returns publicIPManual as-is, no network calls
-//   - "auto" (or empty) → tries external services, falls back to ip route
+//   - "auto" (or empty) → tries IPv4 services, falls back to the IPv4 route
 //
 // Returns (ip, warning). warning is non-empty if the IP appears private or
 // could not be determined.
@@ -58,7 +60,7 @@ func (c *ipCacheEntry) resolve() (string, string) {
 		return c.ip, c.warning
 	}
 
-	ip, warn := doResolveAuto()
+	ip, warn := resolveAutoIPv4(fetchIPFromURL, routeGetSrc)
 	c.ip = ip
 	c.warning = warn
 	c.fetchedAt = time.Now()
@@ -74,34 +76,33 @@ var externalServices = []string{
 	"https://api.my-ip.io/ip",
 }
 
-var pubIPClient = &http.Client{Timeout: 3 * time.Second}
+var pubIPClient = func() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	dialer := &net.Dialer{Timeout: 3 * time.Second}
+	transport.DialContext = func(ctx context.Context, _, address string) (net.Conn, error) {
+		return dialer.DialContext(ctx, "tcp4", address)
+	}
+	return &http.Client{Timeout: 3 * time.Second, Transport: transport}
+}()
 
-func doResolveAuto() (ip, warning string) {
+func resolveAutoIPv4(fetch func(string) string, routeSrc func() string) (ip, warning string) {
 	// Try external services first.
 	for _, url := range externalServices {
-		got := fetchIPFromURL(url)
-		if got == "" {
-			continue
+		parsed, err := netip.ParseAddr(fetch(url))
+		if err == nil && parsed.Is4() && parsed.IsGlobalUnicast() && !isPrivateIP(parsed.AsSlice()) {
+			return parsed.String(), ""
 		}
-		parsed := net.ParseIP(got)
-		if parsed == nil {
-			continue
-		}
-		if isPrivateIP(parsed) {
-			continue // external service returned a private IP — skip
-		}
-		return got, ""
 	}
 
 	// Fallback: ip route get 8.8.8.8 → local outbound interface src IP.
-	got := routeGetSrc()
-	if got == "" {
-		return "", "could not determine public IP — all services unreachable"
+	parsed, err := netip.ParseAddr(routeSrc())
+	if err != nil || !parsed.Is4() {
+		return "", "could not determine an IPv4 address"
 	}
-	if isPrivateIP(net.ParseIP(got)) {
-		return got, "private address detected — router may be behind NAT"
+	if isPrivateIP(parsed.AsSlice()) {
+		return parsed.String(), "private address detected — router may be behind NAT"
 	}
-	return got, ""
+	return parsed.String(), ""
 }
 
 func fetchIPFromURL(url string) string {
@@ -121,7 +122,7 @@ func fetchIPFromURL(url string) string {
 }
 
 func routeGetSrc() string {
-	out, err := exec.Command("ip", "route", "get", "8.8.8.8").Output()
+	out, err := exec.Command("ip", "-4", "route", "get", "8.8.8.8").Output()
 	if err != nil {
 		return ""
 	}
@@ -129,10 +130,7 @@ func routeGetSrc() string {
 	fields := strings.Fields(string(out))
 	for i, f := range fields {
 		if f == "src" && i+1 < len(fields) {
-			ip := fields[i+1]
-			if net.ParseIP(ip) != nil {
-				return ip
-			}
+			return fields[i+1]
 		}
 	}
 	return ""

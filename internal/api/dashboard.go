@@ -176,7 +176,7 @@ type SystemInfo struct {
 func getSystemInfo(c *fiber.Ctx) error {
 	info := SystemInfo{}
 
-	info.Hostname, _ = os.Hostname()
+	info.Hostname = getHostname()
 
 	// /proc/uptime: "12345.67 23456.78"
 	if data, err := os.ReadFile("/proc/uptime"); err == nil {

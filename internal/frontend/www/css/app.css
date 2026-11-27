@@ -2945,11 +2945,9 @@ button.interface-transfer-download:hover:not(:disabled) { background: #047857 !i
 @media (max-width: 767px), (pointer: coarse) {
   html:root {
     --control-field-height: 44px;
-    --control-select-height: 44px;
     --control-action-height: 44px;
   }
   #app :is(input, select, textarea) { max-inline-size: 100%; }
-  #app select:not([multiple]):not([size]) { font-size: 16px !important; }
 }
 
 /* Notifications use the same opaque surfaces and semantic accents as the UI. */
@@ -3076,7 +3074,4 @@ button.interface-transfer-download:hover:not(:disabled) { background: #047857 !i
   height: 7px;
   border-radius: 50%;
   background-color: var(--status-yellow, #b45309);
-}
-@media (max-width: 1023px), (pointer: coarse) {
-  #app .nav-server select.nav-server-select { min-height: 44px; font-size: 16px; }
 }

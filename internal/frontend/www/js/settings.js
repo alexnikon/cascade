@@ -329,6 +329,12 @@ metricsEndpointURL() {
       return `http://${host}:${this.metricsSettings.port || 9351}/metrics`;
     },
 
+gatewayPacketLossLimit(successThreshold) {
+      if (!Number.isFinite(successThreshold) || successThreshold < 1 || successThreshold > 100) return '';
+      const loss = Number((100 - successThreshold).toFixed(10));
+      return `ICMP packet loss ≤ ${loss}%`;
+    },
+
 async saveSettings() {
       try {
         // Strip runtime-only fields and fields managed by dedicated save handlers.
